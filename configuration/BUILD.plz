@@ -1,0 +1,6 @@
+go_library(
+    name = "configuration",
+    srcs = ["configuration.go"],
+    visibility = ["//..."],
+    deps = ["//third_party/go:github.com__pkg__errors"],
+)

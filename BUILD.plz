@@ -1,0 +1,11 @@
+go_binary(
+    name = "sgpt",
+    srcs = ["main.go"],
+    visibility = ["//..."],
+    deps = [
+        "//chat",
+        "//configuration",
+        "//third_party/go:github.com__sashabaranov__go-openai",
+        "//third_party/go:github.com__spf13__cobra",
+    ],
+)

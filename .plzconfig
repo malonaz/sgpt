@@ -1,0 +1,29 @@
+[please]
+version = 16.28.0
+autoclean = on
+
+[parse]
+experimentaldir = experimental
+
+[build]
+path = /bin:/usr/bin:/usr/local/bin
+timeout = 2000
+
+[sandbox]
+test = true
+
+[cache]
+dir = .plz-cache
+
+[display]
+systemstats = true
+
+[go]
+defaultstatic = true
+gotool = //tools:go_toolchain|go
+cgoenabled = true
+importpath = github.com/malonaz/sgpt
+
+[alias "tidy"]
+desc = Run a linter across all files
+cmd = run //tools/tidy

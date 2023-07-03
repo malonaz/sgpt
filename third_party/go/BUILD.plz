@@ -1,0 +1,190 @@
+go_mod_download(
+    name = "github.com__bazelbuild__buildtools",
+    _tag = "download",
+    module = "github.com/bazelbuild/buildtools",
+    version = "v0.0.0-20230510134650-37bd1811516d",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__bazelbuild__buildtools__build",
+    download = ":_github.com__bazelbuild__buildtools#download",
+    install = ["build"],
+    module = "github.com/bazelbuild/buildtools",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__bazelbuild__buildtools__tables"],
+)
+
+go_module(
+    name = "github.com__bazelbuild__buildtools__tables",
+    download = ":_github.com__bazelbuild__buildtools#download",
+    install = ["tables"],
+    module = "github.com/bazelbuild/buildtools",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__fatih__color",
+    _tag = "download",
+    module = "github.com/fatih/color",
+    version = "v1.15.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__fatih__color",
+    download = ":_github.com__fatih__color#download",
+    install = ["."],
+    module = "github.com/fatih/color",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__mattn__go-colorable",
+        ":github.com__mattn__go-isatty",
+    ],
+)
+
+go_mod_download(
+    name = "github.com__mattn__go-colorable",
+    _tag = "download",
+    module = "github.com/mattn/go-colorable",
+    version = "v0.1.13",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__mattn__go-colorable",
+    download = ":_github.com__mattn__go-colorable#download",
+    install = ["."],
+    module = "github.com/mattn/go-colorable",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__mattn__go-isatty"],
+)
+
+go_mod_download(
+    name = "github.com__mattn__go-isatty",
+    _tag = "download",
+    module = "github.com/mattn/go-isatty",
+    version = "v0.0.17",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__mattn__go-isatty",
+    download = ":_github.com__mattn__go-isatty#download",
+    install = ["."],
+    module = "github.com/mattn/go-isatty",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
+    name = "github.com__pkg__errors",
+    _tag = "download",
+    module = "github.com/pkg/errors",
+    version = "v0.9.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__pkg__errors",
+    download = ":_github.com__pkg__errors#download",
+    install = ["."],
+    module = "github.com/pkg/errors",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__sashabaranov__go-openai",
+    _tag = "download",
+    module = "github.com/sashabaranov/go-openai",
+    version = "v1.12.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__sashabaranov__go-openai",
+    download = ":_github.com__sashabaranov__go-openai#download",
+    install = ["."],
+    module = "github.com/sashabaranov/go-openai",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__sashabaranov__go-openai__internal"],
+)
+
+go_module(
+    name = "github.com__sashabaranov__go-openai__internal",
+    download = ":_github.com__sashabaranov__go-openai#download",
+    install = ["internal"],
+    module = "github.com/sashabaranov/go-openai",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__scylladb__go-set",
+    _tag = "download",
+    module = "github.com/scylladb/go-set",
+    version = "v1.0.2",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__scylladb__go-set__strset",
+    download = ":_github.com__scylladb__go-set#download",
+    install = ["strset"],
+    module = "github.com/scylladb/go-set",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__spf13__cobra",
+    _tag = "download",
+    module = "github.com/spf13/cobra",
+    version = "v1.7.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__spf13__cobra",
+    download = ":_github.com__spf13__cobra#download",
+    install = ["."],
+    module = "github.com/spf13/cobra",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__spf13__pflag"],
+)
+
+go_mod_download(
+    name = "github.com__spf13__pflag",
+    _tag = "download",
+    module = "github.com/spf13/pflag",
+    version = "v1.0.5",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__spf13__pflag",
+    download = ":_github.com__spf13__pflag#download",
+    install = ["."],
+    module = "github.com/spf13/pflag",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "golang.org__x__sys",
+    _tag = "download",
+    module = "golang.org/x/sys",
+    version = "v0.9.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "golang.org__x__sys__unix",
+    download = ":_golang.org__x__sys#download",
+    install = ["unix"],
+    module = "golang.org/x/sys",
+    visibility = ["PUBLIC"],
+    deps = [],
+)

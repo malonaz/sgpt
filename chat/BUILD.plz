@@ -1,0 +1,15 @@
+go_library(
+    name = "chat",
+    srcs = [
+        "chat.go",
+        "prompts.go",
+    ],
+    visibility = ["//..."],
+    deps = [
+        "//configuration",
+        "//third_party/go:github.com__fatih__color",
+        "//third_party/go:github.com__pkg__errors",
+        "//third_party/go:github.com__sashabaranov__go-openai",
+        "//third_party/go:github.com__spf13__cobra",
+    ],
+)
