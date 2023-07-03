@@ -22,8 +22,7 @@ This command initiates a back-and-forth chat. You can specify the model, chat id
 - `--id` : Specify a chat id. If none is supplied, a temporary chat session is created that will be not be persisted to disk.
 - `--file` : Specify files whose content should be injected into the context.
 - `--ext` : Specify file extensions to accept (used in conjunction with the --file flag).
-- `--code` : If given, prints code
-- `--no_role` : If given, does not inject a role into the context
+- `--code` : A mode that forces SGPT to spit out code and only code.
 For example:
 ```bash
 sgpt chat --model gpt-4 --id my_chat
