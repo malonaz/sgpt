@@ -39,7 +39,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Model          string
 		FileExtensions []string
 		Code           bool
-		NoRole         bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -95,25 +94,23 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				injectIntoContext(file, injectFile)
 			}
 
-			if opts.NoRole {
-				if opts.Code {
-					message := openai.ChatCompletionMessage{
-						Role:    openai.ChatMessageRoleUser,
-						Content: codePrompt,
-					}
-					additionalMessages = append(additionalMessages, message)
-				} else {
-					// Inject code mode.
-					// Get some variable information to template prompts.
-					os := runtime.GOOS
-					user, err := user.Current()
-					cobra.CheckErr(err)
-					message := openai.ChatCompletionMessage{
-						Role:    openai.ChatMessageRoleUser,
-						Content: fmt.Sprintf(defaultPrompt, os, user),
-					}
-					additionalMessages = append(additionalMessages, message)
+			if opts.Code {
+				message := openai.ChatCompletionMessage{
+					Role:    openai.ChatMessageRoleUser,
+					Content: codePrompt,
 				}
+				additionalMessages = append(additionalMessages, message)
+			} else {
+				// Inject code mode.
+				// Get some variable information to template prompts.
+				os := runtime.GOOS
+				user, err := user.Current()
+				cobra.CheckErr(err)
+				message := openai.ChatCompletionMessage{
+					Role:    openai.ChatMessageRoleUser,
+					Content: fmt.Sprintf(defaultPrompt, os, user),
+				}
+				additionalMessages = append(additionalMessages, message)
 			}
 
 			// Print history.
@@ -182,7 +179,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cmd.Flags().StringSliceVar(&opts.Files, "file", nil, "specify file content to inject into the context")
 	cmd.Flags().StringSliceVar(&opts.FileExtensions, "ext", nil, "specify file extensions to accept")
 	cmd.Flags().BoolVar(&opts.Code, "code", false, "if true, prints code")
-	cmd.Flags().BoolVar(&opts.NoRole, "no_role", false, "if true, does not inject a role into the context")
 	return cmd
 }
 
