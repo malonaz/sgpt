@@ -4,10 +4,11 @@ go_library(
         "chat.go",
         "prompts.go",
     ],
-    visibility = ["//..."],
+    visibility = ["//cmd/sgpt"],
     deps = [
         "//configuration",
         "//file",
+        "//role",
         "//third_party/go:github.com__fatih__color",
         "//third_party/go:github.com__google__uuid",
         "//third_party/go:github.com__pkg__errors",

@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/user"
 	"path"
-	"runtime"
 	"strings"
 	"time"
 
@@ -21,6 +19,7 @@ import (
 
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/file"
+	"github.com/malonaz/sgpt/role"
 )
 
 const (
@@ -35,10 +34,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cobra.CheckErr(err)
 
 	var opts struct {
-		Injection *file.InjectionOpts
-		ChatID    string
-		Model     string
-		Code      bool
+		FileInjection *file.InjectionOpts
+		Role          *role.Opts
+		ChatID        string
+		Model         string
+		Code          bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -70,7 +70,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			formatColor.Printf(asciiSeparatorInject, opts.ChatID, model)
 			formatColor.Println(asciiSeparator)
 
-			files, err := file.Parse(opts.Injection)
+			// Inject files.
+			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
 			additionalMessages := make([]openai.ChatCompletionMessage, 0, len(files))
 			for _, file := range files {
@@ -82,21 +83,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				fileColor.Printf("injecting file #%d: %s\n", len(additionalMessages), file.Path)
 			}
 
-			if opts.Code {
+			// Inject role.
+			role, err := role.Parse(opts.Role)
+			cobra.CheckErr(err)
+			if role != nil {
 				message := openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: codePrompt,
-				}
-				additionalMessages = append(additionalMessages, message)
-			} else {
-				// Inject code mode.
-				// Get some variable information to template prompts.
-				os := runtime.GOOS
-				user, err := user.Current()
-				cobra.CheckErr(err)
-				message := openai.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleSystem,
-					Content: fmt.Sprintf(defaultPrompt, os, user),
+					Content: role.Description,
 				}
 				additionalMessages = append(additionalMessages, message)
 			}
@@ -160,7 +153,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 		},
 	}
-	file.SetOpts(cmd, opts.Injection)
+	opts.FileInjection = file.GetOpts(cmd)
+	opts.Role = role.GetOpts(cmd)
 	cmd.Flags().StringVar(&opts.Model, "model", "", "override default Open AI model")
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVar(&opts.Code, "code", false, "if true, prints code")
