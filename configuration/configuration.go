@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
 	"github.com/malonaz/sgpt/file"
+	"github.com/pkg/errors"
 )
 
 var defaultConfig = Config{

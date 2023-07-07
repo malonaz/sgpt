@@ -19,8 +19,8 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/file"
 )
 
 const (

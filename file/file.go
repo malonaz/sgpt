@@ -3,8 +3,8 @@ package file
 import (
 	"os"
 	"path"
-	"strings"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
