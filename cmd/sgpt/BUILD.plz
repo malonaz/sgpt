@@ -5,6 +5,7 @@ go_binary(
     deps = [
         "//chat",
         "//configuration",
+        "//diff",
         "//third_party/go:github.com__sashabaranov__go-openai",
         "//third_party/go:github.com__spf13__cobra",
     ],

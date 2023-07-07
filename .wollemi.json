@@ -1,18 +1,33 @@
 {
     "explicit_sources": true,
     "known_dependency": {
+        "github.com/AlecAivazis/survey/v2": "//third_party/go:github.com__AlecAivazis__survey__v2",
+        "github.com/AlecAivazis/survey/v2/core": "//third_party/go:github.com__AlecAivazis__survey__v2__core",
+        "github.com/AlecAivazis/survey/v2/terminal": "//third_party/go:github.com__AlecAivazis__survey__v2__terminal",
         "github.com/bazelbuild/buildtools/build": "//third_party/go:github.com__bazelbuild__buildtools__build",
         "github.com/bazelbuild/buildtools/tables": "//third_party/go:github.com__bazelbuild__buildtools__tables",
         "github.com/fatih/color": "//third_party/go:github.com__fatih__color",
         "github.com/google/uuid": "//third_party/go:github.com__google__uuid",
+        "github.com/kballard/go-shellquote": "//third_party/go:github.com__kballard__go-shellquote",
         "github.com/mattn/go-colorable": "//third_party/go:github.com__mattn__go-colorable",
         "github.com/mattn/go-isatty": "//third_party/go:github.com__mattn__go-isatty",
+        "github.com/mgutz/ansi": "//third_party/go:github.com__mgutz__ansi",
         "github.com/pkg/errors": "//third_party/go:github.com__pkg__errors",
         "github.com/sashabaranov/go-openai": "//third_party/go:github.com__sashabaranov__go-openai",
         "github.com/sashabaranov/go-openai/internal": "//third_party/go:github.com__sashabaranov__go-openai__internal",
         "github.com/scylladb/go-set/strset": "//third_party/go:github.com__scylladb__go-set__strset",
         "github.com/spf13/cobra": "//third_party/go:github.com__spf13__cobra",
         "github.com/spf13/pflag": "//third_party/go:github.com__spf13__pflag",
-        "golang.org/x/sys/unix": "//third_party/go:golang.org__x__sys__unix"
+        "golang.org/x/sys/unix": "//third_party/go:golang.org__x__sys__unix",
+        "golang.org/x/term": "//third_party/go:golang.org__x__term",
+        "golang.org/x/text/cases": "//third_party/go:golang.org__x__text__cases",
+        "golang.org/x/text/internal": "//third_party/go:golang.org__x__text__internal",
+        "golang.org/x/text/internal/language": "//third_party/go:golang.org__x__text__internal__language",
+        "golang.org/x/text/internal/language/compact": "//third_party/go:golang.org__x__text__internal__language__compact",
+        "golang.org/x/text/internal/tag": "//third_party/go:golang.org__x__text__internal__tag",
+        "golang.org/x/text/language": "//third_party/go:golang.org__x__text__language",
+        "golang.org/x/text/transform": "//third_party/go:golang.org__x__text__transform",
+        "golang.org/x/text/unicode/norm": "//third_party/go:golang.org__x__text__unicode__norm",
+        "golang.org/x/text/width": "//third_party/go:golang.org__x__text__width"
     }
 }

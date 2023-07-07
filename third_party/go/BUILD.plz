@@ -1,4 +1,46 @@
 go_mod_download(
+    name = "github.com__AlecAivazis__survey__v2",
+    _tag = "download",
+    module = "github.com/AlecAivazis/survey/v2",
+    version = "v2.3.7",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__AlecAivazis__survey__v2",
+    download = ":_github.com__AlecAivazis__survey__v2#download",
+    install = ["."],
+    module = "github.com/AlecAivazis/survey/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__AlecAivazis__survey__v2__core",
+        ":github.com__AlecAivazis__survey__v2__terminal",
+        ":github.com__kballard__go-shellquote",
+        ":golang.org__x__term",
+        ":golang.org__x__text__cases",
+        ":golang.org__x__text__language",
+    ],
+)
+
+go_module(
+    name = "github.com__AlecAivazis__survey__v2__core",
+    download = ":_github.com__AlecAivazis__survey__v2#download",
+    install = ["core"],
+    module = "github.com/AlecAivazis/survey/v2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__mgutz__ansi"],
+)
+
+go_module(
+    name = "github.com__AlecAivazis__survey__v2__terminal",
+    download = ":_github.com__AlecAivazis__survey__v2#download",
+    install = ["terminal"],
+    module = "github.com/AlecAivazis/survey/v2",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__text__width"],
+)
+
+go_mod_download(
     name = "github.com__bazelbuild__buildtools",
     _tag = "download",
     module = "github.com/bazelbuild/buildtools",
@@ -62,6 +104,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__kballard__go-shellquote",
+    _tag = "download",
+    module = "github.com/kballard/go-shellquote",
+    version = "v0.0.0-20180428030007-95032a82bc51",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__kballard__go-shellquote",
+    download = ":_github.com__kballard__go-shellquote#download",
+    install = ["."],
+    module = "github.com/kballard/go-shellquote",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__mattn__go-colorable",
     _tag = "download",
     module = "github.com/mattn/go-colorable",
@@ -93,6 +152,23 @@ go_module(
     module = "github.com/mattn/go-isatty",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
+    name = "github.com__mgutz__ansi",
+    _tag = "download",
+    module = "github.com/mgutz/ansi",
+    version = "v0.0.0-20170206155736-9520e82c474b",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__mgutz__ansi",
+    download = ":_github.com__mgutz__ansi#download",
+    install = ["."],
+    module = "github.com/mgutz/ansi",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__mattn__go-colorable"],
 )
 
 go_mod_download(
@@ -204,4 +280,118 @@ go_module(
     module = "golang.org/x/sys",
     visibility = ["PUBLIC"],
     deps = [],
+)
+
+go_mod_download(
+    name = "golang.org__x__term",
+    _tag = "download",
+    module = "golang.org/x/term",
+    version = "v0.0.0-20210927222741-03fcf44c2211",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "golang.org__x__term",
+    download = ":_golang.org__x__term#download",
+    install = ["."],
+    module = "golang.org/x/term",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
+    name = "golang.org__x__text",
+    _tag = "download",
+    module = "golang.org/x/text",
+    version = "v0.4.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "golang.org__x__text__cases",
+    download = ":_golang.org__x__text#download",
+    install = ["cases"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__text__internal",
+        ":golang.org__x__text__language",
+        ":golang.org__x__text__transform",
+        ":golang.org__x__text__unicode__norm",
+    ],
+)
+
+go_module(
+    name = "golang.org__x__text__internal",
+    download = ":_golang.org__x__text#download",
+    install = ["internal"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__text__language"],
+)
+
+go_module(
+    name = "golang.org__x__text__internal__language",
+    download = ":_golang.org__x__text#download",
+    install = ["internal/language"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__text__internal__tag"],
+)
+
+go_module(
+    name = "golang.org__x__text__internal__language__compact",
+    download = ":_golang.org__x__text#download",
+    install = ["internal/language/compact"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__text__internal__language"],
+)
+
+go_module(
+    name = "golang.org__x__text__internal__tag",
+    download = ":_golang.org__x__text#download",
+    install = ["internal/tag"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__text__language",
+    download = ":_golang.org__x__text#download",
+    install = ["language"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__text__internal__language",
+        ":golang.org__x__text__internal__language__compact",
+    ],
+)
+
+go_module(
+    name = "golang.org__x__text__transform",
+    download = ":_golang.org__x__text#download",
+    install = ["transform"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__text__unicode__norm",
+    download = ":_golang.org__x__text#download",
+    install = ["unicode/norm"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__text__transform"],
+)
+
+go_module(
+    name = "golang.org__x__text__width",
+    download = ":_golang.org__x__text#download",
+    install = ["width"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__text__transform"],
 )

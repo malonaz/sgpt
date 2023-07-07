@@ -156,7 +156,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	opts.Role = role.GetOpts(cmd)
 	cmd.Flags().StringVar(&opts.Model, "model", "", "override default Open AI model")
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
-	cmd.Flags().BoolVar(&opts.Code, "code", false, "if true, prints code")
 	return cmd
 }
 

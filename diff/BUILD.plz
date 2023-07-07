@@ -1,0 +1,12 @@
+go_library(
+    name = "diff",
+    srcs = ["diff.go"],
+    visibility = ["//cmd/sgpt"],
+    deps = [
+        "//configuration",
+        "//third_party/go:github.com__AlecAivazis__survey__v2",
+        "//third_party/go:github.com__pkg__errors",
+        "//third_party/go:github.com__sashabaranov__go-openai",
+        "//third_party/go:github.com__spf13__cobra",
+    ],
+)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/malonaz/sgpt/chat"
 	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/diff"
 )
 
 const configFilepath = "~/.sgpt/config.json"
@@ -24,7 +25,7 @@ func main() {
 	// Instantiate open api client.
 	client := openai.NewClient(config.OpenaiAPIKey)
 
-	// Instantiate an openAI client.
 	rootCmd.AddCommand(chat.NewCmd(client, config))
+	rootCmd.AddCommand(diff.NewCmd(client, config))
 	rootCmd.Execute()
 }
