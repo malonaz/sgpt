@@ -136,10 +136,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					cobra.CheckErr(err)
 					content := strings.Replace(response.Choices[0].Delta.Content, "\n\n", "\n", -1)
 					content = strings.Replace(content, "%", "%%", -1)
-					fmt.Printf(content)
+					aiColor.Printf(content)
 					responseContent += response.Choices[0].Delta.Content
 				}
-				fmt.Printf("\n")
+				aiColor.Printf("\n")
 
 				// Append the response content to our history.
 				chat.Messages = append(chat.Messages, openai.ChatCompletionMessage{

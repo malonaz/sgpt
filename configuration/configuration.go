@@ -10,20 +10,22 @@ import (
 )
 
 var defaultConfig = Config{
-	OpenaiAPIKey:   "API_KEY",
-	OpenaiAPIHost:  "https://api.openai.com",
-	RequestTimeout: 60,
-	DefaultModel:   "gpt-3.5-turbo",
-	ChatDirectory:  "~/.sgpt/chats",
+	OpenaiAPIKey:    "API_KEY",
+	OpenaiAPIHost:   "https://api.openai.com",
+	RequestTimeout:  60,
+	DefaultModel:    "gpt-3.5-turbo",
+	ChatDirectory:   "~/.sgpt/chats",
+	DiffIgnoreFiles: []string{},
 }
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	OpenaiAPIKey   string `json:"openai_api_key"`
-	OpenaiAPIHost  string `json:"openai_api_host"`
-	RequestTimeout int    `json:"request_timeout"`
-	DefaultModel   string `json:"default_model"`
-	ChatDirectory  string `json:"chat_directory"`
+	OpenaiAPIKey    string   `json:"openai_api_key"`
+	OpenaiAPIHost   string   `json:"openai_api_host"`
+	RequestTimeout  int      `json:"request_timeout"`
+	DefaultModel    string   `json:"default_model"`
+	ChatDirectory   string   `json:"chat_directory"`
+	DiffIgnoreFiles []string `json:"diff_ignore_files"`
 }
 
 // Parse a configuration file.

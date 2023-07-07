@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
@@ -29,16 +30,13 @@ Short (72 chars or less) summary
   single space. Use a hanging indent.
 `
 
-var ignoreFiles = []string{
-	".wollemi",
-	"go.sum",
-	"go.mod",
-	"third_party/go/BUILD.plz",
-}
+const (
+	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
+	asciiSeparatorInject = "--------------------------------------------------------------Diff----------------------------------------------------------------"
+)
 
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
-
 	var opts struct {
 		Model *model.Opts
 	}
@@ -59,12 +57,23 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 			gitDiff := bytesBuffer.String()
 
+			// Colors.
+			fileColor := color.New(color.FgRed)
+			aiColor := color.New(color.FgCyan)
+			formatColor := color.New(color.FgGreen)
+			// Print title.
+			formatColor.Println(asciiSeparator)
+			formatColor.Println(asciiSeparatorInject)
+			formatColor.Println(asciiSeparator)
+
 			// Remove from the diff files we don't care about:
+			fileColor.Printf("Ignoring the following files:\n -%s\n", strings.Join(config.DiffIgnoreFiles, "\n -"))
+			formatColor.Println(asciiSeparator)
 			parts := strings.Split(gitDiff, "diff --git")
 			filteredParts := []string{}
 			for _, part := range parts {
 				ignore := false
-				for _, ignoreFile := range ignoreFiles {
+				for _, ignoreFile := range config.DiffIgnoreFiles {
 					if strings.Contains(part, ignoreFile) {
 						ignore = true
 						break
@@ -115,7 +124,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					break
 				}
 				cobra.CheckErr(err)
-				fmt.Printf(response.Choices[0].Delta.Content)
+				aiColor.Printf(response.Choices[0].Delta.Content)
 				responseContent += response.Choices[0].Delta.Content
 			}
 			fmt.Printf("\n")
