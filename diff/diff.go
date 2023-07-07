@@ -12,10 +12,11 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/pkg/errors"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/model"
 )
 
 const prompt = `IMPORTANT: Provide only plain text without Markdown formatting.
@@ -39,8 +40,8 @@ var ignoreFiles = []string{
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 
 	var opts struct {
+		Model *model.Opts
 	}
-	_ = opts
 
 	cmd := &cobra.Command{
 		Use:   "diff",
@@ -90,11 +91,15 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			messages = append(messages, message)
 
+			// Set the model.
+			model, err := model.Parse(opts.Model, config)
+			cobra.CheckErr(err)
+
 			// Open stream.
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.RequestTimeout)*time.Second)
 			defer cancel()
 			request := openai.ChatCompletionRequest{
-				Model:    openai.GPT4, //GPT3Dot5Turbo,
+				Model:    model,
 				Messages: messages,
 				Stream:   true,
 			}
@@ -134,5 +139,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 		},
 	}
+
+	opts.Model = model.GetOpts(cmd, config)
 	return cmd
 }

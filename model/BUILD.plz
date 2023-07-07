@@ -1,11 +1,12 @@
 go_library(
-    name = "diff",
-    srcs = ["diff.go"],
-    visibility = ["//cmd/sgpt"],
+    name = "model",
+    srcs = ["model.go"],
+    visibility = [
+        "//chat",
+        "//diff",
+    ],
     deps = [
         "//configuration",
-        "//model",
-        "//third_party/go:github.com__AlecAivazis__survey__v2",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__sashabaranov__go-openai",
         "//third_party/go:github.com__spf13__cobra",

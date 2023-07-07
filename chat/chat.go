@@ -14,11 +14,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/file"
+	"github.com/malonaz/sgpt/model"
 	"github.com/malonaz/sgpt/role"
 )
 
@@ -36,13 +37,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
+		Model         *model.Opts
 		ChatID        string
-		Model         string
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
 		Short: "Back and forth chat",
-		Long:  "Back and forth chat. Available models: (gpt-3.5-turbo, gpt-4)",
+		Long:  "Back and forth chat",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Parse a chat if relevant.
@@ -54,10 +55,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				opts.ChatID = uuid.New().String()[:8]
 			}
 
-			model := config.DefaultModel
-			if opts.Model != "" {
-				model = opts.Model
-			}
+			// Set the model.
+			model, err := model.Parse(opts.Model, config)
+			cobra.CheckErr(err)
 
 			userColor := color.New(color.Bold).Add(color.Underline)
 			aiColor := color.New(color.FgCyan)
@@ -152,9 +152,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 		},
 	}
+
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd)
-	cmd.Flags().StringVar(&opts.Model, "model", "", "override default Open AI model")
+	opts.Model = model.GetOpts(cmd, config)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	return cmd
 }
