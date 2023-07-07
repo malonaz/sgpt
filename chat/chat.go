@@ -19,6 +19,7 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
+	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/configuration"
 )
 
@@ -34,11 +35,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cobra.CheckErr(err)
 
 	var opts struct {
-		ChatID         string
-		Files          []string
-		Model          string
-		FileExtensions []string
-		Code           bool
+		Injection *file.InjectionOpts
+		ChatID    string
+		Model     string
+		Code      bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -70,28 +70,16 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			formatColor.Printf(asciiSeparatorInject, opts.ChatID, model)
 			formatColor.Println(asciiSeparator)
 
-			// Inject any files...
-			additionalMessages := make([]openai.ChatCompletionMessage, 0, len(opts.Files))
-			injectFile := func(filepath string) {
-				// Apply filter
-				if !hasValidExtension(filepath, opts.FileExtensions) {
-					return
-				}
-
-				bytes, err := os.ReadFile(filepath)
-				cobra.CheckErr(err)
-				content := string(bytes)
-				// convert CRLF to LF
-				strings.Replace(content, "\n", "", -1)
+			files, err := file.Parse(opts.Injection)
+			cobra.CheckErr(err)
+			additionalMessages := make([]openai.ChatCompletionMessage, 0, len(files))
+			for _, file := range files {
 				message := openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: fmt.Sprintf("file %d: `%s`", len(additionalMessages)+1, content),
+					Content: fmt.Sprintf("file %s: `%s`", file.Path, file.Content),
 				}
 				additionalMessages = append(additionalMessages, message)
-				fileColor.Printf("injecting file #%d: %s\n", len(additionalMessages), filepath)
-			}
-			for _, file := range opts.Files {
-				injectIntoContext(file, injectFile)
+				fileColor.Printf("injecting file #%d: %s\n", len(additionalMessages), file.Path)
 			}
 
 			if opts.Code {
@@ -172,10 +160,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 		},
 	}
+	file.SetOpts(cmd, opts.Injection)
 	cmd.Flags().StringVar(&opts.Model, "model", "", "override default Open AI model")
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
-	cmd.Flags().StringSliceVar(&opts.Files, "file", nil, "specify file content to inject into the context")
-	cmd.Flags().StringSliceVar(&opts.FileExtensions, "ext", nil, "specify file extensions to accept")
 	cmd.Flags().BoolVar(&opts.Code, "code", false, "if true, prints code")
 	return cmd
 }
@@ -226,54 +213,6 @@ func (c *Chat) Save(chatDirectory, chatID string) error {
 	}
 
 	return nil
-}
-
-func injectIntoContext(filepath string, injectFN func(filepath string)) {
-	// Expand the path to escape `~`.
-	filepath, err := configuration.ExpandPath(filepath)
-	cobra.CheckErr(err)
-	// Here we remove the "/..." if there is one, and record whether it existed.
-	filepath, recurse := strings.CutSuffix(filepath, "/...")
-
-	// Check whether `filepath` is a directory.
-	fileInfo, err := os.Stat(filepath)
-	cobra.CheckErr(err)
-	if !fileInfo.IsDir() {
-		if recurse {
-			cobra.CheckErr(errors.Errorf("cannot recurse on a file: %s", filepath))
-		}
-		injectFN(filepath)
-		return
-	}
-
-	// It is a directory
-	directory := filepath
-	dirEntries, err := os.ReadDir(directory)
-	cobra.CheckErr(err)
-	for _, dirEntry := range dirEntries {
-		dirEntryInfo, err := dirEntry.Info()
-		cobra.CheckErr(err)
-
-		if dirEntry.IsDir() {
-			if recurse {
-				injectIntoContext(path.Join(directory, dirEntryInfo.Name())+"/...", injectFN)
-			}
-			continue
-		}
-		injectFN(path.Join(directory, dirEntryInfo.Name()))
-	}
-}
-
-func hasValidExtension(filename string, validExtensions []string) bool {
-	if len(validExtensions) == 0 {
-		return true
-	}
-	for _, validExtension := range validExtensions {
-		if strings.HasSuffix(filename, validExtension) {
-			return true
-		}
-	}
-	return false
 }
 
 func promptUser() string {

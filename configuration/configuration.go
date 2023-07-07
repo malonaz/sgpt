@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/malonaz/sgpt/file"
 )
 
 var defaultConfig = Config{
@@ -28,7 +28,7 @@ type Config struct {
 
 // Parse a configuration file.
 func Parse(path string) (*Config, error) {
-	path, err := ExpandPath(path)
+	path, err := file.ExpandPath(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "expanding path")
 	}
@@ -46,7 +46,7 @@ func Parse(path string) (*Config, error) {
 		return nil, errors.Wrap(err, "unmarshaling into config")
 	}
 
-	expandedChatDirectoryPath, err := ExpandPath(config.ChatDirectory)
+	expandedChatDirectoryPath, err := file.ExpandPath(config.ChatDirectory)
 	if err != nil {
 		return nil, errors.Wrap(err, "expanding chat directory path")
 	}
@@ -85,16 +85,4 @@ func initializeIfNotPresent(path string) error {
 		return errors.Wrap(err, "saving default config")
 	}
 	return nil
-}
-
-// ExpandPath expands a path to avoid `~`.
-func ExpandPath(path string) (string, error) {
-	if !strings.HasPrefix(path, "~/") {
-		return path, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", errors.Wrap(err, "getting user home dir")
-	}
-	return filepath.Join(home, path[2:]), nil
 }
