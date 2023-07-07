@@ -94,7 +94,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.RequestTimeout)*time.Second)
 			defer cancel()
 			request := openai.ChatCompletionRequest{
-				Model:    openai.GPT3Dot5Turbo,
+				Model:    openai.GPT4, //GPT3Dot5Turbo,
 				Messages: messages,
 				Stream:   true,
 			}

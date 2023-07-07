@@ -1,9 +1,6 @@
 go_library(
     name = "chat",
-    srcs = [
-        "chat.go",
-        "prompts.go",
-    ],
+    srcs = ["chat.go"],
     visibility = ["//cmd/sgpt"],
     deps = [
         "//configuration",
