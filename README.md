@@ -67,3 +67,7 @@ These advanced usages of the `--file` and `--ext` flags make it easy for develop
 To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. Then, use `go get` to fetch the package. Configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
 ## Contributing
 Contributions to SGPT are welcome! Whether it's feature requests, bug fixes, documentation improvements, or any other changes, we are glad to see them.
+
+## TODOs
+- Add pricing information for request + response
+- Add sgpt repo, which generates embeddings for a repo and allows you to talk with it.
