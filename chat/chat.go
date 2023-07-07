@@ -27,7 +27,7 @@ const (
 	asciiSeparatorInject = "-----------------------------------------------------%s [%s]------------------------------------------------------\n"
 )
 
-// NewCmd instantiates and returns the inventory flow Cmd.
+// NewCmd instantiates and returns the inventory chat cmd.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	// Initialize chat directory.
 	err := initializeChatDirectoryIfNotExist(config.ChatDirectory)
@@ -38,12 +38,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Role          *role.Opts
 		ChatID        string
 		Model         string
-		Code          bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
-		Short: "Back and forth chat. Available models: (gpt-3.5-turbo, gpt-4)",
-		Long:  "Back and forth chat",
+		Short: "Back and forth chat",
+		Long:  "Back and forth chat. Available models: (gpt-3.5-turbo, gpt-4)",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Parse a chat if relevant.
