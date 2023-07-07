@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
@@ -24,7 +25,6 @@ import (
 const (
 	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
 	asciiSeparatorInject = "-----------------------------------------------------%s [%s]------------------------------------------------------\n"
-	temporaryChat        = "Single-use Chat"
 )
 
 // NewCmd instantiates and returns the inventory flow Cmd.
@@ -52,7 +52,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				chat, err = parseChat(config.ChatDirectory, opts.ChatID)
 				cobra.CheckErr(err)
 			} else {
-				opts.ChatID = temporaryChat
+				opts.ChatID = uuid.New().String()[:8]
 			}
 
 			model := config.DefaultModel
@@ -84,7 +84,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				// convert CRLF to LF
 				strings.Replace(content, "\n", "", -1)
 				message := openai.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleUser,
+					Role:    openai.ChatMessageRoleSystem,
 					Content: fmt.Sprintf("file %d: `%s`", len(additionalMessages)+1, content),
 				}
 				additionalMessages = append(additionalMessages, message)
@@ -96,7 +96,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 			if opts.Code {
 				message := openai.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleUser,
+					Role:    openai.ChatMessageRoleSystem,
 					Content: codePrompt,
 				}
 				additionalMessages = append(additionalMessages, message)
@@ -107,7 +107,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				user, err := user.Current()
 				cobra.CheckErr(err)
 				message := openai.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleUser,
+					Role:    openai.ChatMessageRoleSystem,
 					Content: fmt.Sprintf(defaultPrompt, os, user),
 				}
 				additionalMessages = append(additionalMessages, message)
@@ -167,10 +167,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					Content: responseContent,
 				})
 
-				if opts.ChatID != temporaryChat { // Do not save temporary chats.
-					err = chat.Save(config.ChatDirectory, opts.ChatID)
-					cobra.CheckErr(err)
-				}
+				err = chat.Save(config.ChatDirectory, opts.ChatID)
+				cobra.CheckErr(err)
 			}
 		},
 	}

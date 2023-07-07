@@ -45,6 +45,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__google__uuid",
+    _tag = "download",
+    module = "github.com/google/uuid",
+    version = "v1.3.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__google__uuid",
+    download = ":_github.com__google__uuid#download",
+    install = ["."],
+    module = "github.com/google/uuid",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__mattn__go-colorable",
     _tag = "download",
     module = "github.com/mattn/go-colorable",

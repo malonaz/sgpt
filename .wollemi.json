@@ -4,6 +4,7 @@
         "github.com/bazelbuild/buildtools/build": "//third_party/go:github.com__bazelbuild__buildtools__build",
         "github.com/bazelbuild/buildtools/tables": "//third_party/go:github.com__bazelbuild__buildtools__tables",
         "github.com/fatih/color": "//third_party/go:github.com__fatih__color",
+        "github.com/google/uuid": "//third_party/go:github.com__google__uuid",
         "github.com/mattn/go-colorable": "//third_party/go:github.com__mattn__go-colorable",
         "github.com/mattn/go-isatty": "//third_party/go:github.com__mattn__go-isatty",
         "github.com/pkg/errors": "//third_party/go:github.com__pkg__errors",
