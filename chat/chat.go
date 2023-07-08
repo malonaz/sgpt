@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
+	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/configuration"
@@ -59,14 +60,16 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			model, err := model.Parse(opts.Model, config)
 			cobra.CheckErr(err)
 
+			// Colors.
 			userColor := color.New(color.Bold).Add(color.Underline)
 			aiColor := color.New(color.FgCyan)
 			formatColor := color.New(color.FgGreen)
 			fileColor := color.New(color.FgRed)
+			costColor := color.New(color.FgYellow)
 
 			// Chat headers.
 			formatColor.Println(asciiSeparator)
-			formatColor.Printf(asciiSeparatorInject, opts.ChatID, model)
+			formatColor.Printf(asciiSeparatorInject, opts.ChatID, model.ID)
 			formatColor.Println(asciiSeparator)
 
 			// Inject files.
@@ -80,6 +83,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				additionalMessages = append(additionalMessages, message)
 				fileColor.Printf("injecting file #%d: %s\n", len(additionalMessages), file.Path)
+			}
+			if len(additionalMessages) > 0 {
+				tokens, cost, err := model.CalculateRequestCost(additionalMessages...)
+				cobra.CheckErr(err)
+				formatColor.Println(asciiSeparator)
+				costColor.Printf("File injections (%d tokens) will add %s per request\n", tokens, cost.String())
+				formatColor.Println(asciiSeparator)
 			}
 
 			// Inject role.
@@ -104,6 +114,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			ctx := context.Background()
+			var totalCost decimal.Decimal
 			for {
 				// Query user for prompt.
 				userColor.Print("\n-> ")
@@ -118,16 +129,22 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				// Send request to API and stream response.
 				ctx, cancel := context.WithTimeout(ctx, time.Duration(config.RequestTimeout)*time.Second)
 				defer cancel()
+				messages := append(additionalMessages, chat.Messages...)
 				request := openai.ChatCompletionRequest{
 					Model:    model.ID,
-					Messages: append(additionalMessages, chat.Messages...),
+					Messages: messages,
 					Stream:   true,
 				}
+				requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
+				cobra.CheckErr(err)
+				costColor.Printf("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
+				formatColor.Println(asciiSeparator)
+
 				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 				cobra.CheckErr(err)
 				defer stream.Close()
 
-				responseContent := ""
+				chatCompletionMessage := openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant}
 				for {
 					response, err := stream.Recv()
 					if errors.Is(err, io.EOF) {
@@ -137,16 +154,21 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					content := strings.Replace(response.Choices[0].Delta.Content, "\n\n", "\n", -1)
 					content = strings.Replace(content, "%", "%%", -1)
 					aiColor.Printf(content)
-					responseContent += response.Choices[0].Delta.Content
+					chatCompletionMessage.Content += response.Choices[0].Delta.Content
 				}
 				aiColor.Printf("\n")
+				responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
+				cobra.CheckErr(err)
+				formatColor.Println(asciiSeparator)
+				costColor.Printf("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
+				totalCost = totalCost.Add(requestCost).Add(responseCost)
+				costColor.Printf("Total cost so far $%s\n", totalCost.String())
+				formatColor.Println(asciiSeparator)
 
 				// Append the response content to our history.
-				chat.Messages = append(chat.Messages, openai.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleAssistant,
-					Content: responseContent,
-				})
+				chat.Messages = append(chat.Messages, chatCompletionMessage)
 
+				// Save chat.
 				err = chat.Save(config.ChatDirectory, opts.ChatID)
 				cobra.CheckErr(err)
 			}

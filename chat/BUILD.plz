@@ -11,6 +11,7 @@ go_library(
         "//third_party/go:github.com__google__uuid",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__sashabaranov__go-openai",
+        "//third_party/go:github.com__shopspring__decimal",
         "//third_party/go:github.com__spf13__cobra",
     ],
 )
