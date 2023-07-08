@@ -69,5 +69,4 @@ To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) insta
 Contributions to SGPT are welcome! Whether it's feature requests, bug fixes, documentation improvements, or any other changes, we are glad to see them.
 
 ## TODOs
-- Add pricing information for request + response
 - Add sgpt repo, which generates embeddings for a repo and allows you to talk with it.
