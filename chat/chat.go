@@ -119,7 +119,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				ctx, cancel := context.WithTimeout(ctx, time.Duration(config.RequestTimeout)*time.Second)
 				defer cancel()
 				request := openai.ChatCompletionRequest{
-					Model:    model,
+					Model:    model.ID,
 					Messages: append(additionalMessages, chat.Messages...),
 					Stream:   true,
 				}

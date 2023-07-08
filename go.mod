@@ -8,12 +8,15 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/google/uuid v1.3.0
 	github.com/pkg/errors v0.9.1
+	github.com/pkoukk/tiktoken-go v0.1.4
 	github.com/sashabaranov/go-openai v1.12.0
 	github.com/scylladb/go-set v1.0.2
+	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cobra v1.7.0
 )
 
 require (
+	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

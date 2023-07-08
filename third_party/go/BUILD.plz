@@ -67,6 +67,32 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__dlclark__regexp2",
+    _tag = "download",
+    module = "github.com/dlclark/regexp2",
+    version = "v1.10.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__dlclark__regexp2",
+    download = ":_github.com__dlclark__regexp2#download",
+    install = ["."],
+    module = "github.com/dlclark/regexp2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__dlclark__regexp2__syntax"],
+)
+
+go_module(
+    name = "github.com__dlclark__regexp2__syntax",
+    download = ":_github.com__dlclark__regexp2#download",
+    install = ["syntax"],
+    module = "github.com/dlclark/regexp2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__fatih__color",
     _tag = "download",
     module = "github.com/fatih/color",
@@ -189,6 +215,26 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__pkoukk__tiktoken-go",
+    _tag = "download",
+    module = "github.com/pkoukk/tiktoken-go",
+    version = "v0.1.4",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__pkoukk__tiktoken-go",
+    download = ":_github.com__pkoukk__tiktoken-go#download",
+    install = ["."],
+    module = "github.com/pkoukk/tiktoken-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__dlclark__regexp2",
+        ":github.com__google__uuid",
+    ],
+)
+
+go_mod_download(
     name = "github.com__sashabaranov__go-openai",
     _tag = "download",
     module = "github.com/sashabaranov/go-openai",
@@ -227,6 +273,23 @@ go_module(
     download = ":_github.com__scylladb__go-set#download",
     install = ["strset"],
     module = "github.com/scylladb/go-set",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__shopspring__decimal",
+    _tag = "download",
+    module = "github.com/shopspring/decimal",
+    version = "v1.3.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__shopspring__decimal",
+    download = ":_github.com__shopspring__decimal#download",
+    install = ["."],
+    module = "github.com/shopspring/decimal",
     visibility = ["PUBLIC"],
     deps = [],
 )

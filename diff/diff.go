@@ -61,6 +61,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			fileColor := color.New(color.FgRed)
 			aiColor := color.New(color.FgCyan)
 			formatColor := color.New(color.FgGreen)
+			costColor := color.New(color.FgYellow)
 			// Print title.
 			formatColor.Println(asciiSeparator)
 			formatColor.Println(asciiSeparatorInject)
@@ -108,16 +109,21 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.RequestTimeout)*time.Second)
 			defer cancel()
 			request := openai.ChatCompletionRequest{
-				Model:    model,
+				Model:    model.ID,
 				Messages: messages,
 				Stream:   true,
 			}
+			requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
+			cobra.CheckErr(err)
+			costColor.Printf("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
+			formatColor.Println(asciiSeparator)
+
 			stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 			cobra.CheckErr(err)
 			defer stream.Close()
 
 			// Consume stream.
-			responseContent := ""
+			chatCompletionMessage := openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant}
 			for {
 				response, err := stream.Recv()
 				if errors.Is(err, io.EOF) {
@@ -125,9 +131,15 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				cobra.CheckErr(err)
 				aiColor.Printf(response.Choices[0].Delta.Content)
-				responseContent += response.Choices[0].Delta.Content
+				chatCompletionMessage.Content += response.Choices[0].Delta.Content
 			}
 			fmt.Printf("\n")
+			responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
+			cobra.CheckErr(err)
+			formatColor.Println(asciiSeparator)
+			costColor.Printf("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
+			costColor.Printf("Total cost is $%s\n", requestCost.Add(responseCost).String())
+			formatColor.Println(asciiSeparator)
 
 			// Check if user wants to commit the message.
 			surveyQuestion := &survey.Confirm{
@@ -141,7 +153,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 			// Write the commit to a file.
 			commitFilepath := "/tmp/sgpt.commit"
-			err = os.WriteFile(commitFilepath, []byte(responseContent), 0644)
+			err = os.WriteFile(commitFilepath, []byte(chatCompletionMessage.Content), 0644)
 			cobra.CheckErr(err)
 			gitCommitCommand := exec.Command(path, "commit", "--file", commitFilepath)
 			err = gitCommitCommand.Run()
