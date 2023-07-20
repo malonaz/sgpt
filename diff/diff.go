@@ -32,7 +32,7 @@ Short (72 chars or less) summary
 
 const (
 	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
-	asciiSeparatorInject = "--------------------------------------------------------------Diff----------------------------------------------------------------"
+	asciiSeparatorInject = "--------------------------------------------------------Diff [%s]---------------------------------------------------------\n"
 )
 
 // NewCmd instantiates and returns the diff command.
@@ -57,6 +57,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 			gitDiff := bytesBuffer.String()
 
+			// Set the model.
+			model, err := model.Parse(opts.Model, config)
+			cobra.CheckErr(err)
+
 			// Colors.
 			fileColor := color.New(color.FgRed)
 			aiColor := color.New(color.FgCyan)
@@ -64,7 +68,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			costColor := color.New(color.FgYellow)
 			// Print title.
 			formatColor.Println(asciiSeparator)
-			formatColor.Println(asciiSeparatorInject)
+			formatColor.Printf(asciiSeparatorInject, model.ID)
 			formatColor.Println(asciiSeparator)
 
 			// Remove from the diff files we don't care about:
@@ -86,24 +90,27 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			filteredGitDiff := strings.Join(filteredParts, "diff --git")
 
-			// Inject the diff into the context.
 			messages := []openai.ChatCompletionMessage{}
+			// Inject the diff into the context.
 			message := openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleSystem,
-				Content: fmt.Sprintf("consider this git diff: `%s`", filteredGitDiff),
+				Content: fmt.Sprintf("[git diff]\n```%s```", filteredGitDiff),
+			}
+			messages = append(messages, message)
+
+			// Inject the system prompt.
+			message = openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: prompt,
 			}
 			messages = append(messages, message)
 
 			// Query message.
 			message = openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleUser,
-				Content: prompt,
+				Content: "Generate a git commit",
 			}
 			messages = append(messages, message)
-
-			// Set the model.
-			model, err := model.Parse(opts.Model, config)
-			cobra.CheckErr(err)
 
 			// Open stream.
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.RequestTimeout)*time.Second)
