@@ -25,8 +25,8 @@ type File struct {
 // GetOpts on the given command.
 func GetOpts(cmd *cobra.Command) *InjectionOpts {
 	opts := &InjectionOpts{}
-	cmd.Flags().StringSliceVar(&opts.Files, "file", nil, "specify file content to inject into the context")
-	cmd.Flags().StringSliceVar(&opts.FileExtensions, "ext", nil, "specify file extensions to accept")
+	cmd.Flags().StringSliceVarP(&opts.Files, "file", "f", nil, "specify file content to inject into the context")
+	cmd.Flags().StringSliceVarP(&opts.FileExtensions, "ext", "e", nil, "specify file extensions to accept")
 	return opts
 }
 

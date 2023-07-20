@@ -22,7 +22,7 @@ type Role struct {
 // GetOpts on the given command.
 func GetOpts(cmd *cobra.Command) *Opts {
 	opts := &Opts{}
-	cmd.Flags().StringVar(&opts.Role, "role", "", "specify a role")
+	cmd.Flags().StringVarP(&opts.Role, "role", "r", "", "specify a role")
 	return opts
 }
 

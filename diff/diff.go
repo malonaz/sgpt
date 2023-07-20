@@ -30,6 +30,12 @@ Short (72 chars or less) summary
   single space. Use a hanging indent.
 `
 
+const generateGitCommitMessage = `Generate a git commit message.
+Think step-by-step to ensure you only write about meaningful high-level changes.
+Try to understand what the diff aims to do rather than focus on the details.
+{{message}}
+`
+
 const (
 	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
 	asciiSeparatorInject = "--------------------------------------------------------Diff [%s]---------------------------------------------------------\n"
@@ -38,7 +44,8 @@ const (
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	var opts struct {
-		Model *model.Opts
+		Model   *model.Opts
+		Message string
 	}
 
 	cmd := &cobra.Command{
@@ -108,7 +115,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			// Query message.
 			message = openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleUser,
-				Content: "Generate a git commit",
+				Content: strings.ReplaceAll(generateGitCommitMessage, "{{message}}", opts.Message),
 			}
 			messages = append(messages, message)
 
@@ -169,5 +176,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	}
 
 	opts.Model = model.GetOpts(cmd, config)
+	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "specify a message to spgt diff")
 	return cmd
 }
