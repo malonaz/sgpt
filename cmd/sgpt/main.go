@@ -1,6 +1,6 @@
 package main
 
-import (
+import(
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
@@ -14,6 +14,7 @@ const configFilepath = "~/.sgpt/config.json"
 var rootCmd = &cobra.Command{
 	Use:   "sgpt",
 	Short: "A CLI for GPT operations",
+	Version: "1.0",
 }
 
 func main() {
