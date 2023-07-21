@@ -131,3 +131,13 @@ func ExpandPath(path string) (string, error) {
 	}
 	return filepath.Join(home, path[2:]), nil
 }
+
+// GetRootDir returns the root dir of a file.
+func GetRootDir(path string) string {
+	// Clean the path (remove extra slashes)
+	cleanedPath := filepath.Clean(path)
+	// Split the path into its components
+	components := strings.Split(cleanedPath, "/")
+	// Return the first component (the root)
+	return components[0]
+}

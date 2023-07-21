@@ -4,6 +4,7 @@ go_library(
     visibility = [
         "//chat",
         "//configuration",
+        "//diff",
     ],
     deps = [
         "//third_party/go:github.com__pkg__errors",

@@ -4,11 +4,13 @@ go_library(
     visibility = ["//cmd/sgpt"],
     deps = [
         "//configuration",
+        "//file",
         "//model",
         "//third_party/go:github.com__AlecAivazis__survey__v2",
         "//third_party/go:github.com__fatih__color",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__sashabaranov__go-openai",
         "//third_party/go:github.com__spf13__cobra",
+        "//third_party/go:github.com__waigani__diffparser",
     ],
 )

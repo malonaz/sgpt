@@ -13,6 +13,7 @@ require (
 	github.com/scylladb/go-set v1.0.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cobra v1.7.0
+	github.com/waigani/diffparser v0.0.0-20190828052634-7391f219313d
 )
 
 require (

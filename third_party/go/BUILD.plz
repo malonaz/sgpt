@@ -329,6 +329,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__waigani__diffparser",
+    _tag = "download",
+    module = "github.com/waigani/diffparser",
+    version = "v0.0.0-20190828052634-7391f219313d",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__waigani__diffparser",
+    download = ":_github.com__waigani__diffparser#download",
+    install = ["."],
+    module = "github.com/waigani/diffparser",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",

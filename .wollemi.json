@@ -22,6 +22,7 @@
         "github.com/shopspring/decimal": "//third_party/go:github.com__shopspring__decimal",
         "github.com/spf13/cobra": "//third_party/go:github.com__spf13__cobra",
         "github.com/spf13/pflag": "//third_party/go:github.com__spf13__pflag",
+        "github.com/waigani/diffparser": "//third_party/go:github.com__waigani__diffparser",
         "golang.org/x/sys/unix": "//third_party/go:golang.org__x__sys__unix",
         "golang.org/x/term": "//third_party/go:golang.org__x__term",
         "golang.org/x/text/cases": "//third_party/go:golang.org__x__text__cases",

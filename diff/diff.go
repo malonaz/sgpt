@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"sort"
 	"bytes"
 	"context"
 	"fmt"
@@ -15,8 +16,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
+	"github.com/waigani/diffparser"
 
 	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/model"
 )
 
@@ -60,7 +63,6 @@ Examples:
 
 `
 
-
 const generateGitCommitMessage = `Generate a git commit message.
 Think step-by-step to ensure you only write about meaningful high-level changes.
 Try to understand what the diff aims to do rather than focus on the details.
@@ -85,16 +87,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Long:  "Generate diff commit message",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Run git diff.
-			path, err := exec.LookPath("git")
-			cobra.CheckErr(errors.Wrapf(err, "git not found in your PATH"))
-			gitDiffCommand := exec.Command(path, "diff", "--cached")
-			bytesBuffer := &bytes.Buffer{}
-			gitDiffCommand.Stdout = bytesBuffer
-			err = gitDiffCommand.Run()
-			cobra.CheckErr(err)
-			gitDiff := bytesBuffer.String()
-
 			// Set the model.
 			model, err := model.Parse(opts.Model, config)
 			cobra.CheckErr(err)
@@ -109,8 +101,17 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			formatColor.Printf(asciiSeparatorInject, model.ID)
 			formatColor.Println(asciiSeparator)
 
+			// Run git diff.
+			path, err := exec.LookPath("git")
+			cobra.CheckErr(errors.Wrapf(err, "git not found in your PATH"))
+			gitDiffCommand := exec.Command(path, "diff", "--cached")
+			bytesBuffer := &bytes.Buffer{}
+			gitDiffCommand.Stdout = bytesBuffer
+			err = gitDiffCommand.Run()
+			cobra.CheckErr(err)
+			gitDiff := bytesBuffer.String()
+
 			// Remove from the diff files we don't care about:
-			fileColor.Printf("Ignoring the following files:\n -%s\n", strings.Join(config.DiffIgnoreFiles, "\n -"))
 			formatColor.Println(asciiSeparator)
 			parts := strings.Split(gitDiff, "diff --git")
 			filteredParts := []string{}
@@ -128,11 +129,57 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			filteredGitDiff := strings.Join(filteredParts, "diff --git")
 
+
+			// Analyze the diff.
+			diff, err := diffparser.Parse(gitDiff)
+			cobra.CheckErr(err)
+			rootDirToCount := map[string]int{}
+			for _, f := range diff.Files {
+				filename := f.OrigName
+				if f.NewName != filename {
+					filename = f.NewName
+				}
+				if contains(config.DiffIgnoreFiles, filename) {
+					fileColor.Printf("Ignoring %s\n", filename)
+					continue
+				}
+				// Update the root dir count.
+				rootDir := file.GetRootDir(filename)
+				rootDirToCount[rootDir] +=  len(f.Hunks)
+			}
+			type Scope struct {
+				Name string
+				Count int
+			}
+			scopes := []*Scope{}
+			for rootDir, count := range rootDirToCount {
+				scope := &Scope{
+					Name: rootDir,
+					Count: count,
+				}
+				scopes = append(scopes, scope)
+			}
+			sort.Slice(scopes, func(i, j int) bool { return scopes[i].Count > scopes[j].Count })
+
+
 			messages := []openai.ChatCompletionMessage{}
-			// Inject the diff into the context.
+			// Inject diff.
 			message := openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleSystem,
 				Content: fmt.Sprintf("[git diff]\n```%s```", filteredGitDiff),
+			}
+			messages = append(messages, message)
+
+			// Inject diff analysis.
+			scopeNames := []string{}
+			scopeChanges := []string{}
+			for _, scope := range scopes {
+				scopeNames = append(scopeNames, scope.Name)
+				scopeChanges = append(scopeChanges, fmt.Sprintf("scope [%s] has %d changes.", scope.Name, scope.Count))
+			}
+			message = openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: fmt.Sprintf("Scopes available: [%s]\n%s", strings.Join(scopeNames, ", "), strings.Join(scopeChanges, "\n")),
 			}
 			messages = append(messages, message)
 
@@ -209,4 +256,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	opts.Model = model.GetOpts(cmd, config)
 	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "specify a message to spgt diff")
 	return cmd
+}
+
+func contains(list []string, match string) bool {
+	for _, item := range list {
+		if item == match {
+			return true
+		}
+	}
+	return false
 }
