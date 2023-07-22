@@ -45,3 +45,18 @@ sh_cmd(
         "//tools:go_toolchain",
     ],
 )
+
+sh_cmd(
+    name = "lint",
+    cmd = [
+        "export GOROOT=\\\\$($(out_exe //tools:go_toolchain|go) env GOROOT)",
+        echo_message("Running 'wollemi'"),
+        "$(out_exe :wollemi) gofmt ./...",
+        echo_message("Running 'gofmt'"),
+        f"gofmt -s -w \\\\$(go list ./... | sed s#github.com/time-app/deeptime/##g)",
+    ],
+    deps = [
+        ":wollemi",
+        "//tools:go_toolchain",
+    ],
+)

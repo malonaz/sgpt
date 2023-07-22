@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/chat"
+	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/diff"
 )
@@ -28,5 +29,6 @@ func main() {
 
 	rootCmd.AddCommand(chat.NewCmd(client, config))
 	rootCmd.AddCommand(diff.NewCmd(client, config))
+	rootCmd.AddCommand(embed.NewCmd(client, config))
 	rootCmd.Execute()
 }

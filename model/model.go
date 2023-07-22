@@ -49,6 +49,9 @@ var models = []*Model{
 	{ID: openai.GPT3Dot5Turbo0301, InputPricing: decimal.RequireFromString("0.0015"), OutputPricing: decimal.RequireFromString("0.002")},
 	{ID: openai.GPT3Dot5Turbo, InputPricing: decimal.RequireFromString("0.0015"), OutputPricing: decimal.RequireFromString("0.002")},
 
+	// Embeddings.
+	{ID: "text-embedding-ada-002", InputPricing: decimal.RequireFromString("0.0001")},
+
 	// We do not have pricing informnation for this.
 	{ID: openai.GPT3TextDavinci003},
 	{ID: openai.GPT3TextDavinci002},
@@ -74,6 +77,18 @@ func Parse(opts *Opts, config *configuration.Config) (*Model, error) {
 	return nil, errors.Errorf("unknown model (%s)", opts.Model)
 }
 
+// CalculateEmbeddingCost for the given input.
+func (m *Model) CalculateEmbeddingCost(input string) (int64, decimal.Decimal, error) {
+	tkm, err := tiktoken.EncodingForModel(m.ID)
+	if err != nil {
+		return 0, decimal.Zero, errors.Wrap(err, "encoding for model")
+	}
+	tokens := int64(len(tkm.Encode(input, nil, nil)))
+	pricing := m.InputPricing
+	cost := pricing.Mul(decimal.NewFromInt(tokens)).Div(decimal.NewFromInt(1000))
+	return tokens, cost, nil
+}
+
 // CalculateRequestCost of these messages.
 func (m *Model) CalculateRequestCost(messages ...openai.ChatCompletionMessage) (int64, decimal.Decimal, error) {
 	return m.calculateCost(messages, true)
@@ -96,6 +111,7 @@ func (m *Model) calculateCost(messages []openai.ChatCompletionMessage, input boo
 	cost := pricing.Mul(decimal.NewFromInt(tokens)).Div(decimal.NewFromInt(1000))
 	return tokens, cost, nil
 }
+
 
 func numTokensFromMessages(messages []openai.ChatCompletionMessage, modelID string) (int64, error) {
 	tkm, err := tiktoken.EncodingForModel(modelID)
