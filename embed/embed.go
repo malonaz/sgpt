@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"crypto/md5"
+	"sync"
 	"fmt"
 	"encoding/hex"
 
@@ -31,8 +32,8 @@ const (
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	var opts struct {
+		Force bool
 	}
-	_ = opts
 	cmd := &cobra.Command{
 		Use:   "embed",
 		Short: "Generate embeddings for a repo",
@@ -44,12 +45,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			model, err := model.Parse(optsModel, config)
 			cobra.CheckErr(err)
 
-			pwd, err := os.Getwd()
-			cobra.CheckErr(err)
-			id := strings.ReplaceAll(pwd, "/", "_")
-			filepath, err := file.ExpandPath("~/.sgpt/embed/" + id)
-			cobra.CheckErr(err)
-			s, err := store.Load(filepath)
+			s, err := LoadStore()
 			cobra.CheckErr(err)
 
 			// Colors.
@@ -91,7 +87,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			formatColor.Println(asciiSeparator)
 
 			// Chunk up the files.
-			chunkSize := 1000 // characters.
+			chunkSize := 200 // characters.
 			filenameToCostInformation := map[string]string{}
 			totalCost := decimal.Decimal{}
 			totalTokens := int64(0)
@@ -107,11 +103,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					Chunks:  make([]*store.FileChunk, len(fileChunks)),
 					CreationTimestamp: uint64(time.Now().Unix()),
 				}
-				if storeFile, ok := s.GetFile(file.Name); ok && storeFile.Hash == file.Hash {
-					timeSinceGeneration := time.Now().Sub(time.Unix(int64(storeFile.CreationTimestamp), 0))
-					aiColor.Printf("skipping file %s which was generated %s ago\n", file.Name, timeSinceGeneration.String())
+				if storeFile, ok := s.GetFile(file.Name); ok && storeFile.Hash == file.Hash && !opts.Force {
 					continue
 				}
+				aiColor.Printf("Regenerating embeddings for file %s\n", file.Name)
 				files = append(files, file)
 				for i, chunk := range fileChunks {
 					file.Chunks[i] = &store.FileChunk{
@@ -124,12 +119,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				cobra.CheckErr(err)
 				totalCost = totalCost.Add(cost)
 				totalTokens += tokens
-				filenameToCostInformation[file.Name] = fmt.Sprintf("File contains %d tokens costing $%s\n", tokens, cost.String())
+				filenameToCostInformation[file.Name] = fmt.Sprintf("%d tokens costing $%s\n", tokens, cost.String())
 			}
 			if len(files) == 0 {
 				aiColor.Println("all embeddings are up to date")
 				return
 			}
+
 			costColor.Printf("regenerating all embeddings (%d tokens) will cost: %s\n", totalTokens, totalCost.String())
 			formatColor.Println(asciiSeparator)
 			// Check if user wants to commit the message.
@@ -141,31 +137,71 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			if !confirm {
 				return
 			}
+			formatColor.Println(asciiSeparator)
 
 
 			// Get embeddings from open ai.
+			barrier := make(chan struct{}, 20)
+			wg := &sync.WaitGroup{}
+			wg.Add(len(files))
+			mutex := sync.Mutex{}
 			ctx := context.Background()
 			for _, file := range files {
-				aiColor.Printf("generating embedding for %s: %d chunks\n", file.Name, len(file.Chunks))
-				costInformation := filenameToCostInformation[file.Name]
-				costColor.Println(costInformation)
-				formatColor.Println(asciiSeparator)
-				for _, chunk := range file.Chunks {
-					request := openai.EmbeddingRequest{
-						Input: []string{chunk.Content},
-						Model: openai.AdaEmbeddingV2,
+				file := file
+				fn := func() {
+					// Go through the barrier.
+					barrier <- struct{}{}
+					defer func() { <-barrier }()
+					defer wg.Done()
+					for _, chunk := range file.Chunks {
+						content := fmt.Sprintf("file %s: %s", file.Name, chunk.Content)
+						content = strings.ReplaceAll(content, "-", "")
+						embedding, err := Content(ctx, openAIClient, content)
+						cobra.CheckErr(err)
+						chunk.Embedding = embedding
 					}
-					response, err := openAIClient.CreateEmbeddings(ctx, request)
+					mutex.Lock()
+					defer mutex.Unlock()
+					s.AddFile(file)
+					err := s.Save()
 					cobra.CheckErr(err)
-					chunk.Embedding = response.Data[0].Embedding
+					costColor.Printf("generated embedding for %s: %s", file.Name, filenameToCostInformation[file.Name])
+					formatColor.Println(asciiSeparator)
 				}
-				s.AddFile(file)
-				err := s.Save()
-				cobra.CheckErr(err)
+				go fn()
 			}
+			wg.Wait()
 		},
 	}
+	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "For embeddings regeneration")
 	return cmd
+}
+
+// LoadStore returns the store for this git repo.
+func LoadStore() (*store.Store, error) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	id := strings.ReplaceAll(pwd, "/", "_")
+	filepath, err := file.ExpandPath("~/.sgpt/embed/" + id)
+	if err != nil {
+		return nil, err
+	}
+	return store.Load(filepath)
+}
+
+// Content embeds contents.
+func Content(ctx context.Context, openAIClient *openai.Client, content string) ([]float32, error) {
+	request := openai.EmbeddingRequest{
+		Input: []string{content},
+		Model: openai.AdaEmbeddingV2,
+	}
+	response, err := openAIClient.CreateEmbeddings(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return response.Data[0].Embedding, nil
 }
 
 func chunkFile(content string, chunkSize int) []string {

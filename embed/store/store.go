@@ -1,8 +1,10 @@
 package store
 
 import (
+	"math"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"os"
 )
 
@@ -77,4 +79,49 @@ func (s *Store) AddFile(file *File) {
 func (s *Store) GetFile(name string) (*File, bool) {
 	file, ok := s.files[name]
 	return file, ok
+}
+
+
+// Search this store's embeddings, returning the most similar.
+func (s *Store) Search(vector []float32) ([]*FileChunk, error) {
+	fileChunks := []*FileChunk{}
+	for _, file := range s.files {
+		fileChunks = append(fileChunks, file.Chunks...)
+	}
+	var err error
+	sort.Slice(fileChunks, func(i, j int) bool {
+		var distanceA, distanceB float64
+		distanceA, err = cosine(fileChunks[i].Embedding, vector)
+		if err != nil {
+			return false
+		}
+		distanceB, err = cosine(fileChunks[j].Embedding, vector)
+		if err != nil {
+			return false
+		}
+		return distanceA < distanceB
+	})
+	return fileChunks, err
+}
+
+// Cosine distance.
+func cosine(originalA []float32, originalB []float32) (cosine float64, err error) {
+	a := make([]float64, len(originalA))
+	b := make([]float64, len(originalA))
+	for i := 0; i < len(originalA); i++ {
+		a[i] = float64(originalA[i])
+		b[i] = float64(originalB[i])
+	}
+	sumA := 0.0
+	s1 := 0.0
+	s2 := 0.0
+	for k := 0; k < len(a); k++ {
+		sumA += a[k] * b[k]
+		s1 += math.Pow(a[k], 2)
+		s2 += math.Pow(b[k], 2)
+	}
+	if s1 == 0 || s2 == 0 {
+		return 0.0, fmt.Errorf("Vectors should not be null (all zeros)")
+	}
+	return sumA / (math.Sqrt(s1) * math.Sqrt(s2)), nil
 }
