@@ -155,7 +155,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					defer wg.Done()
 					for _, chunk := range file.Chunks {
 						content := fmt.Sprintf("file %s: %s", file.Name, chunk.Content)
-						content = strings.ReplaceAll(content, "-", "")
 						embedding, err := Content(ctx, openAIClient, content)
 						cobra.CheckErr(err)
 						chunk.Embedding = embedding
