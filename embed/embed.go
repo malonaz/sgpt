@@ -87,13 +87,19 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			formatColor.Println(asciiSeparator)
 
 			// Chunk up the files.
-			chunkSize := 200 // characters.
+			chunkSize := 2000 // characters.
 			filenameToCostInformation := map[string]string{}
 			totalCost := decimal.Decimal{}
 			totalTokens := int64(0)
 			files := []*store.File{}
 			for _, filename := range filteredGitFiles {
+				if !file.HasValidExtension(filename, config.EmbedFileExtensions) {
+					continue
+				}
 				bytes, err := os.ReadFile(filename)
+				if err != nil && strings.Contains(err.Error(), "is a directory") {
+					continue
+				}
 				cobra.CheckErr(err)
 				fileHash := fileHash(bytes)
 				fileChunks := chunkFile(string(bytes), chunkSize)

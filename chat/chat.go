@@ -139,7 +139,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 						for i := 0; i < 10; i++ {
 							chunk := chunks[i]
 							fileColor.Printf("inserting chunk from file %s\n", chunk.Filename)
-							fileColor.Println(chunk.Content)
 							embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
 								Role:    openai.ChatMessageRoleSystem,
 								Content: chunk.Content,

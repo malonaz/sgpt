@@ -35,7 +35,7 @@ func Parse(opts *InjectionOpts) ([]*File, error) {
 	files := []*File{}
 	parseFileFn := func(filepath string) error {
 		// Apply filter
-		if !hasValidExtension(filepath, opts.FileExtensions) {
+		if !HasValidExtension(filepath, opts.FileExtensions) {
 			return nil
 		}
 		bytes, err := os.ReadFile(filepath)
@@ -108,7 +108,8 @@ func smartParse(filepath string, parseFileFn func(filepath string) error) error 
 	return nil
 }
 
-func hasValidExtension(filename string, validExtensions []string) bool {
+// HasValidExtension returns true if the given filename has one of the valid extensions.
+func HasValidExtension(filename string, validExtensions []string) bool {
 	if len(validExtensions) == 0 {
 		return true
 	}
