@@ -50,21 +50,35 @@ These advanced usages of the `--file` and `--ext` flags make it easy for develop
 ## Commands
 Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
 ### `sgpt chat`
-This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, and more.
+This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, user role, embeddings usage, and more.
 **Command options:**
 - `--model`: Override the default OpenAI model
-- `--id` : Specify a chat id. If none is supplied, a temporary chat session is created that will be not be persisted to disk.
+- `--id` : Specify a chat id. If none is supplied, a new chat session with a generated id is created and persisted to disk.
 - `--file` : Specify files whose content should be injected into the context.
 - `--ext` : Specify file extensions to accept (used in conjunction with the --file flag).
-- `--code` : A mode that forces SGPT to spit out code and only code.
+- `--role` : Specify a user role that the AI will emulate. Available roles: `code`, `shell`.
+- `--embeddings` : Use repository embeddings to augment AI response if matching content is found (generated with `sgpt embed`).
 For example:
 ```bash
-sgpt chat --model gpt-4 --id my_chat
+sgpt chat --model gpt-3.5-turbo --id my_chat --role code
 ```
-This initiates a chat using the gpt-4 model and the id 'my_chat'.
-**Please be aware that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
+This initiates a chat using the gpt-3.5-turbo model, the id 'my_chat', and the AI will play the role of providing only code as output.
+**Please note that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
 You can read the chat by using the id of the chat, which is listed in the chat directory.
-SGPT is designed to make the developer's interaction with OpenAI's Language Models as seamless as possible. Feel free to contribute or report issues as you use SGPT.
+
+### `sgpt diff`
+The `sgpt diff` command helps you generate a Git commit message based on the staged changes in your Git repository. The command reads the staged changes, excludes specified files, and generates a commit message using OpenAI's GPT model.
+**Command options:**
+- `--model`: Override the default OpenAI model
+- `--message`/`-m`: Specify a message for the commit
+```bash
+sgpt diff --model gpt-3.5-turbo --message "Add new feature X"
+```
+This command generates a git commit message for the staged changes using the gpt-3.5-turbo model and a message "Add new feature X".
+**Note:**
+- Before running `sgpt diff`, make sure you have staged the changes you want to commit using `git add`.
+- You can exclude specific files from being considered while generating the commit message by adding them to the `DiffIgnoreFiles` list in your `config.json`.
+- The `sgpt diff` command requires Git to be installed and available in your system's PATH.
 
 ### `sgpt embed`
 The `sgpt embed` command is used to generate embeddings for a repository. This is an efficient way to represent a repository's code and other content in a way that can be easily processed and compared by machine learning models like GPT.
@@ -72,8 +86,11 @@ To use the `sgpt embed` command, simply run:
 ```bash
 sgpt embed
 ```
-The command will recursively analyze all the files in the current repository, generate embeddings for each individual file, and save the generated embeddings to a local store. You can re-run it many times, it will only regenerate embeddings for files that have changed since the last time.
-The `sgpt embed` command uses the "text-embedding-ada-002" model and cannot be overriden.
+The command will recursively analyze all the files in the current repository, generate embeddings for each individual file, and save the generated embeddings to a local store. You can re-run it many times; it will only regenerate embeddings for files that have changed since the last time.
+By default, the `sgpt embed` command uses the "text-embedding-ada-002" model and cannot be overridden. Additionally, you can use the `--force` flag to force embeddings regeneration for all files even if they haven't changed:
+```bash
+sgpt embed --force
+```
 
 ## Getting Started
 To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. Then, use `go get` to fetch the package. Configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
