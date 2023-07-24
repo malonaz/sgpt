@@ -89,39 +89,59 @@ func (s *Store) Search(vector []float32) ([]*FileChunk, error) {
 		fileChunks = append(fileChunks, file.Chunks...)
 	}
 	var err error
+	x := map[*FileChunk]float64{}
 	sort.Slice(fileChunks, func(i, j int) bool {
 		var distanceA, distanceB float64
-		distanceA, err = cosine(fileChunks[i].Embedding, vector)
+		distanceA, err = cosineDistance(fileChunks[i].Embedding, vector)
 		if err != nil {
 			return false
 		}
-		distanceB, err = cosine(fileChunks[j].Embedding, vector)
+		distanceB, err = cosineDistance(fileChunks[j].Embedding, vector)
 		if err != nil {
 			return false
 		}
+		x[fileChunks[i]] = distanceA
+		x[fileChunks[j]] = distanceB
 		return distanceA < distanceB
 	})
+	for _, fc := range fileChunks {
+		fmt.Printf("file[%s]=%f\n", fc.Filename, x[fc])
+	}
 	return fileChunks, err
 }
 
-// Cosine distance.
-func cosine(originalA []float32, originalB []float32) (cosine float64, err error) {
-	a := make([]float64, len(originalA))
-	b := make([]float64, len(originalA))
-	for i := 0; i < len(originalA); i++ {
-		a[i] = float64(originalA[i])
-		b[i] = float64(originalB[i])
+func cosineSimilarity(a, b []float32) (float64, error) {
+	if len(a) != len(b) {
+		return 0, fmt.Errorf("Vectors must have the same dimensions")
 	}
-	sumA := 0.0
-	s1 := 0.0
-	s2 := 0.0
-	for k := 0; k < len(a); k++ {
-		sumA += a[k] * b[k]
-		s1 += math.Pow(a[k], 2)
-		s2 += math.Pow(b[k], 2)
+
+	vec1 := make([]float64, len(a))
+	vec2 := make([]float64, len(b))
+	for i := 0; i < len(a); i++ {
+		vec1[i] = float64(a[i])
+		vec2[i] = float64(b[i])
 	}
-	if s1 == 0 || s2 == 0 {
-		return 0.0, fmt.Errorf("Vectors should not be null (all zeros)")
+
+	dotProduct := 0.0
+	magnitude1 := 0.0
+	magnitude2 := 0.0
+	for i := 0; i < len(vec1); i++ {
+		dotProduct += vec1[i] * vec2[i]
+		magnitude1 += vec1[i] * vec1[i]
+		magnitude2 += vec2[i] * vec2[i]
 	}
-	return sumA / (math.Sqrt(s1) * math.Sqrt(s2)), nil
+	magnitude1 = math.Sqrt(magnitude1)
+	magnitude2 = math.Sqrt(magnitude2)
+	if magnitude1 == 0 || magnitude2 == 0 {
+		return 0, fmt.Errorf("One or both of the vectors have zero magnitude")
+	}
+	return dotProduct / (magnitude1 * magnitude2), nil
+}
+
+func cosineDistance(vec1, vec2 []float32) (float64, error) {
+	similarity, err := cosineSimilarity(vec1, vec2)
+	if err != nil {
+		return 0, err
+	}
+	return 1 - similarity, nil
 }
