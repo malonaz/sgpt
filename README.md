@@ -70,14 +70,14 @@ You can read the chat by using the id of the chat, which is listed in the chat d
 The `sgpt diff` command helps you generate a Git commit message based on the staged changes in your Git repository. The command reads the staged changes, excludes specified files, and generates a commit message using OpenAI's GPT model.
 **Command options:**
 - `--model`: Override the default OpenAI model
-- `--message`/`-m`: Specify a message for the commit
+- `--message`/`-m`: Give extra instruction to sgpt diff.
 ```bash
-sgpt diff --model gpt-3.5-turbo --message "Add new feature X"
+sgpt diff --model gpt-3.5-turbo --message "Focus on the frontend changes"
 ```
-This command generates a git commit message for the staged changes using the gpt-3.5-turbo model and a message "Add new feature X".
+This command generates a git commit message for the staged changes using the gpt-3.5-turbo model, and gives it extra instructions to "Focs on the frontend changes".
 **Note:**
 - Before running `sgpt diff`, make sure you have staged the changes you want to commit using `git add`.
-- You can exclude specific files from being considered while generating the commit message by adding them to the `DiffIgnoreFiles` list in your `config.json`.
+- You can exclude specific files from being considered while generating the commit message by adding them to the `DiffIgnoreFiles` list in your `config.json`. This is useful to ignore autogen files, such as `.wollemi.json` in this repo, which pollute the sgpt diff context and do not provide relevant information to `sgpt diff`.
 - The `sgpt diff` command requires Git to be installed and available in your system's PATH.
 
 ### `sgpt embed`
