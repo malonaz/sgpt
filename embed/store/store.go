@@ -89,7 +89,6 @@ func (s *Store) Search(vector []float32) ([]*FileChunk, error) {
 		fileChunks = append(fileChunks, file.Chunks...)
 	}
 	var err error
-	x := map[*FileChunk]float64{}
 	sort.Slice(fileChunks, func(i, j int) bool {
 		var distanceA, distanceB float64
 		distanceA, err = cosineDistance(fileChunks[i].Embedding, vector)
@@ -100,13 +99,8 @@ func (s *Store) Search(vector []float32) ([]*FileChunk, error) {
 		if err != nil {
 			return false
 		}
-		x[fileChunks[i]] = distanceA
-		x[fileChunks[j]] = distanceB
 		return distanceA < distanceB
 	})
-	for _, fc := range fileChunks {
-		fmt.Printf("file[%s]=%f\n", fc.Filename, x[fc])
-	}
 	return fileChunks, err
 }
 
