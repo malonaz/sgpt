@@ -13,24 +13,7 @@ Here's a sample default configuration:
 }
 ```
 You can edit this file to personalize the parameters according to your requirements.
-## Commands
-Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
-### `sgpt chat`
-This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, and more.
-**Command options:**
-- `--model`: Override the default OpenAI model
-- `--id` : Specify a chat id. If none is supplied, a temporary chat session is created that will be not be persisted to disk.
-- `--file` : Specify files whose content should be injected into the context.
-- `--ext` : Specify file extensions to accept (used in conjunction with the --file flag).
-- `--code` : A mode that forces SGPT to spit out code and only code.
-For example:
-```bash
-sgpt chat --model gpt-4 --id my_chat
-```
-This initiates a chat using the gpt-4 model and the id 'my_chat'.
-**Please be aware that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
-You can read the chat by using the id of the chat, which is listed in the chat directory.
-SGPT is designed to make the developer's interaction with OpenAI's Language Models as seamless as possible. Feel free to contribute or report issues as you use SGPT.
+
 ## Using the `--file` flag
 The `--file` flag is an integral part of the `sgpt chat` command used to inject file content into the chat context. This flag can be used in various ways to achieve broad control over file inputs.
 1. **Specifying multiple files:** You can specify multiple files by using the `--file` flag multiple times in the command:
@@ -63,10 +46,57 @@ sgpt chat --file=path/to/directory --ext=.txt --ext=.md
 ```
 Now, both `.txt` and `.md` files are considered valid, and their content will be injected into the chat context.
 These advanced usages of the `--file` and `--ext` flags make it easy for developers to customize the chat context based on their file inputs, enhancing SGPT's versatility and usability.
+
+## Commands
+Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
+### `sgpt chat`
+This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, user role, embeddings usage, and more.
+**Command options:**
+- `--model`: Override the default OpenAI model
+- `--id` : Specify a chat id. If none is supplied, a new chat session with a generated id is created and persisted to disk.
+- `--file` : Specify files whose content should be injected into the context.
+- `--ext` : Specify file extensions to accept (used in conjunction with the --file flag).
+- `--role` : Specify a user role that the AI will emulate. Available roles: `code`, `shell`.
+- `--embeddings` : Use repository embeddings to augment AI response if matching content is found (generated with `sgpt embed`).
+For example:
+```bash
+sgpt chat --model gpt-3.5-turbo --id my_chat --role code
+```
+This initiates a chat using the gpt-3.5-turbo model, the id 'my_chat', and the AI will play the role of providing only code as output.
+**Please note that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
+You can read the chat by using the id of the chat, which is listed in the chat directory.
+
+### `sgpt diff`
+The `sgpt diff` command helps you generate a Git commit message based on the staged changes in your Git repository. The command reads the staged changes, excludes specified files, and generates a commit message using OpenAI's GPT model.
+**Command options:**
+- `--model`: Override the default OpenAI model
+- `--message`/`-m`: Give extra instruction to sgpt diff.
+```bash
+sgpt diff --model gpt-3.5-turbo --message "Focus on the frontend changes"
+```
+This command generates a git commit message for the staged changes using the gpt-3.5-turbo model, and gives it extra instructions to "Focs on the frontend changes".
+**Note:**
+- Before running `sgpt diff`, make sure you have staged the changes you want to commit using `git add`.
+- You can exclude specific files from being considered while generating the commit message by adding them to the `DiffIgnoreFiles` list in your `config.json`. This is useful to ignore autogen files, such as `.wollemi.json` in this repo, which pollute the sgpt diff context and do not provide relevant information to `sgpt diff`.
+- The `sgpt diff` command requires Git to be installed and available in your system's PATH.
+
+### `sgpt embed`
+The `sgpt embed` command is used to generate embeddings for a repository. This is an efficient way to represent a repository's code and other content in a way that can be easily processed and compared by machine learning models like GPT.
+To use the `sgpt embed` command, simply run:
+```bash
+sgpt embed
+```
+The command will recursively analyze all the files in the current repository, generate embeddings for each individual file, and save the generated embeddings to a local store. You can re-run it many times; it will only regenerate embeddings for files that have changed since the last time.
+By default, the `sgpt embed` command uses the "text-embedding-ada-002" model and cannot be overridden. Additionally, you can use the `--force` flag to force embeddings regeneration for all files even if they haven't changed:
+```bash
+sgpt embed --force
+```
+
 ## Getting Started
 To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. Then, use `go get` to fetch the package. Configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
 ## Contributing
 Contributions to SGPT are welcome! Whether it's feature requests, bug fixes, documentation improvements, or any other changes, we are glad to see them.
 
 ## TODOs
-- Add sgpt repo, which generates embeddings for a repo and allows you to talk with it.
+- Clean up sgpt embed.
+- Create a /format library to avoid reproducing it all.

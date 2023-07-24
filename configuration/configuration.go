@@ -26,6 +26,7 @@ type Config struct {
 	DefaultModel    string   `json:"default_model"`
 	ChatDirectory   string   `json:"chat_directory"`
 	DiffIgnoreFiles []string `json:"diff_ignore_files"`
+	EmbedFileExtensions []string `json:"embed_file_extensions"`
 }
 
 // Parse a configuration file.

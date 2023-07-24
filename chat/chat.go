@@ -20,6 +20,7 @@ import (
 
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/file"
+	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/model"
 	"github.com/malonaz/sgpt/role"
 )
@@ -40,6 +41,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Role          *role.Opts
 		Model         *model.Opts
 		ChatID        string
+		Embeddings bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -93,12 +95,12 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			// Inject role.
-			role, err := role.Parse(opts.Role)
+			r, err := role.Parse(opts.Role)
 			cobra.CheckErr(err)
-			if role != nil {
+			if r != nil {
 				message := openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: role.Description,
+					Content: r.Description,
 				}
 				additionalMessages = append(additionalMessages, message)
 			}
@@ -120,7 +122,30 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				userColor.Print("\n-> ")
 				text := promptUser()
 				// convert CRLF to LF
-				text = strings.Replace(text, "\n", "", -1)
+				text = strings.ReplaceAll(text, "\n", " ")
+				var embeddingMessages []openai.ChatCompletionMessage
+				if opts.Embeddings {
+					store, err := embed.LoadStore()
+					cobra.CheckErr(err)
+					embeddings, err := embed.Content(ctx, openAIClient, text)
+					cobra.CheckErr(err)
+					chunks, err := store.Search(embeddings)
+					cobra.CheckErr(err)
+					if len(chunks) != 0 {
+						embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
+							Role:    openai.ChatMessageRoleSystem,
+							Content: role.EmbeddingsAugmentedAssistant,
+						})
+						for i := 0; i < 10; i++ {
+							chunk := chunks[i]
+							fileColor.Printf("inserting chunk from file %s\n", chunk.Filename)
+							embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
+								Role:    openai.ChatMessageRoleSystem,
+								Content: chunk.Content,
+							})
+						}
+					}
+				}
 				chat.Messages = append(chat.Messages, openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleUser,
 					Content: text,
@@ -129,7 +154,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				// Send request to API and stream response.
 				ctx, cancel := context.WithTimeout(ctx, time.Duration(config.RequestTimeout)*time.Second)
 				defer cancel()
-				messages := append(additionalMessages, chat.Messages...)
+				messages := append(additionalMessages, embeddingMessages...)
+				messages = append(messages, chat.Messages...)
 				request := openai.ChatCompletionRequest{
 					Model:    model.ID,
 					Messages: messages,
@@ -179,6 +205,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	opts.Role = role.GetOpts(cmd)
 	opts.Model = model.GetOpts(cmd, config)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
+	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	return cmd
 }
 

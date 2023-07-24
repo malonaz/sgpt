@@ -5,6 +5,7 @@ go_library(
         "//chat",
         "//configuration",
         "//diff",
+        "//embed",
     ],
     deps = [
         "//third_party/go:github.com__pkg__errors",

@@ -27,3 +27,7 @@ importpath = github.com/malonaz/sgpt
 [alias "tidy"]
 desc = Run a linter across all files
 cmd = run //tools/tidy
+
+[alias "lint"]
+desc = Run a linter across all files
+cmd = run //tools/tidy:lint

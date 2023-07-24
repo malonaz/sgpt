@@ -26,7 +26,7 @@ type File struct {
 func GetOpts(cmd *cobra.Command) *InjectionOpts {
 	opts := &InjectionOpts{}
 	cmd.Flags().StringSliceVarP(&opts.Files, "file", "f", nil, "specify file content to inject into the context")
-	cmd.Flags().StringSliceVarP(&opts.FileExtensions, "ext", "e", nil, "specify file extensions to accept")
+	cmd.Flags().StringSliceVar(&opts.FileExtensions, "ext", nil, "specify file extensions to accept")
 	return opts
 }
 
@@ -35,7 +35,7 @@ func Parse(opts *InjectionOpts) ([]*File, error) {
 	files := []*File{}
 	parseFileFn := func(filepath string) error {
 		// Apply filter
-		if !hasValidExtension(filepath, opts.FileExtensions) {
+		if !HasValidExtension(filepath, opts.FileExtensions) {
 			return nil
 		}
 		bytes, err := os.ReadFile(filepath)
@@ -108,7 +108,8 @@ func smartParse(filepath string, parseFileFn func(filepath string) error) error 
 	return nil
 }
 
-func hasValidExtension(filename string, validExtensions []string) bool {
+// HasValidExtension returns true if the given filename has one of the valid extensions.
+func HasValidExtension(filename string, validExtensions []string) bool {
 	if len(validExtensions) == 0 {
 		return true
 	}
