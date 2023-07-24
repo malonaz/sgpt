@@ -13,24 +13,7 @@ Here's a sample default configuration:
 }
 ```
 You can edit this file to personalize the parameters according to your requirements.
-## Commands
-Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
-### `sgpt chat`
-This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, and more.
-**Command options:**
-- `--model`: Override the default OpenAI model
-- `--id` : Specify a chat id. If none is supplied, a temporary chat session is created that will be not be persisted to disk.
-- `--file` : Specify files whose content should be injected into the context.
-- `--ext` : Specify file extensions to accept (used in conjunction with the --file flag).
-- `--code` : A mode that forces SGPT to spit out code and only code.
-For example:
-```bash
-sgpt chat --model gpt-4 --id my_chat
-```
-This initiates a chat using the gpt-4 model and the id 'my_chat'.
-**Please be aware that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
-You can read the chat by using the id of the chat, which is listed in the chat directory.
-SGPT is designed to make the developer's interaction with OpenAI's Language Models as seamless as possible. Feel free to contribute or report issues as you use SGPT.
+
 ## Using the `--file` flag
 The `--file` flag is an integral part of the `sgpt chat` command used to inject file content into the chat context. This flag can be used in various ways to achieve broad control over file inputs.
 1. **Specifying multiple files:** You can specify multiple files by using the `--file` flag multiple times in the command:
@@ -63,6 +46,35 @@ sgpt chat --file=path/to/directory --ext=.txt --ext=.md
 ```
 Now, both `.txt` and `.md` files are considered valid, and their content will be injected into the chat context.
 These advanced usages of the `--file` and `--ext` flags make it easy for developers to customize the chat context based on their file inputs, enhancing SGPT's versatility and usability.
+
+## Commands
+Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
+### `sgpt chat`
+This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, and more.
+**Command options:**
+- `--model`: Override the default OpenAI model
+- `--id` : Specify a chat id. If none is supplied, a temporary chat session is created that will be not be persisted to disk.
+- `--file` : Specify files whose content should be injected into the context.
+- `--ext` : Specify file extensions to accept (used in conjunction with the --file flag).
+- `--code` : A mode that forces SGPT to spit out code and only code.
+For example:
+```bash
+sgpt chat --model gpt-4 --id my_chat
+```
+This initiates a chat using the gpt-4 model and the id 'my_chat'.
+**Please be aware that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
+You can read the chat by using the id of the chat, which is listed in the chat directory.
+SGPT is designed to make the developer's interaction with OpenAI's Language Models as seamless as possible. Feel free to contribute or report issues as you use SGPT.
+
+### `sgpt embed`
+The `sgpt embed` command is used to generate embeddings for a repository. This is an efficient way to represent a repository's code and other content in a way that can be easily processed and compared by machine learning models like GPT.
+To use the `sgpt embed` command, simply run:
+```bash
+sgpt embed
+```
+The command will recursively analyze all the files in the current repository, generate embeddings for each individual file, and save the generated embeddings to a local store. You can re-run it many times, it will only regenerate embeddings for files that have changed since the last time.
+The `sgpt embed` command uses the "text-embedding-ada-002" model and cannot be overriden.
+
 ## Getting Started
 To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. Then, use `go get` to fetch the package. Configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
 ## Contributing
