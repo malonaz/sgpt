@@ -3,7 +3,7 @@ go_library(
     srcs = ["file.go"],
     visibility = [
         "//chat",
-        "//configuration",
+        "//internal/configuration",
         "//diff",
         "//embed",
     ],

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/malonaz/sgpt/file"
+	"github.com/malonaz/sgpt/internal/file"
 	"github.com/pkg/errors"
 )
 

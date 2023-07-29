@@ -8,7 +8,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/shopspring/decimal"
 )
 

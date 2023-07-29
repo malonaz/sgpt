@@ -1,7 +1,7 @@
 # SGPT - Shell GPT
 SGPT is a Go-native command-line interface (CLI) for OpenAI's Language Models. It is designed to be developer-friendly, making it easy to interact with OpenAI's API. SGPT offers you the ability to conduct a back-and-forth chat with the API, and even inject file content into the context.
 ## Configuration
-SGPT uses a configuration file to manage various settings. The configuration file is a JSON that includes information such as the OpenAI API Key, the API host, request timeout, the default model, and the chat directory. This resides in a default directory `~/.sgpt/config.json`.
+SGPT uses a configuration file to manage various settings. The configuration file is a JSON that includes information such as the OpenAI API Key, the API host, request timeout, the default model, and the chat directory. This resides in a default directory `~/.sgpt/internal/config.json`.
 Here's a sample default configuration:
 ```json
 {

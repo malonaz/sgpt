@@ -16,12 +16,12 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/cli"
-	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/internal/cli"
+	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/embed"
-	"github.com/malonaz/sgpt/file"
-	"github.com/malonaz/sgpt/model"
-	"github.com/malonaz/sgpt/role"
+	"github.com/malonaz/sgpt/internal/file"
+	"github.com/malonaz/sgpt/internal/model"
+	"github.com/malonaz/sgpt/internal/role"
 )
 
 // NewCmd instantiates and returns the inventory chat cmd.

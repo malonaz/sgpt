@@ -17,11 +17,11 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/cli"
-	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/internal/cli"
+	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/embed/store"
-	"github.com/malonaz/sgpt/file"
-	"github.com/malonaz/sgpt/model"
+	"github.com/malonaz/sgpt/internal/file"
+	"github.com/malonaz/sgpt/internal/model"
 )
 
 // NewCmd instantiates and returns the diff command.

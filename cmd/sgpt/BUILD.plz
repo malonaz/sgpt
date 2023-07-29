@@ -4,7 +4,7 @@ go_binary(
     visibility = ["//..."],
     deps = [
         "//chat",
-        "//configuration",
+        "//internal/configuration",
         "//diff",
         "//embed",
         "//third_party/go:github.com__sashabaranov__go-openai",

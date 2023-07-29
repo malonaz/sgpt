@@ -5,12 +5,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/chat"
-	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/diff"
 	"github.com/malonaz/sgpt/embed"
 )
 
-const configFilepath = "~/.sgpt/config.json"
+const configFilepath = "~/.sgpt/internal/config.json"
 
 var rootCmd = &cobra.Command{
 	Use:     "sgpt",

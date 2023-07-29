@@ -3,7 +3,7 @@ go_library(
     srcs = ["configuration.go"],
     visibility = ["//..."],
     deps = [
-        "//file",
+        "//internal/file",
         "//third_party/go:github.com__pkg__errors",
     ],
 )

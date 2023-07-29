@@ -16,10 +16,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/waigani/diffparser"
 
-	"github.com/malonaz/sgpt/cli"
-	"github.com/malonaz/sgpt/configuration"
-	"github.com/malonaz/sgpt/file"
-	"github.com/malonaz/sgpt/model"
+	"github.com/malonaz/sgpt/internal/cli"
+	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/internal/file"
+	"github.com/malonaz/sgpt/internal/model"
 )
 
 const prompt = `IMPORTANT: Provide only plain text without Markdown formatting.
