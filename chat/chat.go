@@ -215,7 +215,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	opts.Model = model.GetOpts(cmd, config)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
-	cmd.Flags().BoolVar(&opts.ShowCost, "show-cost", false, "Show cost")
+	cmd.Flags().BoolVarP(&opts.ShowCost, "show-cost", "c", false, "Show cost")
 	return cmd
 }
 
