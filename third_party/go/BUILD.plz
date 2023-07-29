@@ -67,6 +67,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__buger__goterm",
+    _tag = "download",
+    module = "github.com/buger/goterm",
+    version = "v1.0.4",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__buger__goterm",
+    download = ":_github.com__buger__goterm#download",
+    install = ["."],
+    module = "github.com/buger/goterm",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
     name = "github.com__dlclark__regexp2",
     _tag = "download",
     module = "github.com/dlclark/regexp2",

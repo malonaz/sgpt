@@ -18,6 +18,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
+	"github.com/malonaz/sgpt/cli"
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/file"
@@ -42,6 +43,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Model         *model.Opts
 		ChatID        string
 		Embeddings    bool
+		ShowCost      bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -49,7 +51,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Long:  "Back and forth chat",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Parse a chat if relevant.
+			// Parse a chat if relevant.opts.ChatID,
 			chat := &Chat{}
 			if opts.ChatID != "" {
 				chat, err = parseChat(config.ChatDirectory, opts.ChatID)
@@ -63,16 +65,12 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Colors.
-			userColor := color.New(color.Bold).Add(color.Underline)
-			aiColor := color.New(color.FgCyan)
-			formatColor := color.New(color.FgGreen)
 			fileColor := color.New(color.FgRed)
-			costColor := color.New(color.FgYellow)
 
 			// Chat headers.
-			formatColor.Println(asciiSeparator)
-			formatColor.Printf(asciiSeparatorInject, opts.ChatID, model.ID)
-			formatColor.Println(asciiSeparator)
+			cli.Separator()
+			cli.Title("SGPT CHAT [%s](%s)", model.ID, opts.ChatID)
+			cli.Separator()
 
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)
@@ -89,9 +87,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			if len(additionalMessages) > 0 {
 				tokens, cost, err := model.CalculateRequestCost(additionalMessages...)
 				cobra.CheckErr(err)
-				formatColor.Println(asciiSeparator)
-				costColor.Printf("File injections (%d tokens) will add %s per request\n", tokens, cost.String())
-				formatColor.Println(asciiSeparator)
+				if opts.ShowCost {
+					cli.CostInput("File injections (%d tokens) will add %s per request\n", tokens, cost.String())
+				}
 			}
 
 			// Inject role.
@@ -108,10 +106,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			// Print history.
 			for _, message := range chat.Messages {
 				if message.Role == openai.ChatMessageRoleUser {
-					userColor.Printf("-> %s\n", message.Content)
+					cli.UserInput(message.Content)
 				}
 				if message.Role == openai.ChatMessageRoleAssistant {
-					aiColor.Println(message.Content)
+					cli.AIInput(message.Content)
 				}
 			}
 
@@ -119,7 +117,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			var totalCost decimal.Decimal
 			for {
 				// Query user for prompt.
-				userColor.Print("\n-> ")
+				cli.UserInput("")
 				text := promptUser()
 				// convert CRLF to LF
 				text = strings.ReplaceAll(text, "\n", " ")
@@ -163,8 +161,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
 				cobra.CheckErr(err)
-				costColor.Printf("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
-				formatColor.Println(asciiSeparator)
+				if opts.ShowCost {
+					cli.CostInput("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
+				}
 
 				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 				cobra.CheckErr(err)
@@ -174,22 +173,22 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				for {
 					response, err := stream.Recv()
 					if errors.Is(err, io.EOF) {
+						cli.AIInput("\n")
 						break
 					}
 					cobra.CheckErr(err)
 					content := strings.Replace(response.Choices[0].Delta.Content, "\n\n", "\n", -1)
 					content = strings.Replace(content, "%", "%%", -1)
-					aiColor.Printf(content)
+					cli.AIInput(content)
 					chatCompletionMessage.Content += response.Choices[0].Delta.Content
 				}
-				aiColor.Printf("\n")
 				responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
 				cobra.CheckErr(err)
-				formatColor.Println(asciiSeparator)
-				costColor.Printf("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
 				totalCost = totalCost.Add(requestCost).Add(responseCost)
-				costColor.Printf("Total cost so far $%s\n", totalCost.String())
-				formatColor.Println(asciiSeparator)
+				if opts.ShowCost {
+					cli.CostInput("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
+					cli.CostInput("Total cost so far $%s\n", totalCost.String())
+				}
 
 				// Append the response content to our history.
 				chat.Messages = append(chat.Messages, chatCompletionMessage)
@@ -206,6 +205,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	opts.Model = model.GetOpts(cmd, config)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
+	cmd.Flags().BoolVar(&opts.ShowCost, "show-cost", false, "Show cost")
 	return cmd
 }
 
