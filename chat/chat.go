@@ -186,7 +186,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 						break
 					}
 					cobra.CheckErr(err)
-					content := strings.Replace(response.Choices[0].Delta.Content, "\n\n", "\n", -1)
+					content := response.Choices[0].Delta.Content
 					content = strings.Replace(content, "%", "%%", -1)
 					cli.AIOutput(content)
 					chatCompletionMessage.Content += response.Choices[0].Delta.Content
