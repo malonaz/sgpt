@@ -3,9 +3,9 @@ go_library(
     srcs = ["file.go"],
     visibility = [
         "//chat",
-        "//internal/configuration",
         "//diff",
         "//embed",
+        "//internal/configuration",
     ],
     deps = [
         "//third_party/go:github.com__pkg__errors",

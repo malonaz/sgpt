@@ -6,9 +6,9 @@ go_library(
         "//cmd/sgpt",
     ],
     deps = [
+        "//embed/store",
         "//internal/cli",
         "//internal/configuration",
-        "//embed/store",
         "//internal/file",
         "//internal/model",
         "//third_party/go:github.com__pkg__errors",

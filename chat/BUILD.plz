@@ -3,9 +3,9 @@ go_library(
     srcs = ["chat.go"],
     visibility = ["//cmd/sgpt"],
     deps = [
+        "//embed",
         "//internal/cli",
         "//internal/configuration",
-        "//embed",
         "//internal/file",
         "//internal/model",
         "//internal/role",

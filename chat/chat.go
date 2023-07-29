@@ -16,9 +16,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
+	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/model"
 	"github.com/malonaz/sgpt/internal/role"
