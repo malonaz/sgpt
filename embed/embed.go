@@ -26,6 +26,10 @@ import (
 
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
+	// Initialize chat directory.
+	err := file.CreateDirectoryIfNotExist("~/.sgpt/embed")
+	cobra.CheckErr(err)
+
 	var opts struct {
 		Force bool
 	}

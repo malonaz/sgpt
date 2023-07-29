@@ -142,3 +142,14 @@ func GetRootDir(path string) string {
 	// Return the first component (the root)
 	return components[0]
 }
+
+// CreateDirectoryIfNotExist creates a directory if it doesn't already exist.
+func CreateDirectoryIfNotExist(directory string) error {
+	if _, err := os.Stat(directory); !os.IsNotExist(err) {
+		return nil
+	}
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		return errors.Wrap(err, "creating directory")
+	}
+	return nil
+}

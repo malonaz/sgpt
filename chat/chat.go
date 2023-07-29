@@ -27,7 +27,7 @@ import (
 // NewCmd instantiates and returns the inventory chat cmd.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	// Initialize chat directory.
-	err := initializeChatDirectoryIfNotExist(config.ChatDirectory)
+	err := file.CreateDirectoryIfNotExist(config.ChatDirectory)
 	cobra.CheckErr(err)
 
 	var opts struct {
@@ -198,16 +198,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	cmd.Flags().BoolVar(&opts.ShowCost, "show-cost", false, "Show cost")
 	return cmd
-}
-
-func initializeChatDirectoryIfNotExist(chatDirectory string) error {
-	if _, err := os.Stat(chatDirectory); !os.IsNotExist(err) {
-		return nil
-	}
-	if err := os.MkdirAll(chatDirectory, 0755); err != nil {
-		return errors.Wrap(err, "creating chat directory")
-	}
-	return nil
 }
 
 // Chat holds a chat struct.
