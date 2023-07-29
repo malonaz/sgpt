@@ -10,7 +10,7 @@ import (
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-const configFilepath = "~/.sgpt/internal/config.json"
+const configFilepath = "~/.sgpt/config.json"
 
 var rootCmd = &cobra.Command{
 	Use:     "sgpt",

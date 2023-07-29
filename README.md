@@ -50,7 +50,8 @@ These advanced usages of the `--file` and `--ext` flags make it easy for develop
 ## Commands
 Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
 ### `sgpt chat`
-This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, user role, embeddings usage, and more.
+This command initiates a back-and-forth chat. You can specify the model, chat id, file content to inject into the context, user role, embeddings usage, and more. In a chat session initiated by the `sgpt chat` command, SGPT uses the 'Ctrl+O' key combination to detect the end of user input.
+This means that you can continue to input multiple lines of chat, and only when you're finished and want to send the chat context to the AI for generation, you would press 'Ctrl+O'. The program will then recognize this as the conclusion of the current user input block.
 **Command options:**
 - `--model`: Override the default OpenAI model
 - `--id` : Specify a chat id. If none is supplied, a new chat session with a generated id is created and persisted to disk.
