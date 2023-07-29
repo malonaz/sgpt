@@ -13,20 +13,16 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/fatih/color"
-	"github.com/malonaz/sgpt/configuration"
-	"github.com/malonaz/sgpt/embed/store"
-	"github.com/malonaz/sgpt/file"
-	"github.com/malonaz/sgpt/model"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
-)
 
-const (
-	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
-	asciiSeparatorInject = "-------------------------------------------------Embed [%s]---------------------------------------------------\n"
+	"github.com/malonaz/sgpt/cli"
+	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/embed/store"
+	"github.com/malonaz/sgpt/file"
+	"github.com/malonaz/sgpt/model"
 )
 
 // NewCmd instantiates and returns the diff command.
@@ -48,15 +44,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			s, err := LoadStore()
 			cobra.CheckErr(err)
 
-			// Colors.
-			fileColor := color.New(color.FgRed)
-			aiColor := color.New(color.FgCyan)
-			formatColor := color.New(color.FgGreen)
-			costColor := color.New(color.FgYellow)
-			// Print title.
-			formatColor.Println(asciiSeparator)
-			formatColor.Printf(asciiSeparatorInject, model.ID)
-			formatColor.Println(asciiSeparator)
+			// Headers.
+			cli.Separator()
+			cli.Title("SGPT EMBED [%s]", model.ID)
+			cli.Separator()
 
 			// Run git diff.
 			path, err := exec.LookPath("git")
@@ -75,7 +66,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				ignore := false
 				for _, ignoreFile := range config.DiffIgnoreFiles {
 					if strings.Contains(gitFile, ignoreFile) {
-						fileColor.Printf("Ignoring %s\n", gitFile)
+						cli.FileInfo("Ignoring %s\n", gitFile)
 						ignore = true
 						break
 					}
@@ -84,7 +75,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					filteredGitFiles = append(filteredGitFiles, gitFile)
 				}
 			}
-			formatColor.Println(asciiSeparator)
+			cli.Separator()
 
 			// Chunk up the files.
 			chunkSize := 2000 // characters.
@@ -112,7 +103,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				if storeFile, ok := s.GetFile(file.Name); ok && storeFile.Hash == file.Hash && !opts.Force {
 					continue
 				}
-				aiColor.Printf("Regenerating embeddings for file %s\n", file.Name)
+				cli.AIInput("Detected stale embeddings for file %s\n", file.Name)
 				files = append(files, file)
 				for i, chunk := range fileChunks {
 					file.Chunks[i] = &store.FileChunk{
@@ -128,12 +119,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				filenameToCostInformation[file.Name] = fmt.Sprintf("%d tokens costing $%s\n", tokens, cost.String())
 			}
 			if len(files) == 0 {
-				aiColor.Println("all embeddings are up to date")
+				cli.AIInput("All embeddings are up to date")
 				return
 			}
 
-			costColor.Printf("regenerating all embeddings (%d tokens) will cost: %s\n", totalTokens, totalCost.String())
-			formatColor.Println(asciiSeparator)
+			cli.CostInfo("regenerating all embeddings (%d tokens) will cost: %s\n", totalTokens, totalCost.String())
 			// Check if user wants to commit the message.
 			surveyQuestion := &survey.Confirm{
 				Message: "Continue",
@@ -143,7 +133,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			if !confirm {
 				return
 			}
-			formatColor.Println(asciiSeparator)
 
 			// Get embeddings from open ai.
 			barrier := make(chan struct{}, 20)
@@ -169,8 +158,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					s.AddFile(file)
 					err := s.Save()
 					cobra.CheckErr(err)
-					costColor.Printf("generated embedding for %s: %s", file.Name, filenameToCostInformation[file.Name])
-					formatColor.Println(asciiSeparator)
+					cli.CostInfo("generated embedding for %s: %s", file.Name, filenameToCostInformation[file.Name])
 				}
 				go fn()
 			}
