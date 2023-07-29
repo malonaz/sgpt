@@ -5,9 +5,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/chat"
-	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/diff"
+	"github.com/malonaz/sgpt/embed"
 )
 
 const configFilepath = "~/.sgpt/config.json"

@@ -2,8 +2,8 @@ go_library(
     name = "embed",
     srcs = ["embed.go"],
     visibility = [
-        "//cmd/sgpt",
         "//chat",
+        "//cmd/sgpt",
     ],
     deps = [
         "//configuration",

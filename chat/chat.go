@@ -19,8 +19,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/configuration"
-	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/embed"
+	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/model"
 	"github.com/malonaz/sgpt/role"
 )
@@ -41,7 +41,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Role          *role.Opts
 		Model         *model.Opts
 		ChatID        string
-		Embeddings bool
+		Embeddings    bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",

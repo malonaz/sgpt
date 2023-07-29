@@ -1,27 +1,27 @@
 package embed
 
 import (
-	"context"
-	"time"
-	"os"
 	"bytes"
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
-	"crypto/md5"
 	"sync"
-	"fmt"
-	"encoding/hex"
+	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
+	"github.com/malonaz/sgpt/configuration"
+	"github.com/malonaz/sgpt/embed/store"
+	"github.com/malonaz/sgpt/file"
+	"github.com/malonaz/sgpt/model"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
+	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
-	"github.com/malonaz/sgpt/configuration"
-	"github.com/malonaz/sgpt/model"
-	"github.com/malonaz/sgpt/file"
-	"github.com/malonaz/sgpt/embed/store"
 )
 
 const (
@@ -37,11 +37,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cmd := &cobra.Command{
 		Use:   "embed",
 		Short: "Generate embeddings for a repo",
-		Long: "Generate embeddings for a repo",
+		Long:  "Generate embeddings for a repo",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Set the model.
-			optsModel := &model.Opts{ Model: "text-embedding-ada-002" }
+			optsModel := &model.Opts{Model: "text-embedding-ada-002"}
 			model, err := model.Parse(optsModel, config)
 			cobra.CheckErr(err)
 
@@ -104,9 +104,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				fileHash := fileHash(bytes)
 				fileChunks := chunkFile(string(bytes), chunkSize)
 				file := &store.File{
-					Name:             filename,
-					Hash:             fileHash,
-					Chunks:  make([]*store.FileChunk, len(fileChunks)),
+					Name:              filename,
+					Hash:              fileHash,
+					Chunks:            make([]*store.FileChunk, len(fileChunks)),
 					CreationTimestamp: uint64(time.Now().Unix()),
 				}
 				if storeFile, ok := s.GetFile(file.Name); ok && storeFile.Hash == file.Hash && !opts.Force {
@@ -116,7 +116,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				files = append(files, file)
 				for i, chunk := range fileChunks {
 					file.Chunks[i] = &store.FileChunk{
-						Content: chunk,
+						Content:  chunk,
 						Filename: filename,
 					}
 				}
@@ -144,7 +144,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				return
 			}
 			formatColor.Println(asciiSeparator)
-
 
 			// Get embeddings from open ai.
 			barrier := make(chan struct{}, 20)

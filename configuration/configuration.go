@@ -20,12 +20,12 @@ var defaultConfig = Config{
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	OpenaiAPIKey    string   `json:"openai_api_key"`
-	OpenaiAPIHost   string   `json:"openai_api_host"`
-	RequestTimeout  int      `json:"request_timeout"`
-	DefaultModel    string   `json:"default_model"`
-	ChatDirectory   string   `json:"chat_directory"`
-	DiffIgnoreFiles []string `json:"diff_ignore_files"`
+	OpenaiAPIKey        string   `json:"openai_api_key"`
+	OpenaiAPIHost       string   `json:"openai_api_host"`
+	RequestTimeout      int      `json:"request_timeout"`
+	DefaultModel        string   `json:"default_model"`
+	ChatDirectory       string   `json:"chat_directory"`
+	DiffIgnoreFiles     []string `json:"diff_ignore_files"`
 	EmbedFileExtensions []string `json:"embed_file_extensions"`
 }
 

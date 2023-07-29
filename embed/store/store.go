@@ -1,26 +1,26 @@
 package store
 
 import (
-	"math"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"math"
 	"os"
+	"sort"
 )
 
 // File represents a file.
 type File struct {
-	Name             string
-	Hash             string
-	Chunks  []*FileChunk
+	Name              string
+	Hash              string
+	Chunks            []*FileChunk
 	CreationTimestamp uint64
 }
 
 // FileChunk represents a file chunk.
 type FileChunk struct {
-	Embedding         []float32
-	Filename          string
-	Content string
+	Embedding []float32
+	Filename  string
+	Content   string
 }
 
 // Store represents the data layer that stores files on disk.
@@ -80,7 +80,6 @@ func (s *Store) GetFile(name string) (*File, bool) {
 	file, ok := s.files[name]
 	return file, ok
 }
-
 
 // Search this store's embeddings, returning the most similar.
 func (s *Store) Search(vector []float32) ([]*FileChunk, error) {

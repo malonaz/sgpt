@@ -1,13 +1,13 @@
 package diff
 
 import (
-	"sort"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -129,7 +129,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			filteredGitDiff := strings.Join(filteredParts, "diff --git")
 
-
 			// Analyze the diff.
 			diff, err := diffparser.Parse(gitDiff)
 			cobra.CheckErr(err)
@@ -145,22 +144,21 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				// Update the root dir count.
 				rootDir := file.GetRootDir(filename)
-				rootDirToCount[rootDir] +=  len(f.Hunks)
+				rootDirToCount[rootDir] += len(f.Hunks)
 			}
 			type Scope struct {
-				Name string
+				Name  string
 				Count int
 			}
 			scopes := []*Scope{}
 			for rootDir, count := range rootDirToCount {
 				scope := &Scope{
-					Name: rootDir,
+					Name:  rootDir,
 					Count: count,
 				}
 				scopes = append(scopes, scope)
 			}
 			sort.Slice(scopes, func(i, j int) bool { return scopes[i].Count > scopes[j].Count })
-
 
 			messages := []openai.ChatCompletionMessage{}
 			// Inject diff.

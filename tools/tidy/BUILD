@@ -53,7 +53,7 @@ sh_cmd(
         echo_message("Running 'wollemi'"),
         "$(out_exe :wollemi) gofmt ./...",
         echo_message("Running 'gofmt'"),
-        f"gofmt -s -w \\\\$(go list ./... | sed s#github.com/time-app/deeptime/##g)",
+        f"gofmt -s -w \\\\$(go list ./... | sed s#github.com/malonaz/sgpt/##g)",
     ],
     deps = [
         ":wollemi",

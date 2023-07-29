@@ -112,7 +112,6 @@ func (m *Model) calculateCost(messages []openai.ChatCompletionMessage, input boo
 	return tokens, cost, nil
 }
 
-
 func numTokensFromMessages(messages []openai.ChatCompletionMessage, modelID string) (int64, error) {
 	tkm, err := tiktoken.EncodingForModel(modelID)
 	if err != nil {
