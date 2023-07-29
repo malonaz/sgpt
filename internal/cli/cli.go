@@ -69,7 +69,7 @@ func PromptUser() (string, error) {
 		Prompt:          "> ",
 		InterruptPrompt: "^C",
 		FuncFilterInputRune: func(r rune) (rune, bool) {
-			if r == '\x0F' { // Ctrl+o.a
+			if r == '\x0A' { // Ctrl + J
 				exit = true
 			}
 			return r, true
