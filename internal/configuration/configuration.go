@@ -10,12 +10,14 @@ import (
 )
 
 var defaultConfig = Config{
-	OpenaiAPIKey:    "API_KEY",
-	OpenaiAPIHost:   "https://api.openai.com",
-	RequestTimeout:  60,
-	DefaultModel:    "gpt-3.5-turbo",
-	ChatDirectory:   "~/.sgpt/chats",
-	DiffIgnoreFiles: []string{},
+	OpenaiAPIKey:        "API_KEY",
+	OpenaiAPIHost:       "https://api.openai.com",
+	RequestTimeout:      60,
+	DefaultModel:        "gpt-3.5-turbo",
+	ChatDirectory:       "~/.sgpt/chats",
+	EmbedDirectory:      "~/.sgpt/embed",
+	DiffIgnoreFiles:     []string{},
+	EmbedFileExtensions: []string{},
 }
 
 // Config holds configuration for the sgpt tool.
@@ -25,6 +27,7 @@ type Config struct {
 	RequestTimeout      int      `json:"request_timeout"`
 	DefaultModel        string   `json:"default_model"`
 	ChatDirectory       string   `json:"chat_directory"`
+	EmbedDirectory      string   `json:"embed_directory"`
 	DiffIgnoreFiles     []string `json:"diff_ignore_files"`
 	EmbedFileExtensions []string `json:"embed_file_extensions"`
 }
@@ -54,6 +57,12 @@ func Parse(path string) (*Config, error) {
 		return nil, errors.Wrap(err, "expanding chat directory path")
 	}
 	config.ChatDirectory = expandedChatDirectoryPath
+
+	expandedEmbedDirectoryPath, err := file.ExpandPath(config.EmbedDirectory)
+	if err != nil {
+		return nil, errors.Wrap(err, "expanding embed directory path")
+	}
+	config.EmbedDirectory = expandedEmbedDirectoryPath
 	return config, nil
 }
 

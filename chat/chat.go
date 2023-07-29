@@ -96,10 +96,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			// Print history.
 			for _, message := range chat.Messages {
 				if message.Role == openai.ChatMessageRoleUser {
-					cli.UserInput(message.Content)
+					cli.UserInput("> %s\n", message.Content)
 				}
 				if message.Role == openai.ChatMessageRoleAssistant {
-					cli.AIInput(message.Content)
+					cli.AIInput(message.Content + "\n")
 				}
 			}
 
@@ -107,14 +107,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			var totalCost decimal.Decimal
 			for {
 				// Query user for prompt.
-				cli.UserInput("")
 				text, err := cli.PromptUser()
 				cobra.CheckErr(err)
 				// convert CRLF to LF
 				text = strings.ReplaceAll(text, "\n", " ")
 				var embeddingMessages []openai.ChatCompletionMessage
 				if opts.Embeddings {
-					store, err := embed.LoadStore()
+					store, err := embed.LoadStore(config)
 					cobra.CheckErr(err)
 					embeddings, err := embed.Content(ctx, openAIClient, text)
 					cobra.CheckErr(err)
@@ -210,12 +209,10 @@ func parseChat(chatDirectory, chatID string) (*Chat, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return &Chat{}, nil
 	}
-
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "reading chat file")
 	}
-
 	chat := &Chat{}
 	if err = json.Unmarshal(bytes, chat); err != nil {
 		return nil, errors.Wrap(err, "unmarshaling into chat")
@@ -234,6 +231,5 @@ func (c *Chat) Save(chatDirectory, chatID string) error {
 	if err := os.WriteFile(path, bytes, 0644); err != nil {
 		return errors.Wrap(err, "writing chat to file")
 	}
-
 	return nil
 }

@@ -101,5 +101,4 @@ Now, both `.txt` and `.md` files are considered valid, and their content will be
 These advanced usages of the `--file` and `--ext` flags make it easy for developers to customize the chat context based on their file inputs, enhancing SGPT's versatility and usability.
 
 ## TODOs
-- Clean up sgpt embed.
-- Create a /format library to avoid reproducing it all.
+- Give the ability to interrupt AI.-

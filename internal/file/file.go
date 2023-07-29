@@ -145,11 +145,27 @@ func GetRootDir(path string) string {
 
 // CreateDirectoryIfNotExist creates a directory if it doesn't already exist.
 func CreateDirectoryIfNotExist(directory string) error {
-	if _, err := os.Stat(directory); !os.IsNotExist(err) {
+	ok, err := DirectoryExists(directory)
+	if err != nil {
+		return err
+	}
+	if ok {
 		return nil
 	}
 	if err := os.MkdirAll(directory, 0755); err != nil {
 		return errors.Wrap(err, "creating directory")
 	}
 	return nil
+}
+
+// DirectoryExists returns true if the specified directory exists.
+func DirectoryExists(directory string) (bool, error) {
+	info, err := os.Stat(directory)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "checking directory existence")
+	}
+	return info.IsDir(), nil
 }

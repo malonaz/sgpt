@@ -26,8 +26,8 @@ import (
 
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
-	// Initialize chat directory.
-	err := file.CreateDirectoryIfNotExist("~/.sgpt/embed")
+	// Initialize embed directory.
+	err := file.CreateDirectoryIfNotExist(config.EmbedDirectory)
 	cobra.CheckErr(err)
 
 	var opts struct {
@@ -39,12 +39,19 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Long:  "Generate embeddings for a repo",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
+			// Check that we are in a git repo.
+			ok, err := file.DirectoryExists(".git")
+			cobra.CheckErr(err)
+			if !ok {
+				cli.FileInfo("Error: must be in root of git repo\n")
+				return
+			}
 			// Set the model.
 			optsModel := &model.Opts{Model: "text-embedding-ada-002"}
 			model, err := model.Parse(optsModel, config)
 			cobra.CheckErr(err)
 
-			s, err := LoadStore()
+			s, err := LoadStore(config)
 			cobra.CheckErr(err)
 
 			// Headers.
@@ -167,13 +174,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 }
 
 // LoadStore returns the store for this git repo.
-func LoadStore() (*store.Store, error) {
+func LoadStore(config *configuration.Config) (*store.Store, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 	id := strings.ReplaceAll(pwd, "/", "_")
-	filepath, err := file.ExpandPath("~/.sgpt/embed/" + id)
+	filepath, err := file.ExpandPath(config.EmbedDirectory + "/" + id)
 	if err != nil {
 		return nil, err
 	}

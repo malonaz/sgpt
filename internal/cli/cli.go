@@ -39,7 +39,7 @@ func Title(text string, args ...any) {
 
 // UserInput printed to cli.
 func UserInput(text string, args ...any) {
-	userColor.Printf("> %s", fmt.Sprintf(text, args...))
+	userColor.Printf(text, args...)
 }
 
 // AIInput printed to cli.
