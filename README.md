@@ -14,38 +14,11 @@ Here's a sample default configuration:
 ```
 You can edit this file to personalize the parameters according to your requirements.
 
-## Using the `--file` flag
-The `--file` flag is an integral part of the `sgpt chat` command used to inject file content into the chat context. This flag can be used in various ways to achieve broad control over file inputs.
-1. **Specifying multiple files:** You can specify multiple files by using the `--file` flag multiple times in the command:
-    Example:
-    ```bash
-    sgpt chat --file=path/to/file1 --file=path/to/file2
-    ```
-    In this case, the content of `file1` and `file2` will be injected into the chat context.
-2. **Directory Recursion:** You can provide directory paths to the `--file` flag with a `/...` suffix. This suffix indicates to SGPT that it should recurse into the specified directory, injecting the content of all files found within.
-    Example:
-    ```bash
-    sgpt chat --file=path/to/directory/...
-    ```
-    This command will inject the content of all files in the given directory and its sub-directories into the chat context.
-3. **One-Level Directory Capture:** If you only want to capture the files in a particular directory without any recursion into sub-directories, specify the directory path without any suffix.
-    Example:
-    ```bash
-    sgpt chat --file=path/to/directory
-    ```
-    In this case, the content of all files in the given directory (and not its sub-directories) will be injected into the chat context.
-## Specifying File Extensions with `--ext`
-If you want to limit files by their extensions, you can use the `--ext` flag to specify the valid extensions. This can be particularly useful when you're dealing with directories and want to target specific types of files.
-Example:
-```bash
-sgpt chat --file=path/to/directory --ext=.txt
-```
-In this case, only the `.txt` files in the specified directory will have their content injected into the chat context. You can also specify multiple extensions by using the `--ext` flag multiple times in the command:
-```bash
-sgpt chat --file=path/to/directory --ext=.txt --ext=.md
-```
-Now, both `.txt` and `.md` files are considered valid, and their content will be injected into the chat context.
-These advanced usages of the `--file` and `--ext` flags make it easy for developers to customize the chat context based on their file inputs, enhancing SGPT's versatility and usability.
+## Getting Started
+To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. Then, use `go get` to fetch the package. Configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
+
+## Contributing
+Contributions to SGPT are welcome! Whether it's feature requests, bug fixes, documentation improvements, or any other changes, we are glad to see them.
 
 ## Commands
 Once you have SGPT installed and the configuration is set up, you can interact with the OpenAI's Language Models using the following command:
@@ -93,10 +66,39 @@ By default, the `sgpt embed` command uses the "text-embedding-ada-002" model and
 sgpt embed --force
 ```
 
-## Getting Started
-To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. Then, use `go get` to fetch the package. Configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
-## Contributing
-Contributions to SGPT are welcome! Whether it's feature requests, bug fixes, documentation improvements, or any other changes, we are glad to see them.
+
+## Using the `--file` flag
+The `--file` flag is an integral part of the `sgpt chat` command used to inject file content into the chat context. This flag can be used in various ways to achieve broad control over file inputs.
+1. **Specifying multiple files:** You can specify multiple files by using the `--file` flag multiple times in the command:
+    Example:
+    ```bash
+    sgpt chat --file=path/to/file1 --file=path/to/file2
+    ```
+    In this case, the content of `file1` and `file2` will be injected into the chat context.
+2. **Directory Recursion:** You can provide directory paths to the `--file` flag with a `/...` suffix. This suffix indicates to SGPT that it should recurse into the specified directory, injecting the content of all files found within.
+    Example:
+    ```bash
+    sgpt chat --file=path/to/directory/...
+    ```
+    This command will inject the content of all files in the given directory and its sub-directories into the chat context.
+3. **One-Level Directory Capture:** If you only want to capture the files in a particular directory without any recursion into sub-directories, specify the directory path without any suffix.
+    Example:
+    ```bash
+    sgpt chat --file=path/to/directory
+    ```
+    In this case, the content of all files in the given directory (and not its sub-directories) will be injected into the chat context.
+## Specifying File Extensions with `--ext`
+If you want to limit files by their extensions, you can use the `--ext` flag to specify the valid extensions. This can be particularly useful when you're dealing with directories and want to target specific types of files.
+Example:
+```bash
+sgpt chat --file=path/to/directory --ext=.txt
+```
+In this case, only the `.txt` files in the specified directory will have their content injected into the chat context. You can also specify multiple extensions by using the `--ext` flag multiple times in the command:
+```bash
+sgpt chat --file=path/to/directory --ext=.txt --ext=.md
+```
+Now, both `.txt` and `.md` files are considered valid, and their content will be injected into the chat context.
+These advanced usages of the `--file` and `--ext` flags make it easy for developers to customize the chat context based on their file inputs, enhancing SGPT's versatility and usability.
 
 ## TODOs
 - Clean up sgpt embed.
