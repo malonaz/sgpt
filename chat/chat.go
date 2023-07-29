@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
@@ -24,11 +22,6 @@ import (
 	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/model"
 	"github.com/malonaz/sgpt/role"
-)
-
-const (
-	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
-	asciiSeparatorInject = "-----------------------------------------------------%s [%s]------------------------------------------------------\n"
 )
 
 // NewCmd instantiates and returns the inventory chat cmd.
@@ -64,9 +57,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			model, err := model.Parse(opts.Model, config)
 			cobra.CheckErr(err)
 
-			// Colors.
-			fileColor := color.New(color.FgRed)
-
 			// Chat headers.
 			cli.Separator()
 			cli.Title("SGPT CHAT [%s](%s)", model.ID, opts.ChatID)
@@ -82,13 +72,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					Content: fmt.Sprintf("file %s: `%s`", file.Path, file.Content),
 				}
 				additionalMessages = append(additionalMessages, message)
-				fileColor.Printf("injecting file #%d: %s\n", len(additionalMessages), file.Path)
+				cli.FileInfo("injecting file #%d: %s\n", len(additionalMessages), file.Path)
 			}
 			if len(additionalMessages) > 0 {
 				tokens, cost, err := model.CalculateRequestCost(additionalMessages...)
 				cobra.CheckErr(err)
 				if opts.ShowCost {
-					cli.CostInput("File injections (%d tokens) will add %s per request\n", tokens, cost.String())
+					cli.CostInfo("File injections (%d tokens) will add %s per request\n", tokens, cost.String())
 				}
 			}
 
@@ -118,7 +108,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			for {
 				// Query user for prompt.
 				cli.UserInput("")
-				text := promptUser()
+				text, err := cli.PromptUser()
+				cobra.CheckErr(err)
 				// convert CRLF to LF
 				text = strings.ReplaceAll(text, "\n", " ")
 				var embeddingMessages []openai.ChatCompletionMessage
@@ -136,7 +127,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 						})
 						for i := 0; i < 10; i++ {
 							chunk := chunks[i]
-							fileColor.Printf("inserting chunk from file %s\n", chunk.Filename)
+							cli.FileInfo("inserting chunk from file %s\n", chunk.Filename)
 							embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
 								Role:    openai.ChatMessageRoleSystem,
 								Content: chunk.Content,
@@ -162,7 +153,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
 				cobra.CheckErr(err)
 				if opts.ShowCost {
-					cli.CostInput("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
+					cli.CostInfo("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
 				}
 
 				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
@@ -186,8 +177,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				cobra.CheckErr(err)
 				totalCost = totalCost.Add(requestCost).Add(responseCost)
 				if opts.ShowCost {
-					cli.CostInput("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
-					cli.CostInput("Total cost so far $%s\n", totalCost.String())
+					cli.CostInfo("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
+					cli.CostInfo("Total cost so far $%s\n", totalCost.String())
 				}
 
 				// Append the response content to our history.
@@ -255,18 +246,4 @@ func (c *Chat) Save(chatDirectory, chatID string) error {
 	}
 
 	return nil
-}
-
-func promptUser() string {
-	reader := bufio.NewReader(os.Stdin)
-	var contentBuilder strings.Builder
-	for {
-		char, _, err := reader.ReadRune()
-		cobra.CheckErr(err)
-		if char == '\x0B' {
-			break
-		}
-		contentBuilder.WriteRune(char)
-	}
-	return contentBuilder.String()
 }

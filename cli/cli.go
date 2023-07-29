@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/buger/goterm"
+	"github.com/chzyer/readline"
 	"github.com/fatih/color"
 )
 
@@ -37,7 +38,7 @@ func Title(text string, args ...any) {
 
 // UserInput printed to cli.
 func UserInput(text string, args ...any) {
-	userColor.Printf("-> %s", fmt.Sprintf(text, args...))
+	userColor.Printf("> %s", fmt.Sprintf(text, args...))
 }
 
 // AIInput printed to cli.
@@ -45,7 +46,46 @@ func AIInput(text string, args ...any) {
 	aiColor.Printf(text, args...)
 }
 
-// CostInput printed to cli.
-func CostInput(text string, args ...any) {
+// CostInfo printed to cli.
+func CostInfo(text string, args ...any) {
 	costColor.Printf(text, args...)
+}
+
+// FileInfo printed to cli.
+func FileInfo(text string, args ...any) {
+	fileColor.Printf(text, args...)
+}
+
+// PromptUser for input.
+func PromptUser() (string, error) {
+	exit := false
+	config := &readline.Config{
+		Prompt:          "> ",
+		InterruptPrompt: "^C",
+		FuncFilterInputRune: func(r rune) (rune, bool) {
+			if r == '\x0F' { // Ctrl+o.a
+				exit = true
+			}
+			return r, true
+		},
+	}
+
+	rl, err := readline.NewEx(config)
+	if err != nil {
+		return "", err
+	}
+	defer rl.Close()
+	var lines []string
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			return "", err
+		}
+		rl.SetPrompt("")
+		lines = append(lines, line)
+		if err == readline.ErrInterrupt || exit {
+			break
+		}
+	}
+	return strings.Join(lines, "\n"), nil
 }

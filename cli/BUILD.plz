@@ -4,6 +4,7 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//third_party/go:github.com__buger__goterm",
+        "//third_party/go:github.com__chzyer__readline",
         "//third_party/go:github.com__fatih__color",
     ],
 )

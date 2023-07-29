@@ -9,7 +9,6 @@ go_library(
         "//file",
         "//model",
         "//role",
-        "//third_party/go:github.com__fatih__color",
         "//third_party/go:github.com__google__uuid",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__sashabaranov__go-openai",

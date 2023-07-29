@@ -7,6 +7,7 @@
         "github.com/bazelbuild/buildtools/build": "//third_party/go:github.com__bazelbuild__buildtools__build",
         "github.com/bazelbuild/buildtools/tables": "//third_party/go:github.com__bazelbuild__buildtools__tables",
         "github.com/buger/goterm": "//third_party/go:github.com__buger__goterm",
+        "github.com/chzyer/readline": "//third_party/go:github.com__chzyer__readline",
         "github.com/dlclark/regexp2": "//third_party/go:github.com__dlclark__regexp2",
         "github.com/dlclark/regexp2/syntax": "//third_party/go:github.com__dlclark__regexp2__syntax",
         "github.com/fatih/color": "//third_party/go:github.com__fatih__color",

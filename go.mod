@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/bazelbuild/buildtools v0.0.0-20230510134650-37bd1811516d
 	github.com/buger/goterm v1.0.4
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/fatih/color v1.15.0
 	github.com/google/uuid v1.3.0
 	github.com/pkg/errors v0.9.1

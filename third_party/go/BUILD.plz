@@ -84,6 +84,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__chzyer__readline",
+    _tag = "download",
+    module = "github.com/chzyer/readline",
+    version = "v0.0.0-20180603132655-2972be24d48e",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__chzyer__readline",
+    download = ":_github.com__chzyer__readline#download",
+    install = ["."],
+    module = "github.com/chzyer/readline",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__dlclark__regexp2",
     _tag = "download",
     module = "github.com/dlclark/regexp2",
