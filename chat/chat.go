@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
 	"time"
@@ -99,9 +100,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					cli.UserInput("> %s\n", message.Content)
 				}
 				if message.Role == openai.ChatMessageRoleAssistant {
-					cli.AIInput(message.Content + "\n")
+					cli.AIOutput(message.Content + "\n")
 				}
 			}
+
+			// We will use channels to detect ctrl+c events.
+			interrupSignalChannel := make(chan os.Signal, 1)
+			signal.Notify(interrupSignalChannel, os.Interrupt)
 
 			ctx := context.Background()
 			var totalCost decimal.Decimal
@@ -109,8 +114,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				// Query user for prompt.
 				text, err := cli.PromptUser()
 				cobra.CheckErr(err)
-				// convert CRLF to LF
-				text = strings.ReplaceAll(text, "\n", " ")
 				var embeddingMessages []openai.ChatCompletionMessage
 				if opts.Embeddings {
 					store, err := embed.LoadStore(config)
@@ -134,16 +137,18 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 						}
 					}
 				}
-				chat.Messages = append(chat.Messages, openai.ChatCompletionMessage{
+				cli.AIOutput("SGPT: ")
+				userMessage := openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleUser,
 					Content: text,
-				})
+				}
 
-				// Send request to API and stream response.
+				// Create open AI request.
 				ctx, cancel := context.WithTimeout(ctx, time.Duration(config.RequestTimeout)*time.Second)
 				defer cancel()
 				messages := append(additionalMessages, embeddingMessages...)
 				messages = append(messages, chat.Messages...)
+				messages = append(messages, userMessage)
 				request := openai.ChatCompletionRequest{
 					Model:    model.ID,
 					Messages: messages,
@@ -155,21 +160,35 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					cli.CostInfo("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
 				}
 
+				// Initiate Open AI stream.
 				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 				cobra.CheckErr(err)
 				defer stream.Close()
 
+				interrupted := false
 				chatCompletionMessage := openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant}
 				for {
+					select {
+					case <-interrupSignalChannel:
+						// We've detected an interrupt, kill the stream.
+						cli.UserCommand("#Interrupted\n")
+						stream.Close()
+						interrupted = true
+					default:
+					}
+					if interrupted {
+						break
+					}
+
 					response, err := stream.Recv()
 					if errors.Is(err, io.EOF) {
-						cli.AIInput("\n")
+						cli.AIOutput("\n")
 						break
 					}
 					cobra.CheckErr(err)
 					content := strings.Replace(response.Choices[0].Delta.Content, "\n\n", "\n", -1)
 					content = strings.Replace(content, "%", "%%", -1)
-					cli.AIInput(content)
+					cli.AIOutput(content)
 					chatCompletionMessage.Content += response.Choices[0].Delta.Content
 				}
 				responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
@@ -180,12 +199,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					cli.CostInfo("Total cost so far $%s\n", totalCost.String())
 				}
 
-				// Append the response content to our history.
-				chat.Messages = append(chat.Messages, chatCompletionMessage)
-
-				// Save chat.
-				err = chat.Save(config.ChatDirectory, opts.ChatID)
-				cobra.CheckErr(err)
+				if !interrupted {
+					// Append the response content to our history.
+					chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
+					// Save chat.
+					err = chat.Save(config.ChatDirectory, opts.ChatID)
+					cobra.CheckErr(err)
+				}
 			}
 		},
 	}

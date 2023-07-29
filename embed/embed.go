@@ -113,7 +113,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				if storeFile, ok := s.GetFile(file.Name); ok && storeFile.Hash == file.Hash && !opts.Force {
 					continue
 				}
-				cli.AIInput("Detected stale embeddings for file %s\n", file.Name)
+				cli.AIOutput("Detected stale embeddings for file %s\n", file.Name)
 				files = append(files, file)
 				for i, chunk := range fileChunks {
 					file.Chunks[i] = &store.FileChunk{
@@ -129,7 +129,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				filenameToCostInformation[file.Name] = fmt.Sprintf("%d tokens costing $%s\n", tokens, cost.String())
 			}
 			if len(files) == 0 {
-				cli.AIInput("All embeddings are up to date")
+				cli.AIOutput("All embeddings are up to date")
 				return
 			}
 

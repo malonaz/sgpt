@@ -207,10 +207,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					break
 				}
 				cobra.CheckErr(err)
-				cli.AIInput(response.Choices[0].Delta.Content)
+				cli.AIOutput(response.Choices[0].Delta.Content)
 				chatCompletionMessage.Content += response.Choices[0].Delta.Content
 			}
-			cli.AIInput("\n")
+			cli.AIOutput("\n")
 			responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
 			cobra.CheckErr(err)
 			cli.CostInfo("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())

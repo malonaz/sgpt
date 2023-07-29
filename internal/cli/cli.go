@@ -12,13 +12,13 @@ import (
 
 var (
 	// Colors.
-	userColor   = color.New(color.Bold)
-	aiColor     = color.New(color.FgCyan)
-	formatColor = color.New(color.FgGreen)
-	fileColor   = color.New(color.FgRed)
-	costColor   = color.New(color.FgYellow)
-
-	width = goterm.Width()
+	userInputColor   = color.New(color.Bold)
+	userCommandColor = color.New(color.FgGreen)
+	aiOutputColor    = color.New(color.FgCyan)
+	formatColor      = color.New(color.FgGreen)
+	fileColor        = color.New(color.FgRed)
+	costColor        = color.New(color.FgYellow)
+	width            = goterm.Width()
 )
 
 // Separator printed to cli.
@@ -39,12 +39,17 @@ func Title(text string, args ...any) {
 
 // UserInput printed to cli.
 func UserInput(text string, args ...any) {
-	userColor.Printf(text, args...)
+	userInputColor.Printf(text, args...)
 }
 
-// AIInput printed to cli.
-func AIInput(text string, args ...any) {
-	aiColor.Printf(text, args...)
+// UserCommand printed to cli.
+func UserCommand(text string, args ...any) {
+	userCommandColor.Printf(text, args...)
+}
+
+// AIOutput printed to cli.
+func AIOutput(text string, args ...any) {
+	aiOutputColor.Printf(text, args...)
 }
 
 // CostInfo printed to cli.
