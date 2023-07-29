@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"github.com/shopspring/decimal"
@@ -124,13 +123,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			cli.CostInfo("regenerating all embeddings (%d tokens) will cost: %s\n", totalTokens, totalCost.String())
-			// Check if user wants to commit the message.
-			surveyQuestion := &survey.Confirm{
-				Message: "Continue",
-			}
-			confirm := false
-			survey.AskOne(surveyQuestion, &confirm)
-			if !confirm {
+			if !cli.QueryUser("Continue") {
 				return
 			}
 

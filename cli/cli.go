@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/buger/goterm"
 	"github.com/chzyer/readline"
 	"github.com/fatih/color"
@@ -88,4 +89,15 @@ func PromptUser() (string, error) {
 		}
 	}
 	return strings.Join(lines, "\n"), nil
+}
+
+// QueryUser a yes/no question.
+func QueryUser(question string) bool {
+	// Check if user wants to commit the message.
+	surveyQuestion := &survey.Confirm{
+		Message: "Apply commit",
+	}
+	confirm := false
+	survey.AskOne(surveyQuestion, &confirm)
+	return confirm
 }

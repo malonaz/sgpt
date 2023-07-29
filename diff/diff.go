@@ -11,13 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 	"github.com/waigani/diffparser"
 
+	"github.com/malonaz/sgpt/cli"
 	"github.com/malonaz/sgpt/configuration"
 	"github.com/malonaz/sgpt/file"
 	"github.com/malonaz/sgpt/model"
@@ -69,11 +68,6 @@ Try to understand what the diff aims to do rather than focus on the details.
 {{message}}
 `
 
-const (
-	asciiSeparator       = "----------------------------------------------------------------------------------------------------------------------------------"
-	asciiSeparatorInject = "--------------------------------------------------------Diff [%s]---------------------------------------------------------\n"
-)
-
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	var opts struct {
@@ -91,15 +85,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			model, err := model.Parse(opts.Model, config)
 			cobra.CheckErr(err)
 
-			// Colors.
-			fileColor := color.New(color.FgRed)
-			aiColor := color.New(color.FgCyan)
-			formatColor := color.New(color.FgGreen)
-			costColor := color.New(color.FgYellow)
-			// Print title.
-			formatColor.Println(asciiSeparator)
-			formatColor.Printf(asciiSeparatorInject, model.ID)
-			formatColor.Println(asciiSeparator)
+			// Headers.
+			cli.Separator()
+			cli.Title("SGPT DIF [%s]", model.ID)
+			cli.Separator()
 
 			// Run git diff.
 			path, err := exec.LookPath("git")
@@ -112,7 +101,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			gitDiff := bytesBuffer.String()
 
 			// Remove from the diff files we don't care about:
-			formatColor.Println(asciiSeparator)
 			parts := strings.Split(gitDiff, "diff --git")
 			filteredParts := []string{}
 			for _, part := range parts {
@@ -139,7 +127,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					filename = f.NewName
 				}
 				if contains(config.DiffIgnoreFiles, filename) {
-					fileColor.Printf("Ignoring %s\n", filename)
+					cli.FileInfo("Ignoring %s\n", filename)
 					continue
 				}
 				// Update the root dir count.
@@ -205,8 +193,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
 			cobra.CheckErr(err)
-			costColor.Printf("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
-			formatColor.Println(asciiSeparator)
+			cli.CostInfo("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
 
 			stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 			cobra.CheckErr(err)
@@ -220,24 +207,17 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					break
 				}
 				cobra.CheckErr(err)
-				aiColor.Printf(response.Choices[0].Delta.Content)
+				cli.AIInput(response.Choices[0].Delta.Content)
 				chatCompletionMessage.Content += response.Choices[0].Delta.Content
 			}
-			fmt.Printf("\n")
+			cli.AIInput("\n")
 			responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
 			cobra.CheckErr(err)
-			formatColor.Println(asciiSeparator)
-			costColor.Printf("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
-			costColor.Printf("Total cost is $%s\n", requestCost.Add(responseCost).String())
-			formatColor.Println(asciiSeparator)
+			cli.CostInfo("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
+			cli.CostInfo("Total cost is $%s\n", requestCost.Add(responseCost).String())
 
 			// Check if user wants to commit the message.
-			surveyQuestion := &survey.Confirm{
-				Message: "Apply commit",
-			}
-			confirm := false
-			survey.AskOne(surveyQuestion, &confirm)
-			if !confirm {
+			if !cli.QueryUser("Apply commit") {
 				return
 			}
 
