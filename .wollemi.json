@@ -18,6 +18,8 @@
         "github.com/mgutz/ansi": "//third_party/go:github.com__mgutz__ansi",
         "github.com/pkg/errors": "//third_party/go:github.com__pkg__errors",
         "github.com/pkoukk/tiktoken-go": "//third_party/go:github.com__pkoukk__tiktoken-go",
+        "github.com/pkoukk/tiktoken-go-loader": "//third_party/go:github.com__pkoukk__tiktoken-go-loader",
+        "github.com/pkoukk/tiktoken-go-loader/assets": "//third_party/go:github.com__pkoukk__tiktoken-go-loader__assets",
         "github.com/sashabaranov/go-openai": "//third_party/go:github.com__sashabaranov__go-openai",
         "github.com/sashabaranov/go-openai/internal": "//third_party/go:github.com__sashabaranov__go-openai__internal",
         "github.com/scylladb/go-set/strset": "//third_party/go:github.com__scylladb__go-set__strset",

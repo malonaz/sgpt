@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/pkoukk/tiktoken-go"
+	"github.com/pkoukk/tiktoken-go-loader"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
@@ -19,6 +20,8 @@ type Opts struct {
 
 // GetOpts on the given command.
 func GetOpts(cmd *cobra.Command, config *configuration.Config) *Opts {
+	// Embed the dictionary rather than downloading it at runtime.
+	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
 	opts := &Opts{}
 	cmd.Flags().StringVar(&opts.Model, "model", config.DefaultModel, "specify a model")
 	return opts

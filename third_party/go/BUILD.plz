@@ -269,6 +269,32 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__pkoukk__tiktoken-go-loader",
+    _tag = "download",
+    module = "github.com/pkoukk/tiktoken-go-loader",
+    version = "v0.0.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__pkoukk__tiktoken-go-loader",
+    download = ":_github.com__pkoukk__tiktoken-go-loader#download",
+    install = ["."],
+    module = "github.com/pkoukk/tiktoken-go-loader",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__pkoukk__tiktoken-go-loader__assets"],
+)
+
+go_module(
+    name = "github.com__pkoukk__tiktoken-go-loader__assets",
+    download = ":_github.com__pkoukk__tiktoken-go-loader#download",
+    install = ["assets"],
+    module = "github.com/pkoukk/tiktoken-go-loader",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__sashabaranov__go-openai",
     _tag = "download",
     module = "github.com/sashabaranov/go-openai",

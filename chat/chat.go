@@ -161,7 +161,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				cobra.CheckErr(err)
 				defer stream.Close()
 
-
 				// We will use channels to detect ctrl+c events.
 				interrupSignalChannel := make(chan os.Signal, 1)
 				signal.Notify(interrupSignalChannel, os.Interrupt)
