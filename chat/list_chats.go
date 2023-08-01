@@ -3,7 +3,7 @@ package chat
 import (
 	"time"
 
-	//"github.com/sashabaranov/go-openai"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/chat/store"
@@ -26,10 +26,23 @@ func newListCmd(config *configuration.Config) *cobra.Command {
 			// Instantiate store.
 			s, err := store.New(config.ChatDirectory)
 			cobra.CheckErr(err)
+
+			// Headers.
+			cli.Separator()
+			cli.Title("SGPT CHAT LIST")
+			cli.Separator()
+
 			chats, err := s.List(opts.PageSize)
 			cobra.CheckErr(err)
 			for _, chat := range chats {
 				cli.AIOutput("chat (%s) - %s\n", chat.ID, time.UnixMicro(chat.UpdateTimestamp).String())
+				description := ""
+				for i := 0; i < 10 && i < len(chat.Messages); i++ {
+					if chat.Messages[i].Role == openai.ChatMessageRoleUser {
+						description += "> " + chat.Messages[i].Content + "\n"
+					}
+				}
+				cli.UserInput(description)
 			}
 		},
 	}
