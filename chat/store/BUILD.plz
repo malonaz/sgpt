@@ -1,0 +1,10 @@
+go_library(
+    name = "store",
+    srcs = ["store.go"],
+    visibility = ["//..."],
+    deps = [
+        "//internal/file",
+        "//third_party/go:github.com__pkg__errors",
+        "//third_party/go:github.com__sashabaranov__go-openai",
+    ],
+)

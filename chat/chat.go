@@ -2,12 +2,10 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"path"
 	"strings"
 	"time"
 
@@ -17,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
+	"github.com/malonaz/sgpt/chat/store"
 	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
@@ -27,10 +26,6 @@ import (
 
 // NewCmd instantiates and returns the inventory chat cmd.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
-	// Initialize chat directory.
-	err := file.CreateDirectoryIfNotExist(config.ChatDirectory)
-	cobra.CheckErr(err)
-
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
@@ -45,13 +40,20 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Long:  "Back and forth chat",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
+			// Instantiate store.
+			s, err := store.New(config.ChatDirectory)
+			cobra.CheckErr(err)
+
 			// Parse a chat if relevant.opts.ChatID,
-			chat := &Chat{}
+			var chat *store.Chat
 			if opts.ChatID != "" {
-				chat, err = parseChat(config.ChatDirectory, opts.ChatID)
+				chat, err = s.Get(opts.ChatID)
 				cobra.CheckErr(err)
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
+			}
+			if chat == nil {
+				chat = store.NewChat(opts.ChatID)
 			}
 
 			// Set the model.
@@ -202,7 +204,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					// Append the response content to our history.
 					chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
 					// Save chat.
-					err = chat.Save(config.ChatDirectory, opts.ChatID)
+					err := s.Write(chat)
 					cobra.CheckErr(err)
 				}
 			}
@@ -216,39 +218,4 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	cmd.Flags().BoolVarP(&opts.ShowCost, "show-cost", "c", false, "Show cost")
 	return cmd
-}
-
-// Chat holds a chat struct.
-type Chat struct {
-	Messages []openai.ChatCompletionMessage
-}
-
-func parseChat(chatDirectory, chatID string) (*Chat, error) {
-	path := path.Join(chatDirectory, chatID)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return &Chat{}, nil
-	}
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		return nil, errors.Wrap(err, "reading chat file")
-	}
-	chat := &Chat{}
-	if err = json.Unmarshal(bytes, chat); err != nil {
-		return nil, errors.Wrap(err, "unmarshaling into chat")
-	}
-	return chat, nil
-}
-
-// Save a chat to disk.
-func (c *Chat) Save(chatDirectory, chatID string) error {
-	path := path.Join(chatDirectory, chatID)
-	bytes, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "marshaling chat to JSON")
-	}
-
-	if err := os.WriteFile(path, bytes, 0644); err != nil {
-		return errors.Wrap(err, "writing chat to file")
-	}
-	return nil
 }
