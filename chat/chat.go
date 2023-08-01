@@ -24,7 +24,7 @@ import (
 	"github.com/malonaz/sgpt/internal/role"
 )
 
-// NewCmd instantiates and returns the inventory chat cmd.
+// NewCmd instantiates and returns the chat command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	var opts struct {
 		FileInjection *file.InjectionOpts
@@ -217,5 +217,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	cmd.Flags().BoolVarP(&opts.ShowCost, "show-cost", "c", false, "Show cost")
+
+	cmd.AddCommand(newListCmd(config))
 	return cmd
 }

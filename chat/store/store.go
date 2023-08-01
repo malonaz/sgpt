@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"sort"
 	"time"
 
 	"github.com/malonaz/sgpt/internal/file"
@@ -79,4 +80,26 @@ func (s *Store) Get(chatID string) (*Chat, error) {
 		return nil, errors.Wrap(err, "unmarshaling into chat")
 	}
 	return chat, nil
+}
+
+// List all the chats in the store.
+func (s *Store) List(pageSize int) ([]*Chat, error) {
+	files, err := os.ReadDir(s.path)
+	if err != nil {
+		return nil, errors.Wrap(err, "listing chats")
+	}
+	var chats []*Chat
+	for _, f := range files {
+		fileName := f.Name()
+		chat, err := s.Get(fileName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getting chat '%s'", fileName)
+		}
+		chats = append(chats, chat)
+	}
+	sort.Slice(chats, func(i, j int) bool { return chats[i].UpdateTimestamp > chats[j].UpdateTimestamp })
+	if len(chats) < pageSize {
+		pageSize = len(chats)
+	}
+	return chats[:pageSize], nil
 }
