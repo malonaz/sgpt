@@ -181,7 +181,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 						break
 					}
 				}
-        cli.AIOutput("\n")
+				cli.AIOutput("\n")
 
 				responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
 				cobra.CheckErr(err)
