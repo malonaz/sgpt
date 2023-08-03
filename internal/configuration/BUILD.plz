@@ -1,8 +1,6 @@
 go_library(
     name = "configuration",
-    srcs = [
-        "configuration.go",
-    ],
+    srcs = ["configuration.go"],
     visibility = ["//..."],
     deps = [
         "//internal/file",
