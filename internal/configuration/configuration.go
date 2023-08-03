@@ -14,8 +14,8 @@ var defaultConfig = Config{
 	OpenaiAPIHost:       "https://api.openai.com",
 	RequestTimeout:      60,
 	DefaultModel:        "gpt-3.5-turbo",
-	ChatDirectory:       "~/.sgpt/chats",
-	EmbedDirectory:      "~/.sgpt/embed",
+	ChatDirectory:       "~/.config/sgpt/chats",
+	EmbedDirectory:      "~/.config/sgpt/embed",
 	DiffIgnoreFiles:     []string{},
 	EmbedFileExtensions: []string{},
 }

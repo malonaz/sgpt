@@ -30,7 +30,7 @@ For example:
 sgpt chat --model gpt-3.5-turbo --id my_chat --role code
 ```
 This initiates a chat using the gpt-3.5-turbo model, the id 'my_chat', and the AI will play the role of providing only code as output.
-**Please note that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.sgpt/chats).**
+**Please note that chat sessions are saved to disk at the chat directory specified in the configuration (defaulted to ~/.config/sgpt/chats).**
 You can read the chat by using the id of the chat, which is listed in the chat directory.
 
 ### `sgpt diff`
@@ -60,7 +60,7 @@ sgpt embed --force
 ```
 
 ## Configuration
-SGPT uses a configuration file to manage various settings. The configuration file is a JSON that includes information such as the OpenAI API Key, the API host, request timeout, the default model, and the chat directory. This resides in a default directory `~/.sgpt/internal/config.json`.
+SGPT uses a configuration file to manage various settings. The configuration file is a JSON that includes information such as the OpenAI API Key, the API host, request timeout, the default model, and the chat directory. This resides in a default directory `~/.config/sgpt/config.json`.
 Here's a sample default configuration:
 ```json
 {
@@ -68,7 +68,7 @@ Here's a sample default configuration:
     "openai_api_host": "https://api.openai.com",
     "request_timeout": 60,
     "default_model": "gpt-3.5-turbo",
-    "chat_directory": "~/.sgpt/chats"
+    "chat_directory": "~/.config/sgpt/chats"
 }
 ```
 You can edit this file to personalize the parameters according to your requirements.
