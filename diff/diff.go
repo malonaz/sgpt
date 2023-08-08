@@ -87,7 +87,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 			// Headers.
 			cli.Separator()
-			cli.Title("SGPT DIF [%s]", model.ID)
+			cli.Title("SGPT DIFF [%s]", model.ID)
 			cli.Separator()
 
 			// Run git diff.
@@ -99,6 +99,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			err = gitDiffCommand.Run()
 			cobra.CheckErr(err)
 			gitDiff := bytesBuffer.String()
+
+			if len(gitDiff) == 0 {
+				cobra.CheckErr(fmt.Errorf("git diff is empty, aborting."))
+			}
 
 			// Remove from the diff files we don't care about:
 			parts := strings.Split(gitDiff, "diff --git")
