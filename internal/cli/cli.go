@@ -68,6 +68,7 @@ func PromptUser() (string, error) {
 	config := &readline.Config{
 		Prompt:          "> ",
 		InterruptPrompt: "^C",
+    HistoryFile:     "/tmp/sgpt.history",
 		FuncFilterInputRune: func(r rune) (rune, bool) {
 			if r == '\x0A' { // Ctrl + J
 				exit = true
