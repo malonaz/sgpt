@@ -28,9 +28,7 @@ func newListCmd(config *configuration.Config) *cobra.Command {
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Separator()
 			cli.Title("SGPT CHAT LIST")
-			cli.Separator()
 
 			chats, err := s.List(opts.PageSize)
 			cobra.CheckErr(err)
