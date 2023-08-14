@@ -86,9 +86,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Separator()
 			cli.Title("SGPT DIFF [%s]", model.ID)
-			cli.Separator()
 
 			// Run git diff.
 			path, err := exec.LookPath("git")

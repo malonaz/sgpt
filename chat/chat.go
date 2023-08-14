@@ -62,9 +62,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Separator()
 			cli.Title("SGPT CHAT [%s](%s)", model.ID, opts.ChatID)
-			cli.Separator()
 
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)

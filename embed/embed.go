@@ -24,7 +24,7 @@ import (
 	"github.com/malonaz/sgpt/internal/model"
 )
 
-// NewCmd instantiates and returns the diff command.
+// NewCmd instantiates and returns the embed command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	// Initialize embed directory.
 	err := file.CreateDirectoryIfNotExist(config.EmbedDirectory)
@@ -55,9 +55,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Separator()
 			cli.Title("SGPT EMBED [%s]", model.ID)
-			cli.Separator()
 
 			// Run git diff.
 			path, err := exec.LookPath("git")
