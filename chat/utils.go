@@ -34,7 +34,7 @@ func getEmbeddingMessages(
 		Role:    openai.ChatMessageRoleSystem,
 		Content: role.EmbeddingsAugmentedAssistant,
 	})
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 10 && i < len(chunks); i++ {
 		chunk := chunks[i]
 		cli.FileInfo("inserting chunk from file %s\n", chunk.Filename)
 		embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
