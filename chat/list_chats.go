@@ -24,7 +24,7 @@ func newListCmd(config *configuration.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Instantiate store.
-			s, err := store.New(config.ChatDirectory)
+			s, err := store.New(config.Chat.Directory)
 			cobra.CheckErr(err)
 
 			// Headers.

@@ -10,26 +10,64 @@ import (
 )
 
 var defaultConfig = Config{
-	OpenaiAPIKey:        "API_KEY",
-	OpenaiAPIHost:       "https://api.openai.com",
-	RequestTimeout:      60,
-	DefaultModel:        "gpt-3.5-turbo",
-	ChatDirectory:       "~/.config/sgpt/chats",
-	EmbedDirectory:      "~/.config/sgpt/embed",
-	DiffIgnoreFiles:     []string{},
-	EmbedFileExtensions: []string{},
+	OpenaiAPIKey:   "API_KEY",
+	OpenaiAPIHost:  "https://api.openai.com",
+	RequestTimeout: 60,
+
+	Chat: &ChatConfig{
+		DefaultModel: "gpt-3.5-turbo",
+		Directory:    "~/.config/sgpt/chat",
+	},
+
+	Diff: &DiffConfig{
+		DefaultModel: "gpt-3.5-turbo",
+		IgnoreFiles:  []string{},
+	},
+
+	Embed: &EmbedConfig{
+		Directory:      "~/.config/sgpt/embed",
+		IgnoreFiles:    []string{},
+		FileExtensions: []string{},
+	},
 }
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	OpenaiAPIKey        string   `json:"openai_api_key"`
-	OpenaiAPIHost       string   `json:"openai_api_host"`
-	RequestTimeout      int      `json:"request_timeout"`
-	DefaultModel        string   `json:"default_model"`
-	ChatDirectory       string   `json:"chat_directory"`
-	EmbedDirectory      string   `json:"embed_directory"`
-	DiffIgnoreFiles     []string `json:"diff_ignore_files"`
-	EmbedFileExtensions []string `json:"embed_file_extensions"`
+	OpenaiAPIKey   string `json:"openai_api_key"`
+	OpenaiAPIHost  string `json:"openai_api_host"`
+	RequestTimeout int    `json:"request_timeout"`
+
+	Diff  *DiffConfig  `json:"diff"`
+	Embed *EmbedConfig `json:"embed"`
+	Chat  *ChatConfig  `json:"chat"`
+}
+
+// ChatConfig holds configuration sgpt chat.
+type ChatConfig struct {
+	// The model to be used by the configuration.
+	DefaultModel string `json:"default_model"`
+	// The directory where we store chats.
+	Directory string `json:"directory"`
+}
+
+// DiffConfig holds configuration sgpt diff.
+type DiffConfig struct {
+	// The model to be used by the configuration.
+	DefaultModel string `json:"default_model"`
+	// We ignore files here.
+	IgnoreFiles []string `json:"ignore_files"`
+}
+
+// EmbedConfig holds configuration sgpt embed.
+type EmbedConfig struct {
+	// The model to be used by the configuration.
+	DefaultModel string `json:"default_model"`
+	// The directory where we store embeds.
+	Directory string `json:"directory"`
+	// We only embed files with the given extensions.
+	FileExtensions []string `json:"file_extensions"`
+	// We ignore these files.
+	IgnoreFiles []string `json:"ignore_files"`
 }
 
 // Parse a configuration file.
@@ -52,17 +90,17 @@ func Parse(path string) (*Config, error) {
 		return nil, errors.Wrap(err, "unmarshaling into config")
 	}
 
-	expandedChatDirectoryPath, err := file.ExpandPath(config.ChatDirectory)
+	expandedChatDirectoryPath, err := file.ExpandPath(config.Chat.Directory)
 	if err != nil {
 		return nil, errors.Wrap(err, "expanding chat directory path")
 	}
-	config.ChatDirectory = expandedChatDirectoryPath
+	config.Chat.Directory = expandedChatDirectoryPath
 
-	expandedEmbedDirectoryPath, err := file.ExpandPath(config.EmbedDirectory)
+	expandedEmbedDirectoryPath, err := file.ExpandPath(config.Embed.Directory)
 	if err != nil {
 		return nil, errors.Wrap(err, "expanding embed directory path")
 	}
-	config.EmbedDirectory = expandedEmbedDirectoryPath
+	config.Embed.Directory = expandedEmbedDirectoryPath
 	return config, nil
 }
 

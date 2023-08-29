@@ -1,6 +1,9 @@
 go_library(
     name = "diff",
-    srcs = ["diff.go"],
+    srcs = [
+        "diff.go",
+        "prompt.go",
+    ],
     visibility = ["//cmd/sgpt"],
     deps = [
         "//internal/cli",

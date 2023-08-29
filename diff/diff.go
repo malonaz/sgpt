@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -22,52 +23,6 @@ import (
 	"github.com/malonaz/sgpt/internal/model"
 )
 
-const prompt = `IMPORTANT: Provide only plain text without Markdown formatting.
-IMPORTANT: Do not include markdown formatting such as "@@@".
-Output a git commit messages for the provided diff using the following format:
-@@@
-[{scope}] - {type}: {summary}
-
- - {bullet_point}
- - {bullet_point}
-@@@
-
-Documentation:
-@@@
- summary: A 50 character summary. should be present tense. Not capitalized. No period in the end.”, and imperative like the type.
- scope: The package or module that is affected by the change. This field is optional, only include it if the changes particularly target a single area.
-        If the no particular area can be targeted, use "misc". If most of the changes happen in ./folder_a/, then the scope would be @folder_a@
- type: One of "fix, feature, refactor, test, devops, docs". Indicates the type of change being done.
- bullet_point: An sentence explaining why we’re changing the code, compared to what it was before.
-@@@
-
-Examples:
-@@@
-[reporting] - feature: add automatic generation of PnL reports for competitors
-
- - Every 24 hours, a job is triggered to generate the PnL reports of all competitors and upload them to an S3 bucket
- - Failed jobs are retried with an exponential backoff
-@@@
-@@@
-[trading] - refactor: remove @gas_limit@ field from @Calldata@ protobuf
-
- - @gas_limit@ has been replaced by @gas_price@ and all clients have stopped using it
-@@@
-@@@
-[price_model] - test: cover case where Binance price feed disconnects
-@@@
-@@@
-[env] - devops: add ClusterRoleBinding between price-model ServiceAccount and grpc-client-kube-resolver ClusterRole
-@@@
-
-`
-
-const generateGitCommitMessage = `Generate a git commit message.
-Think step-by-step to ensure you only write about meaningful high-level changes.
-Try to understand what the diff aims to do rather than focus on the details.
-{{message}}
-`
-
 // NewCmd instantiates and returns the diff command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	var opts struct {
@@ -82,7 +37,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Set the model.
-			model, err := model.Parse(opts.Model, config)
+			model, err := model.Parse(opts.Model)
 			cobra.CheckErr(err)
 
 			// Headers.
@@ -107,7 +62,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			filteredParts := []string{}
 			for _, part := range parts {
 				ignore := false
-				for _, ignoreFile := range config.DiffIgnoreFiles {
+				for _, ignoreFile := range config.Diff.IgnoreFiles {
 					if strings.Contains(part, ignoreFile) {
 						ignore = true
 						break
@@ -128,7 +83,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				if f.NewName != filename {
 					filename = f.NewName
 				}
-				if contains(config.DiffIgnoreFiles, filename) {
+				if slices.Contains(config.Diff.IgnoreFiles, filename) {
 					cli.FileInfo("Ignoring %s\n", filename)
 					continue
 				}
@@ -233,16 +188,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		},
 	}
 
-	opts.Model = model.GetOpts(cmd, config)
+	opts.Model = model.GetOpts(cmd, config.Diff.DefaultModel)
 	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "specify a message to spgt diff")
 	return cmd
-}
-
-func contains(list []string, match string) bool {
-	for _, item := range list {
-		if item == match {
-			return true
-		}
-	}
-	return false
 }

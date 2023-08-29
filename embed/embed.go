@@ -27,7 +27,7 @@ import (
 // NewCmd instantiates and returns the embed command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
 	// Initialize embed directory.
-	err := file.CreateDirectoryIfNotExist(config.EmbedDirectory)
+	err := file.CreateDirectoryIfNotExist(config.Embed.Directory)
 	cobra.CheckErr(err)
 
 	var opts struct {
@@ -48,7 +48,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			// Set the model.
 			optsModel := &model.Opts{Model: "text-embedding-ada-002"}
-			model, err := model.Parse(optsModel, config)
+			model, err := model.Parse(optsModel)
 			cobra.CheckErr(err)
 
 			s, err := LoadStore(config)
@@ -72,7 +72,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			filteredGitFiles := []string{}
 			for _, gitFile := range gitFiles {
 				ignore := false
-				for _, ignoreFile := range config.DiffIgnoreFiles {
+				for _, ignoreFile := range config.Embed.IgnoreFiles {
 					if strings.Contains(gitFile, ignoreFile) {
 						cli.FileInfo("Ignoring %s\n", gitFile)
 						ignore = true
@@ -92,7 +92,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			totalTokens := int64(0)
 			files := []*store.File{}
 			for _, filename := range filteredGitFiles {
-				if !file.HasValidExtension(filename, config.EmbedFileExtensions) {
+				if !file.HasValidExtension(filename, config.Embed.FileExtensions) {
 					continue
 				}
 				bytes, err := os.ReadFile(filename)
@@ -178,7 +178,7 @@ func LoadStore(config *configuration.Config) (*store.Store, error) {
 		return nil, err
 	}
 	id := strings.ReplaceAll(pwd, "/", "_")
-	filepath, err := file.ExpandPath(config.EmbedDirectory + "/" + id)
+	filepath, err := file.ExpandPath(config.Embed.Directory + "/" + id)
 	if err != nil {
 		return nil, err
 	}

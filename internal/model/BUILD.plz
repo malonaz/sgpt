@@ -7,7 +7,6 @@ go_library(
         "//embed",
     ],
     deps = [
-        "//internal/configuration",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__pkoukk__tiktoken-go",
         "//third_party/go:github.com__pkoukk__tiktoken-go-loader",

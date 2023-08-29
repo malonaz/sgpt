@@ -42,7 +42,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Instantiate store.
-			s, err := store.New(config.ChatDirectory)
+			s, err := store.New(config.Chat.Directory)
 			cobra.CheckErr(err)
 
 			// Parse a chat if relevant.opts.ChatID,
@@ -58,7 +58,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			// Set the model.
-			model, err := model.Parse(opts.Model, config)
+			model, err := model.Parse(opts.Model)
 			cobra.CheckErr(err)
 
 			// Headers.
@@ -202,7 +202,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd)
-	opts.Model = model.GetOpts(cmd, config)
+	opts.Model = model.GetOpts(cmd, config.Chat.DefaultModel)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	cmd.Flags().BoolVarP(&opts.ShowCost, "show-cost", "c", false, "Show cost")
