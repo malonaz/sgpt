@@ -1,4 +1,21 @@
 go_mod_download(
+    name = "dario.cat__mergo",
+    _tag = "download",
+    module = "dario.cat/mergo",
+    version = "v1.0.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "dario.cat__mergo",
+    download = ":_dario.cat__mergo#download",
+    install = ["."],
+    module = "dario.cat/mergo",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__AlecAivazis__survey__v2",
     _tag = "download",
     module = "github.com/AlecAivazis/survey/v2",

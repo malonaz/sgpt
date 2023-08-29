@@ -1,6 +1,7 @@
 {
     "explicit_sources": true,
     "known_dependency": {
+        "dario.cat/mergo": "//third_party/go:dario.cat__mergo",
         "github.com/AlecAivazis/survey/v2": "//third_party/go:github.com__AlecAivazis__survey__v2",
         "github.com/AlecAivazis/survey/v2/core": "//third_party/go:github.com__AlecAivazis__survey__v2__core",
         "github.com/AlecAivazis/survey/v2/terminal": "//third_party/go:github.com__AlecAivazis__survey__v2__terminal",

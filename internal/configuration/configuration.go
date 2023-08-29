@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"dario.cat/mergo"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/pkg/errors"
 )
@@ -16,7 +17,9 @@ var defaultConfig = Config{
 
 	Chat: &ChatConfig{
 		DefaultModel: "gpt-3.5-turbo",
+    DefaultRole: "code",
 		Directory:    "~/.config/sgpt/chat",
+		Roles:        map[string]string{},
 	},
 
 	Diff: &DiffConfig{
@@ -44,10 +47,14 @@ type Config struct {
 
 // ChatConfig holds configuration sgpt chat.
 type ChatConfig struct {
-	// The model to be used by the configuration.
+	// The model to be used by default.
 	DefaultModel string `json:"default_model"`
+	// The role to be used by default.
+	DefaultRole string `json:"default_role"`
 	// The directory where we store chats.
 	Directory string `json:"directory"`
+	// User defined roles, on top of the built-in roles.
+	Roles map[string]string `json:"roles"`
 }
 
 // DiffConfig holds configuration sgpt diff.
@@ -76,18 +83,36 @@ func Parse(path string) (*Config, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "expanding path")
 	}
-
 	if err := initializeIfNotPresent(path); err != nil {
 		return nil, errors.Wrap(err, "initializing configuration")
 	}
+
+	// Parse config.
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "reading file")
 	}
-
 	config := &Config{}
 	if err = json.Unmarshal(bytes, config); err != nil {
 		return nil, errors.Wrap(err, "unmarshaling into config")
+	}
+
+	// Parse override configuration if present.
+	overrideConfigPath := ".sgpt.json"
+	ok, err := file.Exists(overrideConfigPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "checking override config existence")
+	}
+	if ok {
+		bytes, err := os.ReadFile(overrideConfigPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "reading override config")
+		}
+		overrideConfig := &Config{}
+		if err = json.Unmarshal(bytes, overrideConfig); err != nil {
+			return nil, errors.Wrap(err, "unmarshaling into override config")
+		}
+		mergo.Merge(config, overrideConfig, mergo.WithOverride)
 	}
 
 	expandedChatDirectoryPath, err := file.ExpandPath(config.Chat.Directory)

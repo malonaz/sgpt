@@ -57,12 +57,19 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				chat = store.NewChat(opts.ChatID)
 			}
 
-			// Set the model.
+			// Parse model and role.
 			model, err := model.Parse(opts.Model)
+			cobra.CheckErr(err)
+			role, err := opts.Role.Parse()
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Title("SGPT CHAT [%s](%s)", model.ID, opts.ChatID)
+      roleName := "anon"
+      if role != nil {
+        roleName = role.Name
+      }
+      title := fmt.Sprintf("SGPT CHAT [%s](%s)@%s", model.ID, opts.ChatID, roleName)
+			cli.Title(title)
 
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)
@@ -85,12 +92,10 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			// Inject role.
-			r, err := role.Parse(opts.Role)
-			cobra.CheckErr(err)
-			if r != nil {
+			if role != nil {
 				message := openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: r.Description,
+					Content: role.Description,
 				}
 				additionalMessages = append(additionalMessages, message)
 			}
@@ -201,7 +206,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	}
 
 	opts.FileInjection = file.GetOpts(cmd)
-	opts.Role = role.GetOpts(cmd)
+	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
 	opts.Model = model.GetOpts(cmd, config.Chat.DefaultModel)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")

@@ -3,6 +3,7 @@ module github.com/malonaz/sgpt
 go 1.20
 
 require (
+	dario.cat/mergo v1.0.0
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/bazelbuild/buildtools v0.0.0-20230510134650-37bd1811516d
 	github.com/buger/goterm v1.0.4

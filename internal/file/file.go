@@ -169,3 +169,15 @@ func DirectoryExists(directory string) (bool, error) {
 	}
 	return info.IsDir(), nil
 }
+
+// Exists returns true if the specified file exists.
+func Exists(filePath string) (bool, error) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "checking file existence")
+	}
+	return !info.IsDir(), nil
+}

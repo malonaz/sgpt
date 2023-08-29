@@ -1,6 +1,9 @@
 go_library(
     name = "role",
-    srcs = ["role.go"],
+    srcs = [
+        "role.go",
+        "roles.go",
+    ],
     visibility = ["//chat"],
     deps = [
         "//third_party/go:github.com__pkg__errors",
