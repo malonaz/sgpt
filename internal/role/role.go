@@ -17,7 +17,7 @@ type Opts struct {
 
 // Role represents a role ChatGPT will play.
 type Role struct {
-  Name        string
+	Name        string
 	Description string
 }
 
@@ -58,9 +58,9 @@ func (o *Opts) Parse() (*Role, error) {
 		description = strings.ReplaceAll(description, "{{ os }}", runtime.GOOS)
 	}
 	return &Role{
-    Name: o.Role,
-    Description: description,
-  }, nil
+		Name:        o.Role,
+		Description: description,
+	}, nil
 }
 
 // EmbeddingsAugmentedAssistant is the role of an embedder.

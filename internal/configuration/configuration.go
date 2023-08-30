@@ -17,7 +17,7 @@ var defaultConfig = Config{
 
 	Chat: &ChatConfig{
 		DefaultModel: "gpt-3.5-turbo",
-    DefaultRole: "code",
+		DefaultRole:  "code",
 		Directory:    "~/.config/sgpt/chat",
 		Roles:        map[string]string{},
 	},

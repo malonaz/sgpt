@@ -64,12 +64,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Headers.
-      roleName := "anon"
-      if role != nil {
-        roleName = role.Name
-      }
-      title := fmt.Sprintf("SGPT CHAT [%s](%s)@%s", model.ID, opts.ChatID, roleName)
-			cli.Title(title)
+			roleName := "default"
+			if role != nil {
+				roleName = role.Name
+			}
+			cli.Title("%s@%s/%s", roleName, model.ID, opts.ChatID)
 
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)
