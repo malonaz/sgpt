@@ -55,7 +55,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Title("SGPT EMBED [%s]", model.ID)
+			cli.Title(model.ID)
 
 			// Run git diff.
 			path, err := exec.LookPath("git")

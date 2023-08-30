@@ -98,12 +98,11 @@ func Parse(path string) (*Config, error) {
 	}
 
 	// Parse override configuration if present.
-	overrideConfigPath := ".sgpt.json"
-	ok, err := file.Exists(overrideConfigPath)
+	overrideConfigPath, err := findOverrideConfigPath()
 	if err != nil {
-		return nil, errors.Wrap(err, "checking override config existence")
+		return nil, errors.Wrap(err, "finding override config path")
 	}
-	if ok {
+	if overrideConfigPath != "" {
 		bytes, err := os.ReadFile(overrideConfigPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "reading override config")
@@ -160,4 +159,31 @@ func initializeIfNotPresent(path string) error {
 		return errors.Wrap(err, "saving default config")
 	}
 	return nil
+}
+
+func findOverrideConfigPath() (string, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", errors.Wrap(err, "getting working directory")
+	}
+
+	for {
+		overrideConfigPath := filepath.Join(currentDir, ".sgpt.json")
+		ok, err := file.Exists(overrideConfigPath)
+		if err != nil {
+			return "", errors.Wrap(err, "checking override config existence")
+		}
+
+		if ok {
+			return overrideConfigPath, nil
+		}
+
+		if currentDir == filepath.Dir(currentDir) { // Reached root
+			break
+		}
+
+		currentDir = filepath.Dir(currentDir)
+	}
+
+	return "", nil
 }

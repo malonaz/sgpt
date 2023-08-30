@@ -64,7 +64,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			cobra.CheckErr(err)
 
 			// Headers.
-			roleName := "default"
+			roleName := "anon"
 			if role != nil {
 				roleName = role.Name
 			}
