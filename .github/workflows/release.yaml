@@ -1,0 +1,65 @@
+name: Build and Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.21
+
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Build binary
+      run: |
+        GO111MODULE=on GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o build/sgpt_${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/sgpt
+
+    - name: Upload Artifact as Release Asset
+      uses: actions/upload-artifact@v2
+      with:
+        name: sgpt_${{ matrix.goos }}_${{ matrix.goarch }}
+        path: build/sgpt_${{ matrix.goos }}_${{ matrix.goarch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        path: build/
+
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up GitHub CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git
+        sudo apt-get install -y gh
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+
+    - name: Create Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        export TAG_NAME=$(echo ${GITHUB_REF#refs/tags/})
+        export RELEASE_NAME="sgpt Release $TAG_NAME"
+        gh release create --title "$RELEASE_NAME" --notes "Automated release" --target "${GITHUB_SHA}" $TAG_NAME
+
+    - name: Upload Release Assets
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        find build/ -type f | while read f; do gh release upload "$(echo ${GITHUB_REF#refs/tags/})" "$f"; done;
