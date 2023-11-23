@@ -46,8 +46,8 @@ func getEmbeddingMessages(
 }
 
 func pipeStream(stream *openai.ChatCompletionStream) (chan string, chan error) {
-	tokenChannel := make(chan string, 1000)
-	errorChannel := make(chan error, 1)
+	tokenChannel := make(chan string)
+	errorChannel := make(chan error)
 	go func() {
 		for {
 			response, err := stream.Recv()
