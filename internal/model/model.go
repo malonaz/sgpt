@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/pkoukk/tiktoken-go"
-	"github.com/pkoukk/tiktoken-go-loader"
+	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
@@ -34,6 +34,8 @@ type Model struct {
 }
 
 var models = []*Model{
+	// GPT-4 Turbo @ 128k.
+	{ID: openai.GPT4TurboPreview, InputPricing: decimal.RequireFromString("0.01"), OutputPricing: decimal.RequireFromString("0.03")},
 	// GPT-4 @ 32k.
 	{ID: openai.GPT432K0613, InputPricing: decimal.RequireFromString("0.06"), OutputPricing: decimal.RequireFromString("0.12")},
 	{ID: openai.GPT432K0314, InputPricing: decimal.RequireFromString("0.06"), OutputPricing: decimal.RequireFromString("0.12")},
@@ -127,7 +129,8 @@ func numTokensFromMessages(messages []openai.ChatCompletionMessage, modelID stri
 		"gpt-4-0314",
 		"gpt-4-32k-0314",
 		"gpt-4-0613",
-		"gpt-4-32k-0613":
+		"gpt-4-32k-0613",
+		"gpt-4-1106-preview":
 		tokensPerMessage = 3
 		tokensPerName = 1
 	case "gpt-3.5-turbo-0301":
