@@ -37,7 +37,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Set the model.
-			model, err := model.Parse(opts.Model)
+			model, err := model.Parse(config, opts.Model)
 			cobra.CheckErr(err)
 
 			// Headers.
@@ -189,6 +189,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	}
 
 	opts.Model = model.GetOpts(cmd, config.Diff.DefaultModel)
-	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "specify a message to spgt diff")
+	cmd.Flags().StringVar(&opts.Message, "message", "", "specify a message to spgt diff")
 	return cmd
 }

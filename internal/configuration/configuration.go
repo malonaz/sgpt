@@ -36,9 +36,10 @@ var defaultConfig = Config{
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	OpenaiAPIKey   string `json:"openai_api_key"`
-	OpenaiAPIHost  string `json:"openai_api_host"`
-	RequestTimeout int    `json:"request_timeout"`
+	OpenaiAPIKey   string            `json:"openai_api_key"`
+	OpenaiAPIHost  string            `json:"openai_api_host"`
+	RequestTimeout int               `json:"request_timeout"`
+	ModelAliases   map[string]string `json:"model_aliases"`
 
 	Diff  *DiffConfig  `json:"diff"`
 	Embed *EmbedConfig `json:"embed"`

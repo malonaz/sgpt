@@ -58,7 +58,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			// Parse model and role.
-			model, err := model.Parse(opts.Model)
+			model, err := model.Parse(config, opts.Model)
 			cobra.CheckErr(err)
 			role, err := opts.Role.Parse()
 			cobra.CheckErr(err)

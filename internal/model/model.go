@@ -7,9 +7,10 @@ import (
 	"github.com/pkoukk/tiktoken-go"
 	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 	"github.com/sashabaranov/go-openai"
+	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
-	"github.com/shopspring/decimal"
+	"github.com/malonaz/sgpt/internal/configuration"
 )
 
 // Opts for model.
@@ -22,7 +23,7 @@ func GetOpts(cmd *cobra.Command, defaultModel string) *Opts {
 	// Embed the dictionary rather than downloading it at runtime.
 	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
 	opts := &Opts{}
-	cmd.Flags().StringVar(&opts.Model, "model", defaultModel, "specify a model")
+	cmd.Flags().StringVarP(&opts.Model, "model", "m", defaultModel, "specify a model")
 	return opts
 }
 
@@ -72,9 +73,13 @@ var models = []*Model{
 }
 
 // Parse the model.
-func Parse(opts *Opts) (*Model, error) {
+func Parse(config *configuration.Config, opts *Opts) (*Model, error) {
+	modelID := opts.Model
+	if alias, ok := config.ModelAliases[modelID]; ok {
+		modelID = alias
+	}
 	for _, model := range models {
-		if model.ID == opts.Model {
+		if model.ID == modelID {
 			return model, nil
 		}
 	}

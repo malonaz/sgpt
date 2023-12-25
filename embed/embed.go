@@ -48,7 +48,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 			// Set the model.
 			optsModel := &model.Opts{Model: "text-embedding-ada-002"}
-			model, err := model.Parse(optsModel)
+			model, err := model.Parse(config, optsModel)
 			cobra.CheckErr(err)
 
 			s, err := LoadStore(config)
