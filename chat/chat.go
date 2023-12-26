@@ -34,6 +34,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		ChatID        string
 		Embeddings    bool
 		ShowCost      bool
+		Continue      bool
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -50,10 +51,17 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			if opts.ChatID != "" {
 				chat, err = s.Get(opts.ChatID)
 				cobra.CheckErr(err)
+			} else if opts.Continue {
+				// Fetch the latest chat.
+				chats, err := s.List(1)
+				cobra.CheckErr(err)
+				if len(chats) == 0 {
+					cobra.CheckErr(fmt.Errorf("no chat to continue"))
+				}
+				chat = chats[0]
+				opts.ChatID = chat.ID
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
-			}
-			if chat == nil {
 				chat = store.NewChat(opts.ChatID)
 			}
 
@@ -211,7 +219,8 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	opts.Model = model.GetOpts(cmd, config.Chat.DefaultModel)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
-	cmd.Flags().BoolVarP(&opts.ShowCost, "show-cost", "c", false, "Show cost")
+	cmd.Flags().BoolVar(&opts.ShowCost, "show-cost", false, "Show cost")
+	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 
 	cmd.AddCommand(newListCmd(config))
 	return cmd
