@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 
 	"dario.cat/mergo"
-	"github.com/malonaz/sgpt/internal/file"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
+
+	"github.com/malonaz/sgpt/internal/file"
 )
 
 var defaultConfig = Config{
@@ -40,6 +42,8 @@ type Config struct {
 	OpenaiAPIHost  string            `json:"openai_api_host"`
 	RequestTimeout int               `json:"request_timeout"`
 	ModelAliases   map[string]string `json:"model_aliases"`
+	// Above this threshold we query the user.
+	CostThreshold decimal.Decimal `json:"cost_threshold"`
 
 	Diff  *DiffConfig  `json:"diff"`
 	Embed *EmbedConfig `json:"embed"`

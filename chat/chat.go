@@ -68,7 +68,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			if role != nil {
 				roleName = role.Name
 			}
-			cli.Title("%s@%s/%s", roleName, model.ID, opts.ChatID)
+			cli.Title("%s@%s[%s]", roleName, model.ID, opts.ChatID)
 
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)
@@ -144,10 +144,12 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
 				cobra.CheckErr(err)
-				if opts.ShowCost {
+				if opts.ShowCost || (!config.CostThreshold.IsZero() && requestCost.GreaterThan(config.CostThreshold)) {
 					cli.CostInfo("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
+					if !cli.QueryUser("continue") {
+						return
+					}
 				}
-
 				// Initiate Open AI stream.
 				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 				cobra.CheckErr(err)

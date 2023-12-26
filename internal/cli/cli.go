@@ -101,7 +101,7 @@ func PromptUser() (string, error) {
 func QueryUser(question string) bool {
 	// Check if user wants to commit the message.
 	surveyQuestion := &survey.Confirm{
-		Message: "Apply commit",
+		Message: question,
 	}
 	confirm := false
 	survey.AskOne(surveyQuestion, &confirm)
