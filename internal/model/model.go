@@ -37,6 +37,7 @@ type Model struct {
 var models = []*Model{
 	// GPT-4 Turbo @ 128k.
 	{ID: openai.GPT4TurboPreview, InputPricing: decimal.RequireFromString("0.01"), OutputPricing: decimal.RequireFromString("0.03")},
+	{ID: openai.GPT4Turbo20240409, InputPricing: decimal.RequireFromString("0.01"), OutputPricing: decimal.RequireFromString("0.03")},
 	// GPT-4 @ 32k.
 	{ID: openai.GPT432K0613, InputPricing: decimal.RequireFromString("0.06"), OutputPricing: decimal.RequireFromString("0.12")},
 	{ID: openai.GPT432K0314, InputPricing: decimal.RequireFromString("0.06"), OutputPricing: decimal.RequireFromString("0.12")},
