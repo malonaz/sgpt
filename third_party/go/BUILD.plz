@@ -315,7 +315,7 @@ go_mod_download(
     name = "github.com__sashabaranov__go-openai",
     _tag = "download",
     module = "github.com/sashabaranov/go-openai",
-    version = "v1.21.0",
+    version = "v1.24.0",
     visibility = ["PUBLIC"],
 )
 

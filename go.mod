@@ -13,7 +13,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkoukk/tiktoken-go v0.1.4
 	github.com/pkoukk/tiktoken-go-loader v0.0.1
-	github.com/sashabaranov/go-openai v1.21.0
+	github.com/sashabaranov/go-openai v1.24.0
 	github.com/scylladb/go-set v1.0.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cobra v1.7.0
