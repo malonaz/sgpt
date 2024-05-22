@@ -30,11 +30,14 @@ func GetOpts(cmd *cobra.Command, defaultModel string) *Opts {
 // Model represents a gpt model.
 type Model struct {
 	ID            string
+	SkipEncoding bool
 	InputPricing  decimal.Decimal
 	OutputPricing decimal.Decimal
 }
 
 var models = []*Model{
+	// GPT-4o
+	{ID: openai.GPT4o20240513, SkipEncoding: true},
 	// GPT-4 Turbo @ 128k.
 	{ID: openai.GPT4TurboPreview, InputPricing: decimal.RequireFromString("0.01"), OutputPricing: decimal.RequireFromString("0.03")},
 	{ID: openai.GPT4Turbo20240409, InputPricing: decimal.RequireFromString("0.01"), OutputPricing: decimal.RequireFromString("0.03")},
@@ -89,6 +92,9 @@ func Parse(config *configuration.Config, opts *Opts) (*Model, error) {
 
 // CalculateEmbeddingCost for the given input.
 func (m *Model) CalculateEmbeddingCost(input string) (int64, decimal.Decimal, error) {
+	if m.SkipEncoding {
+		return 0, decimal.Zero, nil
+	}
 	tkm, err := tiktoken.EncodingForModel(m.ID)
 	if err != nil {
 		return 0, decimal.Zero, errors.Wrap(err, "encoding for model")
@@ -123,6 +129,7 @@ func (m *Model) calculateCost(messages []openai.ChatCompletionMessage, input boo
 }
 
 func numTokensFromMessages(messages []openai.ChatCompletionMessage, modelID string) (int64, error) {
+	return 0, nil
 	tkm, err := tiktoken.EncodingForModel(modelID)
 	if err != nil {
 		return 0, errors.Wrap(err, "encoding for model")
