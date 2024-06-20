@@ -44,6 +44,10 @@ func UserInput(text string, args ...any) {
 
 // UserCommand printed to cli.
 func UserCommand(text string, args ...any) {
+	if len(args) == 0 {
+		userCommandColor.Print(text)
+		return
+	}
 	userCommandColor.Printf(text, args...)
 }
 

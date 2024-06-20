@@ -30,7 +30,7 @@ func GetOpts(cmd *cobra.Command, defaultModel string) *Opts {
 // Model represents a gpt model.
 type Model struct {
 	ID            string
-	SkipEncoding bool
+	SkipEncoding  bool
 	InputPricing  decimal.Decimal
 	OutputPricing decimal.Decimal
 }

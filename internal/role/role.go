@@ -28,6 +28,7 @@ func GetOpts(cmd *cobra.Command, defaultRole string, roles map[string]string) *O
 	}
 	roles["code"] = roleCodeDescription
 	roles["shell"] = roleShellDescription
+	roles["img"] = roleImageDescription
 	opts := &Opts{roles: roles}
 	cmd.Flags().StringVarP(&opts.Role, "role", "r", defaultRole, "specify a role")
 	return opts

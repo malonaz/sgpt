@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,6 +25,9 @@ import (
 )
 
 const streamTokenTimeout = 5 * time.Second
+const doNotSendToken = "%@#$!@"
+
+var imagePromptRegexp = regexp.MustCompile(`prompt\((.*?)\)`)
 
 // NewCmd instantiates and returns the chat command.
 func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
@@ -35,6 +39,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Embeddings    bool
 		ShowCost      bool
 		Continue      bool
+		ImageSize     string
+		ImageQuality  string
+		ImageNumber   int
 	}
 	cmd := &cobra.Command{
 		Use:   "chat",
@@ -113,6 +120,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					cli.UserInput("> %s\n", message.Content)
 				}
 				if message.Role == openai.ChatMessageRoleAssistant {
+					if strings.Contains(message.Content, doNotSendToken) {
+						trimmed := strings.TrimPrefix(message.Content, doNotSendToken)
+						cli.UserCommand(trimmed + "\n")
+						continue
+					}
 					cli.AIOutput(message.Content + "\n")
 				}
 			}
@@ -143,7 +155,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					Content: text,
 				}
 				messages := append(additionalMessages, embeddingMessages...)
-				messages = append(messages, chat.Messages...)
+				for _, message := range chat.Messages {
+					if !strings.Contains(message.Content, doNotSendToken) {
+						messages = append(messages, message)
+					}
+				}
 				messages = append(messages, userMessage)
 				request := openai.ChatCompletionRequest{
 					Model:    model.ID,
@@ -210,6 +226,39 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					err := s.Write(chat)
 					cobra.CheckErr(err)
 				}
+
+				matches := imagePromptRegexp.FindStringSubmatch(chatCompletionMessage.Content)
+				if len(matches) == 2 {
+					if !cli.QueryUser("Generate an image?") {
+						continue
+					}
+					match := matches[1]
+					cli.UserCommand("Generation started...\n")
+
+					// Generate an image.
+					request := openai.ImageRequest{
+						Model:          openai.CreateImageModelDallE3,
+						Quality:        opts.ImageQuality,
+						Size:           opts.ImageSize,
+						N:              opts.ImageNumber,
+						Prompt:         match,
+						ResponseFormat: openai.CreateImageResponseFormatURL,
+					}
+					response, err := openAIClient.CreateImage(ctx, request)
+					if err != nil {
+						cobra.CheckErr(fmt.Errorf("failed to created image: %v", err))
+					}
+					cli.UserCommand("Generation completed: %s\n", response.Data[0].URL)
+
+					// Save response (with the `DoNotSend` token).
+					chatCompletionMessage = openai.ChatCompletionMessage{
+						Role:    openai.ChatMessageRoleAssistant,
+						Content: doNotSendToken + response.Data[0].URL,
+					}
+					chat.Messages = append(chat.Messages, chatCompletionMessage)
+					err = s.Write(chat)
+					cobra.CheckErr(err)
+				}
 			}
 		},
 	}
@@ -221,6 +270,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	cmd.Flags().BoolVar(&opts.ShowCost, "show-cost", false, "Show cost")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
+	cmd.Flags().StringVar(&opts.ImageSize, "image-size", "1024x1024", "256x256, 512x512, 1024x1024, 1792x1024, 1024x1792")
+	cmd.Flags().StringVar(&opts.ImageQuality, "image-quality", "hd", "hd, standard")
+	cmd.Flags().IntVar(&opts.ImageNumber, "image-number", 1, "how many images to generate")
 
 	cmd.AddCommand(newListCmd(config))
 	return cmd
