@@ -20,13 +20,13 @@ import (
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
-	"github.com/malonaz/sgpt/internal/model"
+	"github.com/malonaz/sgpt/internal/llm"
 )
 
 // NewCmd instantiates and returns the diff command.
-func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
+func NewCmd(config *configuration.Config) *cobra.Command {
 	var opts struct {
-		Model   *model.Opts
+		LLM     *llm.Opts
 		Message string
 	}
 	prompt := strings.ReplaceAll(prompt, "@", "`")
@@ -36,12 +36,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Long:  "Generate diff commit message",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Set the model.
-			model, err := model.Parse(config, opts.Model)
+			openAIClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Title(model.ID)
+			cli.Title(model.Name)
 
 			// Run git diff.
 			path, err := exec.LookPath("git")
@@ -141,16 +140,13 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			messages = append(messages, message)
 
 			// Open stream.
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.RequestTimeout)*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(provider.RequestTimeout)*time.Second)
 			defer cancel()
 			request := openai.ChatCompletionRequest{
-				Model:    model.ID,
+				Model:    model.Name,
 				Messages: messages,
 				Stream:   true,
 			}
-			requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
-			cobra.CheckErr(err)
-			cli.CostInfo("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
 
 			stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 			cobra.CheckErr(err)
@@ -168,10 +164,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				chatCompletionMessage.Content += response.Choices[0].Delta.Content
 			}
 			cli.AIOutput("\n")
-			responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
-			cobra.CheckErr(err)
-			cli.CostInfo("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
-			cli.CostInfo("Total cost is $%s\n", requestCost.Add(responseCost).String())
 
 			// Check if user wants to commit the message.
 			if !cli.QueryUser("Apply commit") {
@@ -188,7 +180,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		},
 	}
 
-	opts.Model = model.GetOpts(cmd, config.Diff.DefaultModel)
+	opts.LLM = llm.GetOpts(cmd, config.Diff.DefaultModel)
 	cmd.Flags().StringVar(&opts.Message, "message", "", "specify a message to spgt diff")
 	return cmd
 }

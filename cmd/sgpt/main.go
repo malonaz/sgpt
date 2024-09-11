@@ -1,7 +1,6 @@
 package main
 
 import (
-	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/chat"
@@ -23,12 +22,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	// Instantiate open api client.
-	client := openai.NewClient(config.OpenaiAPIKey)
-
-	rootCmd.AddCommand(chat.NewCmd(client, config))
-	rootCmd.AddCommand(diff.NewCmd(client, config))
-	rootCmd.AddCommand(embed.NewCmd(client, config))
+	rootCmd.AddCommand(chat.NewCmd(config))
+	rootCmd.AddCommand(diff.NewCmd(config))
+	rootCmd.AddCommand(embed.NewCmd(config))
 	rootCmd.Execute()
 }

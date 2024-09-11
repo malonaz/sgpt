@@ -14,24 +14,24 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
-	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/embed/store"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
-	"github.com/malonaz/sgpt/internal/model"
+	"github.com/malonaz/sgpt/internal/llm"
 )
 
 // NewCmd instantiates and returns the embed command.
-func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
+func NewCmd(config *configuration.Config) *cobra.Command {
 	// Initialize embed directory.
 	err := file.CreateDirectoryIfNotExist(config.Embed.Directory)
 	cobra.CheckErr(err)
 
 	var opts struct {
 		Force bool
+		LLM   *llm.Opts
 	}
 	cmd := &cobra.Command{
 		Use:   "embed",
@@ -47,15 +47,14 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				return
 			}
 			// Set the model.
-			optsModel := &model.Opts{Model: "text-embedding-ada-002"}
-			model, err := model.Parse(config, optsModel)
+			openAIClient, model, _, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
 			s, err := LoadStore(config)
 			cobra.CheckErr(err)
 
 			// Headers.
-			cli.Title(model.ID)
+			cli.Title(model.Name)
 
 			// Run git diff.
 			path, err := exec.LookPath("git")
@@ -87,9 +86,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 			// Chunk up the files.
 			chunkSize := 2000 // characters.
-			filenameToCostInformation := map[string]string{}
-			totalCost := decimal.Decimal{}
-			totalTokens := int64(0)
 			files := []*store.File{}
 			for _, filename := range filteredGitFiles {
 				if !file.HasValidExtension(filename, config.Embed.FileExtensions) {
@@ -119,19 +115,12 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 						Filename: filename,
 					}
 				}
-
-				tokens, cost, err := model.CalculateEmbeddingCost(string(bytes))
-				cobra.CheckErr(err)
-				totalCost = totalCost.Add(cost)
-				totalTokens += tokens
-				filenameToCostInformation[file.Name] = fmt.Sprintf("%d tokens costing $%s\n", tokens, cost.String())
 			}
 			if len(files) == 0 {
 				cli.AIOutput("All embeddings are up to date")
 				return
 			}
 
-			cli.CostInfo("regenerating all embeddings (%d tokens) will cost: %s\n", totalTokens, totalCost.String())
 			if !cli.QueryUser("Continue") {
 				return
 			}
@@ -160,7 +149,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					s.AddFile(file)
 					err := s.Save()
 					cobra.CheckErr(err)
-					cli.CostInfo("generated embedding for %s: %s", file.Name, filenameToCostInformation[file.Name])
 				}
 				go fn()
 			}

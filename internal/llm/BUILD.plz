@@ -1,12 +1,10 @@
-go_binary(
-    name = "sgpt",
-    srcs = ["main.go"],
+go_library(
+    name = "llm",
+    srcs = ["llm.go"],
     visibility = ["//..."],
     deps = [
-        "//chat",
-        "//diff",
-        "//embed",
         "//internal/configuration",
+        "//third_party/go:github.com__sashabaranov__go-openai",
         "//third_party/go:github.com__spf13__cobra",
     ],
 )

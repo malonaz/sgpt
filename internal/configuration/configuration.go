@@ -7,19 +7,41 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 
 	"github.com/malonaz/sgpt/internal/file"
 )
 
+const (
+	providerOpenAI = "open_ai"
+)
+
 var defaultConfig = Config{
-	OpenaiAPIKey:   "API_KEY",
-	OpenaiAPIHost:  "https://api.openai.com",
-	RequestTimeout: 60,
+	Providers: []*Provider{
+		{
+			Name:           providerOpenAI,
+			APIKey:         "API_KEY",
+			APIHost:        "https://api.openai.com/v1",
+			RequestTimeout: 60,
+			Models: []*Model{
+				{
+					Name:  "gpt-4-0314",
+					Alias: "4",
+				},
+				{
+					Name:  "gpt-4-turbo-2024-04-09",
+					Alias: "t",
+				},
+				{
+					Name:  "gpt-4o-2024-05-13",
+					Alias: "o",
+				},
+			},
+		},
+	},
 
 	Chat: &ChatConfig{
 		DefaultModel: "gpt-3.5-turbo",
-		DefaultRole:  "code",
+		DefaultRole:  "jcode",
 		Directory:    "~/.config/sgpt/chat",
 		Roles:        map[string]string{},
 	},
@@ -36,18 +58,27 @@ var defaultConfig = Config{
 	},
 }
 
+type Provider struct {
+	Name           string `json:"name"`
+	APIHost        string `json:"api_host"`
+	APIKey         string `json:"api_key"`
+	RequestTimeout int    `json:"request_timeout"`
+
+	Models []*Model `json:"models"`
+}
+
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	OpenaiAPIKey   string            `json:"openai_api_key"`
-	OpenaiAPIHost  string            `json:"openai_api_host"`
-	RequestTimeout int               `json:"request_timeout"`
-	ModelAliases   map[string]string `json:"model_aliases"`
-	// Above this threshold we query the user.
-	CostThreshold decimal.Decimal `json:"cost_threshold"`
+	Providers []*Provider `json:"providers"`
 
 	Diff  *DiffConfig  `json:"diff"`
 	Embed *EmbedConfig `json:"embed"`
 	Chat  *ChatConfig  `json:"chat"`
+}
+
+type Model struct {
+	Name  string `json:"name"`
+	Alias string `json:"alias"`
 }
 
 // ChatConfig holds configuration sgpt chat.

@@ -13,14 +13,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
-	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/chat/store"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
-	"github.com/malonaz/sgpt/internal/model"
+	"github.com/malonaz/sgpt/internal/llm"
 	"github.com/malonaz/sgpt/internal/role"
 )
 
@@ -30,15 +29,15 @@ const doNotSendToken = "%@#$!@"
 var imagePromptRegexp = regexp.MustCompile(`prompt\((.*?)\)`)
 
 // NewCmd instantiates and returns the chat command.
-func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Command {
+func NewCmd(config *configuration.Config) *cobra.Command {
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
-		Model         *model.Opts
+		LLM           *llm.Opts
 		ChatID        string
 		Embeddings    bool
-		ShowCost      bool
 		Continue      bool
+		ImageConfirm  bool
 		ImageSize     string
 		ImageQuality  string
 		ImageNumber   int
@@ -49,6 +48,9 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 		Long:  "Back and forth chat",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
+			openAIClient, model, provider, err := llm.NewClient(config, opts.LLM)
+			cobra.CheckErr(err)
+
 			// Instantiate store.
 			s, err := store.New(config.Chat.Directory)
 			cobra.CheckErr(err)
@@ -73,8 +75,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			// Parse model and role.
-			model, err := model.Parse(config, opts.Model)
-			cobra.CheckErr(err)
 			role, err := opts.Role.Parse()
 			cobra.CheckErr(err)
 
@@ -83,7 +83,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			if role != nil {
 				roleName = role.Name
 			}
-			cli.Title("%s@%s[%s]", roleName, model.ID, opts.ChatID)
+			cli.Title("%s@%s/%s[%s]", roleName, provider.Name, model.Name, opts.ChatID)
 
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)
@@ -96,13 +96,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				additionalMessages = append(additionalMessages, message)
 				cli.FileInfo("injecting file #%d: %s\n", len(additionalMessages), file.Path)
-			}
-			if len(additionalMessages) > 0 {
-				tokens, cost, err := model.CalculateRequestCost(additionalMessages...)
-				cobra.CheckErr(err)
-				if opts.ShowCost {
-					cli.CostInfo("File injections (%d tokens) will add %s per request\n", tokens, cost.String())
-				}
 			}
 
 			// Inject role.
@@ -130,7 +123,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 			}
 
 			ctx := context.Background()
-			var totalCost decimal.Decimal
 			for {
 				// Query user for prompt.
 				text, err := cli.PromptUser()
@@ -139,7 +131,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				cli.AIOutput("SGPT: ")
 
 				// Set cancelable context with timeout.
-				ctx, cancel := context.WithTimeout(ctx, time.Duration(config.RequestTimeout)*time.Second)
+				ctx, cancel := context.WithTimeout(ctx, time.Duration(provider.RequestTimeout)*time.Second)
 				defer cancel()
 
 				// If relevant, fetch embeddings.
@@ -162,18 +154,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				messages = append(messages, userMessage)
 				request := openai.ChatCompletionRequest{
-					Model:    model.ID,
+					Model:    model.Name,
 					Messages: messages,
 					Stream:   true,
 				}
-				requestTokens, requestCost, err := model.CalculateRequestCost(messages...)
-				cobra.CheckErr(err)
-				if opts.ShowCost || (!config.CostThreshold.IsZero() && requestCost.GreaterThan(config.CostThreshold)) {
-					cli.CostInfo("Request contains %d tokens costing $%s\n", requestTokens, requestCost.String())
-					if !cli.QueryUser("continue") {
-						return
-					}
-				}
+
 				// Initiate Open AI stream.
 				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
 				cobra.CheckErr(err)
@@ -211,14 +196,6 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 				}
 				cli.AIOutput("\n")
 
-				responseTokens, responseCost, err := model.CalculateResponseCost(chatCompletionMessage)
-				cobra.CheckErr(err)
-				totalCost = totalCost.Add(requestCost).Add(responseCost)
-				if opts.ShowCost {
-					cli.CostInfo("Response contains %d tokens costing $%s\n", responseTokens, responseCost.String())
-					cli.CostInfo("Total cost so far $%s\n", totalCost.String())
-				}
-
 				if !interrupted {
 					// Append the response content to our history.
 					chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
@@ -229,11 +206,11 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 				matches := imagePromptRegexp.FindStringSubmatch(chatCompletionMessage.Content)
 				if len(matches) == 2 {
-					if !cli.QueryUser("Generate an image?") {
+					if opts.ImageConfirm && !cli.QueryUser("Generate an image?") {
 						continue
 					}
 					match := matches[1]
-					cli.UserCommand("Generation started...\n")
+					cli.UserCommand("Generation started...")
 
 					// Generate an image.
 					request := openai.ImageRequest{
@@ -248,7 +225,7 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 					if err != nil {
 						cobra.CheckErr(fmt.Errorf("failed to created image: %v", err))
 					}
-					cli.UserCommand("Generation completed: %s\n", response.Data[0].URL)
+					cli.UserCommand("%s\n", response.Data[0].URL)
 
 					// Save response (with the `DoNotSend` token).
 					chatCompletionMessage = openai.ChatCompletionMessage{
@@ -265,14 +242,14 @@ func NewCmd(openAIClient *openai.Client, config *configuration.Config) *cobra.Co
 
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
-	opts.Model = model.GetOpts(cmd, config.Chat.DefaultModel)
+	opts.LLM = llm.GetOpts(cmd, config.Chat.DefaultModel)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
-	cmd.Flags().BoolVar(&opts.ShowCost, "show-cost", false, "Show cost")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringVar(&opts.ImageSize, "image-size", "1024x1024", "256x256, 512x512, 1024x1024, 1792x1024, 1024x1792")
 	cmd.Flags().StringVar(&opts.ImageQuality, "image-quality", "hd", "hd, standard")
 	cmd.Flags().IntVar(&opts.ImageNumber, "image-number", 1, "how many images to generate")
+	cmd.Flags().BoolVar(&opts.ImageConfirm, "image-confirm", false, "If true, we confirm before generating each image")
 
 	cmd.AddCommand(newListCmd(config))
 	return cmd
