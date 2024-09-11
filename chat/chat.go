@@ -157,6 +157,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 					Model:    model.Name,
 					Messages: messages,
 					Stream:   true,
+					MaxTokens: model.MaxTokens,
 				}
 
 				// Initiate Open AI stream.

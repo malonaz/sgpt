@@ -79,6 +79,7 @@ type Config struct {
 type Model struct {
 	Name  string `json:"name"`
 	Alias string `json:"alias"`
+	MaxTokens int `json:"max-tokens"`
 }
 
 // ChatConfig holds configuration sgpt chat.
