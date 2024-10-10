@@ -36,7 +36,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 		Long:  "Generate diff commit message",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			openAIClient, model, provider, err := llm.NewClient(config, opts.LLM)
+			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
 			// Headers.
@@ -104,9 +104,9 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			}
 			sort.Slice(scopes, func(i, j int) bool { return scopes[i].Count > scopes[j].Count })
 
-			messages := []openai.ChatCompletionMessage{}
+			messages := []*llm.Message{}
 			// Inject diff.
-			message := openai.ChatCompletionMessage{
+			message := &llm.Message{
 				Role:    openai.ChatMessageRoleSystem,
 				Content: fmt.Sprintf("[git diff]\n```%s```", filteredGitDiff),
 			}
@@ -119,21 +119,21 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				scopeNames = append(scopeNames, scope.Name)
 				scopeChanges = append(scopeChanges, fmt.Sprintf("scope [%s] has %d changes.", scope.Name, scope.Count))
 			}
-			message = openai.ChatCompletionMessage{
+			message = &llm.Message{
 				Role:    openai.ChatMessageRoleSystem,
 				Content: fmt.Sprintf("Scopes available: [%s]\n%s", strings.Join(scopeNames, ", "), strings.Join(scopeChanges, "\n")),
 			}
 			messages = append(messages, message)
 
 			// Inject the system prompt.
-			message = openai.ChatCompletionMessage{
+			message = &llm.Message{
 				Role:    openai.ChatMessageRoleSystem,
 				Content: prompt,
 			}
 			messages = append(messages, message)
 
 			// Query message.
-			message = openai.ChatCompletionMessage{
+			message = &llm.Message{
 				Role:    openai.ChatMessageRoleUser,
 				Content: strings.ReplaceAll(generateGitCommitMessage, "{{message}}", opts.Message),
 			}
@@ -142,26 +142,25 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			// Open stream.
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(provider.RequestTimeout)*time.Second)
 			defer cancel()
-			request := openai.ChatCompletionRequest{
+			request := &llm.CreateTextGenerationRequest{
 				Model:    model.Name,
 				Messages: messages,
-				Stream:   true,
 			}
 
-			stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
+			stream, err := llmClient.CreateTextGeneration(ctx, request)
 			cobra.CheckErr(err)
 			defer stream.Close()
 
 			// Consume stream.
-			chatCompletionMessage := openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant}
+			chatCompletionMessage := &llm.Message{Role: openai.ChatMessageRoleAssistant}
 			for {
-				response, err := stream.Recv()
+				event, err := stream.Recv()
 				if errors.Is(err, io.EOF) {
 					break
 				}
 				cobra.CheckErr(err)
-				cli.AIOutput(response.Choices[0].Delta.Content)
-				chatCompletionMessage.Content += response.Choices[0].Delta.Content
+				cli.AIOutput(event.Token)
+				chatCompletionMessage.Content += event.Token
 			}
 			cli.AIOutput("\n")
 

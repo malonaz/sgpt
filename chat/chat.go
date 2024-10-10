@@ -46,9 +46,9 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 		Use:   "chat",
 		Short: "Back and forth chat",
 		Long:  "Back and forth chat",
-		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			openAIClient, model, provider, err := llm.NewClient(config, opts.LLM)
+			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
+			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
 			// Instantiate store.
@@ -88,9 +88,9 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			// Inject files.
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
-			additionalMessages := make([]openai.ChatCompletionMessage, 0, len(files))
+			additionalMessages := make([]*llm.Message, 0, len(files))
 			for _, file := range files {
-				message := openai.ChatCompletionMessage{
+				message := &llm.Message{
 					Role:    openai.ChatMessageRoleSystem,
 					Content: fmt.Sprintf("file %s: `%s`", file.Path, file.Content),
 				}
@@ -100,7 +100,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 
 			// Inject role.
 			if role != nil {
-				message := openai.ChatCompletionMessage{
+				message := &llm.Message{
 					Role:    openai.ChatMessageRoleSystem,
 					Content: role.Description,
 				}
@@ -135,14 +135,14 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				defer cancel()
 
 				// If relevant, fetch embeddings.
-				var embeddingMessages []openai.ChatCompletionMessage
+				var embeddingMessages []*llm.Message
 				if opts.Embeddings {
-					embeddingMessages, err = getEmbeddingMessages(ctx, config, openAIClient, text)
+					embeddingMessages, err = getEmbeddingMessages(ctx, config, llmClient, text)
 					cobra.CheckErr(err)
 				}
 
 				// Create open AI request.
-				userMessage := openai.ChatCompletionMessage{
+				userMessage := &llm.Message{
 					Role:    openai.ChatMessageRoleUser,
 					Content: text,
 				}
@@ -153,15 +153,14 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 					}
 				}
 				messages = append(messages, userMessage)
-				request := openai.ChatCompletionRequest{
-					Model:    model.Name,
-					Messages: messages,
-					Stream:   true,
+				request := &llm.CreateTextGenerationRequest{
+					Model:     model.Name,
+					Messages:  messages,
 					MaxTokens: model.MaxTokens,
 				}
 
 				// Initiate Open AI stream.
-				stream, err := openAIClient.CreateChatCompletionStream(ctx, request)
+				stream, err := llmClient.CreateTextGeneration(ctx, request)
 				cobra.CheckErr(err)
 				defer stream.Close()
 				tokenChannel, errorChannel := pipeStream(stream)
@@ -170,7 +169,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				interruptSignalChannel := make(chan os.Signal, 1)
 				signal.Notify(interruptSignalChannel, os.Interrupt)
 				interrupted := false
-				chatCompletionMessage := openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant}
+				chatCompletionMessage := &llm.Message{Role: openai.ChatMessageRoleAssistant}
 				for {
 					streamEnded := false
 					select {
@@ -207,6 +206,10 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 
 				matches := imagePromptRegexp.FindStringSubmatch(chatCompletionMessage.Content)
 				if len(matches) == 2 {
+					if config.ImageProvider == nil {
+						cobra.CheckErr(fmt.Errorf("need to define an open ai image provider in the configuration.chat section"))
+					}
+
 					if opts.ImageConfirm && !cli.QueryUser("Generate an image?") {
 						continue
 					}
@@ -214,22 +217,23 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 					cli.UserCommand("Generation started...")
 
 					// Generate an image.
+					openAIClient := llm.NewOpenAIClient(config.ImageProvider.APIKey, config.ImageProvider.APIHost)
 					request := openai.ImageRequest{
-						Model:          openai.CreateImageModelDallE3,
+						Model:          config.ImageProvider.Model,
 						Quality:        opts.ImageQuality,
 						Size:           opts.ImageSize,
 						N:              opts.ImageNumber,
 						Prompt:         match,
 						ResponseFormat: openai.CreateImageResponseFormatURL,
 					}
-					response, err := openAIClient.CreateImage(ctx, request)
+					response, err := openAIClient.Get().CreateImage(ctx, request)
 					if err != nil {
 						cobra.CheckErr(fmt.Errorf("failed to created image: %v", err))
 					}
 					cli.UserCommand("%s\n", response.Data[0].URL)
 
 					// Save response (with the `DoNotSend` token).
-					chatCompletionMessage = openai.ChatCompletionMessage{
+					chatCompletionMessage = &llm.Message{
 						Role:    openai.ChatMessageRoleAssistant,
 						Content: doNotSendToken + response.Data[0].URL,
 					}

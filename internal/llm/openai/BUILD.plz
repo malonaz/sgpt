@@ -1,9 +1,0 @@
-go_library(
-    name = "openai",
-    srcs = ["openai.go"],
-    visibility = ["//..."],
-    deps = [
-        "//internal/llm",
-        "//third_party/go:github.com__sashabaranov__go-openai",
-    ],
-)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/internal/configuration"
@@ -23,7 +22,7 @@ func GetOpts(cmd *cobra.Command, defaultModel string) *Opts {
 }
 
 // Instantiates and returns a new client.
-func NewClient(config *configuration.Config, opts *Opts) (*openai.Client, *configuration.Model, *configuration.Provider, error) {
+func NewClient(config *configuration.Config, opts *Opts) (Client, *configuration.Model, *configuration.Provider, error) {
 	var model *configuration.Model
 	var provider *configuration.Provider
 	for _, p := range config.Providers {
@@ -39,10 +38,7 @@ func NewClient(config *configuration.Config, opts *Opts) (*openai.Client, *confi
 		return nil, nil, nil, fmt.Errorf("unknown model (%s)", opts.Model)
 	}
 
-	openAIConfig := openai.DefaultConfig(provider.APIKey)
-	openAIConfig.BaseURL = provider.APIHost
-	client := openai.NewClientWithConfig(openAIConfig)
-	return client, model, provider, nil
+	return NewOpenAIClient(provider.APIKey, provider.APIHost), model, provider, nil
 }
 
 type Message struct {
@@ -53,7 +49,6 @@ type Message struct {
 type CreateTextGenerationRequest struct {
 	Model            string
 	Messages         []*Message
-	Prompt           string
 	StopWords        []string
 	MaxTokens        int
 	Temperature      float32

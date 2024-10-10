@@ -174,16 +174,12 @@ func LoadStore(config *configuration.Config) (*store.Store, error) {
 }
 
 // Content embeds contents.
-func Content(ctx context.Context, openAIClient *openai.Client, content string) ([]float32, error) {
-	request := openai.EmbeddingRequest{
-		Input: []string{content},
-		Model: openai.AdaEmbeddingV2,
+func Content(ctx context.Context, llmClient llm.Client, content string) ([]float32, error) {
+	request := &llm.CreateEmbeddingRequest{
+		Input: content,
+		Model: string(openai.SmallEmbedding3),
 	}
-	response, err := openAIClient.CreateEmbeddings(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-	return response.Data[0].Embedding, nil
+	return llmClient.CreateEmbedding(ctx, request)
 }
 
 func chunkFile(content string, chunkSize int) []string {

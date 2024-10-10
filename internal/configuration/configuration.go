@@ -58,6 +58,12 @@ var defaultConfig = Config{
 	},
 }
 
+type ImageProvider struct {
+	APIHost string `json:"api_host"`
+	APIKey  string `json:"api_key"`
+	Model   string `json:"model"`
+}
+
 type Provider struct {
 	Name           string `json:"name"`
 	APIHost        string `json:"api_host"`
@@ -69,17 +75,17 @@ type Provider struct {
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	Providers []*Provider `json:"providers"`
-
-	Diff  *DiffConfig  `json:"diff"`
-	Embed *EmbedConfig `json:"embed"`
-	Chat  *ChatConfig  `json:"chat"`
+	Providers     []*Provider    `json:"providers"`
+	ImageProvider *ImageProvider `json:"image_provider"`
+	Diff          *DiffConfig    `json:"diff"`
+	Embed         *EmbedConfig   `json:"embed"`
+	Chat          *ChatConfig    `json:"chat"`
 }
 
 type Model struct {
-	Name  string `json:"name"`
-	Alias string `json:"alias"`
-	MaxTokens int `json:"max-tokens"`
+	Name      string `json:"name"`
+	Alias     string `json:"alias"`
+	MaxTokens int    `json:"max-tokens"`
 }
 
 // ChatConfig holds configuration sgpt chat.
@@ -92,6 +98,8 @@ type ChatConfig struct {
 	Directory string `json:"directory"`
 	// User defined roles, on top of the built-in roles.
 	Roles map[string]string `json:"roles"`
+	// OpenAI client for images generation.
+	ImageProvider *Provider `json:"image_provider"`
 }
 
 // DiffConfig holds configuration sgpt diff.

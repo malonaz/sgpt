@@ -7,9 +7,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/malonaz/sgpt/internal/file"
 	"github.com/pkg/errors"
-	"github.com/sashabaranov/go-openai"
+
+	"github.com/malonaz/sgpt/internal/file"
+	"github.com/malonaz/sgpt/internal/llm"
 )
 
 // Chat represents a holds a chat.
@@ -21,7 +22,7 @@ type Chat struct {
 	// time at which a chat was updated.
 	UpdateTimestamp int64
 	// The messages of this chat.
-	Messages []openai.ChatCompletionMessage
+	Messages []*llm.Message
 }
 
 // NewChat instantiates and returns a new chat.

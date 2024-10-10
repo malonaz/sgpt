@@ -8,17 +8,18 @@ import (
 	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/internal/llm"
 	"github.com/malonaz/sgpt/internal/role"
 )
 
 func getEmbeddingMessages(
-	ctx context.Context, config *configuration.Config, openAIClient *openai.Client, input string,
-) ([]openai.ChatCompletionMessage, error) {
+	ctx context.Context, config *configuration.Config, llmClient llm.Client, input string,
+) ([]*llm.Message, error) {
 	store, err := embed.LoadStore(config)
 	if err != nil {
 		return nil, err
 	}
-	embeddings, err := embed.Content(ctx, openAIClient, input)
+	embeddings, err := embed.Content(ctx, llmClient, input)
 	if err != nil {
 		return nil, err
 	}
@@ -29,15 +30,15 @@ func getEmbeddingMessages(
 	if len(chunks) == 0 {
 		return nil, nil
 	}
-	embeddingMessages := []openai.ChatCompletionMessage{}
-	embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
+	embeddingMessages := []*llm.Message{}
+	embeddingMessages = append(embeddingMessages, &llm.Message{
+		Role:    string(openai.ChatMessageRoleSystem),
 		Content: role.EmbeddingsAugmentedAssistant,
 	})
 	for i := 0; i < 10 && i < len(chunks); i++ {
 		chunk := chunks[i]
 		cli.FileInfo("inserting chunk from file %s\n", chunk.Filename)
-		embeddingMessages = append(embeddingMessages, openai.ChatCompletionMessage{
+		embeddingMessages = append(embeddingMessages, &llm.Message{
 			Role:    openai.ChatMessageRoleSystem,
 			Content: chunk.Content,
 		})
@@ -45,17 +46,17 @@ func getEmbeddingMessages(
 	return embeddingMessages, nil
 }
 
-func pipeStream(stream *openai.ChatCompletionStream) (chan string, chan error) {
+func pipeStream(stream llm.Stream) (chan string, chan error) {
 	tokenChannel := make(chan string)
 	errorChannel := make(chan error)
 	go func() {
 		for {
-			response, err := stream.Recv()
+			event, err := stream.Recv()
 			if err != nil {
 				errorChannel <- err
 				return
 			}
-			tokenChannel <- response.Choices[0].Delta.Content
+			tokenChannel <- event.Token
 		}
 	}()
 	return tokenChannel, errorChannel

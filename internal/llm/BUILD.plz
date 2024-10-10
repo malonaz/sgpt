@@ -1,6 +1,10 @@
 go_library(
     name = "llm",
-    srcs = ["llm.go"],
+    srcs = [
+        "anthropic.go",
+        "llm.go",
+        "openai.go",
+    ],
     visibility = ["//..."],
     deps = [
         "//internal/configuration",
