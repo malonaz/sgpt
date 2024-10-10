@@ -3,8 +3,6 @@ package chat
 import (
 	"context"
 
-	"github.com/sashabaranov/go-openai"
-
 	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
@@ -32,14 +30,14 @@ func getEmbeddingMessages(
 	}
 	embeddingMessages := []*llm.Message{}
 	embeddingMessages = append(embeddingMessages, &llm.Message{
-		Role:    string(openai.ChatMessageRoleSystem),
+		Role:    llm.SystemRole,
 		Content: role.EmbeddingsAugmentedAssistant,
 	})
 	for i := 0; i < 10 && i < len(chunks); i++ {
 		chunk := chunks[i]
 		cli.FileInfo("inserting chunk from file %s\n", chunk.Filename)
 		embeddingMessages = append(embeddingMessages, &llm.Message{
-			Role:    openai.ChatMessageRoleSystem,
+			Role:    llm.SystemRole,
 			Content: chunk.Content,
 		})
 	}

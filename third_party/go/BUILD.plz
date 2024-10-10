@@ -172,6 +172,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__liushuangls__go-anthropic__v2",
+    _tag = "download",
+    module = "github.com/liushuangls/go-anthropic/v2",
+    version = "v2.8.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__liushuangls__go-anthropic__v2",
+    download = ":_github.com__liushuangls__go-anthropic__v2#download",
+    install = ["."],
+    module = "github.com/liushuangls/go-anthropic/v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__mattn__go-colorable",
     _tag = "download",
     module = "github.com/mattn/go-colorable",

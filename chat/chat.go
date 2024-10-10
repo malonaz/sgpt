@@ -91,7 +91,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			additionalMessages := make([]*llm.Message, 0, len(files))
 			for _, file := range files {
 				message := &llm.Message{
-					Role:    openai.ChatMessageRoleSystem,
+					Role:    llm.SystemRole,
 					Content: fmt.Sprintf("file %s: `%s`", file.Path, file.Content),
 				}
 				additionalMessages = append(additionalMessages, message)
@@ -101,7 +101,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			// Inject role.
 			if role != nil {
 				message := &llm.Message{
-					Role:    openai.ChatMessageRoleSystem,
+					Role:    llm.SystemRole,
 					Content: role.Description,
 				}
 				additionalMessages = append(additionalMessages, message)
@@ -109,10 +109,10 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 
 			// Print history.
 			for _, message := range chat.Messages {
-				if message.Role == openai.ChatMessageRoleUser {
+				if message.Role == llm.UserRole {
 					cli.UserInput("> %s\n", message.Content)
 				}
-				if message.Role == openai.ChatMessageRoleAssistant {
+				if message.Role == llm.AssistantRole {
 					if strings.Contains(message.Content, doNotSendToken) {
 						trimmed := strings.TrimPrefix(message.Content, doNotSendToken)
 						cli.UserCommand(trimmed + "\n")
@@ -169,7 +169,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				interruptSignalChannel := make(chan os.Signal, 1)
 				signal.Notify(interruptSignalChannel, os.Interrupt)
 				interrupted := false
-				chatCompletionMessage := &llm.Message{Role: openai.ChatMessageRoleAssistant}
+				chatCompletionMessage := &llm.Message{Role: llm.AssistantRole}
 				for {
 					streamEnded := false
 					select {
@@ -234,7 +234,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 
 					// Save response (with the `DoNotSend` token).
 					chatCompletionMessage = &llm.Message{
-						Role:    openai.ChatMessageRoleAssistant,
+						Role:    llm.AssistantRole,
 						Content: doNotSendToken + response.Data[0].URL,
 					}
 					chat.Messages = append(chat.Messages, chatCompletionMessage)

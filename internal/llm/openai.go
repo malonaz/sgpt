@@ -28,12 +28,12 @@ func (c *OpenAIClient) Get() *openai.Client {
 	return c.client
 }
 
-type CompletionStreamWrapper struct {
+type OpenAICompletionStreamWrapper struct {
 	stream *openai.CompletionStream
 }
 
-func (s *CompletionStreamWrapper) Close() { s.stream.Close() }
-func (s *CompletionStreamWrapper) Recv() (*StreamEvent, error) {
+func (s *OpenAICompletionStreamWrapper) Close() { s.stream.Close() }
+func (s *OpenAICompletionStreamWrapper) Recv() (*StreamEvent, error) {
 	response, err := s.stream.Recv()
 	if err != nil {
 		return nil, err
@@ -47,12 +47,12 @@ func (s *CompletionStreamWrapper) Recv() (*StreamEvent, error) {
 	}, nil
 }
 
-type ChatCompletionStreamWrapper struct {
+type ChatOpenAICompletionStreamWrapper struct {
 	stream *openai.ChatCompletionStream
 }
 
-func (s *ChatCompletionStreamWrapper) Close() { s.stream.Close() }
-func (s *ChatCompletionStreamWrapper) Recv() (*StreamEvent, error) {
+func (s *ChatOpenAICompletionStreamWrapper) Close() { s.stream.Close() }
+func (s *ChatOpenAICompletionStreamWrapper) Recv() (*StreamEvent, error) {
 	response, err := s.stream.Recv()
 	if err != nil {
 		return nil, err
@@ -69,7 +69,18 @@ func (s *ChatCompletionStreamWrapper) Recv() (*StreamEvent, error) {
 func (c *OpenAIClient) CreateTextGeneration(ctx context.Context, request *CreateTextGenerationRequest) (Stream, error) {
 	messages := make([]openai.ChatCompletionMessage, 0, len(request.Messages))
 	for _, message := range request.Messages {
-		messages = append(messages, openai.ChatCompletionMessage{Content: message.Content, Role: message.Role})
+		var role string
+		switch message.Role {
+		case UserRole:
+			role = openai.ChatMessageRoleUser
+		case SystemRole:
+			role = openai.ChatMessageRoleSystem
+		case AssistantRole:
+			role = openai.ChatMessageRoleAssistant
+		default:
+			return nil, fmt.Errorf("unknown role: %s", message.Role)
+		}
+		messages = append(messages, openai.ChatCompletionMessage{Content: message.Content, Role: role})
 	}
 	openAIRequest := openai.ChatCompletionRequest{
 		Model:            request.Model,
@@ -86,7 +97,7 @@ func (c *OpenAIClient) CreateTextGeneration(ctx context.Context, request *Create
 	if err != nil {
 		return nil, fmt.Errorf("creating completion stream: %v", err)
 	}
-	return &ChatCompletionStreamWrapper{stream}, nil
+	return &ChatOpenAICompletionStreamWrapper{stream}, nil
 }
 
 func (c *OpenAIClient) CreateEmbedding(ctx context.Context, request *CreateEmbeddingRequest) ([]float32, error) {

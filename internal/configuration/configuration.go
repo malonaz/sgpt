@@ -69,6 +69,7 @@ type Provider struct {
 	APIHost        string `json:"api_host"`
 	APIKey         string `json:"api_key"`
 	RequestTimeout int    `json:"request_timeout"`
+	Anthropic      bool   `json:"anthropic"`
 
 	Models []*Model `json:"models"`
 }
@@ -85,7 +86,7 @@ type Config struct {
 type Model struct {
 	Name      string `json:"name"`
 	Alias     string `json:"alias"`
-	MaxTokens int    `json:"max-tokens"`
+	MaxTokens int    `json:"max_tokens"`
 }
 
 // ChatConfig holds configuration sgpt chat.

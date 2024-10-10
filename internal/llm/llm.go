@@ -37,12 +37,23 @@ func NewClient(config *configuration.Config, opts *Opts) (Client, *configuration
 	if model == nil {
 		return nil, nil, nil, fmt.Errorf("unknown model (%s)", opts.Model)
 	}
-
-	return NewOpenAIClient(provider.APIKey, provider.APIHost), model, provider, nil
+	if provider.Anthropic {
+		return NewAnthropicClient(provider.APIKey), model, provider, nil
+	} else {
+		return NewOpenAIClient(provider.APIKey, provider.APIHost), model, provider, nil
+	}
 }
 
+type MessageRole string
+
+const (
+	UserRole      = MessageRole("user")
+	SystemRole    = MessageRole("system")
+	AssistantRole = MessageRole("assistant")
+)
+
 type Message struct {
-	Role    string
+	Role    MessageRole
 	Content string
 }
 

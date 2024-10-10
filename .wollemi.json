@@ -12,6 +12,7 @@
         "github.com/fatih/color": "//third_party/go:github.com__fatih__color",
         "github.com/google/uuid": "//third_party/go:github.com__google__uuid",
         "github.com/kballard/go-shellquote": "//third_party/go:github.com__kballard__go-shellquote",
+        "github.com/liushuangls/go-anthropic/v2": "//third_party/go:github.com__liushuangls__go-anthropic__v2",
         "github.com/mattn/go-colorable": "//third_party/go:github.com__mattn__go-colorable",
         "github.com/mattn/go-isatty": "//third_party/go:github.com__mattn__go-isatty",
         "github.com/mgutz/ansi": "//third_party/go:github.com__mgutz__ansi",
