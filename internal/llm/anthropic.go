@@ -18,7 +18,7 @@ type AnthropicClient struct {
 }
 
 func NewAnthropicClient(apiKey string) *AnthropicClient {
-	client := anthropic.NewClient(apiKey)
+	client := anthropic.NewClient(apiKey, anthropic.WithBetaVersion(anthropic.BetaPromptCaching20240731))
 	return &AnthropicClient{client: client}
 }
 
@@ -47,6 +47,9 @@ func (s *AnthropicCompletionStreamWrapper) Recv() (*StreamEvent, error) {
 
 // CreateTextGeneration sends a text generation request to the Anthropic API.
 func (c *AnthropicClient) CreateTextGeneration(ctx context.Context, request *CreateTextGenerationRequest) (Stream, error) {
+	cacheControl := &anthropic.MessageCacheControl{
+		Type: anthropic.CacheControlTypeEphemeral,
+	}
 	messages := make([]anthropic.Message, 0, len(request.Messages))
 	for _, message := range request.Messages {
 		switch message.Role {
@@ -56,6 +59,12 @@ func (c *AnthropicClient) CreateTextGeneration(ctx context.Context, request *Cre
 			messages = append(messages, anthropic.NewAssistantTextMessage(message.Content))
 		}
 	}
+	for _, message := range messages {
+		for _, messageContent := range message.Content {
+			messageContent.CacheControl = cacheControl
+		}
+	}
+
 	sw := &AnthropicCompletionStreamWrapper{
 		tokens: make(chan *string, 100),
 		err:    make(chan error, 1),
