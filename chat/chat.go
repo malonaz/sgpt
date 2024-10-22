@@ -47,6 +47,18 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 		Short: "Back and forth chat",
 		Long:  "Back and forth chat",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Parse model and role.
+			role, err := opts.Role.Parse()
+			cobra.CheckErr(err)
+
+			if opts.LLM.Model == "" {
+				if role != nil && role.Model != "" {
+					opts.LLM.Model = role.Model
+				} else {
+					opts.LLM.Model = config.Diff.DefaultModel
+				}
+			}
+
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
 			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
@@ -74,10 +86,6 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				chat = store.NewChat(opts.ChatID)
 			}
 
-			// Parse model and role.
-			role, err := opts.Role.Parse()
-			cobra.CheckErr(err)
-
 			// Headers.
 			roleName := "anon"
 			if role != nil {
@@ -102,7 +110,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			if role != nil {
 				message := &llm.Message{
 					Role:    llm.SystemRole,
-					Content: role.Description,
+					Content: role.Prompt,
 				}
 				additionalMessages = append(additionalMessages, message)
 			}
@@ -247,7 +255,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
-	opts.LLM = llm.GetOpts(cmd, config.Chat.DefaultModel)
+	opts.LLM = llm.GetOpts(cmd)
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
 	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")

@@ -6,6 +6,7 @@ go_library(
     ],
     visibility = ["//chat"],
     deps = [
+        "//internal/configuration",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__spf13__cobra",
     ],

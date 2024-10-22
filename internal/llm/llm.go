@@ -15,9 +15,9 @@ type Opts struct {
 }
 
 // GetOpts on the given command.
-func GetOpts(cmd *cobra.Command, defaultModel string) *Opts {
+func GetOpts(cmd *cobra.Command) *Opts {
 	opts := &Opts{}
-	cmd.Flags().StringVarP(&opts.Model, "model", "m", defaultModel, "specify a model")
+	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "specify a model")
 	return opts
 }
 

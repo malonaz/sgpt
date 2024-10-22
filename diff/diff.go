@@ -36,6 +36,9 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 		Long:  "Generate diff commit message",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
+			if opts.LLM.Model == "" {
+				opts.LLM.Model = config.Diff.DefaultModel
+			}
 			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
@@ -179,7 +182,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 		},
 	}
 
-	opts.LLM = llm.GetOpts(cmd, config.Diff.DefaultModel)
+	opts.LLM = llm.GetOpts(cmd)
 	cmd.Flags().StringVar(&opts.Message, "message", "", "specify a message to spgt diff")
 	return cmd
 }

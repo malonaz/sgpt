@@ -43,7 +43,13 @@ var defaultConfig = Config{
 		DefaultModel: "gpt-3.5-turbo",
 		DefaultRole:  "jcode",
 		Directory:    "~/.config/sgpt/chat",
-		Roles:        map[string]string{},
+		Roles: []*Role{
+			{
+				Name:   "CustomRole",
+				Alias:  "cr",
+				Prompt: "Focus on this or that",
+			},
+		},
 	},
 
 	Diff: &DiffConfig{
@@ -98,7 +104,7 @@ type ChatConfig struct {
 	// The directory where we store chats.
 	Directory string `json:"directory"`
 	// User defined roles, on top of the built-in roles.
-	Roles map[string]string `json:"roles"`
+	Roles []*Role `json:"roles"`
 	// OpenAI client for images generation.
 	ImageProvider *Provider `json:"image_provider"`
 }
@@ -121,6 +127,20 @@ type EmbedConfig struct {
 	FileExtensions []string `json:"file_extensions"`
 	// We ignore these files.
 	IgnoreFiles []string `json:"ignore_files"`
+}
+
+// Role represents a role.
+type Role struct {
+	// Name of this role.
+	Name string `json:"name"`
+	// Alias for this role.
+	Alias string `json:"alias"`
+	// Prompt for this role.
+	Prompt string `json:"description"`
+	// Model to use for this role (optional).
+	Model string `json:"model"`
+	// Files to use for this role (optional).
+	Files []string `json:"files"`
 }
 
 // Parse a configuration file.
