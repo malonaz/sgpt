@@ -10,6 +10,12 @@
         "github.com/buger/goterm": "//third_party/go:github.com__buger__goterm",
         "github.com/chzyer/readline": "//third_party/go:github.com__chzyer__readline",
         "github.com/fatih/color": "//third_party/go:github.com__fatih__color",
+        "github.com/google/go-jsonnet": "//third_party/go:github.com__google__go-jsonnet",
+        "github.com/google/go-jsonnet/ast": "//third_party/go:github.com__google__go-jsonnet__ast",
+        "github.com/google/go-jsonnet/astgen": "//third_party/go:github.com__google__go-jsonnet__astgen",
+        "github.com/google/go-jsonnet/internal/errors": "//third_party/go:github.com__google__go-jsonnet__internal__errors",
+        "github.com/google/go-jsonnet/internal/parser": "//third_party/go:github.com__google__go-jsonnet__internal__parser",
+        "github.com/google/go-jsonnet/internal/program": "//third_party/go:github.com__google__go-jsonnet__internal__program",
         "github.com/google/uuid": "//third_party/go:github.com__google__uuid",
         "github.com/kballard/go-shellquote": "//third_party/go:github.com__kballard__go-shellquote",
         "github.com/liushuangls/go-anthropic/v2": "//third_party/go:github.com__liushuangls__go-anthropic__v2",
@@ -33,6 +39,8 @@
         "golang.org/x/text/language": "//third_party/go:golang.org__x__text__language",
         "golang.org/x/text/transform": "//third_party/go:golang.org__x__text__transform",
         "golang.org/x/text/unicode/norm": "//third_party/go:golang.org__x__text__unicode__norm",
-        "golang.org/x/text/width": "//third_party/go:golang.org__x__text__width"
+        "golang.org/x/text/width": "//third_party/go:golang.org__x__text__width",
+        "gopkg.in/yaml.v2": "//third_party/go:gopkg.in__yaml.v2",
+        "sigs.k8s.io/yaml": "//third_party/go:sigs.k8s.io__yaml"
     }
 }

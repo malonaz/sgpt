@@ -138,6 +138,82 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__google__go-jsonnet",
+    _tag = "download",
+    module = "github.com/google/go-jsonnet",
+    version = "v0.20.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__google__go-jsonnet",
+    download = ":_github.com__google__go-jsonnet#download",
+    install = ["."],
+    module = "github.com/google/go-jsonnet",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__google__go-jsonnet__ast",
+        ":github.com__google__go-jsonnet__astgen",
+        ":github.com__google__go-jsonnet__internal__errors",
+        ":github.com__google__go-jsonnet__internal__parser",
+        ":github.com__google__go-jsonnet__internal__program",
+        ":sigs.k8s.io__yaml",
+    ],
+)
+
+go_module(
+    name = "github.com__google__go-jsonnet__ast",
+    download = ":_github.com__google__go-jsonnet#download",
+    install = ["ast"],
+    module = "github.com/google/go-jsonnet",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__google__go-jsonnet__astgen",
+    download = ":_github.com__google__go-jsonnet#download",
+    install = ["astgen"],
+    module = "github.com/google/go-jsonnet",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__google__go-jsonnet__ast"],
+)
+
+go_module(
+    name = "github.com__google__go-jsonnet__internal__errors",
+    download = ":_github.com__google__go-jsonnet#download",
+    install = ["internal/errors"],
+    module = "github.com/google/go-jsonnet",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__google__go-jsonnet__ast"],
+)
+
+go_module(
+    name = "github.com__google__go-jsonnet__internal__parser",
+    download = ":_github.com__google__go-jsonnet#download",
+    install = ["internal/parser"],
+    module = "github.com/google/go-jsonnet",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__google__go-jsonnet__ast",
+        ":github.com__google__go-jsonnet__internal__errors",
+    ],
+)
+
+go_module(
+    name = "github.com__google__go-jsonnet__internal__program",
+    download = ":_github.com__google__go-jsonnet#download",
+    install = ["internal/program"],
+    module = "github.com/google/go-jsonnet",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__google__go-jsonnet__ast",
+        ":github.com__google__go-jsonnet__internal__errors",
+        ":github.com__google__go-jsonnet__internal__parser",
+    ],
+)
+
+go_mod_download(
     name = "github.com__google__uuid",
     _tag = "download",
     module = "github.com/google/uuid",
@@ -479,4 +555,38 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__text__transform"],
+)
+
+go_mod_download(
+    name = "gopkg.in__yaml.v2",
+    _tag = "download",
+    module = "gopkg.in/yaml.v2",
+    version = "v2.2.7",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "gopkg.in__yaml.v2",
+    download = ":_gopkg.in__yaml.v2#download",
+    install = ["."],
+    module = "gopkg.in/yaml.v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "sigs.k8s.io__yaml",
+    _tag = "download",
+    module = "sigs.k8s.io/yaml",
+    version = "v1.1.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "sigs.k8s.io__yaml",
+    download = ":_sigs.k8s.io__yaml#download",
+    install = ["."],
+    module = "sigs.k8s.io/yaml",
+    visibility = ["PUBLIC"],
+    deps = [":gopkg.in__yaml.v2"],
 )

@@ -55,7 +55,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				if role != nil && role.Model != "" {
 					opts.LLM.Model = role.Model
 				} else {
-					opts.LLM.Model = config.Diff.DefaultModel
+					opts.LLM.Model = config.Chat.DefaultModel
 				}
 			}
 

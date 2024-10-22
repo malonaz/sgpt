@@ -11,6 +11,7 @@ require (
 	github.com/buger/goterm v1.0.4
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/fatih/color v1.15.0
+	github.com/google/go-jsonnet v0.20.0
 	github.com/google/uuid v1.3.0
 	github.com/liushuangls/go-anthropic/v2 v2.8.1
 	github.com/pkg/errors v0.9.1
@@ -31,4 +32,6 @@ require (
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.4.0 // indirect
+	gopkg.in/yaml.v2 v2.2.7 // indirect
+	sigs.k8s.io/yaml v1.1.0 // indirect
 )

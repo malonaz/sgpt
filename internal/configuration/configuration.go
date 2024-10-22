@@ -2,10 +2,12 @@ package configuration
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"dario.cat/mergo"
+	"github.com/google/go-jsonnet"
 	"github.com/pkg/errors"
 
 	"github.com/malonaz/sgpt/internal/file"
@@ -153,14 +155,9 @@ func Parse(path string) (*Config, error) {
 		return nil, errors.Wrap(err, "initializing configuration")
 	}
 
-	// Parse config.
-	bytes, err := os.ReadFile(path)
+	config, err := parseConfig(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "reading file")
-	}
-	config := &Config{}
-	if err = json.Unmarshal(bytes, config); err != nil {
-		return nil, errors.Wrap(err, "unmarshaling into config")
+		return nil, errors.Wrapf(err, "parsing config %s)", path)
 	}
 
 	// Parse override configuration if present.
@@ -169,13 +166,9 @@ func Parse(path string) (*Config, error) {
 		return nil, errors.Wrap(err, "finding override config path")
 	}
 	if overrideConfigPath != "" {
-		bytes, err := os.ReadFile(overrideConfigPath)
+		overrideConfig, err := parseConfig(overrideConfigPath)
 		if err != nil {
-			return nil, errors.Wrap(err, "reading override config")
-		}
-		overrideConfig := &Config{}
-		if err = json.Unmarshal(bytes, overrideConfig); err != nil {
-			return nil, errors.Wrap(err, "unmarshaling into override config")
+			return nil, errors.Wrapf(err, "parsing override config %s)", overrideConfigPath)
 		}
 		mergo.Merge(config, overrideConfig, mergo.WithOverride)
 	}
@@ -252,4 +245,35 @@ func findOverrideConfigPath() (string, error) {
 	}
 
 	return "", nil
+}
+
+func parseConfig(filepath string) (*Config, error) {
+	content, err := evaluateFile(filepath)
+	if err != nil {
+		return nil, errors.Wrap(err, "evaluating config")
+	}
+
+	config := &Config{}
+	if err = json.Unmarshal([]byte(content), config); err != nil {
+		return nil, errors.Wrap(err, "unmarshaling into config")
+	}
+	return config, nil
+}
+
+func evaluateFile(filePath string) (string, error) {
+	// Create a new Jsonnet VM
+	vm := jsonnet.MakeVM()
+
+	// Set the import callback to handle relative imports
+	vm.Importer(&jsonnet.FileImporter{
+		JPaths: []string{filepath.Dir(filePath)},
+	})
+
+	// Evaluate the Jsonnet file
+	jsonStr, err := vm.EvaluateFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to evaluate Jsonnet file: %v", err)
+	}
+
+	return jsonStr, nil
 }
