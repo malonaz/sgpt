@@ -138,7 +138,7 @@ type Role struct {
 	// Alias for this role.
 	Alias string `json:"alias"`
 	// Prompt for this role.
-	Prompt string `json:"description"`
+	Prompt string `json:"prompt"`
 	// Model to use for this role (optional).
 	Model string `json:"model"`
 	// Files to use for this role (optional).
