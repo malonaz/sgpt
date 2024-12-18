@@ -23,6 +23,7 @@ func main() {
 		panic(err)
 	}
 	rootCmd.AddCommand(chat.NewCmd(config))
+	rootCmd.AddCommand(chat.NewListChatsCmd(config))
 	rootCmd.AddCommand(diff.NewCmd(config))
 	rootCmd.AddCommand(embed.NewCmd(config))
 	rootCmd.Execute()

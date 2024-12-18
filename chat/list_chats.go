@@ -12,13 +12,13 @@ import (
 )
 
 // newListCmd instantiates and returns the chat list command.
-func newListCmd(config *configuration.Config) *cobra.Command {
+func NewListChatsCmd(config *configuration.Config) *cobra.Command {
 	var opts struct {
 		PageSize int
 	}
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "list-chats",
 		Short: "List all chats",
 		Long:  "List all chats",
 		Args:  cobra.ExactArgs(0),

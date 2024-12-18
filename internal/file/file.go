@@ -30,6 +30,62 @@ func GetOpts(cmd *cobra.Command) *InjectionOpts {
 	return opts
 }
 
+// Parse files with 'contexxt files'.
+func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
+	filepathSet := map[string]struct{}{}
+	files := []*File{}
+	parseFileFn := func(filepath string) error {
+		// Don't parse the same file twice.
+		if _, ok := filepathSet[filepath]; ok {
+			return nil
+		}
+		filepathSet[filepath] = struct{}{}
+		// Apply filter
+		if !HasValidExtension(filepath, opts.FileExtensions) {
+			return nil
+		}
+
+		// Read the main file
+		bytes, err := os.ReadFile(filepath)
+		if err != nil {
+			return errors.Wrap(err, "reading file")
+		}
+		file := &File{Path: filepath, Content: bytes}
+
+		// Look for context.md in the same directory
+		dir := path.Dir(filepath)
+		contextFilepath := path.Join(dir, "context.md")
+		if _, ok := filepathSet[contextFilepath]; ok {
+			return nil
+		}
+		filepathSet[contextFilepath] = struct{}{}
+
+		// Check if context.md exists and read it
+		exists, err := Exists(contextFilepath)
+		if err != nil {
+			return errors.Wrap(err, "checking context.md existence")
+		}
+		if !exists {
+			return nil
+		}
+
+		contextBytes, err := os.ReadFile(contextFilepath)
+		if err != nil {
+			return errors.Wrap(err, "reading context.md")
+		}
+		file = &File{Path: contextFilepath, Content: contextBytes}
+		files = append(files, file)
+		return nil
+	}
+
+	for _, file := range opts.Files {
+		if err := smartParse(file, parseFileFn); err != nil {
+			return nil, errors.Wrapf(err, "smartParse (%s)", file)
+		}
+	}
+	return files, nil
+}
+
 // Parse files.
 func Parse(opts *InjectionOpts) ([]*File, error) {
 	files := []*File{}

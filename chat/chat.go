@@ -263,7 +263,5 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 	cmd.Flags().StringVar(&opts.ImageQuality, "image-quality", "hd", "hd, standard")
 	cmd.Flags().IntVar(&opts.ImageNumber, "image-number", 1, "how many images to generate")
 	cmd.Flags().BoolVar(&opts.ImageConfirm, "image-confirm", false, "If true, we confirm before generating each image")
-
-	cmd.AddCommand(newListCmd(config))
 	return cmd
 }
