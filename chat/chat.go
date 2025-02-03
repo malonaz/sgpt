@@ -15,12 +15,12 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/chat/store"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/llm"
 	"github.com/malonaz/sgpt/internal/role"
+	"github.com/malonaz/sgpt/store"
 )
 
 const streamTokenTimeout = 5 * time.Second
@@ -29,7 +29,7 @@ const doNotSendToken = "%@#$!@"
 var imagePromptRegexp = regexp.MustCompile(`prompt\((.*?)\)`)
 
 // NewCmd instantiates and returns the chat command.
-func NewCmd(config *configuration.Config) *cobra.Command {
+func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
@@ -63,10 +63,6 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
-			// Instantiate store.
-			s, err := store.New(config.Chat.Directory)
-			cobra.CheckErr(err)
-
 			// Parse a chat if relevant.opts.ChatID,
 			var chat *store.Chat
 			if opts.ChatID != "" {
@@ -83,7 +79,7 @@ func NewCmd(config *configuration.Config) *cobra.Command {
 				opts.ChatID = chat.ID
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
-				chat = store.NewChat(opts.ChatID)
+				chat = s.CreateChat(opts.ChatID)
 			}
 
 			// Headers.

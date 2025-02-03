@@ -6,13 +6,13 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/chat/store"
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/store"
 )
 
 // newListCmd instantiates and returns the chat list command.
-func NewListChatsCmd(config *configuration.Config) *cobra.Command {
+func NewListChatsCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 	var opts struct {
 		PageSize int
 	}
@@ -23,10 +23,6 @@ func NewListChatsCmd(config *configuration.Config) *cobra.Command {
 		Long:  "List all chats",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Instantiate store.
-			s, err := store.New(config.Chat.Directory)
-			cobra.CheckErr(err)
-
 			// Headers.
 			cli.Title("SGPT CHAT LIST")
 

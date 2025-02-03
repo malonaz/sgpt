@@ -1,3 +1,35 @@
+config_setting(
+    name = "__config_linux_amd64",
+    values = {
+        "os": "linux",
+        "cpu": "amd64",
+    },
+)
+
+config_setting(
+    name = "__config_darwin_amd64",
+    values = {
+        "os": "darwin",
+        "cpu": "amd64",
+    },
+)
+
+config_setting(
+    name = "__config_linux_arm64",
+    values = {
+        "os": "linux",
+        "cpu": "arm64",
+    },
+)
+
+config_setting(
+    name = "__config_darwin_arm64",
+    values = {
+        "os": "darwin",
+        "cpu": "arm64",
+    },
+)
+
 go_mod_download(
     name = "dario.cat__mergo",
     _tag = "download",
@@ -118,6 +150,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__dustin__go-humanize",
+    _tag = "download",
+    module = "github.com/dustin/go-humanize",
+    version = "v1.0.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__dustin__go-humanize",
+    download = ":_github.com__dustin__go-humanize#download",
+    install = ["."],
+    module = "github.com/dustin/go-humanize",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__fatih__color",
     _tag = "download",
     module = "github.com/fatih/color",
@@ -217,7 +266,7 @@ go_mod_download(
     name = "github.com__google__uuid",
     _tag = "download",
     module = "github.com/google/uuid",
-    version = "v1.3.0",
+    version = "v1.6.0",
     visibility = ["PUBLIC"],
 )
 
@@ -285,7 +334,7 @@ go_mod_download(
     name = "github.com__mattn__go-isatty",
     _tag = "download",
     module = "github.com/mattn/go-isatty",
-    version = "v0.0.17",
+    version = "v0.0.20",
     visibility = ["PUBLIC"],
 )
 
@@ -316,6 +365,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__ncruces__go-strftime",
+    _tag = "download",
+    module = "github.com/ncruces/go-strftime",
+    version = "v0.1.9",
+    visibility = ["PUBLIC"],
+)
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "github.com__ncruces__go-strftime", download = ":_github.com__ncruces__go-strftime#download", install = ["."], module = "github.com/ncruces/go-strftime", visibility = ["PUBLIC"], deps = [])
+
+go_mod_download(
     name = "github.com__pkg__errors",
     _tag = "download",
     module = "github.com/pkg/errors",
@@ -328,6 +394,23 @@ go_module(
     download = ":_github.com__pkg__errors#download",
     install = ["."],
     module = "github.com/pkg/errors",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__remyoudompheng__bigfft",
+    _tag = "download",
+    module = "github.com/remyoudompheng/bigfft",
+    version = "v0.0.0-20230129092748-24d4a6f8daec",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__remyoudompheng__bigfft",
+    download = ":_github.com__remyoudompheng__bigfft#download",
+    install = ["."],
+    module = "github.com/remyoudompheng/bigfft",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -430,7 +513,7 @@ go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
-    version = "v0.9.0",
+    version = "v0.22.0",
     visibility = ["PUBLIC"],
 )
 
@@ -572,6 +655,372 @@ go_module(
     module = "gopkg.in/yaml.v2",
     visibility = ["PUBLIC"],
     deps = [],
+)
+
+go_mod_download(
+    name = "modernc.org__libc",
+    _tag = "download",
+    module = "modernc.org/libc",
+    version = "v1.55.3",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "modernc.org__libc",
+    download = ":_modernc.org__libc#download",
+    install = ["."],
+    module = "modernc.org/libc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__dustin__go-humanize",
+        ":github.com__google__uuid",
+        ":golang.org__x__sys__unix",
+        ":modernc.org__libc__uuid__uuid",
+        ":modernc.org__mathutil",
+        ":modernc.org__memory",
+    ] + select({
+        ":__config_darwin_amd64": [
+            ":github.com__mattn__go-isatty",
+            ":github.com__ncruces__go-strftime",
+            ":modernc.org__libc__errno",
+            ":modernc.org__libc__fcntl",
+            ":modernc.org__libc__fts",
+            ":modernc.org__libc__grp",
+            ":modernc.org__libc__honnef.co__go__netdb",
+            ":modernc.org__libc__langinfo",
+            ":modernc.org__libc__limits",
+            ":modernc.org__libc__netdb",
+            ":modernc.org__libc__netinet__in",
+            ":modernc.org__libc__poll",
+            ":modernc.org__libc__pthread",
+            ":modernc.org__libc__pwd",
+            ":modernc.org__libc__signal",
+            ":modernc.org__libc__stdio",
+            ":modernc.org__libc__stdlib",
+            ":modernc.org__libc__sys__socket",
+            ":modernc.org__libc__sys__stat",
+            ":modernc.org__libc__sys__types",
+            ":modernc.org__libc__termios",
+            ":modernc.org__libc__time",
+            ":modernc.org__libc__unistd",
+            ":modernc.org__libc__utime",
+            ":modernc.org__libc__wctype",
+        ],
+        ":__config_darwin_arm64": [
+            ":github.com__mattn__go-isatty",
+            ":github.com__ncruces__go-strftime",
+            ":modernc.org__libc__errno",
+            ":modernc.org__libc__fcntl",
+            ":modernc.org__libc__fts",
+            ":modernc.org__libc__grp",
+            ":modernc.org__libc__honnef.co__go__netdb",
+            ":modernc.org__libc__langinfo",
+            ":modernc.org__libc__limits",
+            ":modernc.org__libc__netdb",
+            ":modernc.org__libc__netinet__in",
+            ":modernc.org__libc__poll",
+            ":modernc.org__libc__pthread",
+            ":modernc.org__libc__pwd",
+            ":modernc.org__libc__signal",
+            ":modernc.org__libc__stdio",
+            ":modernc.org__libc__stdlib",
+            ":modernc.org__libc__sys__socket",
+            ":modernc.org__libc__sys__stat",
+            ":modernc.org__libc__sys__types",
+            ":modernc.org__libc__termios",
+            ":modernc.org__libc__time",
+            ":modernc.org__libc__unistd",
+            ":modernc.org__libc__utime",
+            ":modernc.org__libc__wctype",
+        ],
+        ":__config_linux_amd64": [],
+        ":__config_linux_arm64": [],
+        "default": [],
+    }),
+)
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__errno", download = ":_modernc.org__libc#download", install = ["errno"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__fcntl", download = ":_modernc.org__libc#download", install = ["fcntl"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__fts", download = ":_modernc.org__libc#download", install = ["fts"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__grp", download = ":_modernc.org__libc#download", install = ["grp"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__honnef.co__go__netdb", download = ":_modernc.org__libc#download", install = ["honnef.co/go/netdb"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "arm64",
+        "amd64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__langinfo", download = ":_modernc.org__libc#download", install = ["langinfo"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__limits", download = ":_modernc.org__libc#download", install = ["limits"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__netdb", download = ":_modernc.org__libc#download", install = ["netdb"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__netinet__in", download = ":_modernc.org__libc#download", install = ["netinet/in"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__poll", download = ":_modernc.org__libc#download", install = ["poll"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__pthread", download = ":_modernc.org__libc#download", install = ["pthread"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__pwd", download = ":_modernc.org__libc#download", install = ["pwd"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__signal", download = ":_modernc.org__libc#download", install = ["signal"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__stdio", download = ":_modernc.org__libc#download", install = ["stdio"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__stdlib", download = ":_modernc.org__libc#download", install = ["stdlib"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__sys__socket", download = ":_modernc.org__libc#download", install = ["sys/socket"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__sys__stat", download = ":_modernc.org__libc#download", install = ["sys/stat"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+go_module(
+    name = "modernc.org__libc__sys__types",
+    download = ":_modernc.org__libc#download",
+    install = ["sys/types"],
+    module = "modernc.org/libc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__termios", download = ":_modernc.org__libc#download", install = ["termios"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__time", download = ":_modernc.org__libc#download", install = ["time"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__unistd", download = ":_modernc.org__libc#download", install = ["unistd"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__utime", download = ":_modernc.org__libc#download", install = ["utime"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+go_module(
+    name = "modernc.org__libc__uuid__uuid",
+    download = ":_modernc.org__libc#download",
+    install = ["uuid/uuid"],
+    module = "modernc.org/libc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+if is_platform(
+    arch = [
+        "amd64",
+        "arm64",
+    ],
+    os = ["darwin"],
+):
+    go_module(name = "modernc.org__libc__wctype", download = ":_modernc.org__libc#download", install = ["wctype"], module = "modernc.org/libc", visibility = ["PUBLIC"], deps = [])
+
+go_mod_download(
+    name = "modernc.org__mathutil",
+    _tag = "download",
+    module = "modernc.org/mathutil",
+    version = "v1.6.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "modernc.org__mathutil",
+    download = ":_modernc.org__mathutil#download",
+    install = ["."],
+    module = "modernc.org/mathutil",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__remyoudompheng__bigfft"],
+)
+
+go_mod_download(
+    name = "modernc.org__memory",
+    _tag = "download",
+    module = "modernc.org/memory",
+    version = "v1.8.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "modernc.org__memory",
+    download = ":_modernc.org__memory#download",
+    install = ["."],
+    module = "modernc.org/memory",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "modernc.org__sqlite",
+    _tag = "download",
+    module = "modernc.org/sqlite",
+    version = "v1.34.5",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "modernc.org__sqlite",
+    download = ":_modernc.org__sqlite#download",
+    install = ["."],
+    module = "modernc.org/sqlite",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__sys__unix",
+        ":modernc.org__libc",
+        ":modernc.org__libc__sys__types",
+        ":modernc.org__sqlite__lib",
+    ],
+)
+
+go_module(
+    name = "modernc.org__sqlite__lib",
+    download = ":_modernc.org__sqlite#download",
+    install = ["lib"],
+    module = "modernc.org/sqlite",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":modernc.org__libc",
+        ":modernc.org__libc__sys__types",
+    ],
 )
 
 go_mod_download(

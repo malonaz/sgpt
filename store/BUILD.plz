@@ -3,8 +3,8 @@ go_library(
     srcs = ["store.go"],
     visibility = ["//..."],
     deps = [
-        "//internal/file",
         "//internal/llm",
         "//third_party/go:github.com__pkg__errors",
+        "//third_party/go:modernc.org__sqlite",
     ],
 )

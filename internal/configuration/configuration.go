@@ -18,6 +18,7 @@ const (
 )
 
 var defaultConfig = Config{
+	Database: "~/.config/sgpt/sgpt.db",
 	Providers: []*Provider{
 		{
 			Name:           providerOpenAI,
@@ -44,7 +45,6 @@ var defaultConfig = Config{
 	Chat: &ChatConfig{
 		DefaultModel: "gpt-3.5-turbo",
 		DefaultRole:  "jcode",
-		Directory:    "~/.config/sgpt/chat",
 		Roles: []*Role{
 			{
 				Name:   "CustomRole",
@@ -84,6 +84,7 @@ type Provider struct {
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
+	Database      string         `json:"database"`
 	Providers     []*Provider    `json:"providers"`
 	ImageProvider *ImageProvider `json:"image_provider"`
 	Diff          *DiffConfig    `json:"diff"`
@@ -103,8 +104,6 @@ type ChatConfig struct {
 	DefaultModel string `json:"default_model"`
 	// The role to be used by default.
 	DefaultRole string `json:"default_role"`
-	// The directory where we store chats.
-	Directory string `json:"directory"`
 	// User defined roles, on top of the built-in roles.
 	Roles []*Role `json:"roles"`
 	// OpenAI client for images generation.
@@ -173,11 +172,11 @@ func Parse(path string) (*Config, error) {
 		mergo.Merge(config, overrideConfig, mergo.WithOverride)
 	}
 
-	expandedChatDirectoryPath, err := file.ExpandPath(config.Chat.Directory)
+	expandedDatabasePath, err := file.ExpandPath(config.Database)
 	if err != nil {
-		return nil, errors.Wrap(err, "expanding chat directory path")
+		return nil, errors.Wrap(err, "expanding database path")
 	}
-	config.Chat.Directory = expandedChatDirectoryPath
+	config.Database = expandedDatabasePath
 
 	expandedEmbedDirectoryPath, err := file.ExpandPath(config.Embed.Directory)
 	if err != nil {

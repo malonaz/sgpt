@@ -7,6 +7,7 @@ go_binary(
         "//diff",
         "//embed",
         "//internal/configuration",
+        "//store",
         "//third_party/go:github.com__spf13__cobra",
     ],
 )

@@ -7,6 +7,7 @@ import (
 	"github.com/malonaz/sgpt/diff"
 	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/store"
 )
 
 const configFilepath = "~/.config/sgpt/config.json"
@@ -22,8 +23,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	rootCmd.AddCommand(chat.NewCmd(config))
-	rootCmd.AddCommand(chat.NewListChatsCmd(config))
+
+	// Create store
+	store, err := store.New(config.Database)
+	if err != nil {
+		panic(err)
+	}
+	// Ensure store is closed when the program exits normally
+	defer store.Close()
+
+	rootCmd.AddCommand(chat.NewCmd(config, store))
+	rootCmd.AddCommand(chat.NewListChatsCmd(config, store))
 	rootCmd.AddCommand(diff.NewCmd(config))
 	rootCmd.AddCommand(embed.NewCmd(config))
 	rootCmd.Execute()
