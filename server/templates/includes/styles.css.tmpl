@@ -8,7 +8,7 @@
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
     --border-color: #334155;
-    --message-user: #1d4ed8;
+    --message-user: #2d4a8a;
     --message-assistant: #292524;
     --message-system: #854d0e;
     --shadow-color: rgba(0, 0, 0, 0.5);
@@ -117,14 +117,25 @@ body {
     border: 1px solid var(--border-color);
     transition: all 0.2s ease;
     font-weight: 500;
-    width: fit-content; /* Add this */
-    display: inline-block; /* Add this */
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.back-button svg {
+    width: 20px;
+    height: 20px;
 }
 
 .back-button:hover {
     background-color: var(--surface-color-hover);
     color: var(--text-primary);
     border-color: var(--primary-color);
+}
+
+.back-button span {
+    line-height: 1;
 }
 
 .chat-preview {
@@ -150,9 +161,18 @@ body {
 .chat-preview-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
     margin-bottom: 1rem;
     color: var(--text-secondary);
     font-size: 1.4rem;
+    flex-wrap: wrap;
+}
+
+.chat-preview-header span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .chat-preview-content {
@@ -160,9 +180,16 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     line-height: 1.6;
+    padding-left: 0.5rem; /* Add some padding for the bullets */
+}
+
+.chat-preview-content br {
+    content: "";
+    margin: 0.5rem 0;
+    display: block;
 }
 
 .message {
@@ -180,7 +207,7 @@ body {
     background-color: var(--message-user);
     margin-left: auto;
     border-radius: 12px 12px 0 12px;
-    color: #ffffff;
+    color: #e2e8f0;
     width: fit-content;
 }
 
@@ -293,5 +320,48 @@ code[class*="language-"] {
 .token.doctype,
 .token.cdata {
     color: #6a9955;
+}
+
+.files-section {
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.files-section h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.file-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.file-item {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+}
+
+.file-name {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9em;
+}
+
+.file-count {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.chat-preview-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 {{end}}

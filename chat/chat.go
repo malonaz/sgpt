@@ -66,7 +66,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			// Parse a chat if relevant.opts.ChatID,
 			var chat *store.Chat
 			if opts.ChatID != "" {
-				chat, err = s.Get(opts.ChatID)
+				chat, err = s.GetChat(opts.ChatID)
 				cobra.CheckErr(err)
 			} else if opts.Continue {
 				// Fetch the latest chat.
@@ -82,7 +82,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				opts.ChatID = chat.ID
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
-				chat = s.CreateChat(opts.ChatID)
+				chat = s.CreateChat(opts.ChatID, opts.FileInjection.Files)
 			}
 
 			// Headers.
@@ -134,6 +134,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				// Query user for prompt.
 				text, err := cli.PromptUser()
 				cobra.CheckErr(err)
+
 				// Quick feedback so user knows query has been submitted.
 				cli.AIOutput("SGPT: ")
 
@@ -204,10 +205,25 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				cli.AIOutput("\n")
 
 				if !interrupted {
+					if len(chat.Messages) == 0 {
+						messages := []*llm.Message{userMessage, chatCompletionMessage}
+						go func() {
+							// This is the first message, generate a summary
+							summary, err := generateChatSummary(ctx, config, messages)
+							if err != nil {
+								fmt.Printf("error generating summary: %v\n", err)
+							} else if summary != "" {
+								if err := s.UpdateChatTitle(chat.ID, summary); err != nil {
+									fmt.Printf("updating chat title: %v\n", err)
+								}
+							}
+						}()
+					}
+
 					// Append the response content to our history.
 					chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
 					// Save chat.
-					err := s.Write(chat)
+					err := s.UpdateChat(chat)
 					cobra.CheckErr(err)
 				}
 
@@ -245,7 +261,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 						Content: doNotSendToken + response.Data[0].URL,
 					}
 					chat.Messages = append(chat.Messages, chatCompletionMessage)
-					err = s.Write(chat)
+					err = s.UpdateChat(chat)
 					cobra.CheckErr(err)
 				}
 			}
@@ -263,4 +279,56 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 	cmd.Flags().IntVar(&opts.ImageNumber, "image-number", 1, "how many images to generate")
 	cmd.Flags().BoolVar(&opts.ImageConfirm, "image-confirm", false, "If true, we confirm before generating each image")
 	return cmd
+}
+
+// generateChatSummary creates a title/summary for the chat using the specified model
+func generateChatSummary(ctx context.Context, config *configuration.Config, messages []*llm.Message) (string, error) {
+	if config.Chat.SummaryModel == "" {
+		return "", nil
+	}
+
+	// Create a new LLM client for summary generation
+	summaryOpts := &llm.Opts{Model: config.Chat.SummaryModel}
+	summaryClient, model, _, err := llm.NewClient(config, summaryOpts)
+	if err != nil {
+		return "", fmt.Errorf("failed to create summary client: %w", err)
+	}
+
+	// Create prompt for summary generation
+	summaryPrompt := "Generate a brief, concise title (max 6 words) for this conversation so far. YOU MUST ALWAYS OUTPUT SOMETHING."
+	summaryMessages := append(messages, &llm.Message{Role: llm.UserRole, Content: summaryPrompt})
+
+	// Create request
+	request := &llm.CreateTextGenerationRequest{
+		Model:     model.Name,
+		Messages:  summaryMessages,
+		MaxTokens: 50, // Should be enough for a short title
+	}
+
+	// Get response
+	stream, err := summaryClient.CreateTextGeneration(ctx, request)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate summary: %w", err)
+	}
+	defer stream.Close()
+
+	// Collect the complete response
+	var summary strings.Builder
+	for {
+		event, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("error receiving summary stream: %w", err)
+		}
+		summary.WriteString(event.Token)
+	}
+
+	// Clean up the summary (remove quotes, newlines, etc.)
+	cleanSummary := strings.TrimSpace(summary.String())
+	cleanSummary = strings.Trim(cleanSummary, `"'`)
+	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
+
+	return cleanSummary, nil
 }

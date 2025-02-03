@@ -59,3 +59,16 @@ func pipeStream(stream llm.Stream) (chan string, chan error) {
 	}()
 	return tokenChannel, errorChannel
 }
+
+func dedupeStrings(strings []string) []string {
+	seen := make(map[string]bool)
+	result := []string{}
+
+	for _, str := range strings {
+		if !seen[str] {
+			seen[str] = true
+			result = append(result, str)
+		}
+	}
+	return result
+}

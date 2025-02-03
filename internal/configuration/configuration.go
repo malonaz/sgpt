@@ -100,6 +100,8 @@ type Model struct {
 
 // ChatConfig holds configuration sgpt chat.
 type ChatConfig struct {
+	// The model used to generate summaries.
+	SummaryModel string `json:"summary_model"`
 	// The model to be used by default.
 	DefaultModel string `json:"default_model"`
 	// The role to be used by default.

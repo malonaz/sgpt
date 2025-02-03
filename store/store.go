@@ -15,12 +15,16 @@ import (
 type Chat struct {
 	// ID of this chat.
 	ID string
+	// Title of the chat
+	Title *string
 	// Time at which a chat was created.
 	CreationTimestamp int64
 	// time at which a chat was updated.
 	UpdateTimestamp int64
 	// The messages of this chat.
 	Messages []*llm.Message
+	// Files we are using in this chat.
+	Files []string
 }
 
 // Store implements a SQLite store for chats.
@@ -37,12 +41,14 @@ func New(dbPath string) (*Store, error) {
 
 	// Create chats table if it doesn't exist
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS chats (
-			id TEXT PRIMARY KEY,
-			creation_timestamp INTEGER NOT NULL,
-			update_timestamp INTEGER NOT NULL,
-			messages TEXT NOT NULL
-		)
+        CREATE TABLE IF NOT EXISTS chats (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            creation_timestamp INTEGER NOT NULL,
+            update_timestamp INTEGER NOT NULL,
+            messages TEXT NOT NULL,
+            files TEXT NOT NULL DEFAULT '[]'
+        )
 	`)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating chats table")
@@ -59,17 +65,17 @@ func (s *Store) Close() error {
 }
 
 // CreateChat instantiates and returns a new chat.
-func (s *Store) CreateChat(id string) *Chat {
+func (s *Store) CreateChat(id string, files []string) *Chat {
 	now := time.Now().UnixMicro()
 	return &Chat{
 		ID:                id,
 		CreationTimestamp: now,
 		UpdateTimestamp:   now,
+		Files:             files,
 	}
 }
 
-// Write a chat to the store.
-func (s *Store) Write(chat *Chat) error {
+func (s *Store) UpdateChat(chat *Chat) error {
 	chat.UpdateTimestamp = time.Now().UnixMicro()
 
 	messages, err := json.Marshal(chat.Messages)
@@ -77,41 +83,20 @@ func (s *Store) Write(chat *Chat) error {
 		return errors.Wrap(err, "marshaling messages")
 	}
 
-	// Use REPLACE INTO to handle both insert and update cases
+	files, err := json.Marshal(dedupeStringsSorted(chat.Files))
+	if err != nil {
+		return errors.Wrap(err, "marshaling files")
+	}
+
 	_, err = s.db.Exec(`
-		REPLACE INTO chats (id, creation_timestamp, update_timestamp, messages)
-		VALUES (?, ?, ?, ?)
-	`, chat.ID, chat.CreationTimestamp, chat.UpdateTimestamp, string(messages))
+        REPLACE INTO chats (id, title, creation_timestamp, update_timestamp, messages, files)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `, chat.ID, chat.Title, chat.CreationTimestamp, chat.UpdateTimestamp, string(messages), string(files))
 
 	if err != nil {
 		return errors.Wrap(err, "writing chat to database")
 	}
 	return nil
-}
-
-// Get a chat.
-func (s *Store) Get(chatID string) (*Chat, error) {
-	chat := &Chat{}
-	var messagesJSON string
-
-	err := s.db.QueryRow(`
-		SELECT id, creation_timestamp, update_timestamp, messages
-		FROM chats
-		WHERE id = ?
-	`, chatID).Scan(&chat.ID, &chat.CreationTimestamp, &chat.UpdateTimestamp, &messagesJSON)
-
-	if err == sql.ErrNoRows {
-		return nil, errors.New("chat does not exist")
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "querying chat")
-	}
-
-	if err := json.Unmarshal([]byte(messagesJSON), &chat.Messages); err != nil {
-		return nil, errors.Wrap(err, "unmarshaling messages")
-	}
-
-	return chat, nil
 }
 
 // ListChatsRequest contains parameters for listing chats
@@ -140,13 +125,12 @@ func (s *Store) ListChats(req ListChatsRequest) (*ListChatsResponse, error) {
 	pageCount := (total + req.PageSize - 1) / req.PageSize
 	offset := (req.Page - 1) * req.PageSize
 
-	// Get chats for current page
 	rows, err := s.db.Query(`
-        SELECT id, creation_timestamp, update_timestamp, messages
-        FROM chats
-        ORDER BY update_timestamp DESC
-        LIMIT ? OFFSET ?
-    `, req.PageSize, offset)
+    SELECT id, title, creation_timestamp, update_timestamp, messages, files
+    FROM chats
+    ORDER BY update_timestamp DESC
+    LIMIT ? OFFSET ?
+`, req.PageSize, offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "querying chats")
 	}
@@ -155,12 +139,15 @@ func (s *Store) ListChats(req ListChatsRequest) (*ListChatsResponse, error) {
 	var chats []*Chat
 	for rows.Next() {
 		chat := &Chat{}
-		var messagesJSON string
-		if err := rows.Scan(&chat.ID, &chat.CreationTimestamp, &chat.UpdateTimestamp, &messagesJSON); err != nil {
+		var messagesJSON, filesJSON string
+		if err := rows.Scan(&chat.ID, &chat.Title, &chat.CreationTimestamp, &chat.UpdateTimestamp, &messagesJSON, &filesJSON); err != nil {
 			return nil, errors.Wrap(err, "scanning chat row")
 		}
 		if err := json.Unmarshal([]byte(messagesJSON), &chat.Messages); err != nil {
 			return nil, errors.Wrap(err, "unmarshaling messages")
+		}
+		if err := json.Unmarshal([]byte(filesJSON), &chat.Files); err != nil {
+			return nil, errors.Wrap(err, "unmarshaling files")
 		}
 		chats = append(chats, chat)
 	}
@@ -178,13 +165,13 @@ func (s *Store) ListChats(req ListChatsRequest) (*ListChatsResponse, error) {
 
 func (s *Store) GetChat(chatID string) (*Chat, error) {
 	chat := &Chat{}
-	var messagesJSON string
+	var messagesJSON, filesJSON string
 
 	err := s.db.QueryRow(`
-		SELECT id, creation_timestamp, update_timestamp, messages
-		FROM chats
-		WHERE id = ?
-	`, chatID).Scan(&chat.ID, &chat.CreationTimestamp, &chat.UpdateTimestamp, &messagesJSON)
+        SELECT id, title, creation_timestamp, update_timestamp, messages, files
+        FROM chats
+        WHERE id = ?
+    `, chatID).Scan(&chat.ID, &chat.Title, &chat.CreationTimestamp, &chat.UpdateTimestamp, &messagesJSON, &filesJSON)
 
 	if err == sql.ErrNoRows {
 		return nil, errors.New("chat not found")
@@ -196,6 +183,33 @@ func (s *Store) GetChat(chatID string) (*Chat, error) {
 	if err := json.Unmarshal([]byte(messagesJSON), &chat.Messages); err != nil {
 		return nil, errors.Wrap(err, "unmarshaling messages")
 	}
+	if err := json.Unmarshal([]byte(filesJSON), &chat.Files); err != nil {
+		return nil, errors.Wrap(err, "unmarshaling files")
+	}
 
 	return chat, nil
+}
+
+func (s *Store) UpdateChatTitle(chatID string, title string) error {
+	result, err := s.db.Exec(`
+        UPDATE chats
+        SET title = ?,
+            update_timestamp = ?
+        WHERE id = ?
+    `, &title, time.Now().UnixMicro(), chatID)
+
+	if err != nil {
+		return errors.Wrap(err, "updating chat title")
+	}
+
+	// Check if the chat exists
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "checking rows affected")
+	}
+	if rowsAffected == 0 {
+		return errors.New("chat not found")
+	}
+
+	return nil
 }

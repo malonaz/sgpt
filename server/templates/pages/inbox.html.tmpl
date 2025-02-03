@@ -4,15 +4,34 @@
             {{range .Chats}}
                 <a href="/chat/{{.ID}}" class="chat-preview">
                     <div class="chat-preview-header">
-                        <span>Chat ID: {{.ID}}</span>
+                        <span>{{if .Title}}{{.Title}} ({{.ID}}){{else}}Chat ID: {{.ID}}{{end}}</span>
                         <span>Last Updated: {{.FormattedTime}}</span>
                     </div>
+                    {{if .Files}}
+                        <div class="file-list" style="margin-top:-1rem; margin-bottom: 1rem;">
+                            {{$length := len .Files}}
+                            {{$max := 3}}
+                            {{if gt $length $max}}
+                                {{range (slice .Files 0 $max)}}
+                                    <div class="file-item">
+                                        <span class="file-name">{{.}}</span>
+                                    </div>
+                                {{end}}
+                            {{else}}
+                                {{range .Files}}
+                                    <div class="file-item">
+                                        <span class="file-name">{{.}}</span>
+                                    </div>
+                                {{end}}
+                            {{end}}
+                        </div>
+                    {{end}}
                     <div class="chat-preview-content">
                         {{if .Messages}}
                             {{$userCount := 0}}
                             {{range .Messages}}
                                 {{if and (eq (.Role | toString) "user") (lt $userCount 3)}}
-                                    {{.Content | formatMessage}}
+                                    • {{.Content | formatMessage}}
                                     {{$userCount = add $userCount 1}}
                                     {{if lt $userCount 3}}<br>{{end}}
                                 {{end}}

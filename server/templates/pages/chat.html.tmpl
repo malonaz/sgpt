@@ -1,9 +1,21 @@
 {{define "chat"}}
     <div class="chat">
         <div class="chat-preview-header">
+            {{if .Chat.Title}}
+                <span>{{.Chat.Title}}</span>
+            {{end}}
             <span>Chat ID: <span class="copyable" title="Click to copy">{{.Chat.ID}}</span></span>
             <span>Last Updated: {{.Chat.FormattedTime}}</span>
         </div>
+        {{if .Chat.Files}}
+            <div class="file-list">
+                {{range .Chat.Files}}
+                    <div class="file-item">
+                        <span class="file-name">{{.}}</span>
+                    </div>
+                {{end}}
+            </div>
+        {{end}}
         {{range .Chat.Messages}}
             <div class="message {{if eq .Role "user"}}user-message{{else if eq .Role "assistant"}}assistant-message{{else}}system-message{{end}}">
                 {{- .Content | formatMessage -}}
@@ -11,4 +23,3 @@
         {{end}}
     </div>
 {{end}}
-j

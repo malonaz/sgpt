@@ -1,6 +1,9 @@
 go_library(
     name = "store",
-    srcs = ["store.go"],
+    srcs = [
+        "store.go",
+        "utils.go",
+    ],
     visibility = ["//..."],
     deps = [
         "//internal/llm",
