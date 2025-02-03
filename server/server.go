@@ -21,6 +21,7 @@ var templatesFS embed.FS
 
 type PageData struct {
 	Title       string
+	Query       string
 	ShowBack    bool
 	Chat        *ChatViewModel
 	Chats       []ChatViewModel
@@ -54,7 +55,7 @@ func NewServeCmd(s *store.Store) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVarP(&opts.Port, "port", "p", 8080, "Port to serve on")
+	cmd.Flags().IntVarP(&opts.Port, "port", "p", 3030, "Port to serve on")
 	cmd.Flags().IntVar(&opts.PageSize, "page-size", 50, "Number of chats to display")
 	return cmd
 }
@@ -89,44 +90,72 @@ func (s *Server) Start(port int) error {
 }
 
 func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
+	// Get page number from query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
+		page = 1
 	}
 
-	page := 1
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
+	// Get search query from query parameters
+	query := r.URL.Query().Get("q")
+
+	// Define page size
+	const pageSize = 10
+
+	var chats []*store.Chat
+	var totalPages int
+
+	// Handle either search or regular listing based on query presence
+	if query != "" {
+		// Handle search
+		searchResp, err := s.store.SearchChats(store.SearchChatsRequest{
+			Query:    query,
+			Page:     page,
+			PageSize: pageSize,
+		})
+		if err != nil {
+			panic(err)
+			http.Error(w, "Failed to search chats", http.StatusInternalServerError)
+			return
 		}
+		chats = searchResp.Chats
+		totalPages = searchResp.PageCount
+	} else {
+		// Handle regular listing
+		listResp, err := s.store.ListChats(store.ListChatsRequest{
+			Page:     page,
+			PageSize: pageSize,
+		})
+		if err != nil {
+			http.Error(w, "Failed to list chats", http.StatusInternalServerError)
+			return
+		}
+		chats = listResp.Chats
+		totalPages = listResp.PageCount
 	}
 
-	resp, err := s.store.ListChats(store.ListChatsRequest{
-		Page:     page,
-		PageSize: s.pageSize,
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	viewModels := make([]ChatViewModel, len(resp.Chats))
-	for i, chat := range resp.Chats {
-		viewModels[i] = ChatViewModel{
+	chatViews := []ChatViewModel{}
+	// Format timestamps for each chat
+	for _, chat := range chats {
+		chatViews = append(chatViews, ChatViewModel{
 			Chat:          chat,
-			FormattedTime: time.UnixMicro(chat.UpdateTimestamp).Format(time.RFC822),
-		}
+			FormattedTime: time.UnixMicro(chat.UpdateTimestamp).Format("Jan 2, 2006 3:04 PM"),
+		})
 	}
 
-	data := PageData{
+	// Prepare template data using PageData
+	data := &PageData{
 		Title:       "Inbox",
-		ShowBack:    false,
-		Chats:       viewModels,
+		Chats:       chatViews,
 		CurrentPage: page,
-		TotalPages:  resp.PageCount,
+		TotalPages:  totalPages,
+		Query:       query,
 	}
 
+	// Execute template
 	if err := s.tmpl.ExecuteTemplate(w, "base", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
 	}
 }
 
