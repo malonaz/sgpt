@@ -7,6 +7,7 @@ import (
 	"github.com/malonaz/sgpt/diff"
 	"github.com/malonaz/sgpt/embed"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/server"
 	"github.com/malonaz/sgpt/store"
 )
 
@@ -32,6 +33,7 @@ func main() {
 	// Ensure store is closed when the program exits normally
 	defer store.Close()
 
+	rootCmd.AddCommand(server.NewServeCmd(store))
 	rootCmd.AddCommand(chat.NewCmd(config, store))
 	rootCmd.AddCommand(chat.NewListChatsCmd(config, store))
 	rootCmd.AddCommand(diff.NewCmd(config))

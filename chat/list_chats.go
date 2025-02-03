@@ -26,9 +26,12 @@ func NewListChatsCmd(config *configuration.Config, s *store.Store) *cobra.Comman
 			// Headers.
 			cli.Title("SGPT CHAT LIST")
 
-			chats, err := s.List(opts.PageSize)
+			listChatsRequest := store.ListChatsRequest{
+				PageSize: 10,
+			}
+			listChatsResponse, err := s.ListChats(listChatsRequest)
 			cobra.CheckErr(err)
-			for _, chat := range chats {
+			for _, chat := range listChatsResponse.Chats {
 				cli.AIOutput("chat (%s) - %s\n", chat.ID, time.UnixMicro(chat.UpdateTimestamp).String())
 				description := ""
 				for i := 0; i < 10 && i < len(chat.Messages); i++ {

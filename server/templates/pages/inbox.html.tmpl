@@ -1,0 +1,36 @@
+{{define "inbox"}}
+    <div class="inbox">
+        {{if .Chats}}
+            {{range .Chats}}
+                <a href="/chat/{{.ID}}" class="chat-preview">
+                    <div class="chat-preview-header">
+                        <span>Chat ID: {{.ID}}</span>
+                        <span>Last Updated: {{.FormattedTime}}</span>
+                    </div>
+                    <div class="chat-preview-content">
+                        {{if .Messages}}
+                            {{$userCount := 0}}
+                            {{range .Messages}}
+                                {{if and (eq (.Role | toString) "user") (lt $userCount 3)}}
+                                    {{.Content | formatMessage}}
+                                    {{$userCount = add $userCount 1}}
+                                    {{if lt $userCount 3}}<br>{{end}}
+                                {{end}}
+                            {{end}}
+                        {{else}}
+                            <em>No messages</em>
+                        {{end}}
+                    </div>
+                </a>
+            {{end}}
+
+            {{if gt .TotalPages 1}}
+                {{template "pagination" .}}
+            {{end}}
+        {{else}}
+            <div class="no-chats">
+                <p>No chats found</p>
+            </div>
+        {{end}}
+    </div>
+{{end}}

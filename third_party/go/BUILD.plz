@@ -34,7 +34,7 @@ go_mod_download(
     name = "dario.cat__mergo",
     _tag = "download",
     module = "dario.cat/mergo",
-    version = "v1.0.0",
+    version = "v1.0.1",
     visibility = ["PUBLIC"],
 )
 
@@ -87,6 +87,68 @@ go_module(
     module = "github.com/AlecAivazis/survey/v2",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__text__width"],
+)
+
+go_mod_download(
+    name = "github.com__Masterminds__goutils",
+    _tag = "download",
+    module = "github.com/Masterminds/goutils",
+    version = "v1.1.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__Masterminds__goutils",
+    download = ":_github.com__Masterminds__goutils#download",
+    install = ["."],
+    module = "github.com/Masterminds/goutils",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__Masterminds__semver__v3",
+    _tag = "download",
+    module = "github.com/Masterminds/semver/v3",
+    version = "v3.3.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__Masterminds__semver__v3",
+    download = ":_github.com__Masterminds__semver__v3#download",
+    install = ["."],
+    module = "github.com/Masterminds/semver/v3",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__Masterminds__sprig__v3",
+    _tag = "download",
+    module = "github.com/Masterminds/sprig/v3",
+    version = "v3.3.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__Masterminds__sprig__v3",
+    download = ":_github.com__Masterminds__sprig__v3#download",
+    install = ["."],
+    module = "github.com/Masterminds/sprig/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":dario.cat__mergo",
+        ":github.com__Masterminds__goutils",
+        ":github.com__Masterminds__semver__v3",
+        ":github.com__google__uuid",
+        ":github.com__huandu__xstrings",
+        ":github.com__mitchellh__copystructure",
+        ":github.com__shopspring__decimal",
+        ":github.com__spf13__cast",
+        ":golang.org__x__crypto__bcrypt",
+        ":golang.org__x__crypto__scrypt",
+    ],
 )
 
 go_mod_download(
@@ -280,6 +342,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__huandu__xstrings",
+    _tag = "download",
+    module = "github.com/huandu/xstrings",
+    version = "v1.5.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__huandu__xstrings",
+    download = ":_github.com__huandu__xstrings#download",
+    install = ["."],
+    module = "github.com/huandu/xstrings",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__kballard__go-shellquote",
     _tag = "download",
     module = "github.com/kballard/go-shellquote",
@@ -362,6 +441,40 @@ go_module(
     module = "github.com/mgutz/ansi",
     visibility = ["PUBLIC"],
     deps = [":github.com__mattn__go-colorable"],
+)
+
+go_mod_download(
+    name = "github.com__mitchellh__copystructure",
+    _tag = "download",
+    module = "github.com/mitchellh/copystructure",
+    version = "v1.2.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__mitchellh__copystructure",
+    download = ":_github.com__mitchellh__copystructure#download",
+    install = ["."],
+    module = "github.com/mitchellh/copystructure",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__mitchellh__reflectwalk"],
+)
+
+go_mod_download(
+    name = "github.com__mitchellh__reflectwalk",
+    _tag = "download",
+    module = "github.com/mitchellh/reflectwalk",
+    version = "v1.0.2",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__mitchellh__reflectwalk",
+    download = ":_github.com__mitchellh__reflectwalk#download",
+    install = ["."],
+    module = "github.com/mitchellh/reflectwalk",
+    visibility = ["PUBLIC"],
+    deps = [],
 )
 
 go_mod_download(
@@ -459,6 +572,40 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__shopspring__decimal",
+    _tag = "download",
+    module = "github.com/shopspring/decimal",
+    version = "v1.4.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__shopspring__decimal",
+    download = ":_github.com__shopspring__decimal#download",
+    install = ["."],
+    module = "github.com/shopspring/decimal",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__spf13__cast",
+    _tag = "download",
+    module = "github.com/spf13/cast",
+    version = "v1.7.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__spf13__cast",
+    download = ":_github.com__spf13__cast#download",
+    install = ["."],
+    module = "github.com/spf13/cast",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__spf13__cobra",
     _tag = "download",
     module = "github.com/spf13/cobra",
@@ -510,10 +657,54 @@ go_module(
 )
 
 go_mod_download(
+    name = "golang.org__x__crypto",
+    _tag = "download",
+    module = "golang.org/x/crypto",
+    version = "v0.26.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "golang.org__x__crypto__bcrypt",
+    download = ":_golang.org__x__crypto#download",
+    install = ["bcrypt"],
+    module = "golang.org/x/crypto",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__crypto__blowfish"],
+)
+
+go_module(
+    name = "golang.org__x__crypto__blowfish",
+    download = ":_golang.org__x__crypto#download",
+    install = ["blowfish"],
+    module = "golang.org/x/crypto",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__crypto__pbkdf2",
+    download = ":_golang.org__x__crypto#download",
+    install = ["pbkdf2"],
+    module = "golang.org/x/crypto",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__crypto__scrypt",
+    download = ":_golang.org__x__crypto#download",
+    install = ["scrypt"],
+    module = "golang.org/x/crypto",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__crypto__pbkdf2"],
+)
+
+go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
-    version = "v0.22.0",
+    version = "v0.23.0",
     visibility = ["PUBLIC"],
 )
 
@@ -530,7 +721,7 @@ go_mod_download(
     name = "golang.org__x__term",
     _tag = "download",
     module = "golang.org/x/term",
-    version = "v0.0.0-20210927222741-03fcf44c2211",
+    version = "v0.23.0",
     visibility = ["PUBLIC"],
 )
 
@@ -547,7 +738,7 @@ go_mod_download(
     name = "golang.org__x__text",
     _tag = "download",
     module = "golang.org/x/text",
-    version = "v0.4.0",
+    version = "v0.17.0",
     visibility = ["PUBLIC"],
 )
 
@@ -644,7 +835,7 @@ go_mod_download(
     name = "gopkg.in__yaml.v2",
     _tag = "download",
     module = "gopkg.in/yaml.v2",
-    version = "v2.2.7",
+    version = "v2.3.0",
     visibility = ["PUBLIC"],
 )
 
@@ -795,8 +986,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):

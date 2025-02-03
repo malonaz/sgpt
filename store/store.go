@@ -53,6 +53,11 @@ func New(dbPath string) (*Store, error) {
 	}, nil
 }
 
+// Close closes the database connection.
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
 // CreateChat instantiates and returns a new chat.
 func (s *Store) CreateChat(id string) *Chat {
 	now := time.Now().UnixMicro()
@@ -109,14 +114,39 @@ func (s *Store) Get(chatID string) (*Chat, error) {
 	return chat, nil
 }
 
-// List all the chats in the store.
-func (s *Store) List(pageSize int) ([]*Chat, error) {
+// ListChatsRequest contains parameters for listing chats
+type ListChatsRequest struct {
+	Page     int
+	PageSize int
+}
+
+// ListChatsResponse contains the result of a list chats operation
+type ListChatsResponse struct {
+	Chats      []*Chat
+	TotalCount int
+	PageCount  int
+}
+
+// ListChats returns a paginated list of chats
+func (s *Store) ListChats(req ListChatsRequest) (*ListChatsResponse, error) {
+	// Get total count
+	var total int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM chats").Scan(&total)
+	if err != nil {
+		return nil, errors.Wrap(err, "counting chats")
+	}
+
+	// Calculate pagination
+	pageCount := (total + req.PageSize - 1) / req.PageSize
+	offset := (req.Page - 1) * req.PageSize
+
+	// Get chats for current page
 	rows, err := s.db.Query(`
-		SELECT id, creation_timestamp, update_timestamp, messages
-		FROM chats
-		ORDER BY update_timestamp DESC
-		LIMIT ?
-	`, pageSize)
+        SELECT id, creation_timestamp, update_timestamp, messages
+        FROM chats
+        ORDER BY update_timestamp DESC
+        LIMIT ? OFFSET ?
+    `, req.PageSize, offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "querying chats")
 	}
@@ -139,10 +169,33 @@ func (s *Store) List(pageSize int) ([]*Chat, error) {
 		return nil, errors.Wrap(err, "iterating chat rows")
 	}
 
-	return chats, nil
+	return &ListChatsResponse{
+		Chats:      chats,
+		TotalCount: total,
+		PageCount:  pageCount,
+	}, nil
 }
 
-// Close closes the database connection.
-func (s *Store) Close() error {
-	return s.db.Close()
+func (s *Store) GetChat(chatID string) (*Chat, error) {
+	chat := &Chat{}
+	var messagesJSON string
+
+	err := s.db.QueryRow(`
+		SELECT id, creation_timestamp, update_timestamp, messages
+		FROM chats
+		WHERE id = ?
+	`, chatID).Scan(&chat.ID, &chat.CreationTimestamp, &chat.UpdateTimestamp, &messagesJSON)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("chat not found")
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "querying chat")
+	}
+
+	if err := json.Unmarshal([]byte(messagesJSON), &chat.Messages); err != nil {
+		return nil, errors.Wrap(err, "unmarshaling messages")
+	}
+
+	return chat, nil
 }

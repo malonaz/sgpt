@@ -70,12 +70,15 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				cobra.CheckErr(err)
 			} else if opts.Continue {
 				// Fetch the latest chat.
-				chats, err := s.List(1)
+				listChatsRequest := store.ListChatsRequest{
+					PageSize: 1,
+				}
+				listChatsResponse, err := s.ListChats(listChatsRequest)
 				cobra.CheckErr(err)
-				if len(chats) == 0 {
+				if len(listChatsResponse.Chats) == 0 {
 					cobra.CheckErr(fmt.Errorf("no chat to continue"))
 				}
-				chat = chats[0]
+				chat = listChatsResponse.Chats[0]
 				opts.ChatID = chat.ID
 			} else {
 				opts.ChatID = uuid.New().String()[:8]

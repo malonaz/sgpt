@@ -1,0 +1,14 @@
+{{define "chat"}}
+    <div class="chat">
+        <div class="chat-preview-header">
+            <span>Chat ID: <span class="copyable" title="Click to copy">{{.Chat.ID}}</span></span>
+            <span>Last Updated: {{.Chat.FormattedTime}}</span>
+        </div>
+        {{range .Chat.Messages}}
+            <div class="message {{if eq .Role "user"}}user-message{{else if eq .Role "assistant"}}assistant-message{{else}}system-message{{end}}">
+                {{- .Content | formatMessage -}}
+            </div>
+        {{end}}
+    </div>
+{{end}}
+j
