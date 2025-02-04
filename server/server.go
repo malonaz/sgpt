@@ -122,7 +122,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 		totalPages = searchResp.PageCount
 	} else {
 		// Handle regular listing
-		listResp, err := s.store.ListChats(store.ListChatsRequest{
+		listResp, err := s.store.ListChats(&store.ListChatsRequest{
 			Page:     page,
 			PageSize: pageSize,
 		})

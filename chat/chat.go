@@ -47,6 +47,8 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 		Short: "Back and forth chat",
 		Long:  "Back and forth chat",
 		Run: func(cmd *cobra.Command, args []string) {
+			ctx := cmd.Context()
+
 			// Parse model and role.
 			role, err := opts.Role.Parse()
 			cobra.CheckErr(err)
@@ -65,12 +67,14 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 
 			// Parse a chat if relevant.opts.ChatID,
 			var chat *store.Chat
+			now := time.Now().UnixMicro()
 			if opts.ChatID != "" {
 				chat, err = s.GetChat(opts.ChatID)
 				cobra.CheckErr(err)
+				chat.Files = append(chat.Files, opts.FileInjection.Files...)
 			} else if opts.Continue {
 				// Fetch the latest chat.
-				listChatsRequest := store.ListChatsRequest{
+				listChatsRequest := &store.ListChatsRequest{
 					PageSize: 1,
 				}
 				listChatsResponse, err := s.ListChats(listChatsRequest)
@@ -80,10 +84,17 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				}
 				chat = listChatsResponse.Chats[0]
 				opts.ChatID = chat.ID
+				chat.Files = append(chat.Files, opts.FileInjection.Files...)
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
-				chat = s.CreateChat(opts.ChatID, opts.FileInjection.Files)
+				chat = &store.Chat{
+					ID:                opts.ChatID,
+					CreationTimestamp: now,
+					UpdateTimestamp:   now,
+					Files:             opts.FileInjection.Files,
+				}
 			}
+			chat.UpdateTimestamp = now
 
 			// Headers.
 			roleName := "anon"
@@ -129,7 +140,6 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				}
 			}
 
-			ctx := context.Background()
 			for {
 				// Query user for prompt.
 				text, err := cli.PromptUser()
@@ -203,29 +213,12 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					}
 				}
 				cli.AIOutput("\n")
-
-				if !interrupted {
-					if len(chat.Messages) == 0 {
-						messages := []*llm.Message{userMessage, chatCompletionMessage}
-						go func() {
-							// This is the first message, generate a summary
-							summary, err := generateChatSummary(ctx, config, messages)
-							if err != nil {
-								fmt.Printf("error generating summary: %v\n", err)
-							} else if summary != "" {
-								if err := s.UpdateChatTitle(chat.ID, summary); err != nil {
-									fmt.Printf("updating chat title: %v\n", err)
-								}
-							}
-						}()
-					}
-
-					// Append the response content to our history.
-					chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
-					// Save chat.
-					err := s.UpdateChat(chat)
-					cobra.CheckErr(err)
+				if interrupted {
+					continue
 				}
+
+				// Append the response content to our history.
+				chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
 
 				matches := imagePromptRegexp.FindStringSubmatch(chatCompletionMessage.Content)
 				if len(matches) == 2 {
@@ -261,7 +254,37 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 						Content: doNotSendToken + response.Data[0].URL,
 					}
 					chat.Messages = append(chat.Messages, chatCompletionMessage)
-					err = s.UpdateChat(chat)
+				}
+
+				if chat.CreationTimestamp == now {
+					createChatRequest := &store.CreateChatRequest{
+						Chat: chat,
+					}
+					_, err := s.CreateChat(createChatRequest)
+					cobra.CheckErr(err)
+					go func() {
+						listChatsRequest := &store.ListChatsRequest{
+							Filter: "WHERE title IS NULL",
+						}
+						listChatsResponse, err := s.ListChats(listChatsRequest)
+						if err != nil {
+							fmt.Printf("Error fetching chats without summary: %v\n", err)
+							return
+						}
+						for _, chat := range listChatsResponse.Chats {
+							if err := generateChatSummary(ctx, config, s, chat); err != nil {
+								fmt.Errorf("generating summary for chat %s: %v", chat.ID, err)
+								continue
+							}
+						}
+					}()
+				} else {
+					// Save chat.
+					updateChatRequest := &store.UpdateChatRequest{
+						Chat:       chat,
+						UpdateMask: []string{"messages", "files"},
+					}
+					err = s.UpdateChat(updateChatRequest)
 					cobra.CheckErr(err)
 				}
 			}
@@ -282,16 +305,23 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 }
 
 // generateChatSummary creates a title/summary for the chat using the specified model
-func generateChatSummary(ctx context.Context, config *configuration.Config, messages []*llm.Message) (string, error) {
+func generateChatSummary(ctx context.Context, config *configuration.Config, s *store.Store, chat *store.Chat) error {
 	if config.Chat.SummaryModel == "" {
-		return "", nil
+		return nil
 	}
+	if len(chat.Messages) < 2 {
+		return fmt.Errorf("expected at least 2 messages, found %d", len(chat.Messages))
+	}
+	if chat.Messages[0].Role != llm.UserRole || chat.Messages[1].Role != llm.AssistantRole {
+		return fmt.Errorf("expected first message to be user role and second message to be assistant role")
+	}
+	messages := chat.Messages[:2]
 
 	// Create a new LLM client for summary generation
 	summaryOpts := &llm.Opts{Model: config.Chat.SummaryModel}
 	summaryClient, model, _, err := llm.NewClient(config, summaryOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed to create summary client: %w", err)
+		return fmt.Errorf("failed to create summary client: %w", err)
 	}
 
 	// Create prompt for summary generation
@@ -308,7 +338,7 @@ func generateChatSummary(ctx context.Context, config *configuration.Config, mess
 	// Get response
 	stream, err := summaryClient.CreateTextGeneration(ctx, request)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate summary: %w", err)
+		return fmt.Errorf("failed to generate summary: %w", err)
 	}
 	defer stream.Close()
 
@@ -320,7 +350,7 @@ func generateChatSummary(ctx context.Context, config *configuration.Config, mess
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("error receiving summary stream: %w", err)
+			return fmt.Errorf("error receiving summary stream: %w", err)
 		}
 		summary.WriteString(event.Token)
 	}
@@ -330,5 +360,16 @@ func generateChatSummary(ctx context.Context, config *configuration.Config, mess
 	cleanSummary = strings.Trim(cleanSummary, `"'`)
 	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
 
-	return cleanSummary, nil
+	if cleanSummary != "" {
+		chat.Title = &cleanSummary
+		updateChatRequest := &store.UpdateChatRequest{
+			Chat:       chat,
+			UpdateMask: []string{"title"},
+		}
+		if err := s.UpdateChat(updateChatRequest); err != nil {
+			return fmt.Errorf("updating chat title: %w", err)
+		}
+	}
+
+	return nil
 }

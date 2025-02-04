@@ -1,13 +1,16 @@
 go_library(
     name = "store",
     srcs = [
+        "chat.go",
+        "create_chat.go",
+        "delete_chat.go",
         "store.go",
+        "update_chat.go",
         "utils.go",
     ],
     visibility = ["//..."],
     deps = [
         "//internal/llm",
-        "//third_party/go:github.com__pkg__errors",
         "//third_party/go:modernc.org__sqlite",
     ],
 )
