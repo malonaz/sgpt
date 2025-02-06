@@ -7,6 +7,37 @@
             <span>Chat ID: <span class="copyable" title="Click to copy">{{.Chat.ID}}</span></span>
             <span>Last Updated: {{.Chat.FormattedTime}}</span>
         </div>
+
+        <!-- tag management section -->
+        <div class="tag-management">
+            <form class="tag-form" action="/chat/{{.Chat.ID}}/tags" method="POST" id="tagForm">
+                <input
+                    type="text"
+                    name="tag"
+                    placeholder="Add a tag..."
+                    class="tag-input"
+                    pattern="[a-zA-Z0-9-_]+"
+                    title="Tags can only contain letters, numbers, hyphens, and underscores"
+                    id="tagInput"
+                >
+                <button type="submit" class="tag-submit">Add Tag</button>
+            </form>
+            {{if .Chat.Tags}}
+                <div class="chat-tags">
+                    {{range .Chat.Tags}}
+                        <span class="chat-tag">
+                            {{.}}
+                            <button
+                                class="remove-tag"
+                                onclick="removeTag('{{$.Chat.ID}}', '{{.}}')"
+                                title="Remove tag"
+                            >×</button>
+                        </span>
+                    {{end}}
+                </div>
+            {{end}}
+        </div>
+
         {{if .Chat.Files}}
             <div class="file-list">
                 {{range .Chat.Files}}
@@ -22,4 +53,50 @@
             </div>
         {{end}}
     </div>
+
+    <!-- Add JavaScript for tag management -->
+    <script>
+     async function removeTag(chatId, tag) {
+         try {
+             const response = await fetch(`/chat/${chatId}/tags/${encodeURIComponent(tag)}`, {
+                 method: 'DELETE',
+             });
+             if (response.ok) {
+                 window.location.reload();
+             } else {
+                 alert('Failed to remove tag');
+             }
+         } catch (error) {
+             console.error('Error removing tag:', error);
+             alert('Failed to remove tag');
+         }
+     }
+
+     // Add event listener for the tag input
+     document.addEventListener('DOMContentLoaded', function() {
+         const tagForm = document.getElementById('tagForm');
+         const tagInput = document.getElementById('tagInput');
+
+         // Handle form submission
+         tagForm.addEventListener('submit', function(e) {
+             if (!tagInput.value.trim()) {
+                 e.preventDefault();
+                 return;
+             }
+         });
+
+         // Handle Enter key press
+         tagInput.addEventListener('keypress', function(e) {
+             if (e.key === 'Enter') {
+                 e.preventDefault();
+                 if (tagInput.value.trim()) {
+                     tagForm.submit();
+                 }
+             }
+         });
+
+         // Focus the input when the page loads
+         tagInput.focus();
+     });
+    </script>
 {{end}}

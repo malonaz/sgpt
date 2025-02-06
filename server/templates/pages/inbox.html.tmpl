@@ -13,8 +13,8 @@
                     value="{{.Query}}"
                     autocomplete="off"
                 >
-                {{if .Query}}
-                    <a href="/" class="clear-search" title="Clear search">
+                {{if or .Query .ActiveTags}}
+                    <a href="/" class="clear-search" title="Clear filters">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -23,6 +23,32 @@
             </div>
         </form>
 
+        {{if or .ActiveTags }}
+            <div class="active-filters">
+                <div class="active-tags">
+                    {{range .ActiveTags}}
+                        <span class="chat-tag active">
+                            {{.}}
+                            <button class="remove-tag" onclick="removeFilter('tag', '{{.}}')" title="Remove tag filter">×</button>
+                        </span>
+                    {{end}}
+                </div>
+
+                <div class="tag-form-container">
+                    <form class="tag-search-form" onsubmit="addTagFilter(event)">
+                        <input
+                            type="text"
+                            id="tagSearchInput"
+                            placeholder="Add tag filter..."
+                            class="tag-input"
+                            pattern="[a-zA-Z0-9-_]+"
+                            title="Tags can only contain letters, numbers, hyphens, and underscores"
+                        >
+                    </form>
+                </div>
+            </div>
+        {{end}}
+
         {{if .Chats}}
             {{range .Chats}}
                 <a href="/chat/{{.ID}}" class="chat-preview">
@@ -30,8 +56,15 @@
                         <span>{{if .Title}}{{.Title}} ({{.ID}}){{else}}Chat ID: {{.ID}}{{end}}</span>
                         <span>Last Updated: {{.FormattedTime}}</span>
                     </div>
+                    {{if .Tags}}
+                        <div class="chat-tags">
+                            {{range .Tags}}
+                                <span class="chat-tag clickable" onclick="addFilter('tag', '{{.}}', event)">{{.}}</span>
+                            {{end}}
+                        </div>
+                    {{end}}
                     {{if .Files}}
-                        <div class="file-list" style="margin-top:-1rem; margin-bottom: 1rem;">
+                        <div class="file-list" style="margin-bottom: 1rem;">
                             {{$length := len .Files}}
                             {{$max := 3}}
                             {{if gt $length $max}}
@@ -75,4 +108,45 @@
             </div>
         {{end}}
     </div>
+
+    <script>
+     function addFilter(type, value, event) {
+         event.preventDefault();
+         const url = new URL(window.location.href);
+         url.searchParams.append(type, value);
+         window.location.href = url.toString();
+     }
+
+     function addTagFilter(event) {
+         event.preventDefault();
+         const input = document.getElementById('tagSearchInput');
+         const value = input.value.trim();
+
+         if (value) {
+             const url = new URL(window.location.href);
+             url.searchParams.append('tag', value);
+             window.location.href = url.toString();
+         }
+     }
+
+     function removeFilter(type, value) {
+         const url = new URL(window.location.href);
+         const params = url.searchParams.getAll(type);
+         url.searchParams.delete(type);
+         params.forEach(param => {
+             if (param !== value) {
+                 url.searchParams.append(type, param);
+             }
+         });
+         window.location.href = url.toString();
+     }
+
+     // Add event listener for the tag input
+     document.addEventListener('DOMContentLoaded', function() {
+         const tagInput = document.getElementById('tagSearchInput');
+         if (tagInput) {
+             tagInput.focus();
+         }
+     });
+    </script>
 {{end}}

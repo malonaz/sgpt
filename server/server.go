@@ -27,6 +27,7 @@ type PageData struct {
 	Chats       []ChatViewModel
 	CurrentPage int
 	TotalPages  int
+	ActiveTags  []string
 }
 
 // ChatViewModel represents a chat with formatted time for the template
@@ -82,7 +83,7 @@ func (s *Server) Start(port int) error {
 	s.tmpl = tmpl
 
 	http.HandleFunc("/", s.handleInbox)
-	http.HandleFunc("/chat/", s.handleChat)
+	http.HandleFunc("/chat/", s.handleChatRoutes)
 
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Server starting on http://localhost%s\n", addr)
@@ -99,6 +100,9 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	// Get search query from query parameters
 	query := r.URL.Query().Get("q")
 
+	// Get tags from query parameters
+	tags := r.URL.Query()["tag"]
+
 	// Define page size
 	const pageSize = 10
 
@@ -114,17 +118,17 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 			PageSize: pageSize,
 		})
 		if err != nil {
-			panic(err)
 			http.Error(w, "Failed to search chats", http.StatusInternalServerError)
 			return
 		}
 		chats = searchResp.Chats
 		totalPages = searchResp.PageCount
 	} else {
-		// Handle regular listing
+		// Handle regular listing with optional tag filtering
 		listResp, err := s.store.ListChats(&store.ListChatsRequest{
 			Page:     page,
 			PageSize: pageSize,
+			Tags:     tags,
 		})
 		if err != nil {
 			http.Error(w, "Failed to list chats", http.StatusInternalServerError)
@@ -150,12 +154,35 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 		CurrentPage: page,
 		TotalPages:  totalPages,
 		Query:       query,
+		ActiveTags:  tags,
 	}
 
 	// Execute template
 	if err := s.tmpl.ExecuteTemplate(w, "base", data); err != nil {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
+	}
+}
+
+func (s *Server) handleChatRoutes(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 3 {
+		http.NotFound(w, r)
+		return
+	}
+
+	chatID := parts[2]
+
+	// Handle different routes based on the path and method
+	switch {
+	case r.Method == "GET" && len(parts) == 3:
+		s.handleChat(w, r)
+	case r.Method == "POST" && len(parts) == 4 && parts[3] == "tags":
+		s.handleAddTag(w, r, chatID)
+	case r.Method == "DELETE" && len(parts) == 5 && parts[3] == "tags":
+		s.handleRemoveTag(w, r, chatID, parts[4])
+	default:
+		http.NotFound(w, r)
 	}
 }
 
@@ -187,4 +214,70 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	if err := s.tmpl.ExecuteTemplate(w, "base", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request, chatID string) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	tag := r.FormValue("tag")
+	if tag == "" {
+		http.Error(w, "Tag cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	// Get existing chat
+	chat, err := s.store.GetChat(chatID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Add new tag
+	chat.Tags = append(chat.Tags, tag)
+
+	// Update chat
+	err = s.store.UpdateChat(&store.UpdateChatRequest{
+		Chat:       chat,
+		UpdateMask: []string{"tags"},
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to chat page
+	http.Redirect(w, r, "/chat/"+chatID, http.StatusSeeOther)
+}
+
+func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request, chatID, tagToRemove string) {
+	// Get existing chat
+	chat, err := s.store.GetChat(chatID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Remove the tag
+	newTags := make([]string, 0, len(chat.Tags))
+	for _, tag := range chat.Tags {
+		if tag != tagToRemove {
+			newTags = append(newTags, tag)
+		}
+	}
+	chat.Tags = newTags
+
+	// Update chat
+	err = s.store.UpdateChat(&store.UpdateChatRequest{
+		Chat:       chat,
+		UpdateMask: []string{"tags"},
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

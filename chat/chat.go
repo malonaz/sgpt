@@ -264,13 +264,14 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					cobra.CheckErr(err)
 					go func() {
 						listChatsRequest := &store.ListChatsRequest{
-							Filter: "WHERE title IS NULL",
+							Filter: "title IS NULL",
 						}
 						listChatsResponse, err := s.ListChats(listChatsRequest)
 						if err != nil {
 							fmt.Printf("Error fetching chats without summary: %v\n", err)
 							return
 						}
+						fmt.Printf("found %d chats", len(listChatsResponse.Chats))
 						for _, chat := range listChatsResponse.Chats {
 							if err := generateChatSummary(ctx, config, s, chat); err != nil {
 								fmt.Errorf("generating summary for chat %s: %v", chat.ID, err)

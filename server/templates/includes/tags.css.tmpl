@@ -1,0 +1,130 @@
+{{ define "tagsCss" }}
+
+.chat-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.chat-tag {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+
+.tag-management {
+    margin: 1rem 0;
+}
+
+.tag-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.tag-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--surface-color-hover);
+    color: var(--text-primary);
+}
+
+.tag-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.tag-submit {
+    padding: 0.5rem 1rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.tag-submit:hover {
+    background-color: var(--primary-hover);
+}
+
+.remove-tag {
+    background: none;
+    border: none;
+    color: inherit;
+    padding: 0;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-size: 1.2em;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.remove-tag:hover {
+    opacity: 1;
+}
+
+.active-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.chat-tag.active {
+    background-color: var(--surface-color-hover);
+    border: 1px solid var(--primary-color);
+    color: var(--text-primary);
+}
+
+.chat-tag.clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chat-tag.clickable:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.tag-form-container {
+    margin-bottom: 0.5rem;
+}
+
+.tag-search-form {
+    max-width: 300px;
+}
+
+.tag-search-form .tag-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--surface-color-hover);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.tag-search-form .tag-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.active-filters {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    height: 34px;
+    margin-bottom: 1rem;
+}
+
+{{ end }}
