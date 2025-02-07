@@ -44,8 +44,8 @@ func getEmbeddingMessages(
 	return embeddingMessages, nil
 }
 
-func pipeStream(stream llm.Stream) (chan string, chan error) {
-	tokenChannel := make(chan string)
+func pipeStream(stream llm.Stream) (chan *llm.StreamEvent, chan error) {
+	eventChannel := make(chan *llm.StreamEvent)
 	errorChannel := make(chan error)
 	go func() {
 		for {
@@ -54,10 +54,10 @@ func pipeStream(stream llm.Stream) (chan string, chan error) {
 				errorChannel <- err
 				return
 			}
-			tokenChannel <- event.Token
+			eventChannel <- event
 		}
 	}()
-	return tokenChannel, errorChannel
+	return eventChannel, errorChannel
 }
 
 func dedupeStrings(strings []string) []string {

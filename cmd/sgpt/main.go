@@ -35,6 +35,7 @@ func main() {
 
 	rootCmd.AddCommand(server.NewServeCmd(store))
 	rootCmd.AddCommand(chat.NewCmd(config, store))
+	rootCmd.AddCommand(chat.NewGenerateChatTitlesCmd(config, store))
 	rootCmd.AddCommand(diff.NewCmd(config))
 	rootCmd.AddCommand(embed.NewCmd(config))
 	rootCmd.Execute()

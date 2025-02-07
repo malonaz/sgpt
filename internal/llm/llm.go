@@ -72,8 +72,9 @@ type CreateTextGenerationRequest struct {
 }
 
 type StreamEvent struct {
-	Token        string
-	FinishReason string
+	ReasoningToken string
+	Token          string
+	FinishReason   string
 }
 
 type Stream interface {

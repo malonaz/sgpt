@@ -15,6 +15,7 @@ var (
 	userInputColor   = color.New(color.Bold)
 	userCommandColor = color.New(color.FgGreen)
 	aiOutputColor    = color.New(color.FgCyan)
+	aiThoughtColor   = color.New(color.FgYellow)
 	formatColor      = color.New(color.FgGreen)
 	fileColor        = color.New(color.FgRed)
 	costColor        = color.New(color.FgYellow)
@@ -54,6 +55,11 @@ func UserCommand(text string, args ...any) {
 // AIOutput printed to cli.
 func AIOutput(text string, args ...any) {
 	aiOutputColor.Printf(text, args...)
+}
+
+// AIThought printed to cli.
+func AIThough(text string, args ...any) {
+	aiThoughtColor.Printf(text, args...)
 }
 
 // CostInfo printed to cli.

@@ -531,8 +531,8 @@ go_module(
 go_mod_download(
     name = "github.com__sashabaranov__go-openai",
     _tag = "download",
-    module = "github.com/sashabaranov/go-openai",
-    version = "v1.24.0",
+    module = "github.com/goodenough227/go-openai",
+    version = "v0.0.0-20250207091202-52738616d5a4",
     visibility = ["PUBLIC"],
 )
 
@@ -986,8 +986,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -1076,8 +1076,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):

@@ -1,6 +1,9 @@
 go_library(
     name = "file",
-    srcs = ["file.go"],
+    srcs = [
+        "file.go",
+        "github.go",
+    ],
     visibility = [
         "//chat",
         "//chat/store",
@@ -8,8 +11,5 @@ go_library(
         "//embed",
         "//internal/configuration",
     ],
-    deps = [
-        "//third_party/go:github.com__pkg__errors",
-        "//third_party/go:github.com__spf13__cobra",
-    ],
+    deps = ["//third_party/go:github.com__spf13__cobra"],
 )

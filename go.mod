@@ -4,6 +4,8 @@ go 1.22.5
 
 toolchain go1.22.11
 
+replace github.com/sashabaranov/go-openai => github.com/goodenough227/go-openai v0.0.0-20250207091202-52738616d5a4
+
 require (
 	dario.cat/mergo v1.0.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -16,7 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/liushuangls/go-anthropic/v2 v2.8.1
 	github.com/pkg/errors v0.9.1
-	github.com/sashabaranov/go-openai v1.24.0
+	github.com/sashabaranov/go-openai v1.24.0-0.20240000000000-527386116d5a40
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.7.0
 	github.com/waigani/diffparser v0.0.0-20190828052634-7391f219313d

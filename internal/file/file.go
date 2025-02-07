@@ -1,12 +1,12 @@
 package file
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +48,7 @@ func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
 		// Read the main file
 		bytes, err := os.ReadFile(filepath)
 		if err != nil {
-			return errors.Wrap(err, "reading file")
+			return fmt.Errorf("reading file: %%w", err)
 		}
 		file := &File{Path: filepath, Content: bytes}
 
@@ -63,7 +63,7 @@ func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
 		// Check if context.md exists and read it
 		exists, err := Exists(contextFilepath)
 		if err != nil {
-			return errors.Wrap(err, "checking context.md existence")
+			return fmt.Errorf("checking context.md existence: %%w", err)
 		}
 		if !exists {
 			return nil
@@ -71,7 +71,7 @@ func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
 
 		contextBytes, err := os.ReadFile(contextFilepath)
 		if err != nil {
-			return errors.Wrap(err, "reading context.md")
+			return fmt.Errorf("reading context.md: %%w", err)
 		}
 		file = &File{Path: contextFilepath, Content: contextBytes}
 		files = append(files, file)
@@ -80,7 +80,7 @@ func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
 
 	for _, file := range opts.Files {
 		if err := smartParse(file, parseFileFn); err != nil {
-			return nil, errors.Wrapf(err, "smartParse (%s)", file)
+			return nil, fmt.Errorf("smartParse (%%s): %%w", file, err)
 		}
 	}
 	return files, nil
@@ -96,7 +96,7 @@ func Parse(opts *InjectionOpts) ([]*File, error) {
 		}
 		bytes, err := os.ReadFile(filepath)
 		if err != nil {
-			return errors.Wrap(err, "reading file")
+			return fmt.Errorf("reading file: %%w", err)
 		}
 		file := &File{Path: filepath, Content: bytes}
 		files = append(files, file)
@@ -104,7 +104,7 @@ func Parse(opts *InjectionOpts) ([]*File, error) {
 	}
 	for _, file := range opts.Files {
 		if err := smartParse(file, parseFileFn); err != nil {
-			return nil, errors.Wrapf(err, "smartParse (%s)", file)
+			return nil, fmt.Errorf("smartParse (%%s): %%w", file, err)
 		}
 	}
 	return files, nil
@@ -115,7 +115,7 @@ func smartParse(filepath string, parseFileFn func(filepath string) error) error 
 	// Expand the path to escape `~`.
 	filepath, err := ExpandPath(filepath)
 	if err != nil {
-		return errors.Wrap(err, "expanding path")
+		return fmt.Errorf("expanding path: %%w", err)
 	}
 	// Here we remove the "/..." if there is one, and record whether it existed.
 	filepath, recurse := strings.CutSuffix(filepath, "/...")
@@ -123,14 +123,14 @@ func smartParse(filepath string, parseFileFn func(filepath string) error) error 
 	// Check whether `filepath` is a directory.
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {
-		return errors.Wrap(err, "getting os stats")
+		return fmt.Errorf("getting os stats: %%w", err)
 	}
 	if !fileInfo.IsDir() {
 		if recurse {
-			return errors.Wrap(err, "cannot recurse on a file")
+			return fmt.Errorf("cannot recurse on a file: %%w", err)
 		}
 		if err := parseFileFn(filepath); err != nil {
-			return errors.Wrap(err, "parseFileFn")
+			return fmt.Errorf("parseFileFn: %%w", err)
 		}
 		return nil
 	}
@@ -139,18 +139,18 @@ func smartParse(filepath string, parseFileFn func(filepath string) error) error 
 	directory := filepath
 	dirEntries, err := os.ReadDir(directory)
 	if err != nil {
-		return errors.Wrap(err, "reading directory")
+		return fmt.Errorf("reading directory: %%w", err)
 	}
 	for _, dirEntry := range dirEntries {
 		dirEntryInfo, err := dirEntry.Info()
 		if err != nil {
-			return errors.Wrapf(err, "reading dir entry (%+v)", dirEntry)
+			return fmt.Errorf("reading dir entry (%%+v): %%w", dirEntry, err)
 		}
 		if dirEntry.IsDir() {
 			if recurse {
 				filepath := path.Join(directory, dirEntryInfo.Name()) + "/..."
 				if err := smartParse(filepath, parseFileFn); err != nil {
-					return errors.Wrapf(err, "smartParse (%s)", filepath)
+					return fmt.Errorf("smartParse (%%s): %%w", filepath, err)
 				}
 			}
 			// If we are not in recursive mode, we have nothing to do with a directory :).
@@ -158,7 +158,7 @@ func smartParse(filepath string, parseFileFn func(filepath string) error) error 
 		}
 		filepath := path.Join(directory, dirEntryInfo.Name())
 		if err := parseFileFn(filepath); err != nil {
-			return errors.Wrapf(err, "parseFileFn (%s)", filepath)
+			return fmt.Errorf("parseFileFn (%%s): %%w", filepath, err)
 		}
 	}
 	return nil
@@ -184,7 +184,7 @@ func ExpandPath(path string) (string, error) {
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", errors.Wrap(err, "getting user home dir")
+		return "", fmt.Errorf("getting user home dir: %%w", err)
 	}
 	return filepath.Join(home, path[2:]), nil
 }
@@ -209,7 +209,7 @@ func CreateDirectoryIfNotExist(directory string) error {
 		return nil
 	}
 	if err := os.MkdirAll(directory, 0755); err != nil {
-		return errors.Wrap(err, "creating directory")
+		return fmt.Errorf("creating directory: %%w", err)
 	}
 	return nil
 }
@@ -221,7 +221,7 @@ func DirectoryExists(directory string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, errors.Wrap(err, "checking directory existence")
+		return false, fmt.Errorf("checking directory existence: %%w", err)
 	}
 	return info.IsDir(), nil
 }
@@ -233,7 +233,7 @@ func Exists(filePath string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, errors.Wrap(err, "checking file existence")
+		return false, fmt.Errorf("checking file existence: %%w", err)
 	}
 	return !info.IsDir(), nil
 }

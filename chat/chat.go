@@ -62,6 +62,22 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			}
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
+			files, err := file.Parse(opts.FileInjection)
+			cobra.CheckErr(err)
+			filePaths := make([]string, len(files))
+			for i, f := range files {
+				filePaths[i] = f.Path
+			}
+			githubRepoSet := map[string]struct{}{}
+			for _, filePath := range filePaths {
+				githubRepo, err := file.GetGitHubRepo(filePath)
+				cobra.CheckErr(err)
+				githubRepoSet[githubRepo] = struct{}{}
+			}
+			githubRepos := make([]string, 0, len(githubRepoSet))
+			for githubRepo := range githubRepoSet {
+				githubRepos = append(githubRepos, githubRepo)
+			}
 			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
 			cobra.CheckErr(err)
 
@@ -71,7 +87,6 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			if opts.ChatID != "" {
 				chat, err = s.GetChat(opts.ChatID)
 				cobra.CheckErr(err)
-				chat.Files = append(chat.Files, opts.FileInjection.Files...)
 			} else if opts.Continue {
 				// Fetch the latest chat.
 				listChatsRequest := &store.ListChatsRequest{
@@ -84,17 +99,18 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				}
 				chat = listChatsResponse.Chats[0]
 				opts.ChatID = chat.ID
-				chat.Files = append(chat.Files, opts.FileInjection.Files...)
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
 				chat = &store.Chat{
 					ID:                opts.ChatID,
 					CreationTimestamp: now,
 					UpdateTimestamp:   now,
-					Files:             opts.FileInjection.Files,
+					Files:             filePaths,
 				}
 			}
 			chat.UpdateTimestamp = now
+			chat.Files = append(chat.Files, filePaths...)
+			chat.Tags = append(chat.Tags, githubRepos...)
 
 			// Headers.
 			roleName := "anon"
@@ -104,8 +120,6 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			cli.Title("%s@%s/%s[%s]", roleName, provider.Name, model.Name, opts.ChatID)
 
 			// Inject files.
-			files, err := file.Parse(opts.FileInjection)
-			cobra.CheckErr(err)
 			additionalMessages := make([]*llm.Message, 0, len(files))
 			for _, file := range files {
 				message := &llm.Message{
@@ -181,7 +195,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				stream, err := llmClient.CreateTextGeneration(ctx, request)
 				cobra.CheckErr(err)
 				defer stream.Close()
-				tokenChannel, errorChannel := pipeStream(stream)
+				eventChannel, errorChannel := pipeStream(stream)
 
 				// Process Open AI stream.
 				interruptSignalChannel := make(chan os.Signal, 1)
@@ -197,10 +211,16 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 						stream.Close()
 						interrupted = true
 						streamEnded = true
-					case token := <-tokenChannel:
-						content := strings.ReplaceAll(token, "%", "%%")
-						cli.AIOutput(content)
-						chatCompletionMessage.Content += content
+					case event := <-eventChannel:
+						if event.Token != "" {
+							content := strings.ReplaceAll(event.Token, "%", "%%")
+							cli.AIOutput(content)
+							chatCompletionMessage.Content += content
+						}
+						if event.ReasoningToken != "" {
+							content := strings.ReplaceAll(event.ReasoningToken, "%", "%%")
+							cli.AIOutput(content)
+						}
 					case err := <-errorChannel:
 						if errors.Is(err, io.EOF) {
 							streamEnded = true
@@ -263,27 +283,15 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					_, err := s.CreateChat(createChatRequest)
 					cobra.CheckErr(err)
 					go func() {
-						listChatsRequest := &store.ListChatsRequest{
-							Filter: "title IS NULL",
-						}
-						listChatsResponse, err := s.ListChats(listChatsRequest)
-						if err != nil {
-							fmt.Printf("Error fetching chats without summary: %v\n", err)
-							return
-						}
-						fmt.Printf("found %d chats", len(listChatsResponse.Chats))
-						for _, chat := range listChatsResponse.Chats {
-							if err := generateChatSummary(ctx, config, s, chat); err != nil {
-								fmt.Errorf("generating summary for chat %s: %v", chat.ID, err)
-								continue
-							}
+						if err := generateChatSummary(ctx, config, s, chat); err != nil {
+							fmt.Errorf("generating summary for chat %s: %v", chat.ID, err)
 						}
 					}()
 				} else {
 					// Save chat.
 					updateChatRequest := &store.UpdateChatRequest{
 						Chat:       chat,
-						UpdateMask: []string{"messages", "files"},
+						UpdateMask: []string{"messages", "files", "tags"},
 					}
 					err = s.UpdateChat(updateChatRequest)
 					cobra.CheckErr(err)

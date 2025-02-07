@@ -60,9 +60,11 @@ func (s *ChatOpenAICompletionStreamWrapper) Recv() (*StreamEvent, error) {
 	if len(response.Choices) == 0 {
 		return nil, fmt.Errorf("ChatCompletionResponse returned no choice: %+v", response)
 	}
+
 	return &StreamEvent{
-		Token:        response.Choices[0].Delta.Content,
-		FinishReason: string(response.Choices[0].FinishReason),
+		Token:          response.Choices[0].Delta.Content,
+		ReasoningToken: response.Choices[0].Delta.ReasoningContent,
+		FinishReason:   string(response.Choices[0].FinishReason),
 	}, nil
 }
 
