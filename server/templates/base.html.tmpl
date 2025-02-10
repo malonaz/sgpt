@@ -106,6 +106,39 @@
              });
             </script>
 
+            <script>
+             async function deleteChat(chatId, event) {
+                 event.preventDefault();
+                 event.stopPropagation();
+
+                 try {
+                     const response = await fetch(`/chat/${chatId}`, {
+                         method: 'DELETE',
+                         headers: {
+                             'X-Requested-With': 'XMLHttpRequest'
+                         }
+                     });
+
+                     if (response.ok) {
+                         // If we're in the chat view, redirect to inbox
+                         if (window.location.pathname === `/chat/${chatId}`) {
+                             window.location.href = '/';
+                         } else {
+                             // If we're in the inbox, remove the chat preview
+                             const chatPreview = event.target.closest('.chat-preview');
+                             chatPreview.style.opacity = '0';
+                             setTimeout(() => chatPreview.remove(), 300);
+                         }
+                     } else {
+                         alert('Failed to delete chat');
+                     }
+                 } catch (error) {
+                     console.error('Error deleting chat:', error);
+                     alert('Failed to delete chat');
+                 }
+             }
+            </script>
+
 
             <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>

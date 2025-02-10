@@ -9,7 +9,10 @@ filegroup(
 go_library(
     name = "server",
     srcs = [
+        "chat.go",
+        "inbox.go",
         "server.go",
+        "tags.go",
         "utils.go",
     ],
     resources = [":templates"],
@@ -17,7 +20,6 @@ go_library(
     deps = [
         "//store",
         "//third_party/go:github.com__Masterminds__sprig__v3",
-        "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__spf13__cobra",
     ],
 )

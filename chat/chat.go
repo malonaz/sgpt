@@ -258,8 +258,9 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					if opts.ImageConfirm && !cli.QueryUser("Generate an image?") {
 						continue
 					}
+					chat.Tags = append(chat.Tags, "image")
 					match := matches[1]
-					cli.UserCommand("Generation started...")
+					cli.UserCommand("Image generation started...")
 
 					// Generate an image.
 					openAIClient := llm.NewOpenAIClient(config.ImageProvider.APIKey, config.ImageProvider.APIHost)

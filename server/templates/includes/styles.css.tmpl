@@ -151,6 +151,11 @@ body {
     border: 1px solid var(--border-color);
 }
 
+
+.chat-preview {
+    transition: opacity 0.3s ease;
+}
+
 .chat-preview:hover {
     transform: translateY(-2px);
     background-color: var(--surface-color-hover);
@@ -173,6 +178,8 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .chat-preview-content {
@@ -360,11 +367,6 @@ code[class*="language-"] {
     font-size: 0.9em;
 }
 
-.chat-preview-header {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
 .search-form {
     margin-bottom: 1rem;
 }
@@ -430,5 +432,51 @@ code[class*="language-"] {
     width: 1.25rem;
     height: 1.25rem;
 }
+
+.delete-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary); /* This sets the color for the SVG stroke */
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7; /* Make it slightly more subtle by default */
+    margin-top: -20px;
+    margin-bottom: -20px;
+    margin-right: -20px;
+}
+
+.delete-button:hover {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.delete-button svg {
+    width: 40px;
+    height: 40px;
+}
+
+.chat-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.chat-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.chat-header-content {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 {{ template "tagsCss" }}
 {{end}}
