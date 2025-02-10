@@ -11,21 +11,24 @@ import (
 )
 
 var (
-	// Colors.
-	userInputColor   = color.New(color.Bold)
-	userCommandColor = color.New(color.FgGreen)
-	aiOutputColor    = color.New(color.FgCyan)
-	aiThoughtColor   = color.New(color.FgYellow)
-	formatColor      = color.New(color.FgGreen)
-	fileColor        = color.New(color.FgRed)
-	costColor        = color.New(color.FgYellow)
-	width            = goterm.Width()
+	// Colors for different types of output
+	userInputColor   = color.New(color.FgWhite)               // Bold blue for user input
+	userCommandColor = color.New(color.FgGreen)               // Green for user commands
+	aiOutputColor    = color.New(color.FgCyan)                // Cyan for AI responses
+	aiThoughtColor   = color.New(color.FgHiYellow)            // Yellow for AI thoughts
+	titleColor       = color.New(color.FgMagenta, color.Bold) // Bold magenta for titles
+	separatorColor   = color.New(color.FgHiBlack)             // Dark grey for separators
+	fileColor        = color.New(color.FgRed)                 // Red for file operations
+	costColor        = color.New(color.FgYellow)              // Bright yellow for cost info
+	promptColor      = color.New(color.FgHiBlue)              // Bright blue for prompts
+
+	width = goterm.Width()
 )
 
 // Separator printed to cli.
 func Separator() {
 	separator := strings.Repeat("-", width)
-	formatColor.Println(separator)
+	separatorColor.Println(separator)
 }
 
 // Title printed to cli.
@@ -35,7 +38,7 @@ func Title(text string, args ...any) {
 	separator1 := strings.Repeat("-", leftWidth)
 	separator2 := strings.Repeat("-", width-len(title)-len(separator1))
 	output := fmt.Sprintf("%s%s%s", separator1, title, separator2)
-	formatColor.Println(output)
+	titleColor.Println(output)
 }
 
 // UserInput printed to cli.
@@ -54,11 +57,13 @@ func UserCommand(text string, args ...any) {
 
 // AIOutput printed to cli.
 func AIOutput(text string, args ...any) {
+	text = strings.ReplaceAll(text, "%", "%%")
 	aiOutputColor.Printf(text, args...)
 }
 
 // AIThought printed to cli.
-func AIThough(text string, args ...any) {
+func AIThought(text string, args ...any) {
+	text = strings.ReplaceAll(text, "%", "%%")
 	aiThoughtColor.Printf(text, args...)
 }
 
@@ -76,9 +81,10 @@ func FileInfo(text string, args ...any) {
 func PromptUser() (string, error) {
 	exit := false
 	config := &readline.Config{
-		Prompt:          "> ",
-		InterruptPrompt: "^C",
-		HistoryFile:     "/tmp/sgpt.history",
+		Prompt:            promptColor.Sprint("> "),
+		InterruptPrompt:   "^C",
+		HistoryFile:       "/tmp/sgpt.history",
+		HistorySearchFold: true,
 		FuncFilterInputRune: func(r rune) (rune, bool) {
 			if r == '\x0A' { // Ctrl + J
 				exit = true
@@ -98,18 +104,17 @@ func PromptUser() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		rl.SetPrompt("")
 		lines = append(lines, line)
 		if err == readline.ErrInterrupt || exit {
 			break
 		}
+		rl.SetPrompt("")
 	}
 	return strings.Join(lines, "\n"), nil
 }
 
 // QueryUser a yes/no question.
 func QueryUser(question string) bool {
-	// Check if user wants to commit the message.
 	surveyQuestion := &survey.Confirm{
 		Message: question,
 	}

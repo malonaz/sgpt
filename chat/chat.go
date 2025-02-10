@@ -160,7 +160,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				cobra.CheckErr(err)
 
 				// Quick feedback so user knows query has been submitted.
-				cli.AIOutput("SGPT: ")
+				cli.UserCommand("Generating...")
 
 				// Set cancelable context with timeout.
 				ctx, cancel := context.WithTimeout(ctx, time.Duration(provider.RequestTimeout)*time.Second)
@@ -202,6 +202,8 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				signal.Notify(interruptSignalChannel, os.Interrupt)
 				interrupted := false
 				chatCompletionMessage := &llm.Message{Role: llm.AssistantRole}
+				firstReasoningToken := true
+				firstToken := true
 				for {
 					streamEnded := false
 					select {
@@ -213,13 +215,20 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 						streamEnded = true
 					case event := <-eventChannel:
 						if event.Token != "" {
-							content := strings.ReplaceAll(event.Token, "%", "%%")
-							cli.AIOutput(content)
-							chatCompletionMessage.Content += content
+							if firstToken {
+								cli.AIOutput("\n")
+								firstToken = false
+							}
+							chatCompletionMessage.Content += event.Token
+							cli.AIOutput(event.Token)
 						}
 						if event.ReasoningToken != "" {
+							if firstReasoningToken {
+								cli.AIThought("\nThinking: ")
+								firstReasoningToken = false
+							}
 							content := strings.ReplaceAll(event.ReasoningToken, "%", "%%")
-							cli.AIOutput(content)
+							cli.AIThought(content)
 						}
 					case err := <-errorChannel:
 						if errors.Is(err, io.EOF) {
