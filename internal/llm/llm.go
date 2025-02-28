@@ -66,6 +66,7 @@ type CreateTextGenerationRequest struct {
 	TopP             float32
 	PresencePenalty  float32
 	FrequencyPenalty float32
+	ThinkingTokens   int
 
 	// If set, uses v1/chat/completion.
 	UseChatCompletion bool

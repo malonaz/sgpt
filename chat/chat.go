@@ -102,10 +102,8 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			} else {
 				opts.ChatID = uuid.New().String()[:8]
 				chat = &store.Chat{
-					ID:                opts.ChatID,
-					CreationTimestamp: now,
-					UpdateTimestamp:   now,
-					Files:             filePaths,
+					ID:    opts.ChatID,
+					Files: filePaths,
 				}
 			}
 			chat.UpdateTimestamp = now
@@ -186,9 +184,10 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 				}
 				messages = append(messages, userMessage)
 				request := &llm.CreateTextGenerationRequest{
-					Model:     model.Name,
-					Messages:  messages,
-					MaxTokens: model.MaxTokens,
+					Model:          model.Name,
+					Messages:       messages,
+					MaxTokens:      model.MaxTokens,
+					ThinkingTokens: model.ThinkingTokens,
 				}
 
 				// Initiate Open AI stream.
@@ -224,7 +223,7 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 						}
 						if event.ReasoningToken != "" {
 							if firstReasoningToken {
-								cli.AIThought("\nThinking: ")
+								cli.AIThought("\n")
 								firstReasoningToken = false
 							}
 							content := strings.ReplaceAll(event.ReasoningToken, "%", "%%")
@@ -233,6 +232,8 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					case err := <-errorChannel:
 						if errors.Is(err, io.EOF) {
 							streamEnded = true
+						} else {
+							cobra.CheckErr(err)
 						}
 					}
 					if streamEnded {
@@ -286,7 +287,9 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					chat.Messages = append(chat.Messages, chatCompletionMessage)
 				}
 
-				if chat.CreationTimestamp == now {
+				if chat.CreationTimestamp == 0 {
+					chat.CreationTimestamp = now
+					chat.UpdateTimestamp = now
 					createChatRequest := &store.CreateChatRequest{
 						Chat: chat,
 					}
@@ -349,9 +352,10 @@ func generateChatSummary(ctx context.Context, config *configuration.Config, s *s
 
 	// Create request
 	request := &llm.CreateTextGenerationRequest{
-		Model:     model.Name,
-		Messages:  summaryMessages,
-		MaxTokens: 50, // Should be enough for a short title
+		Model:          model.Name,
+		Messages:       summaryMessages,
+		MaxTokens:      50, // Should be enough for a short title
+		ThinkingTokens: model.ThinkingTokens,
 	}
 
 	// Get response

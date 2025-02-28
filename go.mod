@@ -16,7 +16,7 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/google/go-jsonnet v0.20.0
 	github.com/google/uuid v1.6.0
-	github.com/liushuangls/go-anthropic/v2 v2.8.1
+	github.com/liushuangls/go-anthropic/v2 v2.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/sashabaranov/go-openai v1.24.0-0.20240000000000-527386116d5a40
 	github.com/scylladb/go-set v1.0.2

@@ -18,14 +18,19 @@ type AnthropicClient struct {
 }
 
 func NewAnthropicClient(apiKey string) *AnthropicClient {
-	client := anthropic.NewClient(apiKey, anthropic.WithBetaVersion(anthropic.BetaPromptCaching20240731))
+	client := anthropic.NewClient(
+		apiKey,
+		anthropic.WithBetaVersion(anthropic.BetaPromptCaching20240731),
+		anthropic.WithBetaVersion(anthropic.BetaOutput128k20250219),
+	)
 	return &AnthropicClient{client: client}
 }
 
 // AnthropicCompletionStreamWrapper wraps the Anthropic streaming responses for chat requests.
 type AnthropicCompletionStreamWrapper struct {
-	tokens chan *string
-	err    chan error
+	tokens          chan string
+	reasoningTokens chan string
+	err             chan error
 }
 
 func (s *AnthropicCompletionStreamWrapper) Close() {
@@ -35,7 +40,11 @@ func (s *AnthropicCompletionStreamWrapper) Recv() (*StreamEvent, error) {
 	select {
 	case token := <-s.tokens:
 		return &StreamEvent{
-			Token: *token,
+			Token: token,
+		}, nil
+	case token := <-s.reasoningTokens:
+		return &StreamEvent{
+			ReasoningToken: token,
 		}, nil
 	case err := <-s.err:
 		if err == nil {
@@ -66,8 +75,9 @@ func (c *AnthropicClient) CreateTextGeneration(ctx context.Context, request *Cre
 	}
 
 	sw := &AnthropicCompletionStreamWrapper{
-		tokens: make(chan *string, 100),
-		err:    make(chan error, 1),
+		tokens:          make(chan string, 100),
+		reasoningTokens: make(chan string, 100),
+		err:             make(chan error, 1),
 	}
 	anthropicRequest := anthropic.MessagesStreamRequest{
 		MessagesRequest: anthropic.MessagesRequest{
@@ -76,8 +86,23 @@ func (c *AnthropicClient) CreateTextGeneration(ctx context.Context, request *Cre
 			MaxTokens: request.MaxTokens,
 		},
 		OnContentBlockDelta: func(data anthropic.MessagesEventContentBlockDeltaData) {
-			sw.tokens <- data.Delta.Text
+			if data.Delta.MessageContentThinking != nil && data.Delta.Thinking != "" {
+				sw.reasoningTokens <- data.Delta.Thinking
+			}
+
+			if data.Delta.Text != nil && *data.Delta.Text != "" {
+				sw.tokens <- *data.Delta.Text
+			}
 		},
+		OnError: func(r anthropic.ErrorResponse) {
+			sw.err <- fmt.Errorf("%s - [%s]: %s", r.Type, r.Error.Type, r.Error.Message)
+		},
+	}
+	if request.ThinkingTokens > 0 {
+		anthropicRequest.Thinking = &anthropic.Thinking{
+			Type:         anthropic.ThinkingTypeEnabled,
+			BudgetTokens: request.ThinkingTokens,
+		}
 	}
 
 	go func() {
