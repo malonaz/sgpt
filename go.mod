@@ -14,6 +14,7 @@ require (
 	github.com/buger/goterm v1.0.4
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/fatih/color v1.15.0
+	github.com/golang/protobuf v1.4.3
 	github.com/google/go-jsonnet v0.20.0
 	github.com/google/uuid v1.6.0
 	github.com/liushuangls/go-anthropic/v2 v2.14.1
@@ -22,6 +23,8 @@ require (
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.7.0
 	github.com/waigani/diffparser v0.0.0-20190828052634-7391f219313d
+	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+	google.golang.org/protobuf v1.25.0
 	modernc.org/sqlite v1.34.5
 )
 
@@ -44,9 +47,11 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
+	google.golang.org/grpc v1.27.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	modernc.org/libc v1.55.3 // indirect
 	modernc.org/mathutil v1.6.0 // indirect

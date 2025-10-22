@@ -24,6 +24,12 @@ gotool = //tools:go_toolchain|go
 cgoenabled = true
 importpath = github.com/malonaz/sgpt
 
+[proto]
+protocTool = //tools/proto:protoc
+protocGoPlugin = //tools/proto:protoc-gen-go
+goDep = //tools/proto:protoc-gen-go-dep
+language = go
+
 [alias "tidy"]
 desc = Run a linter across all files
 cmd = run //tools/tidy

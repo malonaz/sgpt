@@ -249,6 +249,125 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__golang__protobuf",
+    _tag = "download",
+    module = "github.com/golang/protobuf",
+    version = "v1.4.3",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__proto",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["proto"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__prototext",
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__runtime__protoiface",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__protoc-gen-go__descriptor",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["protoc-gen-go/descriptor"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__descriptorpb",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__ptypes",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["ptypes"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__ptypes__any",
+        ":github.com__golang__protobuf__ptypes__duration",
+        ":github.com__golang__protobuf__ptypes__timestamp",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__ptypes__any",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["ptypes/any"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__anypb",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__ptypes__duration",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["ptypes/duration"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__durationpb",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__ptypes__empty",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["ptypes/empty"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__emptypb",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__ptypes__struct",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["ptypes/struct"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__structpb",
+    ],
+)
+
+go_module(
+    name = "github.com__golang__protobuf__ptypes__timestamp",
+    download = ":_github.com__golang__protobuf#download",
+    install = ["ptypes/timestamp"],
+    module = "github.com/golang/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+    ],
+)
+
+go_mod_download(
     name = "github.com__google__go-jsonnet",
     _tag = "download",
     module = "github.com/google/go-jsonnet",
@@ -701,6 +820,76 @@ go_module(
 )
 
 go_mod_download(
+    name = "golang.org__x__net",
+    _tag = "download",
+    module = "golang.org/x/net",
+    version = "v0.21.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "golang.org__x__net__http__httpguts",
+    download = ":_golang.org__x__net#download",
+    install = ["http/httpguts"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__net__idna"],
+)
+
+go_module(
+    name = "golang.org__x__net__http2",
+    download = ":_golang.org__x__net#download",
+    install = ["http2"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__net__http2__hpack",
+        ":golang.org__x__net__http__httpguts",
+        ":golang.org__x__net__idna",
+    ],
+)
+
+go_module(
+    name = "golang.org__x__net__http2__hpack",
+    download = ":_golang.org__x__net#download",
+    install = ["http2/hpack"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__net__idna",
+    download = ":_golang.org__x__net#download",
+    install = ["idna"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__text__secure__bidirule",
+        ":golang.org__x__text__unicode__bidi",
+        ":golang.org__x__text__unicode__norm",
+    ],
+)
+
+go_module(
+    name = "golang.org__x__net__internal__timeseries",
+    download = ":_golang.org__x__net#download",
+    install = ["internal/timeseries"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__net__trace",
+    download = ":_golang.org__x__net#download",
+    install = ["trace"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__net__internal__timeseries"],
+)
+
+go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
@@ -805,9 +994,30 @@ go_module(
 )
 
 go_module(
+    name = "golang.org__x__text__secure__bidirule",
+    download = ":_golang.org__x__text#download",
+    install = ["secure/bidirule"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__text__transform",
+        ":golang.org__x__text__unicode__bidi",
+    ],
+)
+
+go_module(
     name = "golang.org__x__text__transform",
     download = ":_golang.org__x__text#download",
     install = ["transform"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__text__unicode__bidi",
+    download = ":_golang.org__x__text#download",
+    install = ["unicode/bidi"],
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [],
@@ -829,6 +1039,1007 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__text__transform"],
+)
+
+go_mod_download(
+    name = "google.golang.org__genproto",
+    _tag = "download",
+    module = "google.golang.org/genproto",
+    version = "v0.0.0-20200526211855-cb27e3aa2013",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__api__annotations",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/api/annotations"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__protoc-gen-go__descriptor",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__api__expr__v1alpha1",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/api/expr/v1alpha1"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__ptypes__any",
+        ":github.com__golang__protobuf__ptypes__duration",
+        ":github.com__golang__protobuf__ptypes__empty",
+        ":github.com__golang__protobuf__ptypes__struct",
+        ":github.com__golang__protobuf__ptypes__timestamp",
+        ":google.golang.org__genproto__googleapis__api__annotations",
+        ":google.golang.org__genproto__googleapis__rpc__status",
+        ":google.golang.org__grpc",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__status",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__longrunning",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/longrunning"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__protoc-gen-go__descriptor",
+        ":github.com__golang__protobuf__ptypes__any",
+        ":github.com__golang__protobuf__ptypes__duration",
+        ":github.com__golang__protobuf__ptypes__empty",
+        ":google.golang.org__genproto__googleapis__api__annotations",
+        ":google.golang.org__genproto__googleapis__rpc__status",
+        ":google.golang.org__grpc",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__status",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__rpc__status",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/rpc/status"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__ptypes__any",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_mod_download(
+    name = "google.golang.org__grpc",
+    _tag = "download",
+    module = "google.golang.org/grpc",
+    version = "v1.27.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "google.golang.org__grpc",
+    download = ":_google.golang.org__grpc#download",
+    install = ["."],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__net__trace",
+        ":google.golang.org__grpc__backoff",
+        ":google.golang.org__grpc__balancer",
+        ":google.golang.org__grpc__balancer__base",
+        ":google.golang.org__grpc__balancer__roundrobin",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__connectivity",
+        ":google.golang.org__grpc__credentials",
+        ":google.golang.org__grpc__encoding",
+        ":google.golang.org__grpc__encoding__proto",
+        ":google.golang.org__grpc__grpclog",
+        ":google.golang.org__grpc__internal",
+        ":google.golang.org__grpc__internal__backoff",
+        ":google.golang.org__grpc__internal__balancerload",
+        ":google.golang.org__grpc__internal__binarylog",
+        ":google.golang.org__grpc__internal__buffer",
+        ":google.golang.org__grpc__internal__channelz",
+        ":google.golang.org__grpc__internal__envconfig",
+        ":google.golang.org__grpc__internal__grpcrand",
+        ":google.golang.org__grpc__internal__grpcsync",
+        ":google.golang.org__grpc__internal__resolver__dns",
+        ":google.golang.org__grpc__internal__resolver__passthrough",
+        ":google.golang.org__grpc__internal__transport",
+        ":google.golang.org__grpc__keepalive",
+        ":google.golang.org__grpc__metadata",
+        ":google.golang.org__grpc__naming",
+        ":google.golang.org__grpc__peer",
+        ":google.golang.org__grpc__resolver",
+        ":google.golang.org__grpc__serviceconfig",
+        ":google.golang.org__grpc__stats",
+        ":google.golang.org__grpc__status",
+        ":google.golang.org__grpc__tap",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__attributes",
+    download = ":_google.golang.org__grpc#download",
+    install = ["attributes"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__backoff",
+    download = ":_google.golang.org__grpc#download",
+    install = ["backoff"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__balancer",
+    download = ":_google.golang.org__grpc#download",
+    install = ["balancer"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__connectivity",
+        ":google.golang.org__grpc__credentials",
+        ":google.golang.org__grpc__internal",
+        ":google.golang.org__grpc__metadata",
+        ":google.golang.org__grpc__resolver",
+        ":google.golang.org__grpc__serviceconfig",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__balancer__base",
+    download = ":_google.golang.org__grpc#download",
+    install = ["balancer/base"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__balancer",
+        ":google.golang.org__grpc__connectivity",
+        ":google.golang.org__grpc__grpclog",
+        ":google.golang.org__grpc__resolver",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__balancer__roundrobin",
+    download = ":_google.golang.org__grpc#download",
+    install = ["balancer/roundrobin"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__balancer",
+        ":google.golang.org__grpc__balancer__base",
+        ":google.golang.org__grpc__grpclog",
+        ":google.golang.org__grpc__internal__grpcrand",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__binarylog__grpc_binarylog_v1",
+    download = ":_google.golang.org__grpc#download",
+    install = ["binarylog/grpc_binarylog_v1"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__ptypes__duration",
+        ":github.com__golang__protobuf__ptypes__timestamp",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__codes",
+    download = ":_google.golang.org__grpc#download",
+    install = ["codes"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__connectivity",
+    download = ":_google.golang.org__grpc#download",
+    install = ["connectivity"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__grpclog"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__credentials",
+    download = ":_google.golang.org__grpc#download",
+    install = ["credentials"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":google.golang.org__grpc__credentials__internal",
+        ":google.golang.org__grpc__internal",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__credentials__internal",
+    download = ":_google.golang.org__grpc#download",
+    install = ["credentials/internal"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__encoding",
+    download = ":_google.golang.org__grpc#download",
+    install = ["encoding"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__encoding__proto",
+    download = ":_google.golang.org__grpc#download",
+    install = ["encoding/proto"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":google.golang.org__grpc__encoding",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__grpclog",
+    download = ":_google.golang.org__grpc#download",
+    install = ["grpclog"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__connectivity"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__backoff",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/backoff"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__backoff",
+        ":google.golang.org__grpc__internal__grpcrand",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__balancerload",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/balancerload"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__metadata"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__binarylog",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/binarylog"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__ptypes",
+        ":google.golang.org__grpc__binarylog__grpc_binarylog_v1",
+        ":google.golang.org__grpc__grpclog",
+        ":google.golang.org__grpc__metadata",
+        ":google.golang.org__grpc__status",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__buffer",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/buffer"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__channelz",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/channelz"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__connectivity",
+        ":google.golang.org__grpc__credentials",
+        ":google.golang.org__grpc__grpclog",
+    ] + select({
+        ":__config_darwin_amd64": [],
+        ":__config_darwin_arm64": [],
+        ":__config_linux_amd64": [":golang.org__x__sys__unix"],
+        ":__config_linux_arm64": [":golang.org__x__sys__unix"],
+        "default": [],
+    }),
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__envconfig",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/envconfig"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__grpcrand",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/grpcrand"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__grpcsync",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/grpcsync"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__resolver__dns",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/resolver/dns"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__grpclog",
+        ":google.golang.org__grpc__internal__envconfig",
+        ":google.golang.org__grpc__internal__grpcrand",
+        ":google.golang.org__grpc__resolver",
+        ":google.golang.org__grpc__serviceconfig",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__resolver__passthrough",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/resolver/passthrough"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__resolver"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__syscall",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/syscall"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__grpclog"] + select({
+        ":__config_darwin_amd64": [],
+        ":__config_darwin_arm64": [],
+        ":__config_linux_amd64": [":golang.org__x__sys__unix"],
+        ":__config_linux_arm64": [":golang.org__x__sys__unix"],
+        "default": [],
+    }),
+)
+
+go_module(
+    name = "google.golang.org__grpc__internal__transport",
+    download = ":_google.golang.org__grpc#download",
+    install = ["internal/transport"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":golang.org__x__net__http2",
+        ":golang.org__x__net__http2__hpack",
+        ":google.golang.org__genproto__googleapis__rpc__status",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__credentials",
+        ":google.golang.org__grpc__grpclog",
+        ":google.golang.org__grpc__internal",
+        ":google.golang.org__grpc__internal__channelz",
+        ":google.golang.org__grpc__internal__grpcrand",
+        ":google.golang.org__grpc__internal__syscall",
+        ":google.golang.org__grpc__keepalive",
+        ":google.golang.org__grpc__metadata",
+        ":google.golang.org__grpc__peer",
+        ":google.golang.org__grpc__stats",
+        ":google.golang.org__grpc__status",
+        ":google.golang.org__grpc__tap",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__keepalive",
+    download = ":_google.golang.org__grpc#download",
+    install = ["keepalive"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__metadata",
+    download = ":_google.golang.org__grpc#download",
+    install = ["metadata"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__naming",
+    download = ":_google.golang.org__grpc#download",
+    install = ["naming"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__grpclog"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__peer",
+    download = ":_google.golang.org__grpc#download",
+    install = ["peer"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__credentials"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__resolver",
+    download = ":_google.golang.org__grpc#download",
+    install = ["resolver"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__attributes",
+        ":google.golang.org__grpc__credentials",
+        ":google.golang.org__grpc__serviceconfig",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__serviceconfig",
+    download = ":_google.golang.org__grpc#download",
+    install = ["serviceconfig"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__grpc__stats",
+    download = ":_google.golang.org__grpc#download",
+    install = ["stats"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__grpc__metadata"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__status",
+    download = ":_google.golang.org__grpc#download",
+    install = ["status"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__golang__protobuf__proto",
+        ":github.com__golang__protobuf__ptypes",
+        ":google.golang.org__genproto__googleapis__rpc__status",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__internal",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__grpc__tap",
+    download = ":_google.golang.org__grpc#download",
+    install = ["tap"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "google.golang.org__protobuf",
+    _tag = "download",
+    module = "google.golang.org/protobuf",
+    version = "v1.25.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__encoding__protojson",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["encoding/protojson"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__encoding__json",
+        ":google.golang.org__protobuf__internal__encoding__messageset",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__flags",
+        ":google.golang.org__protobuf__internal__genid",
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__internal__set",
+        ":google.golang.org__protobuf__internal__strs",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__encoding__prototext",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["encoding/prototext"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__internal__encoding__messageset",
+        ":google.golang.org__protobuf__internal__encoding__text",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__flags",
+        ":google.golang.org__protobuf__internal__genid",
+        ":google.golang.org__protobuf__internal__mapsort",
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__internal__set",
+        ":google.golang.org__protobuf__internal__strs",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__encoding__protowire",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["encoding/protowire"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__protobuf__internal__errors"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__descfmt",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/descfmt"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__detrand",
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__descopts",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/descopts"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__protobuf__reflect__protoreflect"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__detrand",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/detrand"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__encoding__defval",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/encoding/defval"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__encoding__text",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__encoding__json",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/encoding/json"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__detrand",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__strs",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__encoding__messageset",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/encoding/messageset"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__encoding__tag",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/encoding/tag"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__encoding__defval",
+        ":google.golang.org__protobuf__internal__filedesc",
+        ":google.golang.org__protobuf__internal__strs",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__encoding__text",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/encoding/text"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__detrand",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__flags",
+        ":google.golang.org__protobuf__internal__strs",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__errors",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/errors"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__protobuf__internal__detrand"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__fieldsort",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/fieldsort"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__protobuf__reflect__protoreflect"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__filedesc",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/filedesc"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__internal__descfmt",
+        ":google.golang.org__protobuf__internal__descopts",
+        ":google.golang.org__protobuf__internal__encoding__defval",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__genid",
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__internal__strs",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__filetype",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/filetype"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__descopts",
+        ":google.golang.org__protobuf__internal__filedesc",
+        ":google.golang.org__protobuf__internal__impl",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__flags",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/flags"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__genid",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/genid"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__protobuf__reflect__protoreflect"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__impl",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/impl"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__prototext",
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__internal__descopts",
+        ":google.golang.org__protobuf__internal__encoding__messageset",
+        ":google.golang.org__protobuf__internal__encoding__tag",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__fieldsort",
+        ":google.golang.org__protobuf__internal__filedesc",
+        ":google.golang.org__protobuf__internal__flags",
+        ":google.golang.org__protobuf__internal__genid",
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__internal__strs",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__runtime__protoiface",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__mapsort",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/mapsort"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [":google.golang.org__protobuf__reflect__protoreflect"],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__pragma",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/pragma"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__set",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/set"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__strs",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/strs"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__flags",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__internal__version",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/version"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__proto",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["proto"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__internal__encoding__messageset",
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__internal__fieldsort",
+        ":google.golang.org__protobuf__internal__flags",
+        ":google.golang.org__protobuf__internal__genid",
+        ":google.golang.org__protobuf__internal__mapsort",
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__internal__strs",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__runtime__protoiface",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__reflect__protoreflect",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["reflect/protoreflect"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__protowire",
+        ":google.golang.org__protobuf__internal__pragma",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__reflect__protoregistry",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["reflect/protoregistry"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__errors",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__runtime__protoiface",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["runtime/protoiface"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__pragma",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__runtime__protoimpl",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["runtime/protoimpl"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__filedesc",
+        ":google.golang.org__protobuf__internal__filetype",
+        ":google.golang.org__protobuf__internal__impl",
+        ":google.golang.org__protobuf__internal__version",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__descriptorpb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/descriptorpb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoiface",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__known__anypb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/known/anypb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__known__durationpb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/known/durationpb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__known__emptypb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/known/emptypb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__known__fieldmaskpb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/known/fieldmaskpb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__known__structpb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/known/structpb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__encoding__protojson",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__types__known__timestamppb",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["types/known/timestamppb"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
 )
 
 go_mod_download(
@@ -1004,8 +2215,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -1013,8 +2224,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -1040,8 +2251,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -1058,8 +2269,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -1067,8 +2278,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -1094,8 +2305,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -1103,8 +2314,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -1121,8 +2332,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
