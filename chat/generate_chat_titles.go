@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -22,9 +21,7 @@ func NewGenerateChatTitlesCmd(config *configuration.Config, s *store.Store, aiCl
 		Short: "Generate titles for chats that don't have one",
 		Long:  "Generate titles for all chats in the database that don't have a title",
 		Run: func(cmd *cobra.Command, args []string) {
-			// Create context with timeout
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
+			ctx := cmd.Context()
 
 			// Fetch all chats without titles
 			listChatsRequest := &store.ListChatsRequest{

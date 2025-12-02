@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -21,8 +20,6 @@ import (
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/store"
 )
-
-const streamTokenTimeout = 5 * time.Second
 
 // NewCmd instantiates and returns the chat command.
 func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient) *cobra.Command {
@@ -155,10 +152,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 
 				// Quick feedback
 				cli.UserCommand("Generating...")
-
-				// Set cancelable context with timeout
-				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-				defer cancel()
 
 				// Create user message
 				userMessage := &aipb.Message{
