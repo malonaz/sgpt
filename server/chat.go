@@ -29,9 +29,8 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		Title:    fmt.Sprintf("Chat %s", chatID),
-		ShowBack: true,
-		Chat:     &viewModel,
+		Title: fmt.Sprintf("Chat %s", chatID),
+		Chat:  &viewModel,
 	}
 
 	if err := s.tmpl.ExecuteTemplate(w, "base", data); err != nil {

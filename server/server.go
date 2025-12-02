@@ -19,7 +19,6 @@ var templatesFS embed.FS
 type PageData struct {
 	Title       string
 	Query       string
-	ShowBack    bool
 	Chat        *ChatViewModel
 	Chats       []ChatViewModel
 	CurrentPage int

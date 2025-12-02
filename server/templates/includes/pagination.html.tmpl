@@ -1,15 +1,22 @@
 {{define "pagination"}}
-    <div class="pagination">
-        {{if gt .CurrentPage 1}}
-            <a href="?page={{sub .CurrentPage 1}}">&laquo; Previous</a>
-        {{end}}
+    {{if gt .TotalPages 1}}
+        <div class="pagination">
+            {{if gt .CurrentPage 1}}
+                <a href="?page={{sub .CurrentPage 1}}{{if .Query}}&q={{.Query}}{{end}}{{range .ActiveTags}}&tag={{.}}{{end}}">← Prev</a>
+            {{end}}
 
-        {{range $i := until .TotalPages}}
-            <a href="?page={{add $i 1}}" {{if eq (add $i 1) $.CurrentPage}}class="active"{{end}}>{{add $i 1}}</a>
-        {{end}}
+            {{range $i := until .TotalPages}}
+                {{$page := add $i 1}}
+                {{if or (le $page 3) (ge $page (sub $.TotalPages 1)) (and (ge $page (sub $.CurrentPage 1)) (le $page (add $.CurrentPage 1)))}}
+                    <a href="?page={{$page}}{{if $.Query}}&q={{$.Query}}{{end}}{{range $.ActiveTags}}&tag={{.}}{{end}}" {{if eq $page $.CurrentPage}}class="active"{{end}}>{{$page}}</a>
+                {{else if or (eq $page 4) (eq $page (sub $.TotalPages 2))}}
+                    <span style="color: var(--text-muted); padding: 0.5rem;">…</span>
+                {{end}}
+            {{end}}
 
-        {{if lt .CurrentPage .TotalPages}}
-            <a href="?page={{add .CurrentPage 1}}">Next &raquo;</a>
-        {{end}}
-    </div>
+            {{if lt .CurrentPage .TotalPages}}
+                <a href="?page={{add .CurrentPage 1}}{{if .Query}}&q={{.Query}}{{end}}{{range .ActiveTags}}&tag={{.}}{{end}}">Next →</a>
+            {{end}}
+        </div>
+    {{end}}
 {{end}}

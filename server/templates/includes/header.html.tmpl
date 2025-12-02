@@ -1,15 +1,98 @@
 {{define "header"}}
-    <div class="header">
-        <div class="header-wrapper">
+    <header class="header">
+        <div class="header-left">
+            <a href="/" class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <span>SGPT</span>
+            </a>
+        </div>
+        <div class="header-center">
             <h1>{{.Title}}</h1>
-            {{if .ShowBack}}
-                <a href="/" class="back-button">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    <span>Back to Inbox</span>
-                </a>
+        </div>
+        <div class="header-right">
+            <a href="/" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back
+            </a>
+            <button class="icon-btn" onclick="window.location.reload()" title="Refresh">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+{{end}}
+```
+
+```html.tmpl
+{{define "chat"}}
+    <div class="chat-view">
+        <div class="chat-meta">
+            <div class="chat-meta-row">
+                <span>{{.Chat.Title}}</span>
+                <span>ID: <span class="chat-id copyable" title="Click to copy">{{.Chat.ID}}</span></span>
+                <span>{{.Chat.FormattedTime}}</span>
+            </div>
+        </div>
+
+        <div class="chat-tags-section">
+            <form class="tag-form" action="/chat/{{.Chat.ID}}/tags" method="POST">
+                <input type="text" name="tag" placeholder="Add tag..." pattern="[a-zA-Z0-9-_]+" id="newTagInput">
+                <button type="submit">Add</button>
+            </form>
+            {{if .Chat.Tags}}
+                <div class="chat-tags">
+                    {{range .Chat.Tags}}
+                        <span class="tag">
+                            {{.}}
+                            <button type="button" class="remove" onclick="removeTag('{{$.Chat.ID}}', '{{.}}')" title="Remove">×</button>
+                        </span>
+                    {{end}}
+                </div>
+            {{end}}
+        </div>
+
+        {{if .Chat.Files}}
+            <div class="chat-files">
+                {{range .Chat.Files}}
+                    <span class="file-badge">{{.}}</span>
+                {{end}}
+            </div>
+        {{end}}
+
+        <div class="messages">
+            {{range .Chat.Messages}}
+                <div class="message {{if eq .Role.String "ROLE_USER"}}user{{else if eq .Role.String "ROLE_ASSISTANT"}}assistant{{else}}system{{end}}">
+                    {{if .Reasoning}}
+                        <div class="reasoning-block">
+                            <button type="button" class="reasoning-toggle" onclick="toggleReasoning(this)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m9 18 6-6-6-6"/>
+                                </svg>
+                                Reasoning
+                            </button>
+                            <div class="reasoning-content">{{.Reasoning}}</div>
+                        </div>
+                    {{end}}
+                    <div class="message-content">{{- .Content | formatMessage -}}</div>
+                </div>
             {{end}}
         </div>
     </div>
+
+    <script>
+     async function removeTag(chatId, tag) {
+         try {
+             const res = await fetch('/chat/' + chatId + '/tags/' + encodeURIComponent(tag), { method: 'DELETE' });
+             if (res.ok) window.location.reload();
+         } catch (e) { console.error(e); }
+     }
+
+     document.getElementById('newTagInput')?.focus();
+    </script>
 {{end}}

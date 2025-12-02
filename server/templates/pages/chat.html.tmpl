@@ -1,102 +1,69 @@
 {{define "chat"}}
-    <div class="chat">
-        <div class="chat-preview-header">
-            {{if .Chat.Title}}
+    <div class="chat-view">
+        <div class="chat-meta">
+            <div class="chat-meta-row">
                 <span>{{.Chat.Title}}</span>
-            {{end}}
-            <span>Chat ID: <span class="copyable" title="Click to copy">{{.Chat.ID}}</span></span>
-            <span>Last Updated: {{.Chat.FormattedTime}}</span>
-        </div>
+                <span>ID: <span class="chat-id copyable" title="Click to copy">{{.Chat.ID}}</span></span>
+                <span>{{.Chat.FormattedTime}}</span>
+            </div>
 
-        <!-- tag management section -->
-        <div class="tag-management">
-            <form class="tag-form" action="/chat/{{.Chat.ID}}/tags" method="POST" id="tagForm">
-                <input
-                    type="text"
-                    name="tag"
-                    placeholder="Add a tag..."
-                    class="tag-input"
-                    pattern="[a-zA-Z0-9-_]+"
-                    title="Tags can only contain letters, numbers, hyphens, and underscores"
-                    id="tagInput"
-                >
-                <button type="submit" class="tag-submit">Add Tag</button>
-            </form>
-            {{if .Chat.Tags}}
-                <div class="chat-tags">
-                    {{range .Chat.Tags}}
-                        <span class="chat-tag">
-                            {{.}}
-                            <button
-                                class="remove-tag"
-                                onclick="removeTag('{{$.Chat.ID}}', '{{.}}')"
-                                title="Remove tag"
-                            >×</button>
-                        </span>
-                    {{end}}
-                </div>
-            {{end}}
-        </div>
+            <div class="chat-tags-row">
+                {{if .Chat.Tags}}
+                    <div class="chat-tags">
+                        {{range .Chat.Tags}}
+                            <span class="tag">
+                                {{.}}
+                                <button type="button" class="remove" onclick="removeTag('{{$.Chat.ID}}', '{{.}}')" title="Remove">×</button>
+                            </span>
+                        {{end}}
+                    </div>
+                {{end}}
+                <form class="tag-form" action="/chat/{{.Chat.ID}}/tags" method="POST">
+                    <input type="text" name="tag" placeholder="Add tag..." pattern="[a-zA-Z0-9-_]+" id="newTagInput">
+                    <button type="submit">Add</button>
+                </form>
+            </div>
 
-        {{if .Chat.Files}}
-            <div class="file-list">
-                {{range .Chat.Files}}
-                    <div class="file-item">
-                        <span class="file-name">{{.}}</span>
+            <div class="chat-meta-row">
+                {{if .Chat.Files}}
+                    <div class="chat-files">
+                        {{range .Chat.Files}}
+                            <span class="file-badge">{{.}}</span>
+                        {{end}}
                     </div>
                 {{end}}
             </div>
-        {{end}}
-        {{range .Chat.Messages}}
-            <div class="message {{if eq .Role.String "ROLE_USER"}}user-message{{else if eq .Role.String "ROLE_ASSISTANT"}}assistant-message{{else}}system-message{{end}}">
-                {{- .Content | formatMessage -}}
-            </div>
-        {{end}}
+
+        </div>
+
+        <div class="messages">
+            {{range .Chat.Messages}}
+                <div class="message {{if eq .Role.String "ROLE_USER"}}user{{else if eq .Role.String "ROLE_ASSISTANT"}}assistant{{else}}system{{end}}">
+                    {{if .Reasoning}}
+                        <div class="reasoning-block">
+                            <button type="button" class="reasoning-toggle" onclick="toggleReasoning(this)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m9 18 6-6-6-6"/>
+                                </svg>
+                                Reasoning
+                            </button>
+                            <div class="reasoning-content">{{.Reasoning}}</div>
+                        </div>
+                    {{end}}
+                    <div class="message-content">{{- .Content | formatMessage -}}</div>
+                </div>
+            {{end}}
+        </div>
     </div>
 
-    <!-- Add JavaScript for tag management -->
     <script>
      async function removeTag(chatId, tag) {
          try {
-             const response = await fetch(`/chat/${chatId}/tags/${encodeURIComponent(tag)}`, {
-                 method: 'DELETE',
-             });
-             if (response.ok) {
-                 window.location.reload();
-             } else {
-                 alert('Failed to remove tag');
-             }
-         } catch (error) {
-             console.error('Error removing tag:', error);
-             alert('Failed to remove tag');
-         }
+             const res = await fetch('/chat/' + chatId + '/tags/' + encodeURIComponent(tag), { method: 'DELETE' });
+             if (res.ok) window.location.reload();
+         } catch (e) { console.error(e); }
      }
 
-     // Add event listener for the tag input
-     document.addEventListener('DOMContentLoaded', function() {
-         const tagForm = document.getElementById('tagForm');
-         const tagInput = document.getElementById('tagInput');
-
-         // Handle form submission
-         tagForm.addEventListener('submit', function(e) {
-             if (!tagInput.value.trim()) {
-                 e.preventDefault();
-                 return;
-             }
-         });
-
-         // Handle Enter key press
-         tagInput.addEventListener('keypress', function(e) {
-             if (e.key === 'Enter') {
-                 e.preventDefault();
-                 if (tagInput.value.trim()) {
-                     tagForm.submit();
-                 }
-             }
-         });
-
-         // Focus the input when the page loads
-         tagInput.focus();
-     });
+     document.getElementById('newTagInput')?.focus();
     </script>
 {{end}}

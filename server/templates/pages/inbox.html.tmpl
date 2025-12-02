@@ -1,120 +1,79 @@
 {{define "inbox"}}
     <div class="inbox">
-        <form class="search-form" action="/" method="GET">
-            <div class="search-container">
-                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                    type="text"
-                    name="q"
-                    placeholder="Search chats..."
-                    class="search-input"
-                    value="{{.Query}}"
-                    autocomplete="off"
-                >
-                {{if or .Query .ActiveTags}}
-                    <a href="/" class="clear-search" title="Clear filters">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </a>
-                {{end}}
-            </div>
+        <form class="search-box" action="/" method="GET">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" name="q" placeholder="Search chats..." value="{{.Query}}" autocomplete="off">
+            {{if or .Query .ActiveTags}}
+                <a href="/" class="clear-btn" title="Clear all filters">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </a>
+            {{end}}
+            {{range .ActiveTags}}<input type="hidden" name="tag" value="{{.}}">{{end}}
         </form>
 
-        {{if or .ActiveTags }}
-            <div class="active-filters">
-                <div class="active-tags">
-                    {{range .ActiveTags}}
-                        <span class="chat-tag active">
-                            {{.}}
-                            <button class="remove-tag" onclick="removeFilter('tag', '{{.}}')" title="Remove tag filter">×</button>
-                        </span>
-                    {{end}}
-                </div>
-
-                <div class="tag-form-container">
-                    <form class="tag-search-form" onsubmit="addTagFilter(event)">
-                        <input
-                            type="text"
-                            id="tagSearchInput"
-                            placeholder="Add tag filter..."
-                            class="tag-input"
-                            pattern="[a-zA-Z0-9-_]+"
-                            title="Tags can only contain letters, numbers, hyphens, and underscores"
-                        >
-                    </form>
-                </div>
+        {{if .ActiveTags}}
+            <div class="filters">
+                {{range .ActiveTags}}
+                    <span class="tag">
+                        {{.}}
+                        <button type="button" class="remove" onclick="removeFilter('tag', '{{.}}')" title="Remove">×</button>
+                    </span>
+                {{end}}
+                <form class="tag-input-form" onsubmit="addTagFilter(event)">
+                    <input type="text" id="tagFilterInput" placeholder="Add tag..." pattern="[a-zA-Z0-9-_]+">
+                </form>
             </div>
         {{end}}
 
         {{if .Chats}}
-            {{range .Chats}}
-                <a href="/chat/{{.ID}}" class="chat-preview">
-                    <div class="chat-preview-header">
-                        <span>{{if .Title}}{{.Title}} ({{.ID}}){{else}}Chat ID: {{.ID}}{{end}}</span>
-                        <div class="chat-preview-actions">
-                            <span>Last Updated: {{.FormattedTime}}</span>
-                            <button
-                                class="delete-button"
-                                onclick="deleteChat('{{.ID}}', event)"
-                                title="Delete chat"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
+            <div class="chat-list">
+                {{range .Chats}}
+                    <a href="/chat/{{.ID}}" class="chat-item">
+                        <div class="chat-item-header">
+                            <span class="chat-item-title">{{if .Title}}{{.Title}}{{else}}Chat {{.ID}}{{end}}</span>
+                            <div class="chat-item-meta">
+                                <span>{{.FormattedTime}}</span>
+                                <button class="delete-btn" onclick="deleteChat('{{.ID}}', event)" title="Delete">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    {{if .Tags}}
-                        <div class="chat-tags">
-                            {{range .Tags}}
-                                <span class="chat-tag clickable" onclick="addFilter('tag', '{{.}}', event)">{{.}}</span>
-                            {{end}}
-                        </div>
-                    {{end}}
-                    {{if .Files}}
-                        <div class="file-list" style="margin-bottom: 1rem;">
-                            {{$length := len .Files}}
-                            {{$max := 3}}
-                            {{if gt $length $max}}
-                                {{range (slice .Files 0 $max)}}
-                                    <div class="file-item">
-                                        <span class="file-name">{{.}}</span>
-                                    </div>
+                        {{if .Tags}}
+                            <div class="chat-item-tags">
+                                {{range .Tags}}
+                                    <span class="tag clickable" onclick="addFilter('tag', '{{.}}', event)">{{.}}</span>
                                 {{end}}
-                            {{else}}
-                                {{range .Files}}
-                                    <div class="file-item">
-                                        <span class="file-name">{{.}}</span>
-                                    </div>
-                                {{end}}
-                            {{end}}
-                        </div>
-                    {{end}}
-                    <div class="chat-preview-content">
-                        {{if .Messages}}
-                            {{$userCount := 0}}
-                            {{range .Messages}}
-                                {{if and (eq .Role.String "ROLE_USER") (lt $userCount 3)}}
-                                    • {{.Content | formatMessage}}
-                                    {{$userCount = add $userCount 1}}
-                                    {{if lt $userCount 3}}<br>{{end}}
-                                {{end}}
-                            {{end}}
-                        {{else}}
-                            <em>No messages</em>
+                            </div>
                         {{end}}
-                    </div>
-                </a>
-            {{end}}
-
-            {{if gt .TotalPages 1}}
-                {{template "pagination" .}}
-            {{end}}
+                        {{if .Files}}
+                            <div class="chat-item-files">
+                                {{$max := 4}}
+                                {{range $i, $f := .Files}}
+                                    {{if lt $i $max}}<span class="file-badge">{{$f}}</span>{{end}}
+                                {{end}}
+                                {{if gt (len .Files) $max}}<span class="file-badge">+{{sub (len .Files) $max}} more</span>{{end}}
+                            </div>
+                        {{end}}
+                        <div class="chat-item-preview">
+                            {{range .Messages}}
+                                {{if eq .Role.String "ROLE_USER"}}{{.Content}}{{break}}{{end}}
+                            {{end}}
+                        </div>
+                    </a>
+                {{end}}
+            </div>
+            {{template "pagination" .}}
         {{else}}
-            <div class="no-chats">
+            <div class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
                 <p>No chats found</p>
             </div>
         {{end}}
@@ -123,6 +82,7 @@
     <script>
      function addFilter(type, value, event) {
          event.preventDefault();
+         event.stopPropagation();
          const url = new URL(window.location.href);
          url.searchParams.append(type, value);
          window.location.href = url.toString();
@@ -130,12 +90,10 @@
 
      function addTagFilter(event) {
          event.preventDefault();
-         const input = document.getElementById('tagSearchInput');
-         const value = input.value.trim();
-
-         if (value) {
+         const input = document.getElementById('tagFilterInput');
+         if (input.value.trim()) {
              const url = new URL(window.location.href);
-             url.searchParams.append('tag', value);
+             url.searchParams.append('tag', input.value.trim());
              window.location.href = url.toString();
          }
      }
@@ -144,20 +102,8 @@
          const url = new URL(window.location.href);
          const params = url.searchParams.getAll(type);
          url.searchParams.delete(type);
-         params.forEach(param => {
-             if (param !== value) {
-                 url.searchParams.append(type, param);
-             }
-         });
+         params.forEach(p => { if (p !== value) url.searchParams.append(type, p); });
          window.location.href = url.toString();
      }
-
-     // Add event listener for the tag input
-     document.addEventListener('DOMContentLoaded', function() {
-         const tagInput = document.getElementById('tagSearchInput');
-         if (tagInput) {
-             tagInput.focus();
-         }
-     });
     </script>
 {{end}}
