@@ -629,7 +629,7 @@ body {
 .reasoning-content {
     display: none;
     padding: 1rem;
-    background: var(--bg-primary);
+    background: var(--msg-assistant-bg);
     font-size: var(--font-sm);
     color: var(--text-muted);
     white-space: pre-wrap;
@@ -640,6 +640,11 @@ body {
 }
 
 .reasoning-content.open { display: block; }
+.reasoning-content.open pre[class*="language-"] {
+    margin: 1rem 0;
+    border-radius: var(--radius-md);
+}
+
 
 /* Code Blocks in Messages */
 .message-content pre[class*="language-"] {
@@ -662,7 +667,6 @@ pre[class*="language-"] {
     background: var(--code-bg) !important;
     border: 1px solid var(--code-border);
     position: relative;
-    padding-top: 3rem !important;
 }
 
 code[class*="language-"] {

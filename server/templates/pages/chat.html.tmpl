@@ -47,7 +47,7 @@
                                 </svg>
                                 Reasoning
                             </button>
-                            <div class="reasoning-content">{{.Reasoning}}</div>
+                            <div class="reasoning-content">{{.Reasoning | formatMessage }}</div>
                         </div>
                     {{end}}
                     <div class="message-content">{{- .Content | formatMessage -}}</div>
