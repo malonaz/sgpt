@@ -4,7 +4,7 @@ go_library(
         "role.go",
         "roles.go",
     ],
-    visibility = ["//chat"],
+    visibility = ["PUBLIC"],
     deps = [
         "//internal/configuration",
         "//third_party/go:github.com__pkg__errors",

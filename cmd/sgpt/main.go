@@ -10,8 +10,8 @@ import (
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/admin"
-	"github.com/malonaz/sgpt/chat"
+	"github.com/malonaz/sgpt/cli/admin"
+	"github.com/malonaz/sgpt/cli/chat"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/server"
 	"github.com/malonaz/sgpt/store"

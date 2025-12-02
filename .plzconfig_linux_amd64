@@ -1,0 +1,8 @@
+[build]
+path = /bin:/usr/bin:/usr/local/bin:/opt/toolchain/1.0/bin
+
+[sandbox ]
+test = true
+
+[Plugin "go"]
+DefaultStatic=True

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -27,9 +26,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		Chat:          chat,
 		FormattedTime: time.UnixMicro(chat.UpdateTimestamp).Format(time.RFC822),
 	}
-
+	chatTitle := "Unamed chat"
+	if chat.Title != nil {
+		chatTitle = *chat.Title
+	}
 	data := PageData{
-		Title: fmt.Sprintf("Chat %s", chatID),
+		Title: chatTitle,
 		Chat:  &viewModel,
 	}
 

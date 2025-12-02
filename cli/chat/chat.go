@@ -27,7 +27,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 		FileInjection   *file.InjectionOpts
 		Role            *role.Opts
 		Model           string
-		MaxTokens       int64
+		MaxTokens       int32
 		Temperature     float64
 		ChatID          string
 		Continue        bool
@@ -306,7 +306,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
 	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias to use (e.g., 'o' for gpt-4o, '4' for gpt-4)")
-	cmd.Flags().Int64Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
+	cmd.Flags().Int32Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")

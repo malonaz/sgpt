@@ -1,0 +1,9 @@
+name: chat
+directories:
+  - name: chat
+    extension: false
+    migrations:
+      - filename: 001_init.sql
+        hash: 92c9a556486099dcbcfb9e76d0e05b76
+      - filename: 002_tsvector.sql
+        hash: 032e04769ee27f286105ccf60cd891ea

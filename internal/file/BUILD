@@ -4,12 +4,6 @@ go_library(
         "file.go",
         "github.go",
     ],
-    visibility = [
-        "//chat",
-        "//chat/store",
-        "//diff",
-        "//embed",
-        "//internal/configuration",
-    ],
+    visibility = ["PUBLIC"],
     deps = ["//third_party/go:github.com__spf13__cobra"],
 )

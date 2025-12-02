@@ -1,13 +1,32 @@
-/*
-This file is used to list dependencies we want to pull in manually.
-Dependencies used in go code are automatically pulled, but some dependencies used by arbitrary build defs (think codegen) aren't so we add them here.
-*/
 package dummy
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "github.com/bazelbuild/buildtools/build"
 	_ "github.com/golang/protobuf/proto"
+	_ "github.com/malonaz/core/genproto/ai/ai_service/v1"
+	_ "github.com/malonaz/core/genproto/ai/v1"
+	_ "github.com/malonaz/core/genproto/audio/v1"
+	_ "github.com/malonaz/core/genproto/codegen/aip/v1"
+	_ "github.com/malonaz/core/genproto/codegen/gateway/v1"
+	_ "github.com/malonaz/core/genproto/codegen/llm/v1"
+	_ "github.com/malonaz/core/genproto/codegen/model/v1"
+	_ "github.com/malonaz/core/go/aip"
+	_ "github.com/malonaz/core/go/authentication"
+	_ "github.com/malonaz/core/go/certs"
+	_ "github.com/malonaz/core/go/flags"
+	_ "github.com/malonaz/core/go/grpc"
+	_ "github.com/malonaz/core/go/health"
+	_ "github.com/malonaz/core/go/http"
+	_ "github.com/malonaz/core/go/logging"
+	_ "github.com/malonaz/core/go/pbutil"
+	_ "github.com/malonaz/core/go/postgres"
+	_ "github.com/malonaz/core/go/postgres/migrator"
+	_ "github.com/malonaz/core/go/postgres/migrator/migrations"
+	_ "github.com/malonaz/core/go/prometheus"
+	_ "github.com/malonaz/core/go/uuid"
 	_ "github.com/scylladb/go-set/strset"
+	_ "github.com/stretchr/testify/require"
 	_ "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	_ "google.golang.org/genproto/googleapis/longrunning"
 	_ "google.golang.org/protobuf/proto"

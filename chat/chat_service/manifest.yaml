@@ -1,0 +1,7 @@
+name: chat-service
+includeRuntime: true
+implementation: //chat/chat_service
+dependencies:
+  - type: postgres_db_client
+    name: chat
+    implementation: github.com/malonaz/sgpt/chat/v1/db

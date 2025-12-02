@@ -1,0 +1,276 @@
+syntax = "proto3";
+
+package chat.chat_service.v1;
+
+import "buf/validate/validate.proto";
+import "chat/v1/chat.proto";
+import "google/api/annotations.proto";
+import "google/api/client.proto";
+import "google/api/resource.proto";
+import "google/protobuf/field_mask.proto";
+import "malonaz/codegen/aip/v1/aip.proto";
+
+option go_package = "github.com/malonaz/sgpt/chat/chat_service/v1";
+
+// This API represents a chat service.
+//
+// It defines the following resource model:
+//
+// - The API has a collection of Chat resources, each owned by a User
+//   (from the User service).
+// - Each Chat resource has a format of: organizations/{organization}/users/{user}/chats/{chat}
+service Chat {
+  option (google.api.default_host) = "chat.sgpt.com";
+
+  // Create a chat.
+  //
+  // See: https://google.aip.dev/133 (Standard methods: Create).
+  rpc CreateChat(CreateChatRequest) returns (chat.v1.Chat) {
+    option (google.api.http) = {
+      post: "/v1/{parent=organizations/*/users/*}/chats"
+      body: "chat"
+    };
+    option (google.api.method_signature) = "parent,chat";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+  }
+
+  // Update a chat.
+  //
+  // See: https://google.aip.dev/134 (Standard methods: Update).
+  rpc UpdateChat(UpdateChatRequest) returns (chat.v1.Chat) {
+    option (google.api.http) = {
+      patch: "/v1/{chat.name=organizations/*/users/*/chats/*}"
+      body: "chat"
+    };
+    option (google.api.method_signature) = "chat,update_mask";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+  }
+
+  // Delete a chat.
+  //
+  // See: https://google.aip.dev/135 (Standard methods: Delete).
+  // See: https://google.aip.dev/164 (Soft delete).
+  rpc DeleteChat(DeleteChatRequest) returns (chat.v1.Chat) {
+    option (google.api.http) = {delete: "/v1/{name=organizations/*/users/*/chats/*}"};
+    option (google.api.method_signature) = "name";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+  }
+
+  // Get a chat.
+  //
+  // See: https://google.aip.dev/131 (Standard methods: Get).
+  rpc GetChat(GetChatRequest) returns (chat.v1.Chat) {
+    option (google.api.http) = {get: "/v1/{name=organizations/*/users/*/chats/*}"};
+    option (google.api.method_signature) = "name";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+  }
+
+  // List chats for a user.
+  //
+  // See: https://google.aip.dev/132 (Standard methods: List).
+  rpc ListChats(ListChatsRequest) returns (ListChatsResponse) {
+    option (google.api.http) = {get: "/v1/{parent=organizations/*/users/*}/chats"};
+    option (google.api.method_signature) = "parent";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+  }
+
+  // Search chats for a user.
+  //
+  // See: https://google.aip.dev/136 (Custom methods).
+  // See: https://google.aip.dev/158 (Pagination).
+  rpc SearchChats(SearchChatsRequest) returns (SearchChatsResponse) {
+    option (google.api.http) = {get: "/v1/{parent=organizations/*/users/*}/chats:search"};
+    option (google.api.method_signature) = "parent,query";
+  }
+}
+
+// Request message for Chat.CreateChat.
+message CreateChatRequest {
+  // The resource name of the parent user for which this chat will be created.
+  // Format: organizations/{organization}/users/{user}
+  string parent = 1 [
+    (buf.validate.field).required = true,
+    (google.api.resource_reference) = {type: "user.sgpt.com/User"}
+  ];
+  // The ID to use for the resource, which will become the final component of
+  // the resource name.
+  //
+  // This value should be 4-63 characters, and valid characters
+  // are /[a-z][0-9]-/.
+  string chat_id = 2 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 63
+      pattern: "^[a-z0-9](-?[a-z0-9])*$"
+    }
+  ];
+  // The chat to create.
+  chat.v1.Chat chat = 3 [(buf.validate.field).required = true];
+  // If set, validate the request and preview the review, but do not actually create the resource.
+  bool validate_only = 4;
+}
+
+// Request message for Chat.GetChat.
+message GetChatRequest {
+  // The resource name of the chat to retrieve.
+  // Format: organizations/{organization}/users/{user}/chats/{chat}
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (google.api.resource_reference).type = "chat.sgpt.com/Chat"
+  ];
+}
+
+// Request message for Chat.UpdateChat.
+message UpdateChatRequest {
+  option (malonaz.codegen.aip.v1.update) = {
+    paths: [
+      "state",
+      "classification",
+      "metadata.transcript",
+      "metadata.analysis"
+    ]
+  };
+  option (buf.validate.message).cel = {
+    id: "1"
+    message: "chat.name must be set"
+    expression: "has(this.chat.name)"
+  };
+
+  // The chat to update with. The name must match or be empty.
+  // The chat's `name` field is used to identify the chat to be updated.
+  // Format: organizations/{organization}/users/{user}/chats/{chat}
+  chat.v1.Chat chat = 1 [(buf.validate.field).required = true];
+  // The list of fields to update.
+  google.protobuf.FieldMask update_mask = 2 [(buf.validate.field).required = true];
+}
+
+// Request message for Chat.DeleteChat.
+message DeleteChatRequest {
+  // The resource name of the chat to delete.
+  // Format: organizations/{organization}/users/{user}/chats/{chat}
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (google.api.resource_reference).type = "chat.sgpt.com/Chat"
+  ];
+  // If set to true, and the book is not found, the request will succeed
+  // but no action will be taken on the server
+  bool allow_missing = 2;
+}
+
+// Request message for Chat.ListChats.
+message ListChatsRequest {
+  option (malonaz.codegen.aip.v1.pagination) = {default_page_size: 200};
+  option (malonaz.codegen.aip.v1.ordering) = {
+    paths: [
+      "create_time",
+      "update_time"
+    ]
+    default: "create_time asc"
+  };
+  option (malonaz.codegen.aip.v1.filtering) = {
+    paths: ["*"]
+  };
+
+  // The resource name of the parent, which owns this collection of chats.
+  // Format: organizations/{organization}/users/{user}
+  string parent = 1 [
+    (buf.validate.field).required = true,
+    (google.api.resource_reference) = {type: "user.sgpt.com/User"}
+  ];
+
+  // Requested page size. Server may return fewer chats than requested.
+  // If unspecified, server will pick an appropriate default.
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 1000
+  }];
+
+  // A token identifying a page of results the server should return.
+  // This is the value of
+  // [ListChatsResponse.next_page_token][chat.chat_service.v1.ListChatsResponse.next_page_token]
+  // returned from the previous call to `ListChats` method.
+  string page_token = 3;
+
+  // Can order by...
+  string order_by = 4;
+
+  // Can filter on id, user_id, create_time, update_time, and delete_time.
+  string filter = 5;
+
+  // If set to true, soft deleted resources will be shown.
+  bool show_deleted = 6;
+}
+
+// Response message for Chat.ListChats.
+message ListChatsResponse {
+  // The list of chats.
+  repeated chat.v1.Chat chats = 1;
+  // A token to retrieve next page of results. Pass this value in the
+  // [ListChatsRequest.page_token][chat.chat_service.v1.ListChatsRequest.page_token]
+  // field in the subsequent call to `ListChats` method to retrieve the next
+  // page of results.
+  string next_page_token = 2;
+}
+
+// Request message for Chat.SearchChats.
+message SearchChatsRequest {
+  option (malonaz.codegen.aip.v1.pagination) = {default_page_size: 200};
+  option (malonaz.codegen.aip.v1.filtering) = {
+    paths: ["*"]
+  };
+
+  // The resource name of the parent user to search chats within.
+  // Format: organizations/{organization}/users/{user}
+  string parent = 1 [
+    (buf.validate.field).required = true,
+    (google.api.resource_reference) = {type: "user.sgpt.com/User"}
+  ];
+
+  // A filter expression.
+  string filter = 2;
+
+  // The search query string to match against chat content.
+  //
+  // This performs a full-text search across all messages in each chat's transcript.
+  // The search uses PostgreSQL's `plainto_tsquery` with the 'simple' dictionary,
+  // which means:
+  // - Multiple words are treated as an AND query (all words must be present)
+  // - Common stopwords are NOT removed (due to 'simple' configuration)
+  // - No stemming is applied (searches for exact word forms)
+  // - Special characters and punctuation are ignored
+  //
+  // Results are automatically ranked by relevance, with the most relevant
+  // chats appearing first.
+  //
+  // Examples:
+  // - "refund policy" - matches chats containing both "refund" AND "policy"
+  // - "order 12345" - matches chats containing both "order" AND "12345"
+  // - "how to cancel" - matches chats containing all three words
+  string query = 3 [(buf.validate.field).required = true];
+
+  // Requested page size. Server may return fewer chats than requested.
+  // If unspecified, server will pick an appropriate default.
+  int32 page_size = 4 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 1000
+  }];
+
+  // A token identifying a page of results the server should return.
+  // This is the value of
+  // [SearchChatsResponse.next_page_token][chat.chat_service.v1.SearchChatsResponse.next_page_token]
+  // returned from the previous call to `SearchChats` method.
+  string page_token = 5;
+}
+
+// Response message for Chat.SearchChats.
+message SearchChatsResponse {
+  // The list of chats matching the search query.
+  repeated chat.v1.Chat chats = 1;
+
+  // A token to retrieve next page of results. Pass this value in the
+  // [SearchChatsRequest.page_token][chat.chat_service.v1.SearchChatsRequest.page_token]
+  // field in the subsequent call to `SearchChats` method to retrieve the next
+  // page of results.
+  string next_page_token = 2;
+}
