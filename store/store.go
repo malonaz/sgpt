@@ -17,7 +17,7 @@ type Store struct {
 func New(dbPath string) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("opening database: %%w", err)
+		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
 	// Create the main chats table if it doesn't exist
@@ -33,7 +33,7 @@ func New(dbPath string) (*Store, error) {
         )
     `)
 	if err != nil {
-		return nil, fmt.Errorf("creating chats table: %%w", err)
+		return nil, fmt.Errorf("creating chats table: %w", err)
 	}
 
 	// Check if favorite column exists
@@ -42,7 +42,7 @@ func New(dbPath string) (*Store, error) {
     SELECT COUNT(*) FROM pragma_table_info('chats') WHERE name='favorite'
 `).Scan(&exists)
 	if err != nil {
-		return nil, fmt.Errorf("checking favorite column: %%w", err)
+		return nil, fmt.Errorf("checking favorite column: %w", err)
 	}
 	// Add favorite column if it doesn't exist
 	if exists == 0 {
@@ -50,7 +50,7 @@ func New(dbPath string) (*Store, error) {
         ALTER TABLE chats ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0
     `)
 		if err != nil {
-			return nil, fmt.Errorf("adding favorite column: %%w", err)
+			return nil, fmt.Errorf("adding favorite column: %w", err)
 		}
 	}
 
@@ -78,7 +78,7 @@ func New(dbPath string) (*Store, error) {
         )
     `)
 	if err != nil {
-		return nil, fmt.Errorf("creating FTS5 table: %%w", err)
+		return nil, fmt.Errorf("creating FTS5 table: %w", err)
 	}
 
 	return &Store{db: db}, nil

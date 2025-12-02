@@ -1,0 +1,25 @@
+version: v2
+modules:
+  - path: plz-out/gen/third_party/proto
+  - path: .
+lint:
+  use:
+    - MINIMAL
+    - BASIC
+    - STANDARD
+    - COMMENTS
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+    - RPC_REQUEST_RESPONSE_UNIQUE # Gateway reuses requests.
+    - RPC_REQUEST_STANDARD_NAME # Clashes with 'event' style requests/response (e.g. stream voice call)
+    - RPC_RESPONSE_STANDARD_NAME # Google AIP clashes with this.
+    - SERVICE_SUFFIX # We don't use a suffix.
+  enum_zero_value_suffix: _UNSPECIFIED
+  rpc_allow_same_request_response: true
+  rpc_allow_google_protobuf_empty_requests: false
+  rpc_allow_google_protobuf_empty_responses: true
+  disallow_comment_ignores: false
+  service_suffix: Service
+  ignore:
+    - plz-out
+    - .plz-cache

@@ -3,12 +3,14 @@ go_binary(
     srcs = ["main.go"],
     visibility = ["//..."],
     deps = [
+        "//admin",
         "//chat",
-        "//diff",
-        "//embed",
         "//internal/configuration",
         "//server",
         "//store",
+        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/go:github.com__malonaz__core__go__grpc",
+        "//third_party/go:github.com__malonaz__core__go__logging",
         "//third_party/go:github.com__spf13__cobra",
     ],
 )

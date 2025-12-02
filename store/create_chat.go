@@ -27,7 +27,7 @@ func (s *Store) CreateChat(req *CreateChatRequest) (*Chat, error) {
 		return nil, fmt.Errorf("marshaling files: %w", err)
 	}
 
-	// In CreateChat function, update the INSERT statement:
+	// Marshal tags to JSON
 	tagsJSON, err := json.Marshal(dedupeStringsSorted(req.Chat.Tags))
 	if err != nil {
 		return nil, fmt.Errorf("marshaling tags: %w", err)
@@ -47,7 +47,6 @@ func (s *Store) CreateChat(req *CreateChatRequest) (*Chat, error) {
 	defer tx.Rollback()
 
 	// Insert into main chats table
-	// In CreateChat function, update the INSERT statement:
 	_, err = tx.Exec(`
 INSERT INTO chats (
     id,
@@ -68,6 +67,9 @@ INSERT INTO chats (
 		boolToInt(req.Chat.Favorite),
 		string(tagsJSON),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("inserting into chats table: %w", err)
+	}
 
 	// Insert into FTS table
 	_, err = tx.Exec(`

@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/malonaz/sgpt/internal/llm"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 )
 
 // Chat represents a chat.
@@ -10,7 +10,7 @@ type Chat struct {
 	Title             *string
 	CreationTimestamp int64
 	UpdateTimestamp   int64
-	Messages          []*llm.Message
+	Messages          []*aipb.Message
 	Files             []string
 	Favorite          bool
 	Tags              []string

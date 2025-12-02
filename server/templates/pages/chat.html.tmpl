@@ -48,7 +48,7 @@
             </div>
         {{end}}
         {{range .Chat.Messages}}
-            <div class="message {{if eq .Role "user"}}user-message{{else if eq .Role "assistant"}}assistant-message{{else}}system-message{{end}}">
+            <div class="message {{if eq .Role.String "ROLE_USER"}}user-message{{else if eq .Role.String "ROLE_ASSISTANT"}}assistant-message{{else}}system-message{{end}}">
                 {{- .Content | formatMessage -}}
             </div>
         {{end}}

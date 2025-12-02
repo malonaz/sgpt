@@ -97,7 +97,7 @@
                         {{if .Messages}}
                             {{$userCount := 0}}
                             {{range .Messages}}
-                                {{if and (eq (.Role | toString) "user") (lt $userCount 3)}}
+                                {{if and (eq .Role.String "ROLE_USER") (lt $userCount 3)}}
                                     • {{.Content | formatMessage}}
                                     {{$userCount = add $userCount 1}}
                                     {{if lt $userCount 3}}<br>{{end}}

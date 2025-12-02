@@ -5,7 +5,7 @@ go_library(
     deps = [
         "//internal/file",
         "//third_party/go:dario.cat__mergo",
-        "//third_party/go:github.com__google__go-jsonnet",
+        "//third_party/go:github.com__malonaz__core__go__jsonnet",
         "//third_party/go:github.com__pkg__errors",
     ],
 )

@@ -6,61 +6,59 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/pkg/errors"
-	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/internal/cli"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
-	"github.com/malonaz/sgpt/internal/llm"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/store"
 )
 
 const streamTokenTimeout = 5 * time.Second
-const doNotSendToken = "%@#$!@"
-
-var imagePromptRegexp = regexp.MustCompile(`prompt\((.*?)\)`)
 
 // NewCmd instantiates and returns the chat command.
-func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
+func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient) *cobra.Command {
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
-		LLM           *llm.Opts
+		Model         string
+		MaxTokens     int64
+		Temperature   float64
 		ChatID        string
-		Embeddings    bool
 		Continue      bool
-		ImageConfirm  bool
-		ImageSize     string
-		ImageQuality  string
-		ImageNumber   int
+		Reasoning     string
 	}
 	cmd := &cobra.Command{
-		Use:   "chat",
-		Short: "Back and forth chat",
-		Long:  "Back and forth chat",
-		Run: func(cmd *cobra.Command, args []string) {
+		Use: "chat",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
 			// Parse model and role.
 			role, err := opts.Role.Parse()
 			cobra.CheckErr(err)
 
-			if opts.LLM.Model == "" {
+			// Set defaults
+			if opts.Model == "" {
 				if role != nil && role.Model != "" {
-					opts.LLM.Model = role.Model
+					opts.Model = role.Model
 				} else {
-					opts.LLM.Model = config.Chat.DefaultModel
+					opts.Model = config.Chat.DefaultModel
 				}
 			}
 
+			// Resolve model alias
+			opts.Model, err = config.ResolveModelAlias(opts.Model)
+			cobra.CheckErr(err)
+
+			// Parse files
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
@@ -78,10 +76,8 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			for githubRepo := range githubRepoSet {
 				githubRepos = append(githubRepos, githubRepo)
 			}
-			llmClient, model, provider, err := llm.NewClient(config, opts.LLM)
-			cobra.CheckErr(err)
 
-			// Parse a chat if relevant.opts.ChatID,
+			// Parse or create chat
 			var chat *store.Chat
 			now := time.Now().UnixMicro()
 			if opts.ChatID != "" {
@@ -110,183 +106,166 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 			chat.Files = append(chat.Files, filePaths...)
 			chat.Tags = append(chat.Tags, githubRepos...)
 
-			// Headers.
+			// Headers
 			roleName := "anon"
 			if role != nil {
 				roleName = role.Name
 			}
-			cli.Title("%s@%s/%s[%s]", roleName, provider.Name, model.Name, opts.ChatID)
+			cli.Title("%s | %s | %s", opts.Model, roleName, opts.ChatID)
 
-			// Inject files.
-			additionalMessages := make([]*llm.Message, 0, len(files))
+			// Build additional messages (files + role)
+			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
+
+			// Inject files
 			for _, file := range files {
-				message := &llm.Message{
-					Role:    llm.SystemRole,
+				message := &aipb.Message{
+					Role:    aipb.Role_ROLE_SYSTEM,
 					Content: fmt.Sprintf("file %s: `%s`", file.Path, file.Content),
 				}
 				additionalMessages = append(additionalMessages, message)
 				cli.FileInfo("injecting file #%d: %s\n", len(additionalMessages), file.Path)
 			}
 
-			// Inject role.
+			// Inject role
 			if role != nil {
-				message := &llm.Message{
-					Role:    llm.SystemRole,
+				message := &aipb.Message{
+					Role:    aipb.Role_ROLE_SYSTEM,
 					Content: role.Prompt,
 				}
 				additionalMessages = append(additionalMessages, message)
 			}
 
-			// Print history.
+			// Print history
 			for _, message := range chat.Messages {
-				if message.Role == llm.UserRole {
+				switch message.Role {
+				case aipb.Role_ROLE_USER:
 					cli.UserInput("> %s\n", message.Content)
-				}
-				if message.Role == llm.AssistantRole {
-					if strings.Contains(message.Content, doNotSendToken) {
-						trimmed := strings.TrimPrefix(message.Content, doNotSendToken)
-						cli.UserCommand(trimmed + "\n")
-						continue
+				case aipb.Role_ROLE_ASSISTANT:
+					if message.Reasoning != "" {
+						cli.AIThought(message.Reasoning + "\n")
 					}
 					cli.AIOutput(message.Content + "\n")
 				}
 			}
 
 			for {
-				// Query user for prompt.
+				// Query user for prompt
 				text, err := cli.PromptUser()
 				cobra.CheckErr(err)
 
-				// Quick feedback so user knows query has been submitted.
+				// Quick feedback
 				cli.UserCommand("Generating...")
 
-				// Set cancelable context with timeout.
-				ctx, cancel := context.WithTimeout(ctx, time.Duration(provider.RequestTimeout)*time.Second)
+				// Set cancelable context with timeout
+				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 				defer cancel()
 
-				// If relevant, fetch embeddings.
-				var embeddingMessages []*llm.Message
-				if opts.Embeddings {
-					embeddingMessages, err = getEmbeddingMessages(ctx, config, llmClient, text)
-					cobra.CheckErr(err)
-				}
-
-				// Create open AI request.
-				userMessage := &llm.Message{
-					Role:    openai.ChatMessageRoleUser,
+				// Create user message
+				userMessage := &aipb.Message{
+					Role:    aipb.Role_ROLE_USER,
 					Content: text,
 				}
-				messages := append(additionalMessages, embeddingMessages...)
-				for _, message := range chat.Messages {
-					if !strings.Contains(message.Content, doNotSendToken) {
-						messages = append(messages, message)
-					}
-				}
+
+				// Build messages for request
+				messages := append([]*aipb.Message{}, additionalMessages...)
+				messages = append(messages, chat.Messages...)
 				messages = append(messages, userMessage)
-				request := &llm.CreateTextGenerationRequest{
-					Model:          model.Name,
-					Messages:       messages,
-					MaxTokens:      model.MaxTokens,
-					ThinkingTokens: model.ThinkingTokens,
+
+				reasoningEffortInt, ok := aipb.ReasoningEffort_value["REASONING_EFFORT_"+strings.ToUpper(opts.Reasoning)]
+				if !ok {
+					return fmt.Errorf("unknown reasoning  %s", opts.Reasoning)
 				}
 
-				// Initiate Open AI stream.
-				stream, err := llmClient.CreateTextGeneration(ctx, request)
-				cobra.CheckErr(err)
-				defer stream.Close()
-				eventChannel, errorChannel := pipeStream(stream)
+				// Create request
+				request := &aiservicepb.TextToTextStreamRequest{
+					Model:    opts.Model,
+					Messages: messages,
+					Configuration: &aiservicepb.TextToTextConfiguration{
+						MaxTokens:       opts.MaxTokens,
+						Temperature:     opts.Temperature,
+						ReasoningEffort: aipb.ReasoningEffort(reasoningEffortInt),
+					},
+				}
 
-				// Process Open AI stream.
+				// Initiate stream
+				stream, err := aiClient.TextToTextStream(ctx, request)
+				cobra.CheckErr(err)
+
+				// Process stream
 				interruptSignalChannel := make(chan os.Signal, 1)
 				signal.Notify(interruptSignalChannel, os.Interrupt)
 				interrupted := false
-				chatCompletionMessage := &llm.Message{Role: llm.AssistantRole}
-				firstReasoningToken := true
+				assistantMessage := &aipb.Message{Role: aipb.Role_ROLE_ASSISTANT}
 				firstToken := true
+
 				for {
 					streamEnded := false
 					select {
 					case <-interruptSignalChannel:
-						// We've detected an interrupt, kill the stream.
+						// Detected interrupt
 						cli.UserCommand("#Interrupted")
-						stream.Close()
 						interrupted = true
 						streamEnded = true
-					case event := <-eventChannel:
-						if event.Token != "" {
+					default:
+						response, err := stream.Recv()
+						if err != nil {
+							if errors.Is(err, io.EOF) {
+								streamEnded = true
+							} else {
+								cobra.CheckErr(err)
+							}
+							break
+						}
+
+						switch content := response.Content.(type) {
+						case *aiservicepb.TextToTextStreamResponse_ContentChunk:
 							if firstToken {
 								cli.AIOutput("\n")
 								firstToken = false
 							}
-							chatCompletionMessage.Content += event.Token
-							cli.AIOutput(event.Token)
-						}
-						if event.ReasoningToken != "" {
-							if firstReasoningToken {
+							assistantMessage.Content += content.ContentChunk
+							cli.AIOutput(content.ContentChunk)
+
+						case *aiservicepb.TextToTextStreamResponse_ReasoningChunk:
+							if assistantMessage.Reasoning == "" {
 								cli.AIThought("\n")
-								firstReasoningToken = false
 							}
-							content := strings.ReplaceAll(event.ReasoningToken, "%", "%%")
-							cli.AIThought(content)
-						}
-					case err := <-errorChannel:
-						if errors.Is(err, io.EOF) {
+							assistantMessage.Reasoning += content.ReasoningChunk
+							escapedContent := strings.ReplaceAll(content.ReasoningChunk, "%", "%%")
+							cli.AIThought(escapedContent)
+
+						case *aiservicepb.TextToTextStreamResponse_StopReason:
+							// Stream ended
 							streamEnded = true
-						} else {
-							cobra.CheckErr(err)
+
+						case *aiservicepb.TextToTextStreamResponse_ToolCall:
+							// Handle tool calls
+							assistantMessage.ToolCalls = append(assistantMessage.ToolCalls, content.ToolCall)
+
+						case *aiservicepb.TextToTextStreamResponse_ModelUsage:
+							// Could log usage metrics if needed
+
+						case *aiservicepb.TextToTextStreamResponse_GenerationMetrics:
+							// Could log generation metrics if needed
 						}
 					}
+
 					if streamEnded {
-						// Stop listening to signal.
 						signal.Stop(interruptSignalChannel)
 						break
 					}
 				}
+
 				cli.AIOutput("\n")
+
 				if interrupted {
 					continue
 				}
 
-				// Append the response content to our history.
-				chat.Messages = append(chat.Messages, userMessage, chatCompletionMessage)
+				// Append messages to history
+				chat.Messages = append(chat.Messages, userMessage, assistantMessage)
 
-				matches := imagePromptRegexp.FindStringSubmatch(chatCompletionMessage.Content)
-				if len(matches) == 2 {
-					if config.ImageProvider == nil {
-						cobra.CheckErr(fmt.Errorf("need to define an open ai image provider in the configuration.chat section"))
-					}
-
-					if opts.ImageConfirm && !cli.QueryUser("Generate an image?") {
-						continue
-					}
-					chat.Tags = append(chat.Tags, "image")
-					match := matches[1]
-					cli.UserCommand("Image generation started...")
-
-					// Generate an image.
-					openAIClient := llm.NewOpenAIClient(config.ImageProvider.APIKey, config.ImageProvider.APIHost)
-					request := openai.ImageRequest{
-						Model:          config.ImageProvider.Model,
-						Quality:        opts.ImageQuality,
-						Size:           opts.ImageSize,
-						N:              opts.ImageNumber,
-						Prompt:         match,
-						ResponseFormat: openai.CreateImageResponseFormatURL,
-					}
-					response, err := openAIClient.Get().CreateImage(ctx, request)
-					if err != nil {
-						cobra.CheckErr(fmt.Errorf("failed to created image: %v", err))
-					}
-					cli.UserCommand("%s\n", response.Data[0].URL)
-
-					// Save response (with the `DoNotSend` token).
-					chatCompletionMessage = &llm.Message{
-						Role:    llm.AssistantRole,
-						Content: doNotSendToken + response.Data[0].URL,
-					}
-					chat.Messages = append(chat.Messages, chatCompletionMessage)
-				}
-
+				// Save chat
 				if chat.CreationTimestamp == 0 {
 					chat.CreationTimestamp = now
 					chat.UpdateTimestamp = now
@@ -295,13 +274,14 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					}
 					_, err := s.CreateChat(createChatRequest)
 					cobra.CheckErr(err)
+
+					// Generate summary asynchronously
 					go func() {
-						if err := generateChatSummary(ctx, config, s, chat); err != nil {
-							fmt.Errorf("generating summary for chat %s: %v", chat.ID, err)
+						if err := generateChatSummary(ctx, config, s, aiClient, chat); err != nil {
+							fmt.Printf("error generating summary for chat %s: %v\n", chat.ID, err)
 						}
 					}()
 				} else {
-					// Save chat.
 					updateChatRequest := &store.UpdateChatRequest{
 						Chat:       chat,
 						UpdateMask: []string{"messages", "files", "tags"},
@@ -310,89 +290,18 @@ func NewCmd(config *configuration.Config, s *store.Store) *cobra.Command {
 					cobra.CheckErr(err)
 				}
 			}
+			return nil
 		},
 	}
 
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
-	opts.LLM = llm.GetOpts(cmd)
-	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id. Defaults to latest one")
-	cmd.Flags().BoolVarP(&opts.Embeddings, "embeddings", "e", false, "Use embeddings")
+	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias to use (e.g., 'o' for gpt-4o, '4' for gpt-4)")
+	cmd.Flags().Int64Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
+	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
+	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
-	cmd.Flags().StringVar(&opts.ImageSize, "image-size", "1024x1024", "256x256, 512x512, 1024x1024, 1792x1024, 1024x1792")
-	cmd.Flags().StringVar(&opts.ImageQuality, "image-quality", "hd", "hd, standard")
-	cmd.Flags().IntVar(&opts.ImageNumber, "image-number", 1, "how many images to generate")
-	cmd.Flags().BoolVar(&opts.ImageConfirm, "image-confirm", false, "If true, we confirm before generating each image")
+	cmd.Flags().StringVar(&opts.Reasoning, "reason", "unspecified", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
+
 	return cmd
-}
-
-// generateChatSummary creates a title/summary for the chat using the specified model
-func generateChatSummary(ctx context.Context, config *configuration.Config, s *store.Store, chat *store.Chat) error {
-	if config.Chat.SummaryModel == "" {
-		return nil
-	}
-	if len(chat.Messages) < 2 {
-		return fmt.Errorf("expected at least 2 messages, found %d", len(chat.Messages))
-	}
-	if chat.Messages[0].Role != llm.UserRole || chat.Messages[1].Role != llm.AssistantRole {
-		return fmt.Errorf("expected first message to be user role and second message to be assistant role")
-	}
-	messages := chat.Messages[:2]
-
-	// Create a new LLM client for summary generation
-	summaryOpts := &llm.Opts{Model: config.Chat.SummaryModel}
-	summaryClient, model, _, err := llm.NewClient(config, summaryOpts)
-	if err != nil {
-		return fmt.Errorf("failed to create summary client: %w", err)
-	}
-
-	// Create prompt for summary generation
-	summaryPrompt := "Generate a brief, concise title (max 6 words) for this conversation so far. YOU MUST ALWAYS OUTPUT SOMETHING."
-	summaryMessages := append(messages, &llm.Message{Role: llm.UserRole, Content: summaryPrompt})
-
-	// Create request
-	request := &llm.CreateTextGenerationRequest{
-		Model:          model.Name,
-		Messages:       summaryMessages,
-		MaxTokens:      50, // Should be enough for a short title
-		ThinkingTokens: model.ThinkingTokens,
-	}
-
-	// Get response
-	stream, err := summaryClient.CreateTextGeneration(ctx, request)
-	if err != nil {
-		return fmt.Errorf("failed to generate summary: %w", err)
-	}
-	defer stream.Close()
-
-	// Collect the complete response
-	var summary strings.Builder
-	for {
-		event, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("error receiving summary stream: %w", err)
-		}
-		summary.WriteString(event.Token)
-	}
-
-	// Clean up the summary (remove quotes, newlines, etc.)
-	cleanSummary := strings.TrimSpace(summary.String())
-	cleanSummary = strings.Trim(cleanSummary, `"'`)
-	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
-
-	if cleanSummary != "" {
-		chat.Title = &cleanSummary
-		updateChatRequest := &store.UpdateChatRequest{
-			Chat:       chat,
-			UpdateMask: []string{"title"},
-		}
-		if err := s.UpdateChat(updateChatRequest); err != nil {
-			return fmt.Errorf("updating chat title: %w", err)
-		}
-	}
-
-	return nil
 }

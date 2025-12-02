@@ -1,0 +1,12 @@
+go_library(
+    name = "admin",
+    srcs = ["list_models.go"],
+    visibility = ["//..."],
+    deps = [
+        "//internal/cli",
+        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/go:github.com__malonaz__core__go__grpc__interceptor",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:github.com__spf13__cobra",
+    ],
+)

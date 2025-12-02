@@ -34,7 +34,7 @@ func (s *Store) SearchChats(req SearchChatsRequest) (*SearchChatsResponse, error
         WHERE chats_fts MATCH ?
     `, req.Query).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("counting search results: %%w", err)
+		return nil, fmt.Errorf("counting search results: %w", err)
 	}
 
 	pageCount := (total + req.PageSize - 1) / req.PageSize
@@ -49,7 +49,7 @@ func (s *Store) SearchChats(req SearchChatsRequest) (*SearchChatsResponse, error
         LIMIT ? OFFSET ?
     `, req.Query, req.PageSize, offset)
 	if err != nil {
-		return nil, fmt.Errorf("querying search results: %%w", err)
+		return nil, fmt.Errorf("querying search results: %w", err)
 	}
 	defer rows.Close()
 

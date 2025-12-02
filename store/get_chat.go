@@ -17,7 +17,7 @@ func (s *Store) GetChat(chatID string) (*Chat, error) {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("chat not found")
 		}
-		return nil, fmt.Errorf("querying chat: %%w", err)
+		return nil, fmt.Errorf("querying chat: %w", err)
 	}
 
 	return chat, nil

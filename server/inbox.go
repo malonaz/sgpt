@@ -48,6 +48,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 			PageSize: pageSize,
 			Tags:     tags,
 		})
+
 		if err != nil {
 			http.Error(w, "Failed to list chats", http.StatusInternalServerError)
 			return

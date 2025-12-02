@@ -78,7 +78,6 @@ func (s *Store) UpdateChat(req *UpdateChatRequest) error {
 		existingChat.Tags = req.Chat.Tags
 	}
 
-	// In UpdateChat function, add to the shouldUpdate checks:
 	if shouldUpdate("favorite") {
 		setClauses = append(setClauses, "favorite = ?")
 		args = append(args, boolToInt(req.Chat.Favorite))

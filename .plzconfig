@@ -1,39 +1,89 @@
 [please]
-version = 16.28.0
-autoclean = on
-
-[parse]
-experimentaldir = experimental
+version = 17.23.0
+location = ~/.please
 
 [build]
-path = /bin:/usr/bin:/usr/local/bin
 timeout = 2000
+path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/homebrew/bin:/usr/lib/postgresql/13/bin/
 
-[sandbox]
-test = true
+[buildconfig]
+;; Tracks the core revision.
+core-revision = bf7f32bdaa8ba40819a2fb16bd4309a582da47ef
+
+[sandbox ]
+test = false
 
 [cache]
 dir = .plz-cache
+dirClean = true
+dirCacheHighWaterMark = 5GiB
+dirCacheLowWaterMark = 800MiB
 
 [display]
 systemstats = true
 
-[go]
-defaultstatic = true
-gotool = //tools:go_toolchain|go
-cgoenabled = true
-importpath = github.com/malonaz/sgpt
+[parse]
+experimentaldir = experimental
+preloadsubincludes = ///shell//build_defs:shell
+preloadSubincludes = ///python//build_defs:python
+preloadsubincludes = ///go//build_defs:go
+preloadsubincludes = ///proto//build_defs:proto
+preloadsubincludes = ///core//build_defs:remote
+preloadsubincludes = ///core//build_defs:docker
+preloadsubincludes = ///core//build_defs:k8s
+preloadsubincludes = ///core//build_defs:utils
+preloadsubincludes = ///core//build_defs/proto:utils
+preloadsubincludes = ///core//build_defs:template
+preloadsubincludes = ///core//build_defs/proto:go
 
-[proto]
-protocTool = //tools/proto:protoc
-protocGoPlugin = //tools/proto:protoc-gen-go
-goDep = //tools/proto:protoc-gen-go-dep
-language = go
+[Plugin "shell"]
+Target = //plugins:shell
 
+[Plugin "python"]
+Target = //plugins:python
+
+[Plugin "go"]
+Target = //plugins:go
+GoTool = //tools/go:toolchain|go
+ImportPath = github.com/malonaz/sgpt
+CgoEnabled = true
+
+[Plugin "proto"]
+Target = //plugins:proto
+LanguageDef = ///core//build_defs/proto:go
+ProtocFlags = -Ithird_party/proto
+
+[Plugin "core"]
+Target = //plugins:core
+ProtocGenGoDep = //tools:protoc-gen-go-dep
+ProtocGenGrpcGoDep = //tools:protoc-gen-go-grpc-dep
 [alias "tidy"]
-desc = Run a linter across all files
-cmd = run //tools/tidy
+desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
+cmd = run ///core//tools/tidy
 
 [alias "lint"]
-desc = Run a linter across all files
-cmd = run //tools/tidy:lint
+desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
+cmd = run ///core//tools/tidy:lint
+
+[alias "bump"]
+desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
+cmd = run //cmd:bump_core_dep
+
+[alias "cli"]
+desc = install the cli
+cmd = run //cmd:install_cli
+
+[alias "supabase"]
+desc = connect to supabase
+cmd = run //cmd:connect_to_supabase
+
+[alias "postgres"]
+desc = Runs services locally.
+cmd = run //cmd:postgres_docker --
+subcommand = start
+subcommand = stop
+subcommand = reset
+subcommand = connect
+subcommand = connect user
+subcommand = connect chat
+positionallabels = true

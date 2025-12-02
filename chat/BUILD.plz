@@ -3,20 +3,18 @@ go_library(
     srcs = [
         "chat.go",
         "generate_chat_titles.go",
-        "utils.go",
     ],
     visibility = ["//cmd/sgpt"],
     deps = [
-        "//embed",
         "//internal/cli",
         "//internal/configuration",
         "//internal/file",
-        "//internal/llm",
         "//internal/role",
         "//store",
         "//third_party/go:github.com__google__uuid",
+        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
         "//third_party/go:github.com__pkg__errors",
-        "//third_party/go:github.com__sashabaranov__go-openai",
         "//third_party/go:github.com__spf13__cobra",
     ],
 )

@@ -115,10 +115,19 @@ func PromptUser() (string, error) {
 
 // QueryUser a yes/no question.
 func QueryUser(question string) bool {
+	return queryUser(question, false)
+}
+
+// QueryUser a yes/no question.
+func QueryUserDefaultYes(question string) bool {
+	return queryUser(question, true)
+}
+
+func queryUser(question string, confirm bool) bool {
 	surveyQuestion := &survey.Confirm{
 		Message: question,
+		Default: confirm,
 	}
-	confirm := false
 	survey.AskOne(surveyQuestion, &confirm)
 	return confirm
 }
