@@ -24,14 +24,14 @@ import (
 // NewCmd instantiates and returns the chat command.
 func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient) *cobra.Command {
 	var opts struct {
-		FileInjection *file.InjectionOpts
-		Role          *role.Opts
-		Model         string
-		MaxTokens     int64
-		Temperature   float64
-		ChatID        string
-		Continue      bool
-		Reasoning     string
+		FileInjection   *file.InjectionOpts
+		Role            *role.Opts
+		Model           string
+		MaxTokens       int64
+		Temperature     float64
+		ChatID          string
+		Continue        bool
+		ReasoningEffort string
 	}
 	cmd := &cobra.Command{
 		Use: "chat",
@@ -54,6 +54,21 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			// Resolve model alias
 			opts.Model, err = config.ResolveModelAlias(opts.Model)
 			cobra.CheckErr(err)
+
+			// Parse reasoning effort.
+			var reasoningEffort aipb.ReasoningEffort
+			opts.ReasoningEffort = strings.ToLower(opts.ReasoningEffort)
+			switch opts.ReasoningEffort {
+			case "":
+			case "low", "l":
+				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_LOW
+			case "medium", "m":
+				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM
+			case "high", "h":
+				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_HIGH
+			default:
+				return fmt.Errorf("unknown reasoning effort %s", opts.ReasoningEffort)
+			}
 
 			// Parse files
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
@@ -108,7 +123,13 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			if role != nil {
 				roleName = role.Name
 			}
-			cli.Title("%s | %s | %s", opts.Model, roleName, opts.ChatID)
+			cli.Title(
+				"%s | %s | %s | %s",
+				opts.Model,
+				roleName,
+				opts.ChatID,
+				strings.ToLower(strings.TrimPrefix(reasoningEffort.String(), "REASONING_EFFORT_")),
+			)
 
 			// Build additional messages (files + role)
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
@@ -164,11 +185,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 				messages = append(messages, chat.Messages...)
 				messages = append(messages, userMessage)
 
-				reasoningEffortInt, ok := aipb.ReasoningEffort_value["REASONING_EFFORT_"+strings.ToUpper(opts.Reasoning)]
-				if !ok {
-					return fmt.Errorf("unknown reasoning  %s", opts.Reasoning)
-				}
-
 				// Create request
 				request := &aiservicepb.TextToTextStreamRequest{
 					Model:    opts.Model,
@@ -176,7 +192,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 					Configuration: &aiservicepb.TextToTextConfiguration{
 						MaxTokens:       opts.MaxTokens,
 						Temperature:     opts.Temperature,
-						ReasoningEffort: aipb.ReasoningEffort(reasoningEffortInt),
+						ReasoningEffort: reasoningEffort,
 					},
 				}
 
@@ -294,7 +310,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
-	cmd.Flags().StringVar(&opts.Reasoning, "reason", "unspecified", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
+	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
 
 	return cmd
 }
