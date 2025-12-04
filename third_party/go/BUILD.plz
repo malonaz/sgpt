@@ -2475,7 +2475,7 @@ go_mod_download(
     name = "go.einride.tech__spanner-aip",
     _tag = "download",
     module = "go.einride.tech/spanner-aip",
-    patch = ["spanner-aip.patch"],
+    patch = ["///core//third_party/go/patches:spanner-aip.patch"],
     version = "v0.67.2-0.20251120124954-1d9f5bae7b61",
     visibility = ["PUBLIC"],
 )

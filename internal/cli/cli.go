@@ -21,6 +21,10 @@ var (
 	fileColor        = color.New(color.FgRed)                 // Red for file operations
 	costColor        = color.New(color.FgYellow)              // Bright yellow for cost info
 	promptColor      = color.New(color.FgHiBlue)              // Bright blue for prompts
+	toolCallColor    = color.New(color.FgYellow)              // Yellow for tool calls
+	toolResultColor  = color.New(color.FgCyan)                // Cyan for tool results
+	toolPromptColor  = color.New(color.FgYellow)              // Magenta for tool prompts
+	errorColor       = color.New(color.FgRed)                 // Red for errors
 
 	width = goterm.Width()
 )
@@ -75,6 +79,26 @@ func CostInfo(text string, args ...any) {
 // FileInfo printed to cli.
 func FileInfo(text string, args ...any) {
 	fileColor.Printf(text, args...)
+}
+
+// ToolCall prints a tool call message
+func ToolCall(text string, args ...any) {
+	toolCallColor.Printf(text, args...)
+}
+
+// ToolResult prints a tool result message
+func ToolResult(text string, args ...any) {
+	toolResultColor.Printf(text, args...)
+}
+
+// ToolPrompt prints a tool prompt message
+func ToolPrompt(text string, args ...any) {
+	toolPromptColor.Printf(text, args...)
+}
+
+// ErrorOutput prints an error message
+func ErrorOutput(text string, args ...any) {
+	errorColor.Printf(text, args...)
 }
 
 // PromptUser for input.

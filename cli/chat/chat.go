@@ -1,9 +1,11 @@
 package chat
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"time"
@@ -21,6 +23,26 @@ import (
 	"github.com/malonaz/sgpt/store"
 )
 
+// Define available tools
+var shellCommandTool = &aipb.Tool{
+	Name:        "execute_shell_command",
+	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
+	JsonSchema: &aipb.JsonSchema{
+		Type: "object",
+		Properties: map[string]*aipb.JsonSchema{
+			"command": {
+				Type:        "string",
+				Description: "The shell command to execute",
+			},
+			"working_directory": {
+				Type:        "string",
+				Description: "Optional working directory for the command execution. If not specified, uses current directory.",
+			},
+		},
+		Required: []string{"command"},
+	},
+}
+
 // NewCmd instantiates and returns the chat command.
 func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient) *cobra.Command {
 	var opts struct {
@@ -32,6 +54,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 		ChatID          string
 		Continue        bool
 		ReasoningEffort string
+		EnableTools     bool
 	}
 	cmd := &cobra.Command{
 		Use: "chat",
@@ -123,12 +146,17 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			if role != nil {
 				roleName = role.Name
 			}
+			toolsIndicator := ""
+			if opts.EnableTools {
+				toolsIndicator = " [tools]"
+			}
 			cli.Title(
-				"%s | %s | %s | %s",
+				"%s | %s | %s | %s%s",
 				opts.Model,
 				roleName,
 				opts.ChatID,
 				strings.ToLower(strings.TrimPrefix(reasoningEffort.String(), "REASONING_EFFORT_")),
+				toolsIndicator,
 			)
 
 			// Build additional messages (files + role)
@@ -153,6 +181,12 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 				additionalMessages = append(additionalMessages, message)
 			}
 
+			// Build tools list
+			var tools []*aipb.Tool
+			if opts.EnableTools {
+				tools = append(tools, shellCommandTool)
+			}
+
 			// Print history
 			for _, message := range chat.Messages {
 				switch message.Role {
@@ -163,32 +197,46 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 						cli.AIThought(message.Reasoning + "\n")
 					}
 					cli.AIOutput(message.Content + "\n")
+					if len(message.ToolCalls) > 0 {
+						for _, toolCall := range message.ToolCalls {
+							cli.ToolCall("Tool call: %s(%s)\n", toolCall.Name, toolCall.Arguments)
+						}
+					}
+				case aipb.Role_ROLE_TOOL:
+					cli.ToolResult("Tool result: %s\n", message.Content)
 				}
 			}
 
+			var toolCallResponse bool
 			for {
-				// Query user for prompt
-				text, err := cli.PromptUser()
-				cobra.CheckErr(err)
-
-				// Quick feedback
-				cli.UserCommand("Generating...")
-
-				// Create user message
-				userMessage := &aipb.Message{
-					Role:    aipb.Role_ROLE_USER,
-					Content: text,
-				}
-
 				// Build messages for request
 				messages := append([]*aipb.Message{}, additionalMessages...)
 				messages = append(messages, chat.Messages...)
-				messages = append(messages, userMessage)
+				newChatMessages := []*aipb.Message{}
+
+				if toolCallResponse {
+					toolCallResponse = false
+				} else {
+					// Query user for prompt
+					text, err := cli.PromptUser()
+					cobra.CheckErr(err)
+
+					// Create user message
+					userMessage := &aipb.Message{
+						Role:    aipb.Role_ROLE_USER,
+						Content: text,
+					}
+					messages = append(messages, userMessage)
+					newChatMessages = append(newChatMessages, userMessage)
+					// Quick feedback
+					cli.UserCommand("Generating...")
+				}
 
 				// Create request
 				request := &aiservicepb.TextToTextStreamRequest{
 					Model:    opts.Model,
 					Messages: messages,
+					Tools:    tools,
 					Configuration: &aiservicepb.TextToTextConfiguration{
 						MaxTokens:       opts.MaxTokens,
 						Temperature:     opts.Temperature,
@@ -205,6 +253,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 				signal.Notify(interruptSignalChannel, os.Interrupt)
 				interrupted := false
 				assistantMessage := &aipb.Message{Role: aipb.Role_ROLE_ASSISTANT}
+				newChatMessages = append(newChatMessages, assistantMessage)
 				firstToken := true
 
 				for {
@@ -244,8 +293,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 							cli.AIThought(escapedContent)
 
 						case *aiservicepb.TextToTextStreamResponse_StopReason:
-							// Stream ended
-							streamEnded = true
 
 						case *aiservicepb.TextToTextStreamResponse_ToolCall:
 							// Handle tool calls
@@ -271,8 +318,33 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 					continue
 				}
 
-				// Append messages to history
-				chat.Messages = append(chat.Messages, userMessage, assistantMessage)
+				// Append user and assistant messages to history
+				chat.Messages = append(chat.Messages, newChatMessages...)
+
+				// Handle tool calls if present
+				if len(assistantMessage.ToolCalls) > 0 {
+					for _, toolCall := range assistantMessage.ToolCalls {
+
+						toolResult, err := handleToolCall(toolCall)
+						if err != nil {
+							cli.ErrorOutput("Error executing tool: %v\n", err)
+							toolResult = fmt.Sprintf("Error: %v", err)
+						}
+						if toolResult == "" {
+							continue
+						}
+
+						// Create tool result message
+						toolMessage := &aipb.Message{
+							Role:       aipb.Role_ROLE_TOOL,
+							Content:    toolResult,
+							ToolCallId: toolCall.Id,
+						}
+						chat.Messages = append(chat.Messages, toolMessage)
+						cli.ToolCall("%s", toolResult)
+						toolCallResponse = true
+					}
+				}
 
 				// Save chat
 				if chat.CreationTimestamp == 0 {
@@ -299,7 +371,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 					cobra.CheckErr(err)
 				}
 			}
-			return nil
 		},
 	}
 
@@ -311,6 +382,55 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
+	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage (shell commands, etc)")
 
 	return cmd
+}
+
+// handleToolCall processes a tool call and returns the result
+func handleToolCall(toolCall *aipb.ToolCall) (string, error) {
+	switch toolCall.Name {
+	case "execute_shell_command":
+		return executeShellCommand(toolCall.Arguments)
+	default:
+		return "", fmt.Errorf("unknown tool: %s", toolCall.Name)
+	}
+}
+
+// executeShellCommand executes a shell command after user confirmation
+func executeShellCommand(argumentsJSON string) (string, error) {
+	// Parse arguments
+	var args struct {
+		Command          string `json:"command"`
+		WorkingDirectory string `json:"working_directory"`
+	}
+
+	if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
+		return "", fmt.Errorf("failed to parse tool arguments: %w", err)
+	}
+
+	if args.Command == "" {
+		return "", fmt.Errorf("no command specified")
+	}
+
+	// Prompt user for confirmation
+	cli.ToolPrompt("Execute Shell Command: $ %s\n", args.Command)
+	if args.WorkingDirectory != "" {
+		cli.ToolPrompt("Working directory: %s\n", args.WorkingDirectory)
+	}
+	if !cli.QueryUser("Proceed?") {
+		return "", nil
+	}
+
+	cmd := exec.Command("sh", "-c", args.Command)
+	if args.WorkingDirectory != "" {
+		cmd.Dir = args.WorkingDirectory
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("Command failed with error: %v\nOutput: %s", err, string(output)), nil
+	}
+
+	return string(output), nil
 }
