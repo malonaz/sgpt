@@ -8,8 +8,8 @@ import (
 	"github.com/malonaz/core/go/grpc"
 	"google.golang.org/grpc/codes"
 
-	pb "github.com/malonaz/sgpt/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/chat/v1"
+	pb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 )
 
 func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.Chat) error {
@@ -25,7 +25,7 @@ func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.
 		return nil
 	}
 
-	if _, err := s.chatDBClient.UpdateChatSearchableContent(
+	if _, err := s.chatPostgresStore.UpdateChatSearchableContent(
 		ctx, chatRn.Chat, searchableContent,
 	); err != nil {
 		return grpc.Errorf(codes.Internal, "updating searchable content: %v", err).Err()
@@ -44,7 +44,7 @@ func (s *Service) SearchChats(ctx context.Context, request *pb.SearchChatsReques
 	whereClause, whereParams := parsed.GetSQLWhereClause()
 	var dbColumns []string
 
-	dbChats, err := s.chatDBClient.SearchChats(
+	dbChats, err := s.chatPostgresStore.SearchChats(
 		ctx, request.Query, whereClause, parsed.GetSQLPaginationClause(), dbColumns, whereParams...,
 	)
 	if err != nil {

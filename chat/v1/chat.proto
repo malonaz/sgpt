@@ -8,7 +8,7 @@ import "google/protobuf/descriptor.proto";
 import "google/protobuf/timestamp.proto";
 import "malonaz/codegen/model/v1/model.proto";
 
-option go_package = "github.com/malonaz/sgpt/chat/v1";
+option go_package = "github.com/malonaz/sgpt/genproto/chat/v1";
 
 // A chat represents a conversation between a [contact][user.v1.Contact] and an agent.
 message Chat {
@@ -19,7 +19,7 @@ message Chat {
     plural: "chats"
   };
 
-  option (malonaz.codegen.model.v1.model_opts).database_name = "chat";
+  option (malonaz.codegen.model.v1.model_opts) = {};
 
   // The resource name of the chat.
   string name = 1;

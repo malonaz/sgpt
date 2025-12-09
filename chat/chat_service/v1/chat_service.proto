@@ -10,7 +10,7 @@ import "google/api/resource.proto";
 import "google/protobuf/field_mask.proto";
 import "malonaz/codegen/aip/v1/aip.proto";
 
-option go_package = "github.com/malonaz/sgpt/chat/chat_service/v1";
+option go_package = "github.com/malonaz/sgpt/genproto/chat/chat_service/v1";
 
 // This API represents a chat service.
 //

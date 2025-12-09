@@ -25,7 +25,7 @@ func NewListModelsCmd(aiClient aiservicepb.AiClient) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := cmd.Context()
 			if !opts.Verbose {
-				ctx = interceptor.WithFieldMask(ctx, "models.name,models.ttt")
+				ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
 			}
 
 			// Build the parent resource name
@@ -54,7 +54,6 @@ func NewListModelsCmd(aiClient aiservicepb.AiClient) *cobra.Command {
 				bytes, err := pbutil.MarshalPretty(response)
 				cobra.CheckErr(err)
 				fmt.Println(string(bytes))
-				fmt.Println()
 
 				// Check if there are more pages
 				if response.NextPageToken == "" {
@@ -72,7 +71,6 @@ func NewListModelsCmd(aiClient aiservicepb.AiClient) *cobra.Command {
 				// Update pagination state
 				pageToken = response.NextPageToken
 				pageNumber++
-				fmt.Println()
 			}
 		},
 	}

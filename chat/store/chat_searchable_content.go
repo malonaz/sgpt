@@ -1,4 +1,4 @@
-package db
+package store
 
 import (
 	"context"
@@ -6,32 +6,32 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-
 	"github.com/malonaz/core/go/postgres"
-	"github.com/malonaz/sgpt/chat/v1/model"
+
+	"github.com/malonaz/sgpt/chat/model"
 )
 
 // UpdateChatSearchableContent updates the searchable_content field for a specific chat.
 // The search_vector column will be automatically regenerated via the GENERATED ALWAYS AS trigger.
-func (db *DB) UpdateChatSearchableContent(ctx context.Context, chatId string, searchableContent string) (bool, error) {
-	query := `UPDATE chat SET searchable_content = $2 WHERE chat_id = $1`
+func (s *Store) UpdateChatSearchableContent(ctx context.Context, chatId string, searchableContent string) (bool, error) {
+	query := `UPDATE chat SET searchable_content = $4 WHERE chat_id = $1`
 
-	result, err := db.client.Exec(ctx, query, chatId, searchableContent)
+	result, err := s.client.Exec(ctx, query, chatId, searchableContent)
 	if err != nil {
 		return false, err
 	}
 	return result.RowsAffected() == 1, nil
 }
 
-func (db *DB) SearchChats(ctx context.Context, searchQuery, whereClause, paginationClause string, columns []string, params ...any) ([]*model.Chat, error) {
+func (s *Store) SearchChats(ctx context.Context, searchQuery, whereClause, paginationClause string, columns []string, params ...any) ([]*model.Chat, error) {
 	if columns == nil {
-		columns = model.ChatColumns
+		columns = ChatPostgresColumns
 	}
 
-	whereClause = addToWhereClause(whereClause, "delete_time IS NULL")
+	whereClause = postgres.AddToWhereClause(whereClause, "delete_time IS NULL")
 
 	// Add full-text search condition
-	whereClause = addToWhereClause(whereClause, fmt.Sprintf("search_vector @@ plainto_tsquery('simple', $%d)", len(params)+1))
+	whereClause = postgres.AddToWhereClause(whereClause, fmt.Sprintf("search_vector @@ plainto_tsquery('simple', $%d)", len(params)+1))
 	params = append(params, searchQuery)
 
 	// Always order by relevance ranking (most relevant first)
@@ -58,5 +58,5 @@ func (db *DB) SearchChats(ctx context.Context, searchQuery, whereClause, paginat
 		}
 		return nil
 	}
-	return chats, db.client.ExecuteTransaction(ctx, postgres.RepeatableRead, transactionFN)
+	return chats, s.client.ExecuteTransaction(ctx, postgres.RepeatableRead, transactionFN)
 }

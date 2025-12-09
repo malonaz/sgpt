@@ -3,13 +3,12 @@ package chat_service
 import (
 	"context"
 
-	pb "github.com/malonaz/sgpt/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/chat/v1"
+	pb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 )
 
 func (s *Service) UpdateChat(ctx context.Context, request *pb.UpdateChatRequest) (*chatpb.Chat, error) {
-	// Execute the codegen.
-	chat, err := s.codegen.UpdateChat(ctx, request)
+	chat, err := s.ChatServer.UpdateChat(ctx, request)
 	if err != nil {
 		return nil, err
 	}

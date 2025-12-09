@@ -109,8 +109,8 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
 github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
-github.com/malonaz/core v0.0.0-20251202174728-c4c4a0040d16 h1:nPFBQrARmqo5D15qn8vNHLFv/RSQMDDMIqlwAfJaFRc=
-github.com/malonaz/core v0.0.0-20251202174728-c4c4a0040d16/go.mod h1:veZf74Mo5w+Lg3CwBGt+bHoWf775geysOMhWuaha9Sg=
+github.com/malonaz/core v0.0.0-20251209142658-6bfac99ef9e1 h1:NQ5kamOQEs1MT/4WANMMqPvl+jnIqxzhAw3wX98f5FI=
+github.com/malonaz/core v0.0.0-20251209142658-6bfac99ef9e1/go.mod h1:lZthNc5hRWs6xLZ0r5fG3DmJ8LiH6EmSMTTK891ogRs=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=

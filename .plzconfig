@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = dbf18b83f9187291197112b7f0be54224f465299
+core-revision = 6bfac99ef9e15574270ef3a052e1f6e141b3c0e2
 
 [sandbox ]
 test = false
@@ -76,17 +76,6 @@ cmd = run //cmd:bump_core_dep
 desc = install the cli
 cmd = run //cmd:install_cli
 
-[alias "supabase"]
-desc = connect to supabase
-cmd = run //cmd:connect_to_supabase
-
-[alias "postgres"]
-desc = Runs services locally.
-cmd = run //cmd:postgres_docker --
-subcommand = start
-subcommand = stop
-subcommand = reset
-subcommand = connect
-subcommand = connect user
-subcommand = connect chat
-positionallabels = true
+[alias "gen"]
+desc = Copy generated code from plz-out to git
+cmd = run //cmd:copy_generated_code

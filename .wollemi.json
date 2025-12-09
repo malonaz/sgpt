@@ -1,5 +1,5 @@
 {
-  "explicit_sources": true,
+    "explicit_sources": true,
     "gofmt": {
         "codegen_rule_formatting": {
             "go_admin_api_main_src": "{{ name }}",
@@ -8,6 +8,9 @@
             "go_service_runtime_src": "{{ name }}",
             "go_service_src": "{{ name }}",
             "go_template": "{{ name }}"
+        },
+        "import_path_remapping": {
+            "github.com/malonaz/sgpt/genproto": "github.com/malonaz/sgpt"
         }
     },
     "known_dependency": {

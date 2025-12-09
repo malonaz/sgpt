@@ -1,7 +1,11 @@
 name: chat-service
 includeRuntime: true
 implementation: //chat/chat_service
+codegens:
+  - type: rpc
+    name: chat
+    implementation: //chat/chat_service/rpc
 dependencies:
   - type: postgres_db_client
     name: chat
-    implementation: github.com/malonaz/sgpt/chat/v1/db
+    implementation: //chat/store
