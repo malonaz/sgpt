@@ -3,7 +3,6 @@ go_binary(
     srcs = ["main.go"],
     visibility = ["//..."],
     deps = [
-        "//cli/admin",
         "//cli/chat",
         "//internal/configuration",
         "//server",

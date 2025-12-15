@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/grpc/interceptor"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -22,6 +24,8 @@ import (
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/store"
 )
+
+var modelNames []string
 
 // Define available tools
 var shellCommandTool = &aipb.Tool{
@@ -165,7 +169,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			// Inject files
 			for _, file := range files {
 				message := &aipb.Message{
-					Role:    aipb.Role_ROLE_SYSTEM,
+					Role:    aipb.Role_ROLE_USER,
 					Content: fmt.Sprintf("file %s: `%s`", file.Path, file.Content),
 				}
 				additionalMessages = append(additionalMessages, message)
@@ -384,6 +388,15 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage (shell commands, etc)")
 
+	// Register autocomplete function for model flag
+	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(modelNames) == 0 {
+			err := getModelNames(cmd.Context(), aiClient)
+			cobra.CheckErr(err)
+		}
+		return filterModels(modelNames, toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
 
@@ -433,4 +446,55 @@ func executeShellCommand(argumentsJSON string) (string, error) {
 	}
 
 	return string(output), nil
+}
+
+// filterModels returns models that match the given prefix
+func filterModels(models []string, prefix string) []string {
+	if prefix == "" {
+		return models
+	}
+
+	var matches []string
+	lowerPrefix := strings.ToLower(prefix)
+
+	for _, model := range models {
+		// Match against the full model name
+		// e.g., "providers/openai/models/gpt-4"
+		if strings.Contains(strings.ToLower(model), lowerPrefix) {
+			matches = append(matches, model)
+		}
+	}
+
+	return matches
+}
+
+// Refresh fetches all models and updates the cache
+func getModelNames(ctx context.Context, aiClient aiservicepb.AiClient) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	// Use field mask to only fetch model names
+	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name")
+
+	pageToken := ""
+	for {
+		request := &aiservicepb.ListModelsRequest{
+			Parent:    "providers/-", // All providers
+			PageToken: pageToken,
+		}
+		response, err := aiClient.ListModels(ctx, request)
+		if err != nil {
+			return fmt.Errorf("failed to fetch models: %w", err)
+		}
+
+		for _, model := range response.Models {
+			modelNames = append(modelNames, model.Name)
+		}
+
+		if response.NextPageToken == "" {
+			break
+		}
+		pageToken = response.NextPageToken
+	}
+	return nil
 }

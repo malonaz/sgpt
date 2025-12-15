@@ -14,6 +14,7 @@ go_library(
         "//third_party/go:github.com__google__uuid",
         "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
+        "//third_party/go:github.com__malonaz__core__go__grpc__interceptor",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__spf13__cobra",
     ],

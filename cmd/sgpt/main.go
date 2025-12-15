@@ -10,7 +10,6 @@ import (
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/cli/admin"
 	"github.com/malonaz/sgpt/cli/chat"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/server"
@@ -91,6 +90,5 @@ func run() error {
 	rootCmd.AddCommand(server.NewServeCmd(store))
 	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient))
 	rootCmd.AddCommand(chat.NewGenerateChatTitlesCmd(config, store, aiClient))
-	rootCmd.AddCommand(admin.NewListModelsCmd(aiClient))
 	return rootCmd.Execute()
 }
