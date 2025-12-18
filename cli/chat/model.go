@@ -1,5 +1,3 @@
-// file cli/chat/model.go
-
 package chat
 
 import (
@@ -57,6 +55,7 @@ type ChatOptions struct {
 type runtimeMessage struct {
 	message *aipb.Message
 	err     error // non-nil if this message had an error during generation
+	blocks  []any
 }
 
 // Model represents the Bubble Tea model for the chat
@@ -74,12 +73,15 @@ type Model struct {
 	injectedFiles      []string
 
 	// Runtime messages (includes errored messages for display)
-	runtimeMessages []runtimeMessage
+	runtimeMessages []*runtimeMessage
 
 	// UI components
 	textarea textarea.Model
 	viewport viewport.Model
 	spinner  spinner.Model
+
+	// Renderer.
+	renderer *renderer
 
 	// UI state
 	width            int
@@ -91,6 +93,7 @@ type Model struct {
 	currentToolCalls []*aipb.ToolCall
 	err              error
 	quitting         bool
+	windowFocused    bool
 
 	// Tool confirmation state
 	pendingToolCall *aipb.ToolCall
@@ -130,10 +133,10 @@ func NewModel(
 	opts ChatOptions,
 	additionalMessages []*aipb.Message,
 	injectedFiles []string,
-) Model {
+) (*Model, error) {
 	// Create textarea for input
 	ta := textarea.New()
-	ta.Placeholder = "Type your message... (Ctrl+J to send, Ctrl+P/N for history, Ctrl+C to quit)"
+	ta.Placeholder = "Type your message... (Ctrl+J to send, Alt+P/N for history, Ctrl+C to quit)"
 	ta.Focus()
 	ta.CharLimit = 0 // No limit
 	ta.SetWidth(defaultTextareaWidth)
@@ -148,25 +151,41 @@ func NewModel(
 	sp.Style = spinnerStyle
 
 	// Initialize runtime messages from existing chat messages
-	runtimeMsgs := make([]runtimeMessage, len(chat.Messages))
+	runtimeMsgs := make([]*runtimeMessage, len(chat.Messages))
 	for i, msg := range chat.Messages {
-		runtimeMsgs[i] = runtimeMessage{message: msg}
+		runtimeMsgs[i] = &runtimeMessage{message: msg}
 	}
 
-	return Model{
+	renderer, err := newRenderer(defaultTextareaWidth)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Model{
 		ctx:                ctx,
 		config:             config,
 		store:              s,
 		aiClient:           aiClient,
 		chat:               chat,
 		opts:               opts,
+		windowFocused:      true,
 		additionalMessages: additionalMessages,
 		injectedFiles:      injectedFiles,
 		textarea:           ta,
 		spinner:            sp,
 		history:            history.NewHistory(),
 		runtimeMessages:    runtimeMsgs,
-	}
+		renderer:           renderer,
+	}, nil
+}
+
+func (m *Model) filter(model tea.Model, msg tea.Msg) tea.Msg {
+	return msg
+	/*
+		keyMsg, ok := msg.(tea.KeyMsg)
+		if ok {
+			log.Printf("t=%v runes=%v alt=%v paste=%v\n", keyMsg.Type, keyMsg.Runes, keyMsg.Alt, keyMsg.Paste)
+		}*/
 }
 
 // SetProgram sets the tea.Program reference for async message sending
@@ -196,7 +215,38 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.FocusMsg:
+		m.windowFocused = true
+		m.textarea.Focus()
+		cmds = append(cmds, textarea.Blink)
+		return m, tea.Batch(cmds...)
+
+	case tea.BlurMsg:
+		m.windowFocused = false
+		m.textarea.Blur()
+		return m, nil
+
 	case tea.KeyMsg:
+		// Handle history navigation (Alt)
+		if msg.Alt && !m.streaming && !m.awaitingConfirm {
+			switch msg.String() {
+			case "alt+p":
+				if entry, ok := m.history.Previous(m.textarea.Value()); ok {
+					m.textarea.SetValue(entry)
+					m.historyNavigating = true
+					m.adjustTextareaHeight()
+					return m, nil
+				}
+			case "alt+n":
+				if entry, ok := m.history.Next(); ok {
+					m.textarea.SetValue(entry)
+					m.historyNavigating = true
+					m.adjustTextareaHeight()
+					return m, nil
+				}
+			}
+		}
+
 		// Handle key presses
 		switch msg.Type {
 		case tea.KeyCtrlC:
@@ -211,28 +261,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.quitting = true
 			return m, tea.Quit
-
-		case tea.KeyCtrlP:
-			// Previous history entry
-			if !m.streaming && !m.awaitingConfirm {
-				if entry, ok := m.history.Previous(m.textarea.Value()); ok {
-					m.textarea.SetValue(entry)
-					m.historyNavigating = true
-					m.adjustTextareaHeight()
-				}
-				return m, nil
-			}
-
-		case tea.KeyCtrlN:
-			// Next history entry
-			if !m.streaming && !m.awaitingConfirm {
-				if entry, ok := m.history.Next(); ok {
-					m.textarea.SetValue(entry)
-					m.historyNavigating = true
-					m.adjustTextareaHeight()
-				}
-				return m, nil
-			}
 
 		case tea.KeyCtrlJ:
 			// Send message
@@ -357,7 +385,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case toolCancelledMsg:
 		// Add cancellation message to runtime messages only (not persisted)
-		m.runtimeMessages = append(m.runtimeMessages, runtimeMessage{
+		m.runtimeMessages = append(m.runtimeMessages, &runtimeMessage{
 			message: &aipb.Message{
 				Role:    aipb.Role_ROLE_TOOL,
 				Content: "[Tool execution cancelled by user]",
@@ -383,13 +411,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update viewport - but don't pass key messages when textarea is focused
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Only let viewport handle keys when textarea is not active
 		if m.streaming || m.awaitingConfirm {
+			// When not inputting, viewport handles all keys
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			cmds = append(cmds, cmd)
+		} else {
+			// When inputting, block only keys that conflict with typing
+			switch msg.String() {
+			case "j", "k", "g", "G", "u", "d", "b", "ctrl+u", "ctrl+d", "f", " ":
+			// Don't pass vim navigation keys to viewport while typing
+			default:
+				var cmd tea.Cmd
+				m.viewport, cmd = m.viewport.Update(msg)
+				cmds = append(cmds, cmd)
+			}
 		}
 	default:
 		var cmd tea.Cmd
@@ -497,24 +535,29 @@ func (m *Model) renderMessages() string {
 	toolResultWidth := contentWidth - toolResultStyle.GetHorizontalPadding()
 	systemWidth := contentWidth - systemStyle.GetHorizontalPadding()
 
-	for _, rm := range m.runtimeMessages {
+	for i, rm := range m.runtimeMessages {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
 		msg := rm.message
 		switch msg.Role {
 		case aipb.Role_ROLE_USER:
 			b.WriteString(userLabelStyle.Render("You:"))
-			b.WriteString("\n")
-			b.WriteString(userMessageStyle.Width(userMsgWidth).Render(msg.Content))
+			// Render user message with markdown
+			rendered := m.renderer.toMarkdown(msg.Content, i, true)
+			b.WriteString(userMessageStyle.Width(userMsgWidth).Render(rendered))
 
 		case aipb.Role_ROLE_ASSISTANT:
 			b.WriteString(aiLabelStyle.Render("SGPT:"))
-			b.WriteString("\n")
 			if msg.Reasoning != "" {
 				b.WriteString(thoughtLabelStyle.Render("💭 Thinking:"))
 				b.WriteString("\n")
 				b.WriteString(thoughtStyle.Width(thoughtWidth).Render(msg.Reasoning))
-				b.WriteString("\n")
 			}
-			b.WriteString(aiMessageStyle.Width(aiMsgWidth).Render(msg.Content))
+			// Render assistant message with markdown/syntax highlighting
+			rendered := m.renderer.toMarkdown(msg.Content, i, true)
+			b.WriteString(aiMessageStyle.Width(aiMsgWidth).Render(rendered))
+
 			if len(msg.ToolCalls) > 0 {
 				for _, tc := range msg.ToolCalls {
 					b.WriteString("\n")
@@ -536,18 +579,19 @@ func (m *Model) renderMessages() string {
 		case aipb.Role_ROLE_TOOL:
 			b.WriteString(toolLabelStyle.Render("⚡ Tool Result:"))
 			b.WriteString("\n")
-			b.WriteString(toolResultStyle.Width(toolResultWidth).Render(msg.Content))
+			// Render tool result - might contain code output
+			rendered := m.renderer.toMarkdown(msg.Content, i, true)
+			b.WriteString(toolResultStyle.Width(toolResultWidth).Render(rendered))
 
 		case aipb.Role_ROLE_SYSTEM:
 			b.WriteString(systemStyle.Width(systemWidth).Render(fmt.Sprintf("System: %s", truncate(msg.Content, truncateLength))))
 		}
-		b.WriteString("\n\n")
 	}
 
-	// Show current streaming response
+	// Show current streaming response with markdown rendering
 	if m.streaming || m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 {
+		b.WriteString("\n\n")
 		b.WriteString(aiLabelStyle.Render("SGPT:"))
-		b.WriteString("\n")
 		if m.currentReasoning.Len() > 0 {
 			b.WriteString(thoughtLabelStyle.Render("💭 Thinking:"))
 			b.WriteString("\n")
@@ -555,7 +599,9 @@ func (m *Model) renderMessages() string {
 			b.WriteString("\n")
 		}
 		if m.currentResponse.Len() > 0 {
-			b.WriteString(aiMessageStyle.Width(aiMsgWidth).Render(m.currentResponse.String()))
+			// Render streaming content with markdown
+			rendered := m.renderer.toMarkdown(m.currentResponse.String(), -1, false)
+			b.WriteString(aiMessageStyle.Width(aiMsgWidth).Render(rendered))
 		}
 		if m.streaming {
 			b.WriteString(spinnerStyle.Render("▋"))
@@ -580,12 +626,12 @@ func (m *Model) renderConfirmDialog() string {
 
 // addRuntimeMessage adds a message to runtime messages for display
 func (m *Model) addRuntimeMessage(msg *aipb.Message) {
-	m.runtimeMessages = append(m.runtimeMessages, runtimeMessage{message: msg})
+	m.runtimeMessages = append(m.runtimeMessages, &runtimeMessage{message: msg})
 }
 
 // addRuntimeMessageWithError adds a message with an error to runtime messages (not persisted)
 func (m *Model) addRuntimeMessageWithError(msg *aipb.Message, err error) {
-	m.runtimeMessages = append(m.runtimeMessages, runtimeMessage{message: msg, err: err})
+	m.runtimeMessages = append(m.runtimeMessages, &runtimeMessage{message: msg, err: err})
 }
 
 // getMessagesForAPI returns messages suitable for sending to the API
@@ -837,9 +883,21 @@ func (m *Model) adjustTextareaHeight() {
 		newHeight = maxTextareaHeight
 	}
 
-	if m.textarea.Height() != newHeight {
+	oldHeight := m.textarea.Height()
+	if oldHeight != newHeight {
 		m.textarea.SetHeight(newHeight)
+
+		// Calculate height difference: positive means textarea grew (viewport shrinks)
+		heightDiff := newHeight - oldHeight
+
 		m.recalculateLayout()
+
+		// Adjust viewport scroll to compensate for the height change
+		// When textarea grows, viewport shrinks, so we need to scroll down to keep content in view
+		// When textarea shrinks, viewport grows, so we scroll up
+		if heightDiff != 0 && m.ready {
+			m.viewport.LineDown(heightDiff)
+		}
 	}
 }
 
@@ -852,11 +910,7 @@ func (m *Model) recalculateLayout() {
 	viewportHeight := m.height - headerHeight - viewportBorderWidth
 	viewportWidth := m.width - viewportBorderWidth
 
-	if m.streaming {
-		viewportHeight -= 1 // spinner + generating text.
-	} else {
-		viewportHeight -= m.textarea.Height() + inputBorderHeight
-	}
+	viewportHeight -= m.textarea.Height() + inputBorderHeight
 
 	if m.err != nil {
 		viewportHeight -= 1
@@ -865,6 +919,8 @@ func (m *Model) recalculateLayout() {
 	if viewportHeight < minViewportHeight {
 		viewportHeight = minViewportHeight
 	}
+	contentWidth := viewportWidth - 2 // subtract border padding.
+	m.renderer.updateWidth(contentWidth)
 
 	if !m.ready {
 		m.viewport = viewport.New(viewportWidth, viewportHeight)

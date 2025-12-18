@@ -153,10 +153,20 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			}
 
 			// Create the model
-			m := NewModel(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
+			m, err := NewModel(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
+			if err != nil {
+				return err
+			}
 
 			// Create the Bubble Tea program
-			p := tea.NewProgram(&m, tea.WithAltScreen(), tea.WithContext(ctx))
+			p := tea.NewProgram(
+				m,
+				tea.WithAltScreen(),
+				tea.WithContext(ctx),
+				tea.WithFilter(m.filter),
+				tea.WithMouseCellMotion(),
+				tea.WithReportFocus(),
+			)
 
 			// Set the program reference for async message sending
 			m.SetProgram(p)

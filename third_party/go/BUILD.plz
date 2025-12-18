@@ -310,6 +310,89 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__alecthomas__chroma__v2",
+    _tag = "download",
+    module = "github.com/alecthomas/chroma/v2",
+    version = "v2.14.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["."],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__dlclark__regexp2"],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2__formatters",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["formatters"],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__alecthomas__chroma__v2",
+        ":github.com__alecthomas__chroma__v2__formatters__html",
+        ":github.com__alecthomas__chroma__v2__formatters__svg",
+    ],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2__formatters__html",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["formatters/html"],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__alecthomas__chroma__v2"],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2__formatters__svg",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["formatters/svg"],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__alecthomas__chroma__v2"],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2__lexers",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["lexers"],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__alecthomas__chroma__v2",
+        ":github.com__dlclark__regexp2",
+    ],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2__quick",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["quick"],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__alecthomas__chroma__v2",
+        ":github.com__alecthomas__chroma__v2__formatters",
+        ":github.com__alecthomas__chroma__v2__lexers",
+        ":github.com__alecthomas__chroma__v2__styles",
+    ],
+)
+
+go_module(
+    name = "github.com__alecthomas__chroma__v2__styles",
+    download = ":_github.com__alecthomas__chroma__v2#download",
+    install = ["styles"],
+    module = "github.com/alecthomas/chroma/v2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__alecthomas__chroma__v2"],
+)
+
+go_mod_download(
     name = "github.com__antlr4-go__antlr__v4",
     _tag = "download",
     module = "github.com/antlr4-go/antlr/v4",
@@ -358,6 +441,35 @@ go_module(
     module = "github.com/aymanbagabas/go-osc52/v2",
     visibility = ["PUBLIC"],
     deps = [],
+)
+
+go_mod_download(
+    name = "github.com__aymerick__douceur",
+    _tag = "download",
+    module = "github.com/aymerick/douceur",
+    version = "v0.2.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__aymerick__douceur__css",
+    download = ":_github.com__aymerick__douceur#download",
+    install = ["css"],
+    module = "github.com/aymerick/douceur",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__aymerick__douceur__parser",
+    download = ":_github.com__aymerick__douceur#download",
+    install = ["parser"],
+    module = "github.com/aymerick/douceur",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__aymerick__douceur__css",
+        ":github.com__gorilla__css__scanner",
+    ],
 )
 
 go_mod_download(
@@ -589,10 +701,86 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__charmbracelet__glamour",
+    _tag = "download",
+    module = "github.com/charmbracelet/glamour",
+    version = "v0.10.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__charmbracelet__glamour",
+    download = ":_github.com__charmbracelet__glamour#download",
+    install = ["."],
+    module = "github.com/charmbracelet/glamour",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__glamour__ansi",
+        ":github.com__charmbracelet__glamour__styles",
+        ":github.com__muesli__termenv",
+        ":github.com__yuin__goldmark",
+        ":github.com__yuin__goldmark-emoji",
+        ":github.com__yuin__goldmark__extension",
+        ":github.com__yuin__goldmark__parser",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__util",
+        ":golang.org__x__term",
+    ],
+)
+
+go_module(
+    name = "github.com__charmbracelet__glamour__ansi",
+    download = ":_github.com__charmbracelet__glamour#download",
+    install = ["ansi"],
+    module = "github.com/charmbracelet/glamour",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__alecthomas__chroma__v2",
+        ":github.com__alecthomas__chroma__v2__quick",
+        ":github.com__alecthomas__chroma__v2__styles",
+        ":github.com__charmbracelet__glamour__internal__autolink",
+        ":github.com__charmbracelet__lipgloss",
+        ":github.com__charmbracelet__lipgloss__table",
+        ":github.com__charmbracelet__x__ansi",
+        ":github.com__charmbracelet__x__exp__slice",
+        ":github.com__microcosm-cc__bluemonday",
+        ":github.com__muesli__reflow__indent",
+        ":github.com__muesli__reflow__padding",
+        ":github.com__muesli__reflow__wordwrap",
+        ":github.com__muesli__termenv",
+        ":github.com__yuin__goldmark-emoji__ast",
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__extension__ast",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__util",
+        ":golang.org__x__text__cases",
+        ":golang.org__x__text__language",
+    ],
+)
+
+go_module(
+    name = "github.com__charmbracelet__glamour__internal__autolink",
+    download = ":_github.com__charmbracelet__glamour#download",
+    install = ["internal/autolink"],
+    module = "github.com/charmbracelet/glamour",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__charmbracelet__glamour__styles",
+    download = ":_github.com__charmbracelet__glamour#download",
+    install = ["styles"],
+    module = "github.com/charmbracelet/glamour",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__charmbracelet__glamour__ansi"],
+)
+
+go_mod_download(
     name = "github.com__charmbracelet__lipgloss",
     _tag = "download",
     module = "github.com/charmbracelet/lipgloss",
-    version = "v1.1.0",
+    version = "v1.1.1-0.20250404203927-76690c660834",
     visibility = ["PUBLIC"],
 )
 
@@ -607,6 +795,18 @@ go_module(
         ":github.com__charmbracelet__x__cellbuf",
         ":github.com__muesli__termenv",
         ":github.com__rivo__uniseg",
+    ],
+)
+
+go_module(
+    name = "github.com__charmbracelet__lipgloss__table",
+    download = ":_github.com__charmbracelet__lipgloss#download",
+    install = ["table"],
+    module = "github.com/charmbracelet/lipgloss",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__lipgloss",
+        ":github.com__charmbracelet__x__ansi",
     ],
 )
 
@@ -645,7 +845,7 @@ go_mod_download(
     name = "github.com__charmbracelet__x__cellbuf",
     _tag = "download",
     module = "github.com/charmbracelet/x/cellbuf",
-    version = "v0.0.13-0.20250311204145-2c3ea96c31dd",
+    version = "v0.0.13",
     visibility = ["PUBLIC"],
 )
 
@@ -662,6 +862,23 @@ go_module(
         ":github.com__mattn__go-runewidth",
         ":github.com__rivo__uniseg",
     ],
+)
+
+go_mod_download(
+    name = "github.com__charmbracelet__x__exp__slice",
+    _tag = "download",
+    module = "github.com/charmbracelet/x/exp/slice",
+    version = "v0.0.0-20250327172914-2fdc97757edf",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__charmbracelet__x__exp__slice",
+    download = ":_github.com__charmbracelet__x__exp__slice#download",
+    install = ["."],
+    module = "github.com/charmbracelet/x/exp/slice",
+    visibility = ["PUBLIC"],
+    deps = [],
 )
 
 go_mod_download(
@@ -711,6 +928,32 @@ go_module(
     download = ":_github.com__davecgh__go-spew#download",
     install = ["spew"],
     module = "github.com/davecgh/go-spew",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__dlclark__regexp2",
+    _tag = "download",
+    module = "github.com/dlclark/regexp2",
+    version = "v1.11.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__dlclark__regexp2",
+    download = ":_github.com__dlclark__regexp2#download",
+    install = ["."],
+    module = "github.com/dlclark/regexp2",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__dlclark__regexp2__syntax"],
+)
+
+go_module(
+    name = "github.com__dlclark__regexp2__syntax",
+    download = ":_github.com__dlclark__regexp2#download",
+    install = ["syntax"],
+    module = "github.com/dlclark/regexp2",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -1256,6 +1499,23 @@ go_module(
     download = ":_github.com__google__uuid#download",
     install = ["."],
     module = "github.com/google/uuid",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__gorilla__css",
+    _tag = "download",
+    module = "github.com/gorilla/css",
+    version = "v1.0.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__gorilla__css__scanner",
+    download = ":_github.com__gorilla__css#download",
+    install = ["scanner"],
+    module = "github.com/gorilla/css",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -2219,6 +2479,36 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__microcosm-cc__bluemonday",
+    _tag = "download",
+    module = "github.com/microcosm-cc/bluemonday",
+    version = "v1.0.27",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__microcosm-cc__bluemonday",
+    download = ":_github.com__microcosm-cc__bluemonday#download",
+    install = ["."],
+    module = "github.com/microcosm-cc/bluemonday",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__aymerick__douceur__parser",
+        ":github.com__microcosm-cc__bluemonday__css",
+        ":golang.org__x__net__html",
+    ],
+)
+
+go_module(
+    name = "github.com__microcosm-cc__bluemonday__css",
+    download = ":_github.com__microcosm-cc__bluemonday#download",
+    install = ["css"],
+    module = "github.com/microcosm-cc/bluemonday",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__mitchellh__copystructure",
     _tag = "download",
     module = "github.com/mitchellh/copystructure",
@@ -2293,6 +2583,53 @@ go_module(
     module = "github.com/muesli/cancelreader",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
+    name = "github.com__muesli__reflow",
+    _tag = "download",
+    module = "github.com/muesli/reflow",
+    version = "v0.3.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__muesli__reflow__ansi",
+    download = ":_github.com__muesli__reflow#download",
+    install = ["ansi"],
+    module = "github.com/muesli/reflow",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__mattn__go-runewidth"],
+)
+
+go_module(
+    name = "github.com__muesli__reflow__indent",
+    download = ":_github.com__muesli__reflow#download",
+    install = ["indent"],
+    module = "github.com/muesli/reflow",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__muesli__reflow__ansi"],
+)
+
+go_module(
+    name = "github.com__muesli__reflow__padding",
+    download = ":_github.com__muesli__reflow#download",
+    install = ["padding"],
+    module = "github.com/muesli/reflow",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__mattn__go-runewidth",
+        ":github.com__muesli__reflow__ansi",
+    ],
+)
+
+go_module(
+    name = "github.com__muesli__reflow__wordwrap",
+    download = ":_github.com__muesli__reflow#download",
+    install = ["wordwrap"],
+    module = "github.com/muesli/reflow",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__muesli__reflow__ansi"],
 )
 
 go_mod_download(
@@ -2559,8 +2896,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -2808,6 +3145,172 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__yuin__goldmark",
+    _tag = "download",
+    module = "github.com/yuin/goldmark",
+    version = "v1.7.8",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["."],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark__parser",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__renderer__html",
+        ":github.com__yuin__goldmark__text",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__ast",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["ast"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark__text",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__extension",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["extension"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark",
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__extension__ast",
+        ":github.com__yuin__goldmark__parser",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__renderer__html",
+        ":github.com__yuin__goldmark__text",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__extension__ast",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["extension/ast"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__yuin__goldmark__ast"],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__parser",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["parser"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__text",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__renderer",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["renderer"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__renderer__html",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["renderer/html"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__text",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["text"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__yuin__goldmark__util"],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark__util",
+    download = ":_github.com__yuin__goldmark#download",
+    install = ["util"],
+    module = "github.com/yuin/goldmark",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__yuin__goldmark-emoji",
+    _tag = "download",
+    module = "github.com/yuin/goldmark-emoji",
+    version = "v1.0.5",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark-emoji",
+    download = ":_github.com__yuin__goldmark-emoji#download",
+    install = ["."],
+    module = "github.com/yuin/goldmark-emoji",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark",
+        ":github.com__yuin__goldmark-emoji__ast",
+        ":github.com__yuin__goldmark-emoji__definition",
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__parser",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__renderer__html",
+        ":github.com__yuin__goldmark__text",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark-emoji__ast",
+    download = ":_github.com__yuin__goldmark-emoji#download",
+    install = ["ast"],
+    module = "github.com/yuin/goldmark-emoji",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__yuin__goldmark-emoji__definition",
+        ":github.com__yuin__goldmark__ast",
+    ],
+)
+
+go_module(
+    name = "github.com__yuin__goldmark-emoji__definition",
+    download = ":_github.com__yuin__goldmark-emoji#download",
+    install = ["definition"],
+    module = "github.com/yuin/goldmark-emoji",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "go.einride.tech__aip",
     _tag = "download",
     module = "go.einride.tech/aip",
@@ -3007,6 +3510,24 @@ go_module(
     name = "golang.org__x__net__context",
     download = ":_golang.org__x__net#download",
     install = ["context"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "golang.org__x__net__html",
+    download = ":_golang.org__x__net#download",
+    install = ["html"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__net__html__atom"],
+)
+
+go_module(
+    name = "golang.org__x__net__html__atom",
+    download = ":_golang.org__x__net#download",
+    install = ["html/atom"],
     module = "golang.org/x/net",
     visibility = ["PUBLIC"],
     deps = [],
@@ -5152,8 +5673,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5179,8 +5700,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5215,8 +5736,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -5233,8 +5754,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -5242,8 +5763,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5287,8 +5808,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
