@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/grpc/interceptor"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -476,25 +477,16 @@ func getModelNames(ctx context.Context, aiClient aiservicepb.AiClient) error {
 	// Use field mask to only fetch model names
 	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name")
 
-	pageToken := ""
-	for {
-		request := &aiservicepb.ListModelsRequest{
-			Parent:    "providers/-", // All providers
-			PageToken: pageToken,
-		}
-		response, err := aiClient.ListModels(ctx, request)
-		if err != nil {
-			return fmt.Errorf("failed to fetch models: %w", err)
-		}
+	listModelsRequest := &aiservicepb.ListModelsRequest{
+		Parent: "providers/-", // All providers
+	}
 
-		for _, model := range response.Models {
-			modelNames = append(modelNames, model.Name)
-		}
-
-		if response.NextPageToken == "" {
-			break
-		}
-		pageToken = response.NextPageToken
+	models, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
+	if err != nil {
+		return err
+	}
+	for _, model := range models {
+		modelNames = append(modelNames, model.Name)
 	}
 	return nil
 }
