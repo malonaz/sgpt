@@ -119,6 +119,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
 					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED
 				}
+				m.setTitle()
 				return m, nil
 			}
 		}
@@ -138,6 +139,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyCtrlJ:
 			if !m.streaming && !m.awaitingConfirm && m.textarea.Value() != "" {
+				m.navigationMessageIndex = -1 // Reset the navigation on send.
 				return m, m.sendMessage()
 			}
 
@@ -308,6 +310,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) filter(model tea.Model, msg tea.Msg) tea.Msg {
+	return msg
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		log.Info("keymsg", "val", keyMsg)
+	}
 	return msg
 }
 

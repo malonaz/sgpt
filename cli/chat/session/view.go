@@ -148,13 +148,14 @@ func (m *Model) renderMessages() string {
 	if m.streaming || m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 {
 		writeString("\n\n")
 		if m.currentReasoning.Len() > 0 {
-			writeString(styles.ThoughtLabelStyle.Render("💭 Thinking:"))
-			writeString("\n")
-			writeString(styles.ThoughtStyle.Render(m.currentReasoning.String()))
-			writeString("\n")
+			messageIndex := len(m.runtimeMessages)
+			rendered := m.renderer.ToMarkdown(m.currentReasoning.String(), messageIndex, false)
+			style := m.getStyle(styles.AIThoughtStyle, -1)
+			writeString(style.Render(rendered))
 		}
 		if m.currentResponse.Len() > 0 {
-			rendered := m.renderer.ToMarkdown(m.currentResponse.String(), -1, false)
+			messageIndex := len(m.runtimeMessages) + 1
+			rendered := m.renderer.ToMarkdown(m.currentResponse.String(), messageIndex, false)
 			style := m.getStyle(styles.AIMessageStyle, -1)
 			writeString(style.Render(rendered))
 		}
