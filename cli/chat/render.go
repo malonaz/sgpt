@@ -143,7 +143,6 @@ func (r *renderer) toMarkdown(content string, index int, finalized bool) string 
 	}
 
 	var sb strings.Builder
-	sb.WriteString("\n")
 	blocks := r.ParseBlocks(content)
 
 	for i, block := range blocks {
@@ -181,7 +180,7 @@ func (r *renderer) toMarkdown(content string, index int, finalized bool) string 
 }
 
 // updateWidth updates the renderer width
-func (r *renderer) updateWidth(width int) error {
+func (r *renderer) SetWidth(width int) error {
 	if r.width == width {
 		return nil
 	}

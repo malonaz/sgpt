@@ -528,12 +528,6 @@ func (m *Model) renderMessages() string {
 	}
 
 	// Calculate widths accounting for each style's padding
-	userMsgWidth := contentWidth - userMessageStyle.GetHorizontalPadding()
-	aiMsgWidth := contentWidth - aiMessageStyle.GetHorizontalPadding()
-	thoughtWidth := contentWidth - thoughtStyle.GetHorizontalPadding()
-	toolCallWidth := contentWidth - toolCallStyle.GetHorizontalPadding()
-	toolResultWidth := contentWidth - toolResultStyle.GetHorizontalPadding()
-	systemWidth := contentWidth - systemStyle.GetHorizontalPadding()
 
 	for i, rm := range m.runtimeMessages {
 		if i > 0 {
@@ -542,37 +536,35 @@ func (m *Model) renderMessages() string {
 		msg := rm.message
 		switch msg.Role {
 		case aipb.Role_ROLE_USER:
-			b.WriteString(userLabelStyle.Render("You:"))
 			// Render user message with markdown
 			rendered := m.renderer.toMarkdown(msg.Content, i, true)
-			b.WriteString(userMessageStyle.Width(userMsgWidth).Render(rendered))
+			b.WriteString(userMessageStyle.Render(rendered))
 
 		case aipb.Role_ROLE_ASSISTANT:
-			b.WriteString(aiLabelStyle.Render("SGPT:"))
 			if msg.Reasoning != "" {
 				b.WriteString(thoughtLabelStyle.Render("💭 Thinking:"))
 				b.WriteString("\n")
-				b.WriteString(thoughtStyle.Width(thoughtWidth).Render(msg.Reasoning))
+				b.WriteString(thoughtStyle.Render(msg.Reasoning))
 			}
 			// Render assistant message with markdown/syntax highlighting
 			rendered := m.renderer.toMarkdown(msg.Content, i, true)
-			b.WriteString(aiMessageStyle.Width(aiMsgWidth).Render(rendered))
+			b.WriteString(aiMessageStyle.Render(rendered))
 
 			if len(msg.ToolCalls) > 0 {
 				for _, tc := range msg.ToolCalls {
 					b.WriteString("\n")
 					b.WriteString(toolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", tc.Name)))
 					b.WriteString("\n")
-					b.WriteString(toolCallStyle.Width(toolCallWidth).Render(tc.Arguments))
+					b.WriteString(toolCallStyle.Render(tc.Arguments))
 				}
 			}
 			// Display error if this message has one
 			if rm.err != nil {
 				b.WriteString("\n")
 				if errors.Is(rm.err, errUserInterrupt) {
-					b.WriteString(messageInterruptStyle.Width(aiMsgWidth).Render("⚡ Interrupted by user"))
+					b.WriteString(messageInterruptStyle.Render("⚡ Interrupted by user"))
 				} else {
-					b.WriteString(messageErrorStyle.Width(aiMsgWidth).Render(fmt.Sprintf("⚠️ %v", rm.err)))
+					b.WriteString(messageErrorStyle.Render(fmt.Sprintf("⚠️ %v", rm.err)))
 				}
 			}
 
@@ -581,27 +573,26 @@ func (m *Model) renderMessages() string {
 			b.WriteString("\n")
 			// Render tool result - might contain code output
 			rendered := m.renderer.toMarkdown(msg.Content, i, true)
-			b.WriteString(toolResultStyle.Width(toolResultWidth).Render(rendered))
+			b.WriteString(toolResultStyle.Render(rendered))
 
 		case aipb.Role_ROLE_SYSTEM:
-			b.WriteString(systemStyle.Width(systemWidth).Render(fmt.Sprintf("System: %s", truncate(msg.Content, truncateLength))))
+			b.WriteString(systemStyle.Render(fmt.Sprintf("System: %s", truncate(msg.Content, truncateLength))))
 		}
 	}
 
 	// Show current streaming response with markdown rendering
 	if m.streaming || m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 {
 		b.WriteString("\n\n")
-		b.WriteString(aiLabelStyle.Render("SGPT:"))
 		if m.currentReasoning.Len() > 0 {
 			b.WriteString(thoughtLabelStyle.Render("💭 Thinking:"))
 			b.WriteString("\n")
-			b.WriteString(thoughtStyle.Width(thoughtWidth).Render(m.currentReasoning.String()))
+			b.WriteString(thoughtStyle.Render(m.currentReasoning.String()))
 			b.WriteString("\n")
 		}
 		if m.currentResponse.Len() > 0 {
 			// Render streaming content with markdown
 			rendered := m.renderer.toMarkdown(m.currentResponse.String(), -1, false)
-			b.WriteString(aiMessageStyle.Width(aiMsgWidth).Render(rendered))
+			b.WriteString(aiMessageStyle.Render(rendered))
 		}
 		if m.streaming {
 			b.WriteString(spinnerStyle.Render("▋"))
@@ -907,8 +898,8 @@ func (m *Model) recalculateLayout() {
 		return
 	}
 
-	viewportHeight := m.height - headerHeight - viewportBorderWidth
-	viewportWidth := m.width - viewportBorderWidth
+	viewportHeight := m.height - headerHeight
+	viewportWidth := m.width
 
 	viewportHeight -= m.textarea.Height() + inputBorderHeight
 
@@ -919,8 +910,8 @@ func (m *Model) recalculateLayout() {
 	if viewportHeight < minViewportHeight {
 		viewportHeight = minViewportHeight
 	}
-	contentWidth := viewportWidth - 2 // subtract border padding.
-	m.renderer.updateWidth(contentWidth)
+	contentWidth := viewportWidth
+	m.renderer.SetWidth(contentWidth - messageHorizontalFrameSize)
 
 	if !m.ready {
 		m.viewport = viewport.New(viewportWidth, viewportHeight)
@@ -933,5 +924,5 @@ func (m *Model) recalculateLayout() {
 		m.viewport.SetContent(m.renderMessages())
 	}
 
-	m.textarea.SetWidth(viewportWidth - textAreaStyle.GetHorizontalPadding())
+	m.textarea.SetWidth(viewportWidth - textAreaStyle.GetHorizontalPadding() - textAreaStyle.GetHorizontalBorderSize())
 }

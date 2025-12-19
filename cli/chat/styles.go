@@ -13,12 +13,13 @@ const (
 	messagePaddingLeft       = 2
 
 	// Border adjustments
-	viewportBorderWidth = 2
-	inputBorderHeight   = 2
-	headerHeight        = 2
+	inputBorderHeight = 2
+	headerHeight      = 2
 )
 
 var (
+	messageHorizontalFrameSize = aiMessageStyle.GetHorizontalFrameSize()
+
 	// Color palette
 	primaryColor   = lipgloss.Color("#7C3AED") // Purple
 	secondaryColor = lipgloss.Color("#06B6D4") // Cyan
@@ -53,7 +54,10 @@ var (
 
 	userMessageStyle = lipgloss.NewStyle().
 				Foreground(textColor).
-				PaddingLeft(messagePaddingLeft)
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(primaryColor).
+				Padding(0, 1).
+				MarginLeft(10)
 
 	// AI message styles
 	aiLabelStyle = lipgloss.NewStyle().
@@ -62,7 +66,10 @@ var (
 
 	aiMessageStyle = lipgloss.NewStyle().
 			Foreground(messageColor).
-			PaddingLeft(messagePaddingLeft)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(secondaryColor).
+			Padding(0, 1).
+			MarginRight(10)
 
 	messageErrorStyle = lipgloss.NewStyle().
 				Foreground(errorColor).
@@ -148,9 +155,7 @@ var (
 				Background(codeBgColor)
 
 	// Viewport border
-	viewportStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(borderColor)
+	viewportStyle = lipgloss.NewStyle().Margin(0).Padding(0)
 
 	// Divider
 	dividerStyle = lipgloss.NewStyle().
