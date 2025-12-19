@@ -12,11 +12,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"go.dalton.dog/bubbleup"
 
 	"github.com/malonaz/sgpt/cli/chat/styles"
 	"github.com/malonaz/sgpt/cli/chat/types"
 	"github.com/malonaz/sgpt/cli/chat/viewer"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/tools"
@@ -24,6 +26,7 @@ import (
 )
 
 var (
+	log              = debug.GetLogger()
 	errUserInterrupt = errors.New("user interrupt")
 )
 
@@ -42,7 +45,8 @@ type Model struct {
 	injectedFiles      []string
 
 	// Runtime messages (includes errored messages for display)
-	runtimeMessages []*types.RuntimeMessage
+	runtimeMessages        []*types.RuntimeMessage
+	messageViewportOffsets []int // Tracks the line offset of each message in the viewport.
 
 	// UI components
 	textarea textarea.Model
@@ -61,6 +65,9 @@ type Model struct {
 	err              error
 	quitting         bool
 	windowFocused    bool
+
+	// Alert notifications.
+	alertClipboardWrite bubbleup.AlertModel
 
 	// Tool confirmation state
 	pendingToolCall *aipb.ToolCall
@@ -116,6 +123,8 @@ func New(
 	sp.Spinner = spinner.Dot
 	sp.Style = styles.SpinnerStyle
 
+	alertClipboardWrite := bubbleup.NewAlertModel(25, true, 1)
+
 	// Initialize runtime messages from existing chat messages
 	runtimeMsgs := make([]*types.RuntimeMessage, len(chat.Messages))
 	for i, msg := range chat.Messages {
@@ -128,20 +137,22 @@ func New(
 	}
 
 	return &Model{
-		ctx:                ctx,
-		config:             config,
-		store:              s,
-		aiClient:           aiClient,
-		chat:               chat,
-		opts:               opts,
-		windowFocused:      true,
-		additionalMessages: additionalMessages,
-		injectedFiles:      injectedFiles,
-		textarea:           ta,
-		spinner:            sp,
-		history:            history.NewHistory(),
-		runtimeMessages:    runtimeMsgs,
-		renderer:           renderer,
+		ctx:                    ctx,
+		config:                 config,
+		store:                  s,
+		aiClient:               aiClient,
+		chat:                   chat,
+		opts:                   opts,
+		windowFocused:          true,
+		additionalMessages:     additionalMessages,
+		injectedFiles:          injectedFiles,
+		textarea:               ta,
+		spinner:                sp,
+		history:                history.NewHistory(),
+		runtimeMessages:        runtimeMsgs,
+		renderer:               renderer,
+		alertClipboardWrite:    *alertClipboardWrite,
+		navigationMessageIndex: -1,
 	}, nil
 }
 
@@ -164,6 +175,7 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		textarea.Blink,
 		m.spinner.Tick,
+		m.alertClipboardWrite.Init(),
 	)
 }
 

@@ -2,14 +2,18 @@ package session
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"go.dalton.dog/bubbleup"
+	"golang.design/x/clipboard"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,6 +24,23 @@ import (
 // Update handles messages.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+
+	// Always update the alert model with every message
+	outAlert, alertCmd := m.alertClipboardWrite.Update(msg)
+	m.alertClipboardWrite = outAlert.(bubbleup.AlertModel)
+	if alertCmd != nil {
+		cmds = append(cmds, alertCmd)
+	}
+
+	// Log for non-tick messages only
+	defer func() {
+		switch msg.(type) {
+		case spinner.TickMsg, cursor.BlinkMsg, tea.MouseMsg:
+		// Skip logging for spinner ticks
+		default:
+			log.Info("update completed", "msg_type", fmt.Sprintf("%T", msg), "navigation_index", m.navigationMessageIndex)
+		}
+	}()
 
 	switch msg := msg.(type) {
 	case viewer.ExitMsg:
@@ -45,6 +66,41 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.viewerModel, cmd = m.viewerModel.Update(msg)
 			return m, cmd
+		}
+
+		// Handle navigation commands.
+		if msg.String() == "alt+{" {
+			if m.navigationMessageIndex == -1 {
+				m.navigationMessageIndex = len(m.runtimeMessages)
+			}
+			if m.navigationMessageIndex > 0 {
+				m.navigationMessageIndex-- // Go up one message.
+				m.viewport.SetContent(m.renderMessages())
+				m.scrollToNavigatedMessage()
+			}
+			return m, nil
+		}
+		if msg.String() == "alt+}" {
+			if m.navigationMessageIndex != -1 {
+				m.navigationMessageIndex++ // Go to next message.
+				if m.navigationMessageIndex == len(m.runtimeMessages) {
+					m.navigationMessageIndex = -1
+					m.viewport.GotoBottom()
+				}
+				m.viewport.SetContent(m.renderMessages())
+				if m.navigationMessageIndex != -1 {
+					m.scrollToNavigatedMessage()
+				}
+			}
+			return m, nil
+		}
+
+		// Copy navigated message content to clipboard
+		if msg.String() == "alt+w" && m.navigationMessageIndex != -1 {
+			content := m.runtimeMessages[m.navigationMessageIndex].Message.Content
+			clipboard.Write(clipboard.FmtText, []byte(content))
+			cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
+			return m, tea.Batch(cmds...)
 		}
 
 		if msg.String() == "alt+v" && !m.streaming && !m.awaitingConfirm && len(m.runtimeMessages) > 0 {

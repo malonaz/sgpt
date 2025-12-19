@@ -1,7 +1,8 @@
-// cli/chat/styles/styles.go
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Layout constants
 const (
@@ -35,20 +36,22 @@ const (
 
 // Color palette
 var (
-	PrimaryColor   = lipgloss.Color("#7C3AED") // Purple
-	SecondaryColor = lipgloss.Color("#06B6D4") // Cyan
-	AccentColor    = lipgloss.Color("#F59E0B") // Amber
-	SuccessColor   = lipgloss.Color("#10B981") // Green
-	ErrorColor     = lipgloss.Color("#EF4444") // Red
-	MutedColor     = lipgloss.Color("#6B7280") // Gray
-	TextColor      = lipgloss.Color("#F9FAFB") // Light gray
-	DimTextColor   = lipgloss.Color("#9CA3AF") // Dim gray
-	MessageColor   = lipgloss.Color("#E5E7EB")
-	ThoughtColor   = lipgloss.Color("#FCD34D")
-	FileColor      = lipgloss.Color("#F472B6") // Pink
-	BorderColor    = lipgloss.Color("#4B5563")
-	DividerColor   = lipgloss.Color("#374151")
-	CodeBgColor    = lipgloss.Color("#374151")
+	PrimaryColor           = lipgloss.Color("#7C3AED") // Purple
+	SecondaryColor         = lipgloss.Color("#06B6D4") // Cyan
+	AccentColor            = lipgloss.Color("#F59E0B") // Amber
+	SuccessColor           = lipgloss.Color("#10B981") // Green
+	ErrorColor             = lipgloss.Color("#EF4444") // Red
+	MutedColor             = lipgloss.Color("#6B7280") // Gray
+	TextColor              = lipgloss.Color("#F9FAFB") // Light gray
+	DimTextColor           = lipgloss.Color("#9CA3AF") // Dim gray
+	MessageColor           = lipgloss.Color("#E5E7EB")
+	ThoughtColor           = lipgloss.Color("#FCD34D")
+	FileColor              = lipgloss.Color("#F472B6") // Pink
+	BorderColor            = lipgloss.Color("#4B5563")
+	DividerColor           = lipgloss.Color("#374151")
+	CodeBgColor            = lipgloss.Color("#374151")
+	MessageSelectedColor   = lipgloss.Color("#10B981")
+	MessageUnselectedColor = lipgloss.Color("#9CA3AF") // Dim gray
 )
 
 // Title bar
@@ -63,32 +66,32 @@ var (
 			Background(PrimaryColor)
 )
 
-// User message
+// Messages.
 var (
+	messageStyle = lipgloss.NewStyle().
+			Foreground(TextColor).
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder())
+
+	UserMessageStyle = lipgloss.NewStyle().
+				Inherit(messageStyle).
+				BorderForeground(PrimaryColor).
+				MarginLeft(10)
+
+	AIMessageStyle = lipgloss.NewStyle().
+			Inherit(messageStyle).
+			BorderForeground(SecondaryColor).
+			MarginRight(10)
+
+	// User message
 	UserLabelStyle = lipgloss.NewStyle().
 			Foreground(SuccessColor).
 			Bold(true)
 
-	UserMessageStyle = lipgloss.NewStyle().
-				Foreground(TextColor).
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(PrimaryColor).
-				Padding(0, 1).
-				MarginLeft(10)
-)
-
-// AI message
-var (
+	// Ai message
 	AILabelStyle = lipgloss.NewStyle().
 			Foreground(SecondaryColor).
 			Bold(true)
-
-	AIMessageStyle = lipgloss.NewStyle().
-			Foreground(MessageColor).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(SecondaryColor).
-			Padding(0, 1).
-			MarginRight(10)
 
 	MessageErrorStyle = lipgloss.NewStyle().
 				Foreground(ErrorColor).

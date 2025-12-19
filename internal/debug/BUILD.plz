@@ -1,0 +1,5 @@
+go_library(
+    name = "debug",
+    srcs = ["debug.go"],
+    visibility = ["//..."],
+)

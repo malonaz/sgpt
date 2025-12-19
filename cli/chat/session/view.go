@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/chat/styles"
@@ -53,7 +54,7 @@ func (m *Model) View() string {
 		b.WriteString(styles.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
 	}
 
-	return b.String()
+	return m.alertClipboardWrite.Render(b.String())
 }
 
 func (m *Model) renderTitle() string {
@@ -83,81 +84,103 @@ func (m *Model) renderTitle() string {
 	return styles.TitleStyle.Width(m.width).Render(title)
 }
 
+func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style {
+	if m.navigationMessageIndex == -1 {
+		return style
+	}
+	fg := styles.MessageUnselectedColor
+	if messageIndex == m.navigationMessageIndex {
+		fg = styles.MessageSelectedColor
+	}
+	return style.BorderForeground(fg)
+}
+
 func (m *Model) renderMessages() string {
+	currentLine := 0
 	var b strings.Builder
+	writeString := func(s string) {
+		b.WriteString(s)
+		currentLine += strings.Count(s, "\n")
+	}
 
 	contentWidth := m.viewport.Width
 
 	if len(m.injectedFiles) > 0 {
 		for i, f := range m.injectedFiles {
-			b.WriteString(styles.FileStyle.Width(contentWidth).Render(fmt.Sprintf("📎 File #%d: %s", i+1, f)))
-			b.WriteString("\n")
+			line := styles.FileStyle.Width(contentWidth).Render(fmt.Sprintf("📎 File #%d: %s", i+1, f))
+			writeString(line)
+			writeString("\n")
 		}
-		b.WriteString("\n")
+		writeString("\n")
 	}
 
 	for i, rm := range m.runtimeMessages {
 		if i > 0 {
-			b.WriteString("\n\n")
+			writeString("\n\n")
 		}
+		m.messageViewportOffsets = append(m.messageViewportOffsets, currentLine)
+
 		msg := rm.Message
 		switch msg.Role {
 		case aipb.Role_ROLE_USER:
 			rendered := m.renderer.ToMarkdown(msg.Content, i, true)
-			b.WriteString(styles.UserMessageStyle.Render(rendered))
+			style := m.getStyle(styles.UserMessageStyle, i)
+			writeString(style.Render(rendered))
 
 		case aipb.Role_ROLE_ASSISTANT:
 			if msg.Reasoning != "" {
-				b.WriteString(styles.ThoughtLabelStyle.Render("💭 Thinking:"))
-				b.WriteString("\n")
-				b.WriteString(styles.ThoughtStyle.Render(msg.Reasoning))
+				writeString(styles.ThoughtLabelStyle.Render("💭 Thinking:"))
+				writeString("\n")
+				writeString(styles.ThoughtStyle.Render(msg.Reasoning))
 			}
+
+			style := m.getStyle(styles.AIMessageStyle, i)
 			rendered := m.renderer.ToMarkdown(msg.Content, i, true)
-			b.WriteString(styles.AIMessageStyle.Render(rendered))
+			writeString(style.Render(rendered))
 
 			if len(msg.ToolCalls) > 0 {
 				for _, tc := range msg.ToolCalls {
-					b.WriteString("\n")
-					b.WriteString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", tc.Name)))
-					b.WriteString("\n")
-					b.WriteString(styles.ToolCallStyle.Render(tc.Arguments))
+					writeString("\n")
+					writeString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", tc.Name)))
+					writeString("\n")
+					writeString(styles.ToolCallStyle.Render(tc.Arguments))
 				}
 			}
 
 			if rm.Err != nil {
-				b.WriteString("\n")
+				writeString("\n")
 				if errors.Is(rm.Err, errUserInterrupt) {
-					b.WriteString(styles.MessageInterruptStyle.Render("⚡ Interrupted by user"))
+					writeString(styles.MessageInterruptStyle.Render("⚡ Interrupted by user"))
 				} else {
-					b.WriteString(styles.MessageErrorStyle.Render(fmt.Sprintf("⚠️ %v", rm.Err)))
+					writeString(styles.MessageErrorStyle.Render(fmt.Sprintf("⚠️ %v", rm.Err)))
 				}
 			}
 
 		case aipb.Role_ROLE_TOOL:
-			b.WriteString(styles.ToolLabelStyle.Render("⚡ Tool Result:"))
-			b.WriteString("\n")
+			writeString(styles.ToolLabelStyle.Render("⚡ Tool Result:"))
+			writeString("\n")
 			rendered := m.renderer.ToMarkdown(msg.Content, i, true)
-			b.WriteString(styles.ToolResultStyle.Render(rendered))
+			writeString(styles.ToolResultStyle.Render(rendered))
 
 		case aipb.Role_ROLE_SYSTEM:
-			b.WriteString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(msg.Content, styles.TruncateLength))))
+			writeString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(msg.Content, styles.TruncateLength))))
 		}
 	}
 
 	if m.streaming || m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 {
-		b.WriteString("\n\n")
+		writeString("\n\n")
 		if m.currentReasoning.Len() > 0 {
-			b.WriteString(styles.ThoughtLabelStyle.Render("💭 Thinking:"))
-			b.WriteString("\n")
-			b.WriteString(styles.ThoughtStyle.Render(m.currentReasoning.String()))
-			b.WriteString("\n")
+			writeString(styles.ThoughtLabelStyle.Render("💭 Thinking:"))
+			writeString("\n")
+			writeString(styles.ThoughtStyle.Render(m.currentReasoning.String()))
+			writeString("\n")
 		}
 		if m.currentResponse.Len() > 0 {
 			rendered := m.renderer.ToMarkdown(m.currentResponse.String(), -1, false)
-			b.WriteString(styles.AIMessageStyle.Render(rendered))
+			writeString(styles.AIMessageStyle.Render(rendered))
 		}
 		if m.streaming {
-			b.WriteString(styles.SpinnerStyle.Render("▋"))
+			writeString(styles.SpinnerStyle.Render("▋"))
 		}
 	}
 

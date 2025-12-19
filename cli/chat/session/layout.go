@@ -35,6 +35,15 @@ func (m *Model) adjustTextareaHeight() {
 	}
 }
 
+// scrollToNavigatedMessage scrolls the viewport to show the currently navigated message.
+func (m *Model) scrollToNavigatedMessage() {
+	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.messageViewportOffsets) {
+		return
+	}
+	targetLine := m.messageViewportOffsets[m.navigationMessageIndex]
+	m.viewport.SetYOffset(targetLine)
+}
+
 // recalculateLayout adjusts viewport and textarea dimensions based on current state.
 func (m *Model) recalculateLayout() {
 	if m.width == 0 || m.height == 0 {

@@ -2896,8 +2896,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -3311,6 +3311,29 @@ go_module(
 )
 
 go_mod_download(
+    name = "go.dalton.dog__bubbleup",
+    _tag = "download",
+    module = "go.dalton.dog/bubbleup",
+    version = "v1.1.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "go.dalton.dog__bubbleup",
+    download = ":_go.dalton.dog__bubbleup#download",
+    install = ["."],
+    module = "go.dalton.dog/bubbleup",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__bubbletea",
+        ":github.com__charmbracelet__lipgloss",
+        ":github.com__lucasb-eyer__go-colorful",
+        ":github.com__mattn__go-runewidth",
+        ":github.com__muesli__reflow__ansi",
+    ],
+)
+
+go_mod_download(
     name = "go.einride.tech__aip",
     _tag = "download",
     module = "go.einride.tech/aip",
@@ -3424,6 +3447,23 @@ go_module(
     download = ":_go.yaml.in__yaml__v2#download",
     install = ["."],
     module = "go.yaml.in/yaml/v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "golang.design__x__clipboard",
+    _tag = "download",
+    module = "golang.design/x/clipboard",
+    version = "v0.7.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "golang.design__x__clipboard",
+    download = ":_golang.design__x__clipboard#download",
+    install = ["."],
+    module = "golang.design/x/clipboard",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -5646,8 +5686,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5673,8 +5713,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -5736,8 +5776,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5763,8 +5803,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
