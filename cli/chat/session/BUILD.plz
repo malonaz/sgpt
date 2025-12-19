@@ -12,7 +12,6 @@ go_library(
     deps = [
         "//cli/chat/styles",
         "//cli/chat/types",
-        "//cli/chat/viewer",
         "//internal/configuration",
         "//internal/debug",
         "//internal/history",

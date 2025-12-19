@@ -18,7 +18,6 @@ import (
 
 	"github.com/malonaz/sgpt/cli/chat/styles"
 	"github.com/malonaz/sgpt/cli/chat/types"
-	"github.com/malonaz/sgpt/cli/chat/viewer"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
@@ -50,7 +49,7 @@ type Model struct {
 	additionalMessages []*aipb.Message
 	injectedFiles      []string
 
-	// Runtime messages (includes errored messages for display)
+	// Runtime messages for display (decoupled from proto messages)
 	runtimeMessages        []*types.RuntimeMessage
 	messageViewportOffsets []int // Tracks the line offset of each message in the viewport.
 
@@ -101,10 +100,6 @@ type Model struct {
 	renderThrottleTicker *time.Ticker
 	pendingRender        bool
 	lastRenderTime       time.Time
-
-	// Sub-views
-	viewerMode  bool
-	viewerModel *viewer.Model
 }
 
 // New creates a new chat session model.
@@ -139,10 +134,7 @@ func New(
 	alertClipboardWrite := bubbleup.NewAlertModel(25, true, 1)
 
 	// Initialize runtime messages from existing chat messages
-	runtimeMsgs := make([]*types.RuntimeMessage, len(chat.Messages))
-	for i, msg := range chat.Messages {
-		runtimeMsgs[i] = &types.RuntimeMessage{Message: msg}
-	}
+	runtimeMsgs := types.RuntimeMessagesFromProto(chat.Messages)
 
 	renderer, err := markdown.NewRenderer(styles.DefaultTextareaWidth)
 	if err != nil {
@@ -190,16 +182,6 @@ func (m *Model) Init() tea.Cmd {
 		m.spinner.Tick,
 		m.alertClipboardWrite.Init(),
 	)
-}
-
-// addRuntimeMessage adds a message to runtime messages for display.
-func (m *Model) addRuntimeMessage(msg *aipb.Message) {
-	m.runtimeMessages = append(m.runtimeMessages, &types.RuntimeMessage{Message: msg})
-}
-
-// addRuntimeMessageWithError adds a message with an error to runtime messages (not persisted).
-func (m *Model) addRuntimeMessageWithError(msg *aipb.Message, err error) {
-	m.runtimeMessages = append(m.runtimeMessages, &types.RuntimeMessage{Message: msg, Err: err})
 }
 
 // getMessagesForAPI returns messages suitable for sending to the API.

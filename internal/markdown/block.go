@@ -80,7 +80,7 @@ func ParseBlocks(content string) []Block {
 
 		result = append(result, &CodeBlock{
 			Language: language,
-			Code:     strings.Trim(code, "\n"),
+			Code:     strings.ReplaceAll(strings.Trim(code, "\n"), "\t", "  "), // tabs cause issues.
 		})
 
 		lastEnd = fullEnd

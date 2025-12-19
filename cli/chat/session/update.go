@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -19,7 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/malonaz/sgpt/cli/chat/types"
-	"github.com/malonaz/sgpt/cli/chat/viewer"
 )
 
 // Update handles messages.
@@ -46,13 +44,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}()
 
 	switch msg := msg.(type) {
-	case viewer.ExitMsg:
-		m.viewerMode = false
-		m.viewerModel = nil
-		m.textarea.Focus()
-		m.viewport.GotoBottom()
-		return m, tea.Batch(textarea.Blink, tea.EnableMouseCellMotion)
-
 	case tea.FocusMsg:
 		m.windowFocused = true
 		m.textarea.Focus()
@@ -65,12 +56,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if m.viewerMode {
-			var cmd tea.Cmd
-			m.viewerModel, cmd = m.viewerModel.Update(msg)
-			return m, cmd
-		}
-
 		// Handle navigation commands.
 		if msg.String() == "alt+{" {
 			if m.navigationMessageIndex == -1 {
@@ -100,16 +85,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Copy navigated message content to clipboard
 		if msg.String() == "alt+w" && m.navigationMessageIndex != -1 {
-			content := m.runtimeMessages[m.navigationMessageIndex].Message.Content
+			content := m.runtimeMessages[m.navigationMessageIndex].Content
 			clipboard.Write(clipboard.FmtText, []byte(content))
 			cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
 			return m, tea.Batch(cmds...)
-		}
-
-		if msg.String() == "alt+v" && !m.streaming && !m.awaitingConfirm && len(m.runtimeMessages) > 0 {
-			m.viewerMode = true
-			m.viewerModel = viewer.New(m.runtimeMessages, m.renderer, m.width, m.height)
-			return m, m.viewerModel.Init()
 		}
 
 		if msg.Alt && !m.streaming && !m.awaitingConfirm {
@@ -158,7 +137,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyCtrlJ:
-			if !m.streaming && !m.awaitingConfirm && strings.TrimSpace(m.textarea.Value()) != "" {
+			if !m.streaming && !m.awaitingConfirm && m.textarea.Value() != "" {
 				return m, m.sendMessage()
 			}
 
@@ -204,9 +183,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.viewerMode && m.viewerModel != nil {
-			m.viewerModel, _ = m.viewerModel.Update(msg)
-		}
 		m.recalculateLayout()
 
 	case types.RenderStreamChunkTickMsg:
@@ -273,7 +249,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Content:    msg.Result,
 				ToolCallId: m.pendingToolCall.Id,
 			}
-			m.addRuntimeMessage(toolMessage)
+			m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage(m.pendingToolCall.Id, msg.Result))
 			m.chat.Messages = append(m.chat.Messages, toolMessage)
 		}
 
@@ -288,13 +264,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case types.ToolCancelledMsg:
-		m.runtimeMessages = append(m.runtimeMessages, &types.RuntimeMessage{
-			Message: &aipb.Message{
-				Role:    aipb.Role_ROLE_TOOL,
-				Content: "[Tool execution cancelled by user]",
-			},
-			Err: errUserInterrupt,
-		})
+		m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessageWithError("", "[Tool execution cancelled by user]", errUserInterrupt))
 		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 		return m, nil

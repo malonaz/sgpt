@@ -28,7 +28,7 @@ func (m *Model) sendMessage() tea.Cmd {
 		Role:    aipb.Role_ROLE_USER,
 		Content: userInput,
 	}
-	m.addRuntimeMessage(userMessage)
+	m.runtimeMessages = append(m.runtimeMessages, types.NewUserMessage(userInput))
 	m.pendingUserMessage = userMessage
 
 	m.textarea.Reset()
@@ -108,7 +108,10 @@ func (m *Model) startStreaming() tea.Cmd {
 }
 
 func (m *Model) finalizeResponse(err error) {
-	if m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 || len(m.currentToolCalls) > 0 {
+	hasContent := m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 || len(m.currentToolCalls) > 0
+
+	if hasContent {
+		// Build the proto message for persistence
 		assistantMessage := &aipb.Message{
 			Role:      aipb.Role_ROLE_ASSISTANT,
 			Content:   m.currentResponse.String(),
@@ -116,8 +119,22 @@ func (m *Model) finalizeResponse(err error) {
 			ToolCalls: m.currentToolCalls,
 		}
 
+		// Add runtime messages for display
+		if m.currentReasoning.Len() > 0 {
+			m.runtimeMessages = append(m.runtimeMessages, types.NewThinkingMessage(m.currentReasoning.String()))
+		}
+		if m.currentResponse.Len() > 0 {
+			if err != nil {
+				m.runtimeMessages = append(m.runtimeMessages, types.NewAssistantMessageWithError(m.currentResponse.String(), err))
+			} else {
+				m.runtimeMessages = append(m.runtimeMessages, types.NewAssistantMessage(m.currentResponse.String()))
+			}
+		}
+		for _, tc := range m.currentToolCalls {
+			m.runtimeMessages = append(m.runtimeMessages, types.NewToolCallMessage(tc))
+		}
+
 		if err != nil {
-			m.addRuntimeMessageWithError(assistantMessage, err)
 			m.pendingUserMessage = nil
 		} else {
 			if m.pendingUserMessage != nil {
@@ -125,7 +142,6 @@ func (m *Model) finalizeResponse(err error) {
 				m.pendingUserMessage = nil
 			}
 			m.chat.Messages = append(m.chat.Messages, assistantMessage)
-			m.addRuntimeMessage(assistantMessage)
 		}
 	} else if err != nil {
 		m.pendingUserMessage = nil

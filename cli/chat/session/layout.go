@@ -67,7 +67,8 @@ func (m *Model) recalculateLayout() {
 		viewportHeight = styles.MinViewportHeight
 	}
 	contentWidth := viewportWidth
-	m.renderer.SetWidth(contentWidth - styles.MessageHorizontalFrameSize())
+	rendererWidth := contentWidth - styles.MessageHorizontalFrameSize()
+	m.renderer.SetWidth(rendererWidth)
 
 	if !m.ready {
 		m.viewport = viewport.New(viewportWidth, viewportHeight)

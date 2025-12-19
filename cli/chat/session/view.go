@@ -9,6 +9,7 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/chat/styles"
+	"github.com/malonaz/sgpt/cli/chat/types"
 )
 
 // View renders the model.
@@ -19,10 +20,6 @@ func (m *Model) View() string {
 
 	if !m.ready {
 		return "Initializing..."
-	}
-
-	if m.viewerMode && m.viewerModel != nil {
-		return m.viewerModel.View()
 	}
 
 	var b strings.Builder
@@ -115,38 +112,30 @@ func (m *Model) renderMessages() string {
 		writeString("\n")
 	}
 
+	// Reset viewport offsets
+	m.messageViewportOffsets = make([]int, 0, len(m.runtimeMessages))
+
 	for i, rm := range m.runtimeMessages {
 		if i > 0 {
 			writeString("\n\n")
 		}
 		m.messageViewportOffsets = append(m.messageViewportOffsets, currentLine)
 
-		msg := rm.Message
-		switch msg.Role {
-		case aipb.Role_ROLE_USER:
-			rendered := m.renderer.ToMarkdown(msg.Content, i, true)
+		switch rm.Type {
+		case types.RuntimeMessageTypeUser:
+			rendered := m.renderer.ToMarkdown(rm.Content, i, true)
 			style := m.getStyle(styles.UserMessageStyle, i)
 			writeString(style.Render(rendered))
 
-		case aipb.Role_ROLE_ASSISTANT:
-			if msg.Reasoning != "" {
-				writeString(styles.ThoughtLabelStyle.Render("💭 Thinking:"))
-				writeString("\n")
-				writeString(styles.ThoughtStyle.Render(msg.Reasoning))
-			}
-
-			style := m.getStyle(styles.AIMessageStyle, i)
-			rendered := m.renderer.ToMarkdown(msg.Content, i, true)
+		case types.RuntimeMessageTypeThinking:
+			style := m.getStyle(styles.AIThoughtStyle, i)
+			rendered := m.renderer.ToMarkdown(rm.Content, i, true)
 			writeString(style.Render(rendered))
 
-			if len(msg.ToolCalls) > 0 {
-				for _, tc := range msg.ToolCalls {
-					writeString("\n")
-					writeString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", tc.Name)))
-					writeString("\n")
-					writeString(styles.ToolCallStyle.Render(tc.Arguments))
-				}
-			}
+		case types.RuntimeMessageTypeAssistant:
+			style := m.getStyle(styles.AIMessageStyle, i)
+			rendered := m.renderer.ToMarkdown(rm.Content, i, true)
+			writeString(style.Render(rendered))
 
 			if rm.Err != nil {
 				writeString("\n")
@@ -157,17 +146,27 @@ func (m *Model) renderMessages() string {
 				}
 			}
 
-		case aipb.Role_ROLE_TOOL:
+		case types.RuntimeMessageTypeToolCall:
+			writeString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", rm.ToolCall.Name)))
+			writeString("\n")
+			writeString(styles.ToolCallStyle.Render(rm.ToolCall.Arguments))
+
+		case types.RuntimeMessageTypeToolResult:
 			writeString(styles.ToolLabelStyle.Render("⚡ Tool Result:"))
 			writeString("\n")
-			rendered := m.renderer.ToMarkdown(msg.Content, i, true)
-			writeString(styles.ToolResultStyle.Render(rendered))
+			if rm.Err != nil {
+				writeString(styles.ToolResultStyle.Render(rm.Content))
+			} else {
+				rendered := m.renderer.ToMarkdown(rm.Content, i, true)
+				writeString(styles.ToolResultStyle.Render(rendered))
+			}
 
-		case aipb.Role_ROLE_SYSTEM:
-			writeString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(msg.Content, styles.TruncateLength))))
+		case types.RuntimeMessageTypeSystem:
+			writeString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(rm.Content, styles.TruncateLength))))
 		}
 	}
 
+	// Render streaming content
 	if m.streaming || m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 {
 		writeString("\n\n")
 		if m.currentReasoning.Len() > 0 {

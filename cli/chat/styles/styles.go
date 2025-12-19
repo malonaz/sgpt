@@ -83,6 +83,9 @@ var (
 			BorderForeground(SecondaryColor).
 			MarginRight(10)
 
+	AIThoughtStyle = lipgloss.NewStyle().
+			Inherit(AIMessageStyle).BorderForeground(ThoughtColor)
+
 	// User message
 	UserLabelStyle = lipgloss.NewStyle().
 			Foreground(SuccessColor).
