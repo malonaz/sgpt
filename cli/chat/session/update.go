@@ -128,6 +128,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.adjustTextareaHeight()
 					return m, nil
 				}
+			case "alt+t":
+				// Cycle reasoning efforts.
+				switch m.opts.ReasoningEffort {
+				case aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED:
+					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_LOW
+				case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
+					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM
+				case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
+					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_HIGH
+				case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
+					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED
+				}
+				return m, nil
 			}
 		}
 
