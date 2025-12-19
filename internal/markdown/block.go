@@ -1,4 +1,4 @@
-package chat
+package markdown
 
 import (
 	"regexp"
@@ -12,27 +12,32 @@ var (
 	codeBlockRegexp = regexp.MustCompile("(?sm)^```([a-zA-Z]*)\\n(.*?)^```")
 )
 
+// Block represents a parsed content block.
 type Block interface {
 	String() string
 }
 
-// TextBlock represents plain text content
+// TextBlock represents plain text content.
 type TextBlock struct {
 	Text string
 }
 
+// String returns the text content.
 func (b *TextBlock) String() string { return b.Text }
 
-// CodeBlock represents a code block with optional language
+// CodeBlock represents a code block with optional language.
 type CodeBlock struct {
 	Language string
 	Code     string
 }
 
-func (b *CodeBlock) String() string { return "```" + b.Language + "\n" + b.Code + "\n```" }
+// String returns the code block as markdown.
+func (b *CodeBlock) String() string {
+	return "```" + b.Language + "\n" + b.Code + "\n```"
+}
 
-// ParseContent parses markdown content into a list of TextBlock and CodeBlock segments
-func (r *renderer) ParseBlocks(content string) []Block {
+// ParseBlocks parses markdown content into a list of TextBlock and CodeBlock segments.
+func ParseBlocks(content string) []Block {
 	var result []Block
 
 	matches := codeBlockRegexp.FindAllStringSubmatchIndex(content, -1)

@@ -1,4 +1,4 @@
-package chat
+package tools
 
 import (
 	"encoding/json"
@@ -8,8 +8,8 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 )
 
-// Define available tools
-var shellCommandTool = &aipb.Tool{
+// ShellCommandTool defines the tool for executing shell commands.
+var ShellCommandTool = &aipb.Tool{
 	Name:        "execute_shell_command",
 	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
 	JsonSchema: &aipb.JsonSchema{
@@ -28,13 +28,13 @@ var shellCommandTool = &aipb.Tool{
 	},
 }
 
-// ShellCommandArgs represents the parsed arguments for shell command execution
+// ShellCommandArgs represents the parsed arguments for shell command execution.
 type ShellCommandArgs struct {
 	Command          string `json:"command"`
 	WorkingDirectory string `json:"working_directory"`
 }
 
-// ParseShellCommandArgs parses the JSON arguments for a shell command
+// ParseShellCommandArgs parses the JSON arguments for a shell command.
 func ParseShellCommandArgs(argumentsJSON string) (*ShellCommandArgs, error) {
 	var args ShellCommandArgs
 	if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
@@ -46,7 +46,7 @@ func ParseShellCommandArgs(argumentsJSON string) (*ShellCommandArgs, error) {
 	return &args, nil
 }
 
-// ExecuteShellCommand executes a shell command and returns the output
+// ExecuteShellCommand executes a shell command and returns the output.
 func ExecuteShellCommand(args *ShellCommandArgs) (string, error) {
 	cmd := exec.Command("sh", "-c", args.Command)
 	if args.WorkingDirectory != "" {

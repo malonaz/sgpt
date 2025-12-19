@@ -14,6 +14,8 @@ import (
 	"github.com/malonaz/core/go/grpc/interceptor"
 	"github.com/spf13/cobra"
 
+	"github.com/malonaz/sgpt/cli/chat/session"
+	"github.com/malonaz/sgpt/cli/chat/types"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
@@ -98,7 +100,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 				chat, err = s.GetChat(opts.ChatID)
 				cobra.CheckErr(err)
 			} else if opts.Continue {
-				// Fetch the latest chat.
 				listChatsRequest := &store.ListChatsRequest{
 					PageSize: 1,
 				}
@@ -142,7 +143,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			}
 
 			// Create chat options
-			chatOpts := ChatOptions{
+			chatOpts := types.ChatOptions{
 				Model:           opts.Model,
 				Role:            parsedRole,
 				MaxTokens:       opts.MaxTokens,
@@ -153,7 +154,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			}
 
 			// Create the model
-			m, err := NewModel(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
+			m, err := session.New(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
 			if err != nil {
 				return err
 			}
@@ -163,7 +164,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 				m,
 				tea.WithAltScreen(),
 				tea.WithContext(ctx),
-				tea.WithFilter(m.filter),
+				tea.WithFilter(m.Filter()),
 				tea.WithMouseCellMotion(),
 				tea.WithReportFocus(),
 			)
@@ -189,7 +190,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage (shell commands, etc)")
 
-	// Register autocomplete function for model flag
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(modelNames) == 0 {
 			err := getModelNames(cmd.Context(), aiClient)
@@ -201,7 +201,6 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	return cmd
 }
 
-// filterModels returns models that match the given prefix
 func filterModels(models []string, prefix string) []string {
 	if prefix == "" {
 		return models
@@ -219,16 +218,14 @@ func filterModels(models []string, prefix string) []string {
 	return matches
 }
 
-// getModelNames fetches all models and updates the cache
 func getModelNames(ctx context.Context, aiClient aiservicepb.AiClient) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	// Use field mask to only fetch model names
 	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name")
 
 	listModelsRequest := &aiservicepb.ListModelsRequest{
-		Parent: "providers/-", // All providers
+		Parent: "providers/-",
 	}
 
 	models, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)

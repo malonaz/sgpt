@@ -1,0 +1,6 @@
+go_library(
+    name = "styles",
+    srcs = ["styles.go"],
+    visibility = ["//..."],
+    deps = ["//third_party/go:github.com__charmbracelet__lipgloss"],
+)

@@ -1,0 +1,13 @@
+go_library(
+    name = "markdown",
+    srcs = [
+        "block.go",
+        "render.go",
+    ],
+    visibility = ["//..."],
+    deps = [
+        "//third_party/go:github.com__charmbracelet__glamour",
+        "//third_party/go:github.com__charmbracelet__glamour__ansi",
+        "//third_party/go:github.com__charmbracelet__glamour__styles",
+    ],
+)
