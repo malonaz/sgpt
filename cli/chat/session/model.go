@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -60,16 +61,18 @@ type Model struct {
 	renderer *markdown.Renderer
 
 	// UI state
-	width            int
-	height           int
-	ready            bool
-	streaming        bool
-	currentResponse  strings.Builder
-	currentReasoning strings.Builder
-	currentToolCalls []*aipb.ToolCall
-	err              error
-	quitting         bool
-	windowFocused    bool
+	title              string
+	titleNumberOfLines int
+	width              int
+	height             int
+	ready              bool
+	streaming          bool
+	currentResponse    strings.Builder
+	currentReasoning   strings.Builder
+	currentToolCalls   []*aipb.ToolCall
+	err                error
+	quitting           bool
+	windowFocused      bool
 
 	// Alert notifications.
 	alertClipboardWrite bubbleup.AlertModel
@@ -141,7 +144,7 @@ func New(
 		return nil, err
 	}
 
-	return &Model{
+	m := &Model{
 		ctx:                    ctx,
 		config:                 config,
 		store:                  s,
@@ -158,7 +161,10 @@ func New(
 		renderer:               renderer,
 		alertClipboardWrite:    *alertClipboardWrite,
 		navigationMessageIndex: -1,
-	}, nil
+	}
+
+	m.setTitle()
+	return m, nil
 }
 
 // SetProgram sets the tea.Program reference for async message sending.
@@ -192,4 +198,31 @@ func (m *Model) getMessagesForAPI() []*aipb.Message {
 		messages = append(messages, m.pendingUserMessage)
 	}
 	return messages
+}
+
+func (m *Model) setTitle() {
+	roleName := "anon"
+	if m.opts.Role != nil {
+		roleName = m.opts.Role.Name
+	}
+
+	reasoningStr := "none"
+	switch m.opts.ReasoningEffort {
+	case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
+		reasoningStr = "low"
+	case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
+		reasoningStr = "medium"
+	case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
+		reasoningStr = "high"
+	}
+
+	toolsStr := ""
+	if m.opts.EnableTools {
+		toolsStr = " 🔧"
+	}
+
+	m.title = fmt.Sprintf(
+		" 🤖 %s │ 👤 %s │ 💬 %s │ 🧠 %s%s ",
+		m.opts.Model, roleName, m.opts.ChatID, reasoningStr, toolsStr,
+	)
 }

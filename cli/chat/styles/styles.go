@@ -16,8 +16,6 @@ const (
 	MinViewportHeight = 1
 
 	// Layout
-	InputBorderHeight  = 2
-	HeaderHeight       = 2
 	MessagePaddingLeft = 2
 
 	// Confirmation dialog

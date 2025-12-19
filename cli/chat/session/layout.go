@@ -50,13 +50,11 @@ func (m *Model) recalculateLayout() {
 		return
 	}
 
-	viewportHeight := m.height - styles.HeaderHeight
-	viewportWidth := m.width
-
-	if m.streaming {
-		//viewportHeight -= styles.TextAreaStyle.GetVerticalFrameSize()
-	} else {
-		viewportHeight -= m.textarea.Height() + styles.InputBorderHeight
+	// Compute viewport height.
+	m.renderTitle()                                                                                  // To compute the number of lines.
+	viewportHeight := m.height - styles.TitleStyle.GetVerticalFrameSize() - m.titleNumberOfLines - 1 // TODO(fix this).
+	if !m.streaming {
+		viewportHeight -= m.textarea.Height() + styles.TextAreaStyle.GetVerticalFrameSize()
 	}
 
 	if m.err != nil {
@@ -66,6 +64,8 @@ func (m *Model) recalculateLayout() {
 	if viewportHeight < styles.MinViewportHeight {
 		viewportHeight = styles.MinViewportHeight
 	}
+
+	viewportWidth := m.width
 	contentWidth := viewportWidth
 	rendererWidth := contentWidth - styles.MessageHorizontalFrameSize()
 	m.renderer.SetWidth(rendererWidth)

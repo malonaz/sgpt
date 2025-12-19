@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/chat/styles"
 	"github.com/malonaz/sgpt/cli/chat/types"
@@ -55,30 +54,9 @@ func (m *Model) View() string {
 }
 
 func (m *Model) renderTitle() string {
-	roleName := "anon"
-	if m.opts.Role != nil {
-		roleName = m.opts.Role.Name
-	}
-
-	reasoningStr := "none"
-	switch m.opts.ReasoningEffort {
-	case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
-		reasoningStr = "low"
-	case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
-		reasoningStr = "medium"
-	case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
-		reasoningStr = "high"
-	}
-
-	toolsStr := ""
-	if m.opts.EnableTools {
-		toolsStr = " 🔧"
-	}
-
-	title := fmt.Sprintf(" 🤖 %s │ 👤 %s │ 💬 %s │ 🧠 %s%s ",
-		m.opts.Model, roleName, m.opts.ChatID, reasoningStr, toolsStr)
-
-	return styles.TitleStyle.Width(m.width).Render(title)
+	rendered := styles.TitleStyle.Width(m.width).Render(m.title)
+	m.titleNumberOfLines = lipgloss.Height(rendered)
+	return rendered
 }
 
 func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style {
