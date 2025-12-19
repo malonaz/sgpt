@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +32,7 @@ const (
 )
 
 var (
-	log              = debug.GetLogger()
+	log              *slog.Logger
 	errUserInterrupt = errors.New("user interrupt")
 )
 
@@ -117,6 +118,8 @@ func New(
 	additionalMessages []*aipb.Message,
 	injectedFiles []string,
 ) (*Model, error) {
+	log = debug.GetLogger()
+
 	// Create textarea for input
 	ta := textarea.New()
 	ta.Placeholder = "Type your message... (Ctrl+J to send, Alt+V to view, Alt+P/N for history, Ctrl+C to quit)"
