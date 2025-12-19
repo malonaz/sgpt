@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -33,10 +34,6 @@ func (m *Model) sendMessage() tea.Cmd {
 
 	m.textarea.Reset()
 
-	m.currentResponse.Reset()
-	m.currentReasoning.Reset()
-	m.currentToolCalls = nil
-
 	m.streaming = true
 	m.recalculateLayout()
 	m.viewport.GotoBottom()
@@ -52,6 +49,7 @@ func (m *Model) startStreaming() tea.Cmd {
 	opts := m.opts
 	additionalMessages := m.additionalMessages
 	chatMessages := m.getMessagesForAPI()
+	runtimeMessages := &m.runtimeMessages
 
 	p := m.getProgram()
 	if p == nil {
@@ -82,59 +80,116 @@ func (m *Model) startStreaming() tea.Cmd {
 
 		stream, err := aiClient.TextToTextStream(streamCtx, request)
 		if err != nil {
-			p.Send(types.StreamErrorMsg{Err: err})
+			p.Send(types.StreamDoneMsg{Err: err})
 			return
+		}
+
+		// Track streaming messages
+		var thinkingMsg *types.RuntimeMessage
+		var assistantMsg *types.RuntimeMessage
+		var toolCalls []*aipb.ToolCall
+
+		// Track content for persistence
+		var responseContent strings.Builder
+		var reasoningContent strings.Builder
+
+		// Throttling
+		lastRender := time.Now()
+		pendingRender := false
+
+		sendRender := func() {
+			p.Send(types.StreamRenderMsg{})
+			lastRender = time.Now()
+			pendingRender = false
+		}
+
+		checkRender := func() {
+			if time.Since(lastRender) >= renderThrottleInterval {
+				sendRender()
+			} else {
+				pendingRender = true
+			}
+		}
+
+		finalize := func(err error) {
+			if thinkingMsg != nil {
+				thinkingMsg.Finalize(err)
+			}
+			if assistantMsg != nil {
+				assistantMsg.Finalize(err)
+			}
+			if pendingRender {
+				sendRender()
+			}
+			p.Send(types.StreamDoneMsg{
+				Err:       err,
+				Response:  responseContent.String(),
+				Reasoning: reasoningContent.String(),
+				ToolCalls: toolCalls,
+			})
 		}
 
 		for {
 			select {
 			case <-streamCtx.Done():
-				p.Send(types.StreamErrorMsg{Err: streamCtx.Err()})
+				finalize(streamCtx.Err())
 				return
 			default:
 			}
 
 			response, err := stream.Recv()
 			if err != nil {
-				p.Send(types.StreamErrorMsg{Err: err})
+				if err == io.EOF {
+					finalize(nil)
+				} else {
+					finalize(err)
+				}
 				return
 			}
 
-			p.Send(response)
+			switch content := response.Content.(type) {
+			case *aiservicepb.TextToTextStreamResponse_ReasoningChunk:
+				reasoningContent.WriteString(content.ReasoningChunk)
+				if thinkingMsg == nil {
+					thinkingMsg = types.NewThinkingMessage("").WithStreaming()
+					*runtimeMessages = append(*runtimeMessages, thinkingMsg)
+				}
+				thinkingMsg.AppendContent(content.ReasoningChunk)
+
+			case *aiservicepb.TextToTextStreamResponse_ContentChunk:
+				responseContent.WriteString(content.ContentChunk)
+				if assistantMsg == nil {
+					assistantMsg = types.NewAssistantMessage("").WithStreaming()
+					*runtimeMessages = append(*runtimeMessages, assistantMsg)
+				}
+				assistantMsg.AppendContent(content.ContentChunk)
+
+			case *aiservicepb.TextToTextStreamResponse_ToolCall:
+				toolCalls = append(toolCalls, content.ToolCall)
+				toolMsg := types.NewToolCallMessage(content.ToolCall)
+				*runtimeMessages = append(*runtimeMessages, toolMsg)
+			}
+
+			checkRender()
 		}
 	}()
 
 	return m.spinner.Tick
 }
 
-func (m *Model) finalizeResponse(err error) {
-	hasContent := m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 || len(m.currentToolCalls) > 0
+func (m *Model) finalizeResponse(done types.StreamDoneMsg) {
+	hasContent := done.Response != "" || done.Reasoning != "" || len(done.ToolCalls) > 0
 
 	if hasContent {
 		// Build the proto message for persistence
 		assistantMessage := &aipb.Message{
 			Role:      aipb.Role_ROLE_ASSISTANT,
-			Content:   m.currentResponse.String(),
-			Reasoning: m.currentReasoning.String(),
-			ToolCalls: m.currentToolCalls,
+			Content:   done.Response,
+			Reasoning: done.Reasoning,
+			ToolCalls: done.ToolCalls,
 		}
 
-		// Add runtime messages for display
-		if m.currentReasoning.Len() > 0 {
-			m.runtimeMessages = append(m.runtimeMessages, types.NewThinkingMessage(m.currentReasoning.String()))
-		}
-		if m.currentResponse.Len() > 0 {
-			if err != nil {
-				m.runtimeMessages = append(m.runtimeMessages, types.NewAssistantMessageWithError(m.currentResponse.String(), err))
-			} else {
-				m.runtimeMessages = append(m.runtimeMessages, types.NewAssistantMessage(m.currentResponse.String()))
-			}
-		}
-		for _, tc := range m.currentToolCalls {
-			m.runtimeMessages = append(m.runtimeMessages, types.NewToolCallMessage(tc))
-		}
-
-		if err != nil {
+		if done.Err != nil {
 			m.pendingUserMessage = nil
 		} else {
 			if m.pendingUserMessage != nil {
@@ -143,12 +198,10 @@ func (m *Model) finalizeResponse(err error) {
 			}
 			m.chat.Messages = append(m.chat.Messages, assistantMessage)
 		}
-	} else if err != nil {
+	} else if done.Err != nil {
 		m.pendingUserMessage = nil
 	}
 
-	m.currentResponse.Reset()
-	m.currentReasoning.Reset()
 	wasAtBottom := m.viewport.AtBottom()
 	m.recalculateLayout()
 	if wasAtBottom {
@@ -184,14 +237,13 @@ func (m *Model) saveChat() tea.Cmd {
 	}
 }
 
-func (m *Model) promptToolCall() tea.Cmd {
+func (m *Model) promptToolCall(toolCalls []*aipb.ToolCall) tea.Cmd {
 	return func() tea.Msg {
-		if len(m.currentToolCalls) == 0 {
+		if len(toolCalls) == 0 {
 			return nil
 		}
 
-		toolCall := m.currentToolCalls[0]
-		m.currentToolCalls = m.currentToolCalls[1:]
+		toolCall := toolCalls[0]
 
 		if toolCall.Name == "execute_shell_command" {
 			args, err := tools.ParseShellCommandArgs(toolCall.Arguments)
@@ -224,9 +276,6 @@ func (m *Model) executeToolCall() tea.Cmd {
 }
 
 func (m *Model) continueWithToolResult() tea.Cmd {
-	m.currentResponse.Reset()
-	m.currentReasoning.Reset()
-	m.currentToolCalls = nil
 	m.streaming = true
 	return m.startStreaming()
 }

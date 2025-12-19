@@ -42,17 +42,16 @@ func NewRenderer(width int) (*Renderer, error) {
 // ToMarkdown renders markdown content with syntax highlighting.
 // The index is used for caching. Use -1 for non-cached rendering.
 // Set finalized to true when the content is complete (enables full caching).
-func (r *Renderer) ToMarkdown(content string, index int, finalized bool) string {
+func (r *Renderer) ToMarkdown(blocks []Block, messageIndex int, finalized bool) string {
 	// Check cache first for the full content
-	if md, ok := r.mdCache[index]; ok {
+	if md, ok := r.mdCache[messageIndex]; ok {
 		return md
 	}
 
 	var sb strings.Builder
-	blocks := ParseBlocks(content)
 
 	for i, block := range blocks {
-		blockIndex := index*1_000_000_000 + i
+		blockIndex := messageIndex*1_000_000_000 + i
 		r.blockCache[blockIndex] = block
 		if md, ok := r.blockMdCache[blockIndex]; ok {
 			sb.WriteString(md)
@@ -79,7 +78,7 @@ func (r *Renderer) ToMarkdown(content string, index int, finalized bool) string 
 	// Store in cache
 	result := sb.String()
 	if finalized {
-		r.mdCache[index] = result
+		r.mdCache[messageIndex] = result
 	}
 
 	return result

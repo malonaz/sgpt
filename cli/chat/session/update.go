@@ -1,16 +1,13 @@
 package session
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"io"
-	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
-	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"go.dalton.dog/bubbleup"
 	"golang.design/x/clipboard"
@@ -85,7 +82,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Copy navigated message content to clipboard
 		if msg.String() == "alt+w" && m.navigationMessageIndex != -1 {
-			content := m.runtimeMessages[m.navigationMessageIndex].Content
+			content := m.runtimeMessages[m.navigationMessageIndex].Content()
 			clipboard.Write(clipboard.FmtText, []byte(content))
 			cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
 			return m, tea.Batch(cmds...)
@@ -130,9 +127,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.cancelStream != nil {
 					m.cancelStream()
 				}
-				m.streaming = false
-				m.finalizeResponse(errUserInterrupt)
-				return m, m.saveChat()
+				return m, nil // Wait for StreamDoneMsg
 			}
 			m.quitting = true
 			return m, tea.Quit
@@ -187,58 +182,39 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.recalculateLayout()
 
-	case types.RenderStreamChunkTickMsg:
-		if m.streaming && m.pendingRender {
-			m.lastRenderTime = time.Now()
-			wasAtBottom := m.viewport.AtBottom()
-			m.viewport.SetContent(m.renderMessages())
-			if wasAtBottom {
-				m.viewport.GotoBottom()
-			}
+	case types.StreamRenderMsg:
+		wasAtBottom := m.viewport.AtBottom()
+		m.viewport.SetContent(m.renderMessages())
+		if wasAtBottom {
+			m.viewport.GotoBottom()
 		}
-		m.pendingRender = false
 		return m, tea.Batch(cmds...)
 
-	case *aiservicepb.TextToTextStreamResponse:
-		switch content := msg.Content.(type) {
-		case *aiservicepb.TextToTextStreamResponse_ContentChunk:
-			m.currentResponse.WriteString(content.ContentChunk)
-		case *aiservicepb.TextToTextStreamResponse_ReasoningChunk:
-			m.currentReasoning.WriteString(content.ReasoningChunk)
-		case *aiservicepb.TextToTextStreamResponse_ToolCall:
-			m.currentToolCalls = append(m.currentToolCalls, content.ToolCall)
+	case types.StreamDoneMsg:
+		m.streaming = false
+		m.cancelStream = nil
+
+		if msg.Err != nil && msg.Err != context.Canceled {
+			if status.Code(msg.Err) != codes.Canceled {
+				m.err = msg.Err
+			}
 		}
 
-		// Throttled rendering: only re-render if enough time has passed
-		if !m.pendingRender {
-			// Schedule a render tick if we haven't already
-			m.pendingRender = true
-			cmds = append(cmds, tea.Tick(renderThrottleInterval, func(t time.Time) tea.Msg {
-				return types.RenderStreamChunkTickMsg{}
-			}))
+		m.finalizeResponse(msg)
+
+		if len(msg.ToolCalls) > 0 && msg.Err == nil {
+			cmds = append(cmds, m.saveChat())
+			cmds = append(cmds, m.promptToolCall(msg.ToolCalls))
+			return m, tea.Batch(cmds...)
+		}
+
+		if msg.Err == nil {
+			return m, m.saveChat()
 		}
 		return m, tea.Batch(cmds...)
 
 	case types.StreamErrorMsg:
-		if errors.Is(msg.Err, io.EOF) {
-			m.streaming = false
-			m.cancelStream = nil
-			m.finalizeResponse(nil)
-
-			if len(m.currentToolCalls) > 0 {
-				cmds = append(cmds, m.saveChat())
-				cmds = append(cmds, m.promptToolCall())
-				return m, tea.Batch(cmds...)
-			}
-			return m, m.saveChat()
-		}
-
-		m.streaming = false
-		m.cancelStream = nil
-		if msg.Err != nil && status.Code(msg.Err) != codes.Canceled {
-			m.err = msg.Err
-		}
-		m.finalizeResponse(msg.Err)
+		m.err = msg.Err
 		return m, nil
 
 	case types.ChatSavedMsg:
@@ -266,7 +242,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case types.ToolCancelledMsg:
-		m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessageWithError("", "[Tool execution cancelled by user]", errUserInterrupt))
+		m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage("", "[Tool execution cancelled by user]").WithError(errUserInterrupt))
 		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 		return m, nil

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -67,9 +66,6 @@ type Model struct {
 	height             int
 	ready              bool
 	streaming          bool
-	currentResponse    strings.Builder
-	currentReasoning   strings.Builder
-	currentToolCalls   []*aipb.ToolCall
 	err                error
 	quitting           bool
 	windowFocused      bool
@@ -98,11 +94,6 @@ type Model struct {
 
 	// Tracks the index of the message we're currently navigating. (-1 if none is selected).
 	navigationMessageIndex int
-
-	// Streaming render throttle
-	renderThrottleTicker *time.Ticker
-	pendingRender        bool
-	lastRenderTime       time.Time
 }
 
 // New creates a new chat session model.

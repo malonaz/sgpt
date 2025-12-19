@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strings"
+
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/internal/configuration"
@@ -44,7 +46,7 @@ type RuntimeMessage struct {
 	Type RuntimeMessageType
 
 	// Content is the text content of the message.
-	Content string
+	content string
 
 	// Blocks contains the parsed markdown blocks for rendering.
 	Blocks []markdown.Block
@@ -55,15 +57,32 @@ type RuntimeMessage struct {
 	// ToolCallID is the ID of the tool call this result is for (for RuntimeMessageTypeToolResult).
 	ToolCallID string
 
+	// IsStreaming indicates this message is currently being streamed.
+	IsStreaming bool
+
 	// Err contains any error associated with this message (e.g., interrupted, failed).
 	Err error
+}
+
+func (m *RuntimeMessage) Content() string {
+	return strings.Trim(m.content, "\n")
+}
+
+func (m *RuntimeMessage) WithError(err error) *RuntimeMessage {
+	m.Err = err
+	return m
+}
+
+func (m *RuntimeMessage) WithStreaming() *RuntimeMessage {
+	m.IsStreaming = true
+	return m
 }
 
 // NewUserMessage creates a new user runtime message.
 func NewUserMessage(content string) *RuntimeMessage {
 	return &RuntimeMessage{
 		Type:    RuntimeMessageTypeUser,
-		Content: content,
+		content: content,
 		Blocks:  markdown.ParseBlocks(content),
 	}
 }
@@ -72,18 +91,8 @@ func NewUserMessage(content string) *RuntimeMessage {
 func NewAssistantMessage(content string) *RuntimeMessage {
 	return &RuntimeMessage{
 		Type:    RuntimeMessageTypeAssistant,
-		Content: content,
+		content: content,
 		Blocks:  markdown.ParseBlocks(content),
-	}
-}
-
-// NewAssistantMessageWithError creates a new assistant runtime message with an error.
-func NewAssistantMessageWithError(content string, err error) *RuntimeMessage {
-	return &RuntimeMessage{
-		Type:    RuntimeMessageTypeAssistant,
-		Content: content,
-		Blocks:  markdown.ParseBlocks(content),
-		Err:     err,
 	}
 }
 
@@ -91,7 +100,7 @@ func NewAssistantMessageWithError(content string, err error) *RuntimeMessage {
 func NewThinkingMessage(content string) *RuntimeMessage {
 	return &RuntimeMessage{
 		Type:    RuntimeMessageTypeThinking,
-		Content: content,
+		content: content,
 		Blocks:  markdown.ParseBlocks(content),
 	}
 }
@@ -100,7 +109,7 @@ func NewThinkingMessage(content string) *RuntimeMessage {
 func NewToolCallMessage(toolCall *aipb.ToolCall) *RuntimeMessage {
 	return &RuntimeMessage{
 		Type:     RuntimeMessageTypeToolCall,
-		Content:  toolCall.Arguments,
+		content:  toolCall.Arguments,
 		Blocks:   markdown.ParseBlocks(toolCall.Arguments),
 		ToolCall: toolCall,
 	}
@@ -110,20 +119,9 @@ func NewToolCallMessage(toolCall *aipb.ToolCall) *RuntimeMessage {
 func NewToolResultMessage(toolCallID, content string) *RuntimeMessage {
 	return &RuntimeMessage{
 		Type:       RuntimeMessageTypeToolResult,
-		Content:    content,
+		content:    content,
 		Blocks:     markdown.ParseBlocks(content),
 		ToolCallID: toolCallID,
-	}
-}
-
-// NewToolResultMessageWithError creates a new tool result runtime message with an error.
-func NewToolResultMessageWithError(toolCallID, content string, err error) *RuntimeMessage {
-	return &RuntimeMessage{
-		Type:       RuntimeMessageTypeToolResult,
-		Content:    content,
-		Blocks:     markdown.ParseBlocks(content),
-		ToolCallID: toolCallID,
-		Err:        err,
 	}
 }
 
@@ -131,15 +129,9 @@ func NewToolResultMessageWithError(toolCallID, content string, err error) *Runti
 func NewSystemMessage(content string) *RuntimeMessage {
 	return &RuntimeMessage{
 		Type:    RuntimeMessageTypeSystem,
-		Content: content,
+		content: content,
 		Blocks:  markdown.ParseBlocks(content),
 	}
-}
-
-// UpdateContent updates the content and re-parses blocks.
-func (rm *RuntimeMessage) UpdateContent(content string) {
-	rm.Content = content
-	rm.Blocks = markdown.ParseBlocks(content)
 }
 
 // RuntimeMessagesFromProto converts protobuf messages to runtime messages.
@@ -175,4 +167,16 @@ func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
 	}
 
 	return result
+}
+
+// AppendContent appends to the content and re-parses blocks.
+func (rm *RuntimeMessage) AppendContent(content string) {
+	rm.content += content
+	rm.Blocks = markdown.ParseBlocks(rm.content)
+}
+
+// Finalize marks the message as no longer streaming and sets an error if provided.
+func (rm *RuntimeMessage) Finalize(err error) {
+	rm.IsStreaming = false
+	rm.Err = err
 }

@@ -33,9 +33,7 @@ func (m *Model) View() string {
 		b.WriteString(m.renderConfirmDialog())
 		b.WriteString("\n")
 	} else {
-		if m.streaming {
-			//b.WriteString(fmt.Sprintf("%s Generating...\n", m.spinner.View()))
-		} else {
+		if !m.streaming {
 			b.WriteString(styles.TextAreaStyle.Render(m.textarea.View()))
 			b.WriteString("\n")
 		}
@@ -101,18 +99,18 @@ func (m *Model) renderMessages() string {
 
 		switch rm.Type {
 		case types.RuntimeMessageTypeUser:
-			rendered := m.renderer.ToMarkdown(rm.Content, i, true)
+			rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
 			style := m.getStyle(styles.UserMessageStyle, i)
 			writeString(style.Render(rendered))
 
 		case types.RuntimeMessageTypeThinking:
 			style := m.getStyle(styles.AIThoughtStyle, i)
-			rendered := m.renderer.ToMarkdown(rm.Content, i, true)
+			rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
 			writeString(style.Render(rendered))
 
 		case types.RuntimeMessageTypeAssistant:
 			style := m.getStyle(styles.AIMessageStyle, i)
-			rendered := m.renderer.ToMarkdown(rm.Content, i, true)
+			rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
 			writeString(style.Render(rendered))
 
 			if rm.Err != nil {
@@ -133,34 +131,14 @@ func (m *Model) renderMessages() string {
 			writeString(styles.ToolLabelStyle.Render("⚡ Tool Result:"))
 			writeString("\n")
 			if rm.Err != nil {
-				writeString(styles.ToolResultStyle.Render(rm.Content))
+				writeString(styles.ToolResultStyle.Render(rm.Content()))
 			} else {
-				rendered := m.renderer.ToMarkdown(rm.Content, i, true)
+				rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
 				writeString(styles.ToolResultStyle.Render(rendered))
 			}
 
 		case types.RuntimeMessageTypeSystem:
-			writeString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(rm.Content, styles.TruncateLength))))
-		}
-	}
-
-	// Render streaming content
-	if m.streaming || m.currentResponse.Len() > 0 || m.currentReasoning.Len() > 0 {
-		writeString("\n\n")
-		if m.currentReasoning.Len() > 0 {
-			messageIndex := len(m.runtimeMessages)
-			rendered := m.renderer.ToMarkdown(m.currentReasoning.String(), messageIndex, false)
-			style := m.getStyle(styles.AIThoughtStyle, -1)
-			writeString(style.Render(rendered))
-		}
-		if m.currentResponse.Len() > 0 {
-			messageIndex := len(m.runtimeMessages) + 1
-			rendered := m.renderer.ToMarkdown(m.currentResponse.String(), messageIndex, false)
-			style := m.getStyle(styles.AIMessageStyle, -1)
-			writeString(style.Render(rendered))
-		}
-		if m.streaming {
-			writeString(styles.SpinnerStyle.Render("▋"))
+			writeString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(rm.Content(), styles.TruncateLength))))
 		}
 	}
 
