@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -23,6 +24,10 @@ import (
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/tools"
 	"github.com/malonaz/sgpt/store"
+)
+
+const (
+	renderThrottleInterval = 66 * time.Millisecond
 )
 
 var (
@@ -90,6 +95,11 @@ type Model struct {
 
 	// Tracks the index of the message we're currently navigating. (-1 if none is selected).
 	navigationMessageIndex int
+
+	// Streaming render throttle
+	renderThrottleTicker *time.Ticker
+	pendingRender        bool
+	lastRenderTime       time.Time
 
 	// Sub-views
 	viewerMode  bool

@@ -7,7 +7,6 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//internal/configuration",
-        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
     ],
 )

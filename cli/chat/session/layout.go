@@ -53,7 +53,11 @@ func (m *Model) recalculateLayout() {
 	viewportHeight := m.height - styles.HeaderHeight
 	viewportWidth := m.width
 
-	viewportHeight -= m.textarea.Height() + styles.InputBorderHeight
+	if m.streaming {
+		//viewportHeight -= styles.TextAreaStyle.GetVerticalFrameSize()
+	} else {
+		viewportHeight -= m.textarea.Height() + styles.InputBorderHeight
+	}
 
 	if m.err != nil {
 		viewportHeight -= 1

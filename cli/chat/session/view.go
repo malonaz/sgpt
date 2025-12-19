@@ -38,7 +38,7 @@ func (m *Model) View() string {
 		b.WriteString("\n")
 	} else {
 		if m.streaming {
-			b.WriteString(fmt.Sprintf("%s Generating...\n", m.spinner.View()))
+			//b.WriteString(fmt.Sprintf("%s Generating...\n", m.spinner.View()))
 		} else {
 			b.WriteString(styles.TextAreaStyle.Render(m.textarea.View()))
 			b.WriteString("\n")
@@ -85,6 +85,7 @@ func (m *Model) renderTitle() string {
 }
 
 func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style {
+	style = style.Width(m.width - styles.MessageHorizontalFrameSize())
 	if m.navigationMessageIndex == -1 {
 		return style
 	}
@@ -177,7 +178,8 @@ func (m *Model) renderMessages() string {
 		}
 		if m.currentResponse.Len() > 0 {
 			rendered := m.renderer.ToMarkdown(m.currentResponse.String(), -1, false)
-			writeString(styles.AIMessageStyle.Render(rendered))
+			style := m.getStyle(styles.AIMessageStyle, -1)
+			writeString(style.Render(rendered))
 		}
 		if m.streaming {
 			writeString(styles.SpinnerStyle.Render("▋"))

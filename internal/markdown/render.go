@@ -162,7 +162,7 @@ func (r *Renderer) toMarkdownBlockIncremental(block Block, blockIndex int) strin
 	if r.incrementalBlockMdCache == "" {
 		return latestLine
 	}
-	return r.incrementalBlockMdCache + "\n" + latestLine
+	return r.incrementalBlockMdCache + latestLine
 }
 
 // toMarkdownBlock renders a single block of markdown content.

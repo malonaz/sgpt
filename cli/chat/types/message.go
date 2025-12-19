@@ -1,14 +1,5 @@
 package types
 
-import (
-	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
-)
-
-// StreamChunkMsg represents a chunk of streamed response.
-type StreamChunkMsg struct {
-	Response *aiservicepb.TextToTextStreamResponse
-}
-
 // StreamErrorMsg represents a streaming error (including EOF).
 type StreamErrorMsg struct {
 	Err error
@@ -24,3 +15,5 @@ type ToolResultMsg struct {
 
 // ToolCancelledMsg is sent when tool execution is cancelled.
 type ToolCancelledMsg struct{}
+
+type RenderStreamChunkTickMsg struct{}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -38,7 +39,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case spinner.TickMsg, cursor.BlinkMsg, tea.MouseMsg:
 		// Skip logging for spinner ticks
 		default:
-			log.Info("update completed", "msg_type", fmt.Sprintf("%T", msg), "navigation_index", m.navigationMessageIndex)
+			if false {
+				log.Info("update completed", "msg_type", fmt.Sprintf("%T", msg), "navigation_index", m.navigationMessageIndex)
+			}
 		}
 	}()
 
@@ -193,6 +196,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.recalculateLayout()
 
+	case types.RenderStreamChunkTickMsg:
+		if m.streaming && m.pendingRender {
+			m.lastRenderTime = time.Now()
+			wasAtBottom := m.viewport.AtBottom()
+			m.viewport.SetContent(m.renderMessages())
+			if wasAtBottom {
+				m.viewport.GotoBottom()
+			}
+		}
+		m.pendingRender = false
+		return m, tea.Batch(cmds...)
+
 	case *aiservicepb.TextToTextStreamResponse:
 		switch content := msg.Content.(type) {
 		case *aiservicepb.TextToTextStreamResponse_ContentChunk:
@@ -202,12 +217,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case *aiservicepb.TextToTextStreamResponse_ToolCall:
 			m.currentToolCalls = append(m.currentToolCalls, content.ToolCall)
 		}
-		wasAtBottom := m.viewport.AtBottom()
-		m.viewport.SetContent(m.renderMessages())
-		if wasAtBottom {
-			m.viewport.GotoBottom()
+
+		// Throttled rendering: only re-render if enough time has passed
+		if !m.pendingRender {
+			// Schedule a render tick if we haven't already
+			m.pendingRender = true
+			cmds = append(cmds, tea.Tick(renderThrottleInterval, func(t time.Time) tea.Msg {
+				return types.RenderStreamChunkTickMsg{}
+			}))
 		}
-		return m, nil
+		return m, tea.Batch(cmds...)
 
 	case types.StreamErrorMsg:
 		if errors.Is(msg.Err, io.EOF) {
