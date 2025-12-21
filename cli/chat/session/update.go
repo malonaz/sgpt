@@ -180,6 +180,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			switch m.focusedComponent {
 			case FocusTextarea:
+				km := inputKeyMap
+				awaitingInput := m.streaming || m.awaitingConfirm
+
+				switch {
+				case key.Matches(msg, km.PreviousHistoryEntry):
+					if awaitingInput {
+						break
+					}
+					if entry, ok := m.history.Previous(m.textarea.Value()); ok {
+						m.textarea.SetValue(entry)
+						m.historyNavigating = true
+						m.adjustTextareaHeight()
+					}
+					return m, nil
+				case key.Matches(msg, km.NextHistoryEntry):
+					if awaitingInput {
+						break
+					}
+					if entry, ok := m.history.Next(); ok {
+						m.textarea.SetValue(entry)
+						m.historyNavigating = true
+						m.adjustTextareaHeight()
+					}
+					return m, nil
+				}
 
 			case FocusViewport:
 				km := keyMapViewport
@@ -247,25 +272,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
 						return m, tea.Batch(cmds...)
 					}
-				}
-			}
-		}
-
-		if msg.Alt && !m.streaming && !m.awaitingConfirm {
-			switch msg.String() {
-			case "alt+p":
-				if entry, ok := m.history.Previous(m.textarea.Value()); ok {
-					m.textarea.SetValue(entry)
-					m.historyNavigating = true
-					m.adjustTextareaHeight()
-					return m, nil
-				}
-			case "alt+n":
-				if entry, ok := m.history.Next(); ok {
-					m.textarea.SetValue(entry)
-					m.historyNavigating = true
-					m.adjustTextareaHeight()
-					return m, nil
 				}
 			}
 		}

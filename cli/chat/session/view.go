@@ -41,11 +41,6 @@ func (m *Model) View() string {
 		b.WriteString(styles.HelpStyle.Render("Press Y to confirm, N or Esc to cancel"))
 	}
 
-	if m.err != nil {
-		b.WriteString("\n")
-		b.WriteString(styles.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
-	}
-
 	return m.alertClipboardWrite.Render(b.String())
 }
 
