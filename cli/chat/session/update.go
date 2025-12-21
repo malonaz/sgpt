@@ -252,11 +252,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 
 				case key.Matches(msg, km.ScrollUp):
-					m.viewport.LineUp(1)
+					m.viewport.LineUp(3)
 					return m, nil
 
 				case key.Matches(msg, km.ScrollDown):
-					m.viewport.LineDown(1)
+					m.viewport.LineDown(3)
 					return m, nil
 
 				case key.Matches(msg, km.OpenInEditor):

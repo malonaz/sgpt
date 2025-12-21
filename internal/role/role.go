@@ -1,16 +1,35 @@
 package role
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
+	"os"
 	"os/user"
 	"runtime"
-	"strings"
+	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/internal/configuration"
 )
+
+//go:embed system_prompt.tmpl
+var systemPromptTemplate string
+
+// TemplateData for rendering the system prompt.
+type TemplateData struct {
+	Username   string
+	OS         string
+	Arch       string
+	Shell      string
+	Home       string
+	CWD        string
+	Term       string
+	RolePrompt string
+}
 
 // Opts for a role.
 type Opts struct {
@@ -20,9 +39,8 @@ type Opts struct {
 
 // GetOpts on the given command.
 func GetOpts(cmd *cobra.Command, defaultRole string, roles []*configuration.Role) *Opts {
-	allRoles := append(defaultRoles, roles...)
 	roleNameToRole := map[string]*configuration.Role{}
-	for _, role := range allRoles {
+	for _, role := range roles {
 		if _, ok := roleNameToRole[role.Name]; ok {
 			panic(fmt.Sprintf("Duplicate role name (%s)", role.Name))
 		}
@@ -39,29 +57,65 @@ func GetOpts(cmd *cobra.Command, defaultRole string, roles []*configuration.Role
 	return opts
 }
 
-// Parse role. Returns nil if none is specified.
+// Parse role. Returns a role with the system prompt wrapper applied.
 func (o *Opts) Parse() (*configuration.Role, error) {
-	if o.RoleName == "" {
-		return nil, nil
+	// Gather template data.
+	u, err := user.Current()
+	if err != nil {
+		return nil, errors.Wrap(err, "getting current user")
+	}
+	username := u.Username
+	if username == "" {
+		username = u.Name
 	}
 
-	role, ok := o.roleNameToRole[o.RoleName]
-	if !ok {
-		return nil, errors.Errorf("unknown role (%s)", o.RoleName)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, errors.Wrap(err, "getting home directory")
 	}
-	if strings.Contains(role.Prompt, "{{ username }}") {
-		user, err := user.Current()
-		if err != nil {
-			return nil, errors.Wrap(err, "getting current user")
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, errors.Wrap(err, "getting current working directory")
+	}
+
+	data := TemplateData{
+		Username: username,
+		OS:       runtime.GOOS,
+		Arch:     runtime.GOARCH,
+		Shell:    os.Getenv("SHELL"),
+		Home:     home,
+		CWD:      cwd,
+		Term:     os.Getenv("TERM"),
+	}
+
+	// Build the result role.
+	result := &configuration.Role{}
+
+	// If a role is specified, inject its prompt and copy other fields.
+	if o.RoleName != "" {
+		role, ok := o.roleNameToRole[o.RoleName]
+		if !ok {
+			return nil, errors.Errorf("unknown role (%s)", o.RoleName)
 		}
-		username := user.Username
-		if username == "" {
-			username = user.Name
-		}
-		role.Prompt = strings.ReplaceAll(role.Prompt, "{{ username }}", user.Username)
+		result.Name = role.Name
+		result.Alias = role.Alias
+		result.Model = role.Model
+		result.Files = role.Files
+		data.RolePrompt = role.Prompt
 	}
-	if strings.Contains(role.Prompt, "{{ os }}") {
-		role.Prompt = strings.ReplaceAll(role.Prompt, "{{ os }}", runtime.GOOS)
+
+	// Render template.
+	tmpl, err := template.New("system_prompt").Funcs(sprig.FuncMap()).Parse(systemPromptTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing system prompt template")
 	}
-	return role, nil
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, errors.Wrap(err, "executing system prompt template")
+	}
+
+	result.Prompt = buf.String()
+	return result, nil
 }

@@ -53,6 +53,9 @@ type Model struct {
 	opts               types.ChatOptions
 	additionalMessages []*aipb.Message
 	injectedFiles      []string
+	totalInputTokens   int32
+	totalOutputTokens  int32
+	lastInputTokens    int32
 
 	// Runtime messages for display (decoupled from proto messages)
 	runtimeMessages        []*types.RuntimeMessage
@@ -238,8 +241,32 @@ func (m *Model) setTitle() {
 		toolsStr = " 🔧"
 	}
 
+	tokenStr := fmt.Sprintf("↑%s ↓%s", formatTokenCount(m.totalInputTokens), formatTokenCount(m.totalOutputTokens))
+
+	// Calculate context usage percentage
+	contextStr := ""
+	if contextLimit := m.opts.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
+		usagePercent := float64(m.lastInputTokens) / float64(contextLimit) * 100
+		contextStr = fmt.Sprintf(" │ 📦 %.0f%%", usagePercent)
+	}
+
+	modelRn := &aipb.ModelResourceName{}
+	modelRn.UnmarshalString(m.opts.Model.Name)
+	modelStr := fmt.Sprintf("%s/%s", modelRn.Provider, modelRn.Model)
+
 	m.title = fmt.Sprintf(
-		" 🤖 %s │ 👤 %s │ 💬 %s │ 🧠 %s%s ",
-		m.opts.Model, roleName, m.opts.ChatID, reasoningStr, toolsStr,
+		" 🤖 %s │ 👤 %s │ 💬 %s │ 🧠 %s │ 📊 %s%s%s ",
+		modelStr, roleName, m.opts.ChatID, reasoningStr, tokenStr, contextStr, toolsStr,
 	)
+}
+
+// formatTokenCount formats a token count with appropriate suffix (k for thousands, m for millions).
+func formatTokenCount(count int32) string {
+	if count < 1000 {
+		return fmt.Sprintf("%d", count)
+	}
+	if count < 1000000 {
+		return fmt.Sprintf("%.1fk", float64(count)/1000)
+	}
+	return fmt.Sprintf("%.1fm", float64(count)/1000000)
 }

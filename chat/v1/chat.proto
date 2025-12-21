@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package chat.v1;
 
-import "buf/validate/validate.proto";
 import "google/api/resource.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/timestamp.proto";
@@ -31,48 +30,9 @@ message Chat {
   // The deletion timestamp of the chat.
   google.protobuf.Timestamp delete_time = 4 [(malonaz.codegen.model.v1.field_opts).nullable = true];
 
-  // The current state of the chat.
-  ChatState state = 5 [(buf.validate.field).enum = {
-    defined_only: true
-    not_in: [0]
-  }];
-
-  // Classification of this chat.
-  ChatClassification classification = 6 [(buf.validate.field).enum = {defined_only: true}];
-
-  // Transcript for a chat.
-  ChatTranscript transcript = 7 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
-
   // Metadata for this chat.
-  ChatMetadata metadata = 10 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
-}
-
-// Represents the state of a chat.
-enum ChatState {
-  // Used to detect an unset field.
-  CHAT_STATE_UNSPECIFIED = 0;
-}
-
-// Represents the classification of a chat.
-enum ChatClassification {
-  // Used to detect an unset field.
-  CHAT_CLASSIFICATION_UNSPECIFIED = 0;
-
-  // A legitimate new or existing customer.
-  CHAT_CLASSIFICATION_LEGITIMATE = 1;
-
-  // Unsolicited sales/marketing (incoming spam)
-  CHAT_CLASSIFICATION_SOLICITATION = 2;
-
-  // Likely spam or robocall.
-  CHAT_CLASSIFICATION_SPAM = 3;
-
-  // Aborted/hung up before conversation started
-  CHAT_CLASSIFICATION_ABORTED = 4;
+  ChatMetadata metadata = 5 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
 }
 
 // Metadata for a chat.
 message ChatMetadata {}
-
-// Transcript for a chat.
-message ChatTranscript {}

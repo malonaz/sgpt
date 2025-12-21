@@ -109,12 +109,6 @@ func (m *Model) recalculateLayout() {
 	if !m.streaming {
 		viewportHeight -= m.textarea.Height() + styles.TextAreaStyle.GetVerticalFrameSize()
 	}
-	log.Info("recalculateLayout", "h", m.height, "lines", m.titleHeight, "ta", m.textarea.Height(), "tas", styles.TextAreaStyle.GetVerticalFrameSize())
-
-	if m.err != nil {
-		viewportHeight -= 1
-	}
-
 	if viewportHeight < styles.MinViewportHeight {
 		viewportHeight = styles.MinViewportHeight
 	}

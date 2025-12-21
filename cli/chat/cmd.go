@@ -22,7 +22,7 @@ import (
 	"github.com/malonaz/sgpt/store"
 )
 
-var modelNames []string
+var models []*aipb.Model
 
 // NewCmd instantiates and returns the chat command.
 func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient) *cobra.Command {
@@ -58,6 +58,24 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			// Resolve model alias
 			opts.Model, err = config.ResolveModelAlias(opts.Model)
 			cobra.CheckErr(err)
+
+			// Fetch models if not already cached
+			if len(models) == 0 {
+				err := fetchModels(ctx, aiClient)
+				cobra.CheckErr(err)
+			}
+
+			// Find the model by name
+			var selectedModel *aipb.Model
+			for _, model := range models {
+				if model.Name == opts.Model {
+					selectedModel = model
+					break
+				}
+			}
+			if selectedModel == nil {
+				return fmt.Errorf("model not found: %s", opts.Model)
+			}
 
 			// Parse reasoning effort.
 			var reasoningEffort aipb.ReasoningEffort
@@ -123,6 +141,12 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 
 			// Build additional messages (files + role)
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
+			// Inject role
+			message := &aipb.Message{
+				Role:    aipb.Role_ROLE_SYSTEM,
+				Content: parsedRole.Prompt,
+			}
+			additionalMessages = append(additionalMessages, message)
 
 			// Inject files
 			for _, f := range files {
@@ -133,18 +157,9 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 				additionalMessages = append(additionalMessages, message)
 			}
 
-			// Inject role
-			if parsedRole != nil {
-				message := &aipb.Message{
-					Role:    aipb.Role_ROLE_SYSTEM,
-					Content: parsedRole.Prompt,
-				}
-				additionalMessages = append(additionalMessages, message)
-			}
-
 			// Create chat options
 			chatOpts := types.ChatOptions{
-				Model:           opts.Model,
+				Model:           selectedModel,
 				Role:            parsedRole,
 				MaxTokens:       opts.MaxTokens,
 				Temperature:     opts.Temperature,
@@ -191,49 +206,52 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage (shell commands, etc)")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if len(modelNames) == 0 {
-			err := getModelNames(cmd.Context(), aiClient)
+		if len(models) == 0 {
+			err := fetchModels(cmd.Context(), aiClient)
 			cobra.CheckErr(err)
 		}
-		return filterModels(modelNames, toComplete), cobra.ShellCompDirectiveNoFileComp
+		return filterModels(models, toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 
 	return cmd
 }
 
-func filterModels(models []string, prefix string) []string {
+func filterModels(models []*aipb.Model, prefix string) []string {
+	var modelNames []string
+	for _, model := range models {
+		modelNames = append(modelNames, model.Name)
+	}
+
 	if prefix == "" {
-		return models
+		return modelNames
 	}
 
 	var matches []string
 	lowerPrefix := strings.ToLower(prefix)
 
-	for _, model := range models {
-		if strings.Contains(strings.ToLower(model), lowerPrefix) {
-			matches = append(matches, model)
+	for _, name := range modelNames {
+		if strings.Contains(strings.ToLower(name), lowerPrefix) {
+			matches = append(matches, name)
 		}
 	}
 
 	return matches
 }
 
-func getModelNames(ctx context.Context, aiClient aiservicepb.AiClient) error {
+func fetchModels(ctx context.Context, aiClient aiservicepb.AiClient) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name")
+	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
 
 	listModelsRequest := &aiservicepb.ListModelsRequest{
 		Parent: "providers/-",
 	}
 
-	models, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
+	fetchedModels, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
 	if err != nil {
 		return err
 	}
-	for _, model := range models {
-		modelNames = append(modelNames, model.Name)
-	}
+	models = fetchedModels
 	return nil
 }

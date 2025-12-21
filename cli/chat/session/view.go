@@ -23,16 +23,16 @@ func (m *Model) View() string {
 	var b strings.Builder
 
 	b.WriteString(m.renderTitle())
-	b.WriteString("\n")
 
-	b.WriteString(styles.ViewportStyle.Render(m.viewport.View()))
 	b.WriteString("\n")
+	b.WriteString(styles.ViewportStyle.Render(m.viewport.View()))
 
 	if m.awaitingConfirm && m.pendingToolArgs != nil {
-		b.WriteString(m.renderConfirmDialog())
 		b.WriteString("\n")
+		b.WriteString(m.renderConfirmDialog())
 	} else {
 		if !m.streaming {
+			b.WriteString("\n")
 			b.WriteString(styles.TextAreaStyle.Render(m.textarea.View()))
 		}
 	}

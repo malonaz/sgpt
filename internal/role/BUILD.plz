@@ -1,12 +1,11 @@
 go_library(
     name = "role",
-    srcs = [
-        "role.go",
-        "roles.go",
-    ],
+    srcs = ["role.go"],
+    resources = ["system_prompt.tmpl"],
     visibility = ["PUBLIC"],
     deps = [
         "//internal/configuration",
+        "//third_party/go:github.com__Masterminds__sprig__v3",
         "//third_party/go:github.com__pkg__errors",
         "//third_party/go:github.com__spf13__cobra",
     ],

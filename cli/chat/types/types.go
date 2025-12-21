@@ -11,7 +11,7 @@ import (
 
 // ChatOptions holds the options for the chat session.
 type ChatOptions struct {
-	Model           string
+	Model           *aipb.Model
 	Role            *configuration.Role
 	MaxTokens       int32
 	Temperature     float64

@@ -70,7 +70,7 @@ func (m *Model) startStreaming() tea.Cmd {
 		}
 
 		request := &aiservicepb.TextToTextStreamRequest{
-			Model:    opts.Model,
+			Model:    opts.Model.Name,
 			Messages: messages,
 			Tools:    toolsList,
 			Configuration: &aiservicepb.TextToTextConfiguration{
@@ -150,6 +150,22 @@ func (m *Model) startStreaming() tea.Cmd {
 			}
 
 			switch content := response.Content.(type) {
+			case *aiservicepb.TextToTextStreamResponse_ModelUsage:
+				usage := content.ModelUsage
+				if usage.InputToken != nil {
+					m.totalInputTokens += usage.InputToken.Quantity
+					m.lastInputTokens = usage.InputToken.Quantity
+				}
+				if usage.OutputToken != nil {
+					m.totalOutputTokens += usage.OutputToken.Quantity
+				}
+				if usage.OutputReasoningToken != nil {
+					m.totalOutputTokens += usage.OutputReasoningToken.Quantity
+				}
+				m.setTitle()
+				m.renderTitle()
+
+			case *aiservicepb.TextToTextStreamResponse_GenerationMetrics:
 			case *aiservicepb.TextToTextStreamResponse_ReasoningChunk:
 				reasoningContent.WriteString(content.ReasoningChunk)
 				if thinkingMsg == nil {

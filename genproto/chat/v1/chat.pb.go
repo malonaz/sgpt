@@ -7,7 +7,6 @@
 package v1
 
 import (
-	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "github.com/malonaz/core/genproto/codegen/model/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -26,112 +25,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Represents the state of a chat.
-type ChatState int32
-
-const (
-	// Used to detect an unset field.
-	ChatState_CHAT_STATE_UNSPECIFIED ChatState = 0
-)
-
-// Enum value maps for ChatState.
-var (
-	ChatState_name = map[int32]string{
-		0: "CHAT_STATE_UNSPECIFIED",
-	}
-	ChatState_value = map[string]int32{
-		"CHAT_STATE_UNSPECIFIED": 0,
-	}
-)
-
-func (x ChatState) Enum() *ChatState {
-	p := new(ChatState)
-	*p = x
-	return p
-}
-
-func (x ChatState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ChatState) Descriptor() protoreflect.EnumDescriptor {
-	return file_chat_v1_chat_proto_enumTypes[0].Descriptor()
-}
-
-func (ChatState) Type() protoreflect.EnumType {
-	return &file_chat_v1_chat_proto_enumTypes[0]
-}
-
-func (x ChatState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ChatState.Descriptor instead.
-func (ChatState) EnumDescriptor() ([]byte, []int) {
-	return file_chat_v1_chat_proto_rawDescGZIP(), []int{0}
-}
-
-// Represents the classification of a chat.
-type ChatClassification int32
-
-const (
-	// Used to detect an unset field.
-	ChatClassification_CHAT_CLASSIFICATION_UNSPECIFIED ChatClassification = 0
-	// A legitimate new or existing customer.
-	ChatClassification_CHAT_CLASSIFICATION_LEGITIMATE ChatClassification = 1
-	// Unsolicited sales/marketing (incoming spam)
-	ChatClassification_CHAT_CLASSIFICATION_SOLICITATION ChatClassification = 2
-	// Likely spam or robocall.
-	ChatClassification_CHAT_CLASSIFICATION_SPAM ChatClassification = 3
-	// Aborted/hung up before conversation started
-	ChatClassification_CHAT_CLASSIFICATION_ABORTED ChatClassification = 4
-)
-
-// Enum value maps for ChatClassification.
-var (
-	ChatClassification_name = map[int32]string{
-		0: "CHAT_CLASSIFICATION_UNSPECIFIED",
-		1: "CHAT_CLASSIFICATION_LEGITIMATE",
-		2: "CHAT_CLASSIFICATION_SOLICITATION",
-		3: "CHAT_CLASSIFICATION_SPAM",
-		4: "CHAT_CLASSIFICATION_ABORTED",
-	}
-	ChatClassification_value = map[string]int32{
-		"CHAT_CLASSIFICATION_UNSPECIFIED":  0,
-		"CHAT_CLASSIFICATION_LEGITIMATE":   1,
-		"CHAT_CLASSIFICATION_SOLICITATION": 2,
-		"CHAT_CLASSIFICATION_SPAM":         3,
-		"CHAT_CLASSIFICATION_ABORTED":      4,
-	}
-)
-
-func (x ChatClassification) Enum() *ChatClassification {
-	p := new(ChatClassification)
-	*p = x
-	return p
-}
-
-func (x ChatClassification) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ChatClassification) Descriptor() protoreflect.EnumDescriptor {
-	return file_chat_v1_chat_proto_enumTypes[1].Descriptor()
-}
-
-func (ChatClassification) Type() protoreflect.EnumType {
-	return &file_chat_v1_chat_proto_enumTypes[1]
-}
-
-func (x ChatClassification) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ChatClassification.Descriptor instead.
-func (ChatClassification) EnumDescriptor() ([]byte, []int) {
-	return file_chat_v1_chat_proto_rawDescGZIP(), []int{1}
-}
-
 // A chat represents a conversation between a [contact][user.v1.Contact] and an agent.
 type Chat struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -143,14 +36,8 @@ type Chat struct {
 	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	// The deletion timestamp of the chat.
 	DeleteTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=delete_time,json=deleteTime,proto3" json:"delete_time,omitempty"`
-	// The current state of the chat.
-	State ChatState `protobuf:"varint,5,opt,name=state,proto3,enum=chat.v1.ChatState" json:"state,omitempty"`
-	// Classification of this chat.
-	Classification ChatClassification `protobuf:"varint,6,opt,name=classification,proto3,enum=chat.v1.ChatClassification" json:"classification,omitempty"`
-	// Transcript for a chat.
-	Transcript *ChatTranscript `protobuf:"bytes,7,opt,name=transcript,proto3" json:"transcript,omitempty"`
 	// Metadata for this chat.
-	Metadata      *ChatMetadata `protobuf:"bytes,10,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Metadata      *ChatMetadata `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -213,27 +100,6 @@ func (x *Chat) GetDeleteTime() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *Chat) GetState() ChatState {
-	if x != nil {
-		return x.State
-	}
-	return ChatState_CHAT_STATE_UNSPECIFIED
-}
-
-func (x *Chat) GetClassification() ChatClassification {
-	if x != nil {
-		return x.Classification
-	}
-	return ChatClassification_CHAT_CLASSIFICATION_UNSPECIFIED
-}
-
-func (x *Chat) GetTranscript() *ChatTranscript {
-	if x != nil {
-		return x.Transcript
-	}
-	return nil
-}
-
 func (x *Chat) GetMetadata() *ChatMetadata {
 	if x != nil {
 		return x.Metadata
@@ -278,48 +144,11 @@ func (*ChatMetadata) Descriptor() ([]byte, []int) {
 	return file_chat_v1_chat_proto_rawDescGZIP(), []int{1}
 }
 
-// Transcript for a chat.
-type ChatTranscript struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ChatTranscript) Reset() {
-	*x = ChatTranscript{}
-	mi := &file_chat_v1_chat_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ChatTranscript) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ChatTranscript) ProtoMessage() {}
-
-func (x *ChatTranscript) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_v1_chat_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ChatTranscript.ProtoReflect.Descriptor instead.
-func (*ChatTranscript) Descriptor() ([]byte, []int) {
-	return file_chat_v1_chat_proto_rawDescGZIP(), []int{2}
-}
-
 var File_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
-	"\x12chat/v1/chat.proto\x12\achat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$malonaz/codegen/model/v1/model.proto\"\x92\x04\n" +
+	"\x12chat/v1/chat.proto\x12\achat.v1\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$malonaz/codegen/model/v1/model.proto\"\xcc\x02\n" +
 	"\x04Chat\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
 	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -327,26 +156,10 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\vupdate_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"updateTime\x12C\n" +
 	"\vdelete_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xba\xea\x0f\x02 \x01R\n" +
-	"deleteTime\x124\n" +
-	"\x05state\x18\x05 \x01(\x0e2\x12.chat.v1.ChatStateB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x05state\x12M\n" +
-	"\x0eclassification\x18\x06 \x01(\x0e2\x1b.chat.v1.ChatClassificationB\b\xbaH\x05\x82\x01\x02\x10\x01R\x0eclassification\x12?\n" +
-	"\n" +
-	"transcript\x18\a \x01(\v2\x17.chat.v1.ChatTranscriptB\x06\xba\xea\x0f\x02\x18\x01R\n" +
-	"transcript\x129\n" +
-	"\bmetadata\x18\n" +
-	" \x01(\v2\x15.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
+	"deleteTime\x129\n" +
+	"\bmetadata\x18\x05 \x01(\v2\x15.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
 	"\x12chat.sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\x0e\n" +
-	"\fChatMetadata\"\x10\n" +
-	"\x0eChatTranscript*'\n" +
-	"\tChatState\x12\x1a\n" +
-	"\x16CHAT_STATE_UNSPECIFIED\x10\x00*\xc2\x01\n" +
-	"\x12ChatClassification\x12#\n" +
-	"\x1fCHAT_CLASSIFICATION_UNSPECIFIED\x10\x00\x12\"\n" +
-	"\x1eCHAT_CLASSIFICATION_LEGITIMATE\x10\x01\x12$\n" +
-	" CHAT_CLASSIFICATION_SOLICITATION\x10\x02\x12\x1c\n" +
-	"\x18CHAT_CLASSIFICATION_SPAM\x10\x03\x12\x1f\n" +
-	"\x1bCHAT_CLASSIFICATION_ABORTED\x10\x04B*Z(github.com/malonaz/sgpt/genproto/chat/v1b\x06proto3"
+	"\fChatMetadataB*Z(github.com/malonaz/sgpt/genproto/chat/v1b\x06proto3"
 
 var (
 	file_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -360,29 +173,22 @@ func file_chat_v1_chat_proto_rawDescGZIP() []byte {
 	return file_chat_v1_chat_proto_rawDescData
 }
 
-var file_chat_v1_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_chat_v1_chat_proto_goTypes = []any{
-	(ChatState)(0),                // 0: chat.v1.ChatState
-	(ChatClassification)(0),       // 1: chat.v1.ChatClassification
-	(*Chat)(nil),                  // 2: chat.v1.Chat
-	(*ChatMetadata)(nil),          // 3: chat.v1.ChatMetadata
-	(*ChatTranscript)(nil),        // 4: chat.v1.ChatTranscript
-	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
+	(*Chat)(nil),                  // 0: chat.v1.Chat
+	(*ChatMetadata)(nil),          // 1: chat.v1.ChatMetadata
+	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_chat_v1_chat_proto_depIdxs = []int32{
-	5, // 0: chat.v1.Chat.create_time:type_name -> google.protobuf.Timestamp
-	5, // 1: chat.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
-	5, // 2: chat.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
-	0, // 3: chat.v1.Chat.state:type_name -> chat.v1.ChatState
-	1, // 4: chat.v1.Chat.classification:type_name -> chat.v1.ChatClassification
-	4, // 5: chat.v1.Chat.transcript:type_name -> chat.v1.ChatTranscript
-	3, // 6: chat.v1.Chat.metadata:type_name -> chat.v1.ChatMetadata
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	2, // 0: chat.v1.Chat.create_time:type_name -> google.protobuf.Timestamp
+	2, // 1: chat.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
+	2, // 2: chat.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
+	1, // 3: chat.v1.Chat.metadata:type_name -> chat.v1.ChatMetadata
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_chat_v1_chat_proto_init() }
@@ -395,14 +201,13 @@ func file_chat_v1_chat_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_v1_chat_proto_rawDesc), len(file_chat_v1_chat_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   3,
+			NumEnums:      0,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_chat_v1_chat_proto_goTypes,
 		DependencyIndexes: file_chat_v1_chat_proto_depIdxs,
-		EnumInfos:         file_chat_v1_chat_proto_enumTypes,
 		MessageInfos:      file_chat_v1_chat_proto_msgTypes,
 	}.Build()
 	File_chat_v1_chat_proto = out.File
