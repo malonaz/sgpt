@@ -149,12 +149,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case FocusTextarea:
 				m.focusedComponent = FocusViewport
 				m.textarea.Blur()
-				m.navigationMessageIndex = len(m.runtimeMessages) - 1 // Start at last message
+				if m.navigationMessageIndex == -1 {
+					m.toBottom()
+				}
 				m.viewport.SetContent(m.renderMessages())
 				m.scrollToNavigatedMessage()
 			case FocusViewport:
 				m.focusedComponent = FocusTextarea
-				m.navigationMessageIndex = -1 // Clear selection
 				m.viewport.SetContent(m.renderMessages())
 				m.textarea.Focus()
 				cmds = append(cmds, textarea.Blink)

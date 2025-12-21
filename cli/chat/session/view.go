@@ -1,4 +1,3 @@
-// file: cli/chat/session/view.go
 package session
 
 import (
@@ -58,10 +57,13 @@ func (m *Model) renderTitle() string {
 
 // getBlockIndicatorStyle returns the style for a block indicator.
 func (m *Model) getBlockIndicatorStyle(messageIndex, blockIndex int) lipgloss.Style {
-	if m.navigationBlockIndex != -1 && m.navigationMessageIndex == messageIndex && m.navigationBlockIndex == blockIndex {
-		return styles.BlockIndicatorSelectedStyle
+	if m.focusedComponent != FocusViewport {
+		return styles.BlockIndicatorStyle
 	}
-	return styles.BlockIndicatorStyle
+	if m.navigationMessageIndex != messageIndex || m.navigationBlockIndex != blockIndex {
+		return styles.BlockIndicatorStyle
+	}
+	return styles.BlockIndicatorSelectedStyle
 }
 
 // renderBlockWithIndicator renders a block with a left indicator bar.
@@ -82,7 +84,7 @@ func (m *Model) renderBlockWithIndicator(content string, messageIndex, blockInde
 
 func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style {
 	style = style.Width(m.width - styles.MessageHorizontalFrameSize())
-	if m.navigationMessageIndex == -1 {
+	if m.focusedComponent != FocusViewport {
 		return style
 	}
 	fg := styles.MessageUnselectedColor

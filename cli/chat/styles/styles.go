@@ -53,7 +53,7 @@ var (
 	BorderColor            = lipgloss.Color("#4B5563")
 	DividerColor           = lipgloss.Color("#374151")
 	CodeBgColor            = lipgloss.Color("#374151")
-	MessageSelectedColor   = lipgloss.Color("#10B981")
+	MessageSelectedColor   = PrimaryColor
 	MessageUnselectedColor = lipgloss.Color("#9CA3AF") // Dim gray
 	BlockIndicatorColor    = lipgloss.Color("#4B5563") // Default block indicator color
 )
@@ -89,7 +89,8 @@ var (
 			MarginRight(10)
 
 	AIThoughtStyle = lipgloss.NewStyle().
-			Inherit(AIMessageStyle).BorderForeground(ThoughtColor)
+			Inherit(AIMessageStyle).
+			BorderForeground(ThoughtColor)
 
 	// User message
 	UserLabelStyle = lipgloss.NewStyle().
