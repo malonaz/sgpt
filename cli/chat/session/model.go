@@ -56,7 +56,8 @@ type Model struct {
 
 	// Runtime messages for display (decoupled from proto messages)
 	runtimeMessages        []*types.RuntimeMessage
-	messageViewportOffsets []int // Tracks the line offset of each message in the viewport.
+	messageViewportOffsets []int   // Tracks the line offset of each message in the viewport.
+	blockViewportOffsets   [][]int // Tracks the line offset of each block within each message (for block mode).
 
 	// UI components
 	textarea textarea.Model
@@ -100,6 +101,7 @@ type Model struct {
 
 	// Tracks the index of the message we're currently navigating. (-1 if none is selected).
 	navigationMessageIndex int
+	navigationBlockIndex   int // Index within the current message's block. (-1 if we're not in block mode).
 }
 
 // New creates a new chat session model.
@@ -159,6 +161,7 @@ func New(
 		renderer:               renderer,
 		alertClipboardWrite:    *alertClipboardWrite,
 		navigationMessageIndex: -1,
+		navigationBlockIndex:   -1,
 	}
 
 	m.setTitle()
@@ -196,6 +199,24 @@ func (m *Model) getMessagesForAPI() []*aipb.Message {
 		messages = append(messages, m.pendingUserMessage)
 	}
 	return messages
+}
+
+// model.go - Add helper method to get selected content
+
+// getSelectedContent returns the content of the currently selected message or block.
+func (m *Model) getSelectedContent() string {
+	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.runtimeMessages) {
+		return ""
+	}
+	msg := m.runtimeMessages[m.navigationMessageIndex]
+	if m.navigationBlockIndex != -1 {
+		blocks := msg.Blocks
+		if m.navigationBlockIndex >= 0 && m.navigationBlockIndex < len(blocks) {
+			return blocks[m.navigationBlockIndex].String()
+		}
+		return ""
+	}
+	return msg.Content()
 }
 
 func (m *Model) setTitle() {

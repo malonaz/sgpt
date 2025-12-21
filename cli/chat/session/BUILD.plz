@@ -4,6 +4,7 @@ go_library(
         "commands.go",
         "layout.go",
         "model.go",
+        "navigate.go",
         "summary.go",
         "update.go",
         "view.go",

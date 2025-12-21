@@ -42,7 +42,7 @@ func NewRenderer(width int) (*Renderer, error) {
 // ToMarkdown renders markdown content with syntax highlighting.
 // The index is used for caching. Use -1 for non-cached rendering.
 // Set finalized to true when the content is complete (enables full caching).
-func (r *Renderer) ToMarkdown(blocks []Block, messageIndex int, finalized bool) string {
+func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block) string {
 	// Check cache first for the full content
 	if md, ok := r.mdCache[messageIndex]; ok {
 		return md

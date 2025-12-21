@@ -1,3 +1,4 @@
+// file: cli/chat/styles/styles.go
 package styles
 
 import (
@@ -17,6 +18,10 @@ const (
 
 	// Layout
 	MessagePaddingLeft = 2
+
+	// Block indicator
+	BlockIndicatorChar  = "┃"
+	BlockIndicatorWidth = 2 // Character width + space
 
 	// Confirmation dialog
 	ConfirmPaddingHorizontal = 2
@@ -50,6 +55,7 @@ var (
 	CodeBgColor            = lipgloss.Color("#374151")
 	MessageSelectedColor   = lipgloss.Color("#10B981")
 	MessageUnselectedColor = lipgloss.Color("#9CA3AF") // Dim gray
+	BlockIndicatorColor    = lipgloss.Color("#4B5563") // Default block indicator color
 )
 
 // Title bar
@@ -119,6 +125,15 @@ var (
 
 	DimTextStyle = lipgloss.NewStyle().
 			Foreground(DimTextColor)
+)
+
+// Block indicator
+var (
+	BlockIndicatorStyle = lipgloss.NewStyle().
+				Foreground(BlockIndicatorColor)
+
+	BlockIndicatorSelectedStyle = lipgloss.NewStyle().
+					Foreground(MessageSelectedColor)
 )
 
 // Tools

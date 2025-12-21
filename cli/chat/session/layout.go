@@ -44,6 +44,19 @@ func (m *Model) scrollToNavigatedMessage() {
 	m.viewport.SetYOffset(targetLine)
 }
 
+// scrollToNavigatedBlock scrolls the viewport to show the currently navigated block.
+func (m *Model) scrollToNavigatedBlock() {
+	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.blockViewportOffsets) {
+		return
+	}
+	blockOffsets := m.blockViewportOffsets[m.navigationMessageIndex]
+	if m.navigationBlockIndex < 0 || m.navigationBlockIndex >= len(blockOffsets) {
+		return
+	}
+	targetLine := blockOffsets[m.navigationBlockIndex]
+	m.viewport.SetYOffset(targetLine)
+}
+
 // recalculateLayout adjusts viewport and textarea dimensions based on current state.
 func (m *Model) recalculateLayout() {
 	if m.width == 0 || m.height == 0 {
@@ -68,7 +81,8 @@ func (m *Model) recalculateLayout() {
 
 	viewportWidth := m.width
 	contentWidth := viewportWidth
-	rendererWidth := contentWidth - styles.MessageHorizontalFrameSize()
+	// Account for message frame size and block indicator width
+	rendererWidth := contentWidth - styles.MessageHorizontalFrameSize() - styles.BlockIndicatorWidth
 	m.renderer.SetWidth(rendererWidth)
 
 	if !m.ready {

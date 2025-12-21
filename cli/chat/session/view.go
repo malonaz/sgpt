@@ -1,7 +1,7 @@
+// file: cli/chat/session/view.go
 package session
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -56,6 +56,30 @@ func (m *Model) renderTitle() string {
 	return rendered
 }
 
+// getBlockIndicatorStyle returns the style for a block indicator.
+func (m *Model) getBlockIndicatorStyle(messageIndex, blockIndex int) lipgloss.Style {
+	if m.navigationBlockIndex != -1 && m.navigationMessageIndex == messageIndex && m.navigationBlockIndex == blockIndex {
+		return styles.BlockIndicatorSelectedStyle
+	}
+	return styles.BlockIndicatorStyle
+}
+
+// renderBlockWithIndicator renders a block with a left indicator bar.
+func (m *Model) renderBlockWithIndicator(content string, messageIndex, blockIndex int) string {
+	indicatorStyle := m.getBlockIndicatorStyle(messageIndex, blockIndex)
+	lines := strings.Split(content, "\n")
+	var result strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			result.WriteString("\n")
+		}
+		result.WriteString(indicatorStyle.Render(styles.BlockIndicatorChar))
+		result.WriteString(" ")
+		result.WriteString(line)
+	}
+	return result.String()
+}
+
 func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style {
 	style = style.Width(m.width - styles.MessageHorizontalFrameSize())
 	if m.navigationMessageIndex == -1 {
@@ -89,6 +113,7 @@ func (m *Model) renderMessages() string {
 
 	// Reset viewport offsets
 	m.messageViewportOffsets = make([]int, 0, len(m.runtimeMessages))
+	m.blockViewportOffsets = make([][]int, 0, len(m.runtimeMessages))
 
 	for i, rm := range m.runtimeMessages {
 		if i > 0 {
@@ -96,49 +121,75 @@ func (m *Model) renderMessages() string {
 		}
 		m.messageViewportOffsets = append(m.messageViewportOffsets, currentLine)
 
+		// Track block offsets for this message
+		blockOffsets := make([]int, 0, len(rm.Blocks))
+
 		switch rm.Type {
 		case types.RuntimeMessageTypeUser:
-			rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
+			// Always render blocks with indicators
+			var blockContent strings.Builder
+			for bi, block := range rm.Blocks {
+				if bi > 0 {
+					blockContent.WriteString("\n")
+				}
+				blockOffsets = append(blockOffsets, currentLine+strings.Count(blockContent.String(), "\n"))
+				rendered := m.renderer.ToMarkdown(i*1000+bi, !rm.IsStreaming, block)
+				blockContent.WriteString(m.renderBlockWithIndicator(rendered, i, bi))
+			}
 			style := m.getStyle(styles.UserMessageStyle, i)
-			writeString(style.Render(rendered))
+			writeString(style.Render(blockContent.String()))
 
 		case types.RuntimeMessageTypeThinking:
+			// Always render blocks with indicators
+			var blockContent strings.Builder
+			for bi, block := range rm.Blocks {
+				if bi > 0 {
+					blockContent.WriteString("\n")
+				}
+				blockOffsets = append(blockOffsets, currentLine+strings.Count(blockContent.String(), "\n"))
+				rendered := m.renderer.ToMarkdown(i*1000+bi, !rm.IsStreaming, block)
+				blockContent.WriteString(m.renderBlockWithIndicator(rendered, i, bi))
+			}
 			style := m.getStyle(styles.AIThoughtStyle, i)
-			rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
-			writeString(style.Render(rendered))
+			writeString(style.Render(blockContent.String()))
 
 		case types.RuntimeMessageTypeAssistant:
-			style := m.getStyle(styles.AIMessageStyle, i)
-			rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
-			writeString(style.Render(rendered))
-
-			if rm.Err != nil {
-				writeString("\n")
-				if errors.Is(rm.Err, errUserInterrupt) {
-					writeString(styles.MessageInterruptStyle.Render("⚡ Interrupted by user"))
-				} else {
-					writeString(styles.MessageErrorStyle.Render(fmt.Sprintf("⚠️ %v", rm.Err)))
+			// Always render blocks with indicators
+			var blockContent strings.Builder
+			for bi, block := range rm.Blocks {
+				if bi > 0 {
+					blockContent.WriteString("\n")
 				}
+				blockOffsets = append(blockOffsets, currentLine+strings.Count(blockContent.String(), "\n"))
+				rendered := m.renderer.ToMarkdown(i*1000+bi, !rm.IsStreaming, block)
+				blockContent.WriteString(m.renderBlockWithIndicator(rendered, i, bi))
 			}
+			style := m.getStyle(styles.AIMessageStyle, i)
+			writeString(style.Render(blockContent.String()))
 
 		case types.RuntimeMessageTypeToolCall:
+			blockOffsets = append(blockOffsets, currentLine)
 			writeString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", rm.ToolCall.Name)))
 			writeString("\n")
 			writeString(styles.ToolCallStyle.Render(rm.ToolCall.Arguments))
 
 		case types.RuntimeMessageTypeToolResult:
+			blockOffsets = append(blockOffsets, currentLine)
 			writeString(styles.ToolLabelStyle.Render("⚡ Tool Result:"))
 			writeString("\n")
 			if rm.Err != nil {
 				writeString(styles.ToolResultStyle.Render(rm.Content()))
 			} else {
-				rendered := m.renderer.ToMarkdown(rm.Blocks, i, !rm.IsStreaming)
+				rendered := m.renderer.ToMarkdown(i, !rm.IsStreaming, rm.Blocks...)
 				writeString(styles.ToolResultStyle.Render(rendered))
 			}
 
 		case types.RuntimeMessageTypeSystem:
+			blockOffsets = append(blockOffsets, currentLine)
 			writeString(styles.SystemStyle.Render(fmt.Sprintf("System: %s", styles.Truncate(rm.Content(), styles.TruncateLength))))
 		}
+
+		m.blockViewportOffsets = append(m.blockViewportOffsets, blockOffsets)
 	}
 
 	return b.String()

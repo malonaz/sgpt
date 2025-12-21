@@ -24,8 +24,12 @@ type KeyMapSession struct {
 }
 
 type KeyMapViewport struct {
+	ToTop             key.Binding
+	ToBottom          key.Binding
 	ToPreviousMessage key.Binding
 	ToNextMessage     key.Binding
+	ToPreviousBlock   key.Binding
+	ToNextBlock       key.Binding
 	ScrollUp          key.Binding
 	ScrollDown        key.Binding
 	OpenInEditor      key.Binding
@@ -48,26 +52,44 @@ var keyMapSession = KeyMapSession{
 }
 
 var keyMapViewport = KeyMapViewport{
+	// Message navigation.
+	ToTop: key.NewBinding(
+		key.WithKeys("alt+<"),
+	),
+	ToBottom: key.NewBinding(
+		key.WithKeys("alt+>"),
+	),
+
+	// Message navigation.
 	ToPreviousMessage: key.NewBinding(
 		key.WithKeys("alt+{"),
 	),
-
 	ToNextMessage: key.NewBinding(
 		key.WithKeys("alt+}"),
 	),
 
+	// Block navigation.
+	ToPreviousBlock: key.NewBinding(
+		key.WithKeys("alt+["),
+	),
+	ToNextBlock: key.NewBinding(
+		key.WithKeys("alt+]"),
+	),
+
+	// Scrolling.
 	ScrollUp: key.NewBinding(
 		key.WithKeys("ctrl+p"),
 	),
-
 	ScrollDown: key.NewBinding(
 		key.WithKeys("ctrl+n"),
 	),
 
+	// Copy.
 	Copy: key.NewBinding(
 		key.WithKeys("alt+w"),
 	),
 
+	// Open in editor.
 	OpenInEditor: key.NewBinding(
 		key.WithKeys("ctrl+o"),
 	),
@@ -159,28 +181,45 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case FocusViewport:
 				km := keyMapViewport
 				switch {
-				case key.Matches(msg, km.ToPreviousMessage):
-					if m.navigationMessageIndex == -1 {
-						m.navigationMessageIndex = len(m.runtimeMessages)
+				case key.Matches(msg, km.ToTop):
+					if m.toTop() {
+						m.viewport.SetContent(m.renderMessages())
+						m.scrollToNavigatedBlock()
 					}
-					if m.navigationMessageIndex > 0 {
-						m.navigationMessageIndex-- // Go up one message.
+					return m, nil
+
+				case key.Matches(msg, km.ToBottom):
+					if m.toBottom() {
+						m.viewport.SetContent(m.renderMessages())
+						m.scrollToNavigatedBlock()
+					}
+					return m, nil
+
+				case key.Matches(msg, km.ToPreviousMessage):
+					if m.toPreviousMessage() {
 						m.viewport.SetContent(m.renderMessages())
 						m.scrollToNavigatedMessage()
 					}
 					return m, nil
 
 				case key.Matches(msg, km.ToNextMessage):
-					if m.navigationMessageIndex != -1 {
-						m.navigationMessageIndex++ // Go to next message.
-						if m.navigationMessageIndex == len(m.runtimeMessages) {
-							m.navigationMessageIndex = -1
-							m.viewport.GotoBottom()
-						}
+					if m.toNextMessage() {
 						m.viewport.SetContent(m.renderMessages())
-						if m.navigationMessageIndex != -1 {
-							m.scrollToNavigatedMessage()
-						}
+						m.scrollToNavigatedMessage()
+					}
+					return m, nil
+
+				case key.Matches(msg, km.ToPreviousBlock):
+					if m.toPreviousBlock() {
+						m.viewport.SetContent(m.renderMessages())
+						m.scrollToNavigatedBlock()
+					}
+					return m, nil
+
+				case key.Matches(msg, km.ToNextBlock):
+					if m.toNextBlock() {
+						m.viewport.SetContent(m.renderMessages())
+						m.scrollToNavigatedBlock()
 					}
 					return m, nil
 
@@ -194,13 +233,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				case key.Matches(msg, km.OpenInEditor):
 					if m.navigationMessageIndex != -1 {
-						content := m.runtimeMessages[m.navigationMessageIndex].Content()
+						content := m.getSelectedContent()
 						return m, m.openInEditor(content)
 					}
 
 				case key.Matches(msg, km.Copy):
 					if m.navigationMessageIndex != -1 {
-						content := m.runtimeMessages[m.navigationMessageIndex].Content()
+						content := m.getSelectedContent()
 						clipboard.Write(clipboard.FmtText, []byte(content))
 						cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
 						return m, tea.Batch(cmds...)
