@@ -158,10 +158,13 @@ func (r *Renderer) toMarkdownBlockIncremental(block Block, blockIndex int) strin
 		return r.incrementalBlockMdCache
 	}
 
+	// Wrap to renderer width so block indicators appear on each visual line
+	latestLine = wrapLine(latestLine, r.width)
+
 	if r.incrementalBlockMdCache == "" {
 		return latestLine
 	}
-	return r.incrementalBlockMdCache + latestLine
+	return r.incrementalBlockMdCache + "\n" + latestLine
 }
 
 // toMarkdownBlock renders a single block of markdown content.
@@ -192,4 +195,37 @@ func customStyle() ansi.StyleConfig {
 	style.Paragraph.BlockSuffix = ""
 
 	return style
+}
+
+// internal/markdown/render.go
+
+// Add this function:
+
+// wrapLine wraps a single line of text to the specified width using word boundaries.
+func wrapLine(text string, width int) string {
+	if width <= 0 || len(text) <= width {
+		return text
+	}
+
+	var result strings.Builder
+	var lineLen int
+
+	for _, word := range strings.Fields(text) {
+		wordLen := len(word)
+
+		if lineLen == 0 {
+			result.WriteString(word)
+			lineLen = wordLen
+		} else if lineLen+1+wordLen <= width {
+			result.WriteString(" ")
+			result.WriteString(word)
+			lineLen += 1 + wordLen
+		} else {
+			result.WriteString("\n")
+			result.WriteString(word)
+			lineLen = wordLen
+		}
+	}
+
+	return result.String()
 }
