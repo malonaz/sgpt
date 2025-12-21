@@ -35,16 +35,36 @@ func (m *Model) adjustTextareaHeight() {
 	}
 }
 
-// scrollToNavigatedMessage scrolls the viewport to show the currently navigated message.
+// scrollToNavigatedMessage scrolls the viewport to show the currently navigated message,
+// but only if it's not already fully visible.
 func (m *Model) scrollToNavigatedMessage() {
 	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.messageViewportOffsets) {
 		return
 	}
-	targetLine := m.messageViewportOffsets[m.navigationMessageIndex]
-	m.viewport.SetYOffset(targetLine)
+
+	startLine := m.messageViewportOffsets[m.navigationMessageIndex]
+
+	// Calculate end line
+	var endLine int
+	if m.navigationMessageIndex+1 < len(m.messageViewportOffsets) {
+		endLine = m.messageViewportOffsets[m.navigationMessageIndex+1] - 1
+	} else {
+		endLine = m.viewport.TotalLineCount()
+	}
+
+	// Check if fully visible
+	viewportTop := m.viewport.YOffset
+	viewportBottom := viewportTop + m.viewport.Height
+
+	if startLine >= viewportTop && endLine < viewportBottom {
+		return // Already fully visible
+	}
+
+	m.viewport.SetYOffset(startLine)
 }
 
-// scrollToNavigatedBlock scrolls the viewport to show the currently navigated block.
+// scrollToNavigatedBlock scrolls the viewport to show the currently navigated block,
+// but only if it's not already fully visible.
 func (m *Model) scrollToNavigatedBlock() {
 	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.blockViewportOffsets) {
 		return
@@ -53,8 +73,28 @@ func (m *Model) scrollToNavigatedBlock() {
 	if m.navigationBlockIndex < 0 || m.navigationBlockIndex >= len(blockOffsets) {
 		return
 	}
-	targetLine := blockOffsets[m.navigationBlockIndex]
-	m.viewport.SetYOffset(targetLine)
+
+	startLine := blockOffsets[m.navigationBlockIndex]
+
+	// Calculate end line
+	var endLine int
+	if m.navigationBlockIndex+1 < len(blockOffsets) {
+		endLine = blockOffsets[m.navigationBlockIndex+1] - 1
+	} else if m.navigationMessageIndex+1 < len(m.messageViewportOffsets) {
+		endLine = m.messageViewportOffsets[m.navigationMessageIndex+1] - 1
+	} else {
+		endLine = m.viewport.TotalLineCount()
+	}
+
+	// Check if fully visible
+	viewportTop := m.viewport.YOffset
+	viewportBottom := viewportTop + m.viewport.Height
+
+	if startLine >= viewportTop && endLine < viewportBottom {
+		return // Already fully visible
+	}
+
+	m.viewport.SetYOffset(startLine)
 }
 
 // recalculateLayout adjusts viewport and textarea dimensions based on current state.

@@ -65,7 +65,7 @@ func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block)
 		if incremental {
 			md = r.toMarkdownBlockIncremental(block, blockIndex)
 		} else {
-			md = r.toMarkdownBlock(block.String())
+			md = r.toMarkdownBlock(block.md())
 			r.blockMdCache[blockIndex] = md
 		}
 		sb.WriteString(md)
@@ -115,9 +115,9 @@ func (r *Renderer) toMarkdownBlockIncremental(block Block, blockIndex int) strin
 	case *TextBlock:
 		content = b.Text
 	case *CodeBlock:
-		content = b.Code
+		content = b.code
 		isCodeBlock = true
-		language = b.Language
+		language = b.language
 	default:
 		return r.incrementalBlockMdCache
 	}

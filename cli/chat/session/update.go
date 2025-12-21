@@ -131,7 +131,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.FocusMsg:
 		m.windowFocused = true
-		m.textarea.Focus()
+		if m.focusedComponent == FocusTextarea {
+			m.textarea.Focus()
+		}
 		cmds = append(cmds, textarea.Blink)
 		return m, tea.Batch(cmds...)
 

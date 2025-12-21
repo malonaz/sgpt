@@ -14,7 +14,8 @@ var (
 
 // Block represents a parsed content block.
 type Block interface {
-	String() string
+	md() string
+	Content() string
 }
 
 // TextBlock represents plain text content.
@@ -23,17 +24,25 @@ type TextBlock struct {
 }
 
 // String returns the text content.
-func (b *TextBlock) String() string { return b.Text }
+func (b *TextBlock) md() string { return b.Text }
+
+// String returns the text content.
+func (b *TextBlock) Content() string { return b.Text }
 
 // CodeBlock represents a code block with optional language.
 type CodeBlock struct {
-	Language string
-	Code     string
+	language string
+	code     string
 }
 
 // String returns the code block as markdown.
-func (b *CodeBlock) String() string {
-	return "```" + b.Language + "\n" + b.Code + "\n```"
+func (b *CodeBlock) md() string {
+	return "```" + b.language + "\n" + b.code + "\n```"
+}
+
+// String returns the code block.
+func (b *CodeBlock) Content() string {
+	return b.code
 }
 
 // ParseBlocks parses markdown content into a list of TextBlock and CodeBlock segments.
@@ -79,8 +88,8 @@ func ParseBlocks(content string) []Block {
 		}
 
 		result = append(result, &CodeBlock{
-			Language: language,
-			Code:     strings.ReplaceAll(strings.Trim(code, "\n"), "\t", "  "), // tabs cause issues.
+			language: language,
+			code:     strings.ReplaceAll(strings.Trim(code, "\n"), "\t", "  "), // tabs cause issues.
 		})
 
 		lastEnd = fullEnd

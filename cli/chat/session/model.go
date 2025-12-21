@@ -201,8 +201,6 @@ func (m *Model) getMessagesForAPI() []*aipb.Message {
 	return messages
 }
 
-// model.go - Add helper method to get selected content
-
 // getSelectedContent returns the content of the currently selected message or block.
 func (m *Model) getSelectedContent() string {
 	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.runtimeMessages) {
@@ -212,7 +210,7 @@ func (m *Model) getSelectedContent() string {
 	if m.navigationBlockIndex != -1 {
 		blocks := msg.Blocks
 		if m.navigationBlockIndex >= 0 && m.navigationBlockIndex < len(blocks) {
-			return blocks[m.navigationBlockIndex].String()
+			return blocks[m.navigationBlockIndex].Content()
 		}
 		return ""
 	}
