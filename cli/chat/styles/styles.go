@@ -57,7 +57,8 @@ var (
 	TitleStyle = lipgloss.NewStyle().
 			Background(PrimaryColor).
 			Foreground(TextColor).
-			Bold(true)
+			Bold(true).
+			MarginBottom(1)
 
 	StatusStyle = lipgloss.NewStyle().
 			Foreground(DimTextColor).

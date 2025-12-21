@@ -19,6 +19,7 @@ go_library(
         "//internal/tools",
         "//store",
         "//third_party/go:github.com__charmbracelet__bubbles__cursor",
+        "//third_party/go:github.com__charmbracelet__bubbles__key",
         "//third_party/go:github.com__charmbracelet__bubbles__spinner",
         "//third_party/go:github.com__charmbracelet__bubbles__textarea",
         "//third_party/go:github.com__charmbracelet__bubbles__viewport",

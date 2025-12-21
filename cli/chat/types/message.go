@@ -30,3 +30,5 @@ type ToolResultMsg struct {
 
 // ToolCancelledMsg is sent when tool execution is cancelled.
 type ToolCancelledMsg struct{}
+
+type EditorClosedMsg struct{}

@@ -51,11 +51,12 @@ func (m *Model) recalculateLayout() {
 	}
 
 	// Compute viewport height.
-	m.renderTitle()                                                                                  // To compute the number of lines.
-	viewportHeight := m.height - styles.TitleStyle.GetVerticalFrameSize() - m.titleNumberOfLines - 1 // TODO(fix this).
+	m.renderTitle() // To compute the number of lines.
+	viewportHeight := m.height - m.titleHeight
 	if !m.streaming {
 		viewportHeight -= m.textarea.Height() + styles.TextAreaStyle.GetVerticalFrameSize()
 	}
+	log.Info("recalculateLayout", "h", m.height, "lines", m.titleHeight, "ta", m.textarea.Height(), "tas", styles.TextAreaStyle.GetVerticalFrameSize())
 
 	if m.err != nil {
 		viewportHeight -= 1

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,6 +17,71 @@ import (
 
 	"github.com/malonaz/sgpt/cli/chat/types"
 )
+
+type KeyMapSession struct {
+	CycleFocus           key.Binding
+	CycleReasoningEffort key.Binding
+}
+
+type KeyMapViewport struct {
+	ToPreviousMessage key.Binding
+	ToNextMessage     key.Binding
+	ScrollUp          key.Binding
+	ScrollDown        key.Binding
+	OpenInEditor      key.Binding
+	Copy              key.Binding
+}
+
+type InputKeyMap struct {
+	PreviousHistoryEntry key.Binding
+	NextHistoryEntry     key.Binding
+}
+
+var keyMapSession = KeyMapSession{
+	CycleFocus: key.NewBinding(
+		key.WithKeys("tab"),
+	),
+
+	CycleReasoningEffort: key.NewBinding(
+		key.WithKeys("alt+t"),
+	),
+}
+
+var keyMapViewport = KeyMapViewport{
+	ToPreviousMessage: key.NewBinding(
+		key.WithKeys("alt+{"),
+	),
+
+	ToNextMessage: key.NewBinding(
+		key.WithKeys("alt+}"),
+	),
+
+	ScrollUp: key.NewBinding(
+		key.WithKeys("ctrl+p"),
+	),
+
+	ScrollDown: key.NewBinding(
+		key.WithKeys("ctrl+n"),
+	),
+
+	Copy: key.NewBinding(
+		key.WithKeys("alt+w"),
+	),
+
+	OpenInEditor: key.NewBinding(
+		key.WithKeys("ctrl+o"),
+	),
+}
+
+var inputKeyMap = InputKeyMap{
+	PreviousHistoryEntry: key.NewBinding(
+		key.WithKeys("alt+p"),
+	),
+
+	NextHistoryEntry: key.NewBinding(
+		key.WithKeys("alt+n"),
+	),
+}
 
 // Update handles messages.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -53,39 +119,94 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Handle navigation commands.
-		if msg.String() == "alt+{" {
-			if m.navigationMessageIndex == -1 {
-				m.navigationMessageIndex = len(m.runtimeMessages)
-			}
-			if m.navigationMessageIndex > 0 {
-				m.navigationMessageIndex-- // Go up one message.
+		switch {
+		case key.Matches(msg, keyMapSession.CycleFocus):
+			switch m.focusedComponent {
+			case FocusTextarea:
+				m.focusedComponent = FocusViewport
+				m.textarea.Blur()
+				m.navigationMessageIndex = len(m.runtimeMessages) - 1 // Start at last message
 				m.viewport.SetContent(m.renderMessages())
 				m.scrollToNavigatedMessage()
-			}
-			return m, nil
-		}
-		if msg.String() == "alt+}" {
-			if m.navigationMessageIndex != -1 {
-				m.navigationMessageIndex++ // Go to next message.
-				if m.navigationMessageIndex == len(m.runtimeMessages) {
-					m.navigationMessageIndex = -1
-					m.viewport.GotoBottom()
-				}
+			case FocusViewport:
+				m.focusedComponent = FocusTextarea
+				m.navigationMessageIndex = -1 // Clear selection
 				m.viewport.SetContent(m.renderMessages())
-				if m.navigationMessageIndex != -1 {
-					m.scrollToNavigatedMessage()
+				m.textarea.Focus()
+				cmds = append(cmds, textarea.Blink)
+			}
+			return m, tea.Batch(cmds...)
+
+		case key.Matches(msg, keyMapSession.CycleReasoningEffort):
+			// Cycle reasoning efforts.
+			switch m.opts.ReasoningEffort {
+			case aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED:
+				m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_LOW
+			case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
+				m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM
+			case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
+				m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_HIGH
+			case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
+				m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED
+			}
+			m.setTitle()
+			return m, nil
+
+		default:
+			switch m.focusedComponent {
+			case FocusTextarea:
+
+			case FocusViewport:
+				km := keyMapViewport
+				switch {
+				case key.Matches(msg, km.ToPreviousMessage):
+					if m.navigationMessageIndex == -1 {
+						m.navigationMessageIndex = len(m.runtimeMessages)
+					}
+					if m.navigationMessageIndex > 0 {
+						m.navigationMessageIndex-- // Go up one message.
+						m.viewport.SetContent(m.renderMessages())
+						m.scrollToNavigatedMessage()
+					}
+					return m, nil
+
+				case key.Matches(msg, km.ToNextMessage):
+					if m.navigationMessageIndex != -1 {
+						m.navigationMessageIndex++ // Go to next message.
+						if m.navigationMessageIndex == len(m.runtimeMessages) {
+							m.navigationMessageIndex = -1
+							m.viewport.GotoBottom()
+						}
+						m.viewport.SetContent(m.renderMessages())
+						if m.navigationMessageIndex != -1 {
+							m.scrollToNavigatedMessage()
+						}
+					}
+					return m, nil
+
+				case key.Matches(msg, km.ScrollUp):
+					m.viewport.LineUp(1)
+					return m, nil
+
+				case key.Matches(msg, km.ScrollDown):
+					m.viewport.LineDown(1)
+					return m, nil
+
+				case key.Matches(msg, km.OpenInEditor):
+					if m.navigationMessageIndex != -1 {
+						content := m.runtimeMessages[m.navigationMessageIndex].Content()
+						return m, m.openInEditor(content)
+					}
+
+				case key.Matches(msg, km.Copy):
+					if m.navigationMessageIndex != -1 {
+						content := m.runtimeMessages[m.navigationMessageIndex].Content()
+						clipboard.Write(clipboard.FmtText, []byte(content))
+						cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
+						return m, tea.Batch(cmds...)
+					}
 				}
 			}
-			return m, nil
-		}
-
-		// Copy navigated message content to clipboard
-		if msg.String() == "alt+w" && m.navigationMessageIndex != -1 {
-			content := m.runtimeMessages[m.navigationMessageIndex].Content()
-			clipboard.Write(clipboard.FmtText, []byte(content))
-			cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
-			return m, tea.Batch(cmds...)
 		}
 
 		if msg.Alt && !m.streaming && !m.awaitingConfirm {
@@ -104,20 +225,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.adjustTextareaHeight()
 					return m, nil
 				}
-			case "alt+t":
-				// Cycle reasoning efforts.
-				switch m.opts.ReasoningEffort {
-				case aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED:
-					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_LOW
-				case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
-					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM
-				case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
-					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_HIGH
-				case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
-					m.opts.ReasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED
-				}
-				m.setTitle()
-				return m, nil
 			}
 		}
 

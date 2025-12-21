@@ -28,12 +28,17 @@ import (
 
 const (
 	renderThrottleInterval = 66 * time.Millisecond
+
+	FocusTextarea FocusedComponent = iota
+	FocusViewport
 )
 
 var (
 	log              *slog.Logger
 	errUserInterrupt = errors.New("user interrupt")
 )
+
+type FocusedComponent int
 
 // Model represents the Bubble Tea model for the chat session.
 type Model struct {
@@ -60,15 +65,16 @@ type Model struct {
 	renderer *markdown.Renderer
 
 	// UI state
-	title              string
-	titleNumberOfLines int
-	width              int
-	height             int
-	ready              bool
-	streaming          bool
-	err                error
-	quitting           bool
-	windowFocused      bool
+	title            string
+	titleHeight      int
+	width            int
+	height           int
+	ready            bool
+	streaming        bool
+	err              error
+	quitting         bool
+	windowFocused    bool
+	focusedComponent FocusedComponent
 
 	// Alert notifications.
 	alertClipboardWrite bubbleup.AlertModel
@@ -143,6 +149,7 @@ func New(
 		chat:                   chat,
 		opts:                   opts,
 		windowFocused:          true,
+		focusedComponent:       FocusTextarea,
 		additionalMessages:     additionalMessages,
 		injectedFiles:          injectedFiles,
 		textarea:               ta,

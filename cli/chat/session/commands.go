@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -278,4 +280,57 @@ func (m *Model) executeToolCall() tea.Cmd {
 func (m *Model) continueWithToolResult() tea.Cmd {
 	m.streaming = true
 	return m.startStreaming()
+}
+
+func (m *Model) openInEditor(content string) tea.Cmd {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
+	if editor == "" {
+		editor = "vim" // fallback
+	}
+
+	// Create temp file
+	tmpFile, err := os.CreateTemp("", "sgpt-message-*.md")
+	if err != nil {
+		return func() tea.Msg {
+			return types.StreamErrorMsg{Err: fmt.Errorf("failed to create temp file: %w", err)}
+		}
+	}
+	tmpPath := tmpFile.Name()
+
+	// Write content
+	if _, err := tmpFile.WriteString(content); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return func() tea.Msg {
+			return types.StreamErrorMsg{Err: fmt.Errorf("failed to write temp file: %w", err)}
+		}
+	}
+	tmpFile.Close()
+
+	// Split editor command into parts (handles "emacs -nw", "code --wait", etc.)
+	parts := strings.Fields(editor)
+	if len(parts) == 0 {
+		os.Remove(tmpPath)
+		return func() tea.Msg {
+			return types.StreamErrorMsg{Err: fmt.Errorf("empty editor command")}
+		}
+	}
+
+	// Build command: first part is the executable, rest are args, then add the file
+	args := append(parts[1:], tmpPath)
+	cmd := exec.Command(parts[0], args...)
+
+	// Use tea.ExecProcess to properly suspend Bubble Tea and restore terminal
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		// Cleanup temp file after editor closes
+		os.Remove(tmpPath)
+
+		if err != nil {
+			return types.StreamErrorMsg{Err: fmt.Errorf("editor failed: %w", err)}
+		}
+		return types.EditorClosedMsg{}
+	})
 }

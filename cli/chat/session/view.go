@@ -35,7 +35,6 @@ func (m *Model) View() string {
 	} else {
 		if !m.streaming {
 			b.WriteString(styles.TextAreaStyle.Render(m.textarea.View()))
-			b.WriteString("\n")
 		}
 	}
 
@@ -53,7 +52,7 @@ func (m *Model) View() string {
 
 func (m *Model) renderTitle() string {
 	rendered := styles.TitleStyle.Width(m.width).Render(m.title)
-	m.titleNumberOfLines = lipgloss.Height(rendered)
+	m.titleHeight = lipgloss.Height(rendered)
 	return rendered
 }
 
