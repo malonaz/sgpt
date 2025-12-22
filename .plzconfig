@@ -72,10 +72,6 @@ cmd = run ///core//tools/tidy:lint
 desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
 cmd = run //cmd:bump_core_dep
 
-[alias "cli"]
-desc = install the cli
-cmd = run //cmd:install_cli
-
 [alias "gen"]
 desc = Copy generated code from plz-out to git
 cmd = run //cmd:copy_generated_code

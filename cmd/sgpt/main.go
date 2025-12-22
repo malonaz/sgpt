@@ -73,6 +73,10 @@ func run() error {
 	}
 	defer store.Close()
 
+	if local {
+		config.BaseURL = "localhost:9090"
+	}
+
 	host, port, err := parseBaseURL(config.BaseURL)
 	if err != nil {
 		return fmt.Errorf("parsing base URL: %w", err)
