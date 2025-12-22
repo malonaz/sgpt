@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
+	"github.com/malonaz/core/go/authentication"
 	"github.com/malonaz/core/go/grpc"
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
@@ -34,6 +37,7 @@ func run() error {
 	}
 
 	var configFilepath string
+	var local bool
 
 	rootCmd := &cobra.Command{
 		Use:     "sgpt",
@@ -48,8 +52,8 @@ func run() error {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&configFilepath, "config", defaultConfigFilepath, "Path to configuration file")
+	rootCmd.PersistentFlags().BoolVar(&local, "local", false, "Use local server")
 
-	// Parse flags early to get config path
 	if err := rootCmd.ParseFlags(os.Args); err != nil {
 		return fmt.Errorf("parsing flags: %v", err)
 	}
@@ -60,21 +64,30 @@ func run() error {
 		return fmt.Errorf("parsing config: %v", err)
 	}
 
-	// Create store
+	ctx = authentication.WithAPIKey(ctx, "x-api-key", config.APIKey)
+	rootCmd.SetContext(ctx)
+
 	store, err := store.New(config.Database)
 	if err != nil {
 		return fmt.Errorf("creating new store: %v", err)
 	}
-	// Ensure store is closed when the program exits normally
 	defer store.Close()
 
-	// Create connection options
+	host, port, err := parseBaseURL(config.BaseURL)
+	if err != nil {
+		return fmt.Errorf("parsing base URL: %w", err)
+	}
+
+	if local {
+		host = ""
+	}
+
 	opts := &grpc.Opts{
-		SocketPath: "/tmp/core.socket",
+		Host:       host,
+		Port:       port,
 		DisableTLS: true,
 	}
 
-	// Create gRPC connection
 	conn, err := grpc.NewConnection(opts, nil, nil)
 	if err != nil {
 		return fmt.Errorf("creating connection: %w", err)
@@ -91,4 +104,16 @@ func run() error {
 	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient))
 	rootCmd.AddCommand(chat.NewGenerateChatTitlesCmd(config, store, aiClient))
 	return rootCmd.Execute()
+}
+
+func parseBaseURL(baseURL string) (string, int, error) {
+	parts := strings.Split(baseURL, ":")
+	if len(parts) != 2 {
+		return "", 0, fmt.Errorf("invalid format, expected host:port, got %s", baseURL)
+	}
+	port, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid port: %w", err)
+	}
+	return parts[0], port, nil
 }

@@ -239,7 +239,7 @@ func filterModels(models []*aipb.Model, prefix string) []string {
 }
 
 func fetchModels(ctx context.Context, aiClient aiservicepb.AiClient) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
@@ -247,7 +247,6 @@ func fetchModels(ctx context.Context, aiClient aiservicepb.AiClient) error {
 	listModelsRequest := &aiservicepb.ListModelsRequest{
 		Parent: "providers/-",
 	}
-
 	fetchedModels, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
 	if err != nil {
 		return err

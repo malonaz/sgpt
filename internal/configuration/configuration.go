@@ -55,6 +55,8 @@ type Model struct {
 
 // Config holds configuration for the sgpt tool.
 type Config struct {
+	BaseURL  string      `json:"base_url"`
+	APIKey   string      `json:"api_key"`
 	Database string      `json:"database"`
 	Models   []*Model    `json:"models"`
 	Chat     *ChatConfig `json:"chat"`
