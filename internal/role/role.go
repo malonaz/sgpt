@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"runtime"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/pkg/errors"
@@ -29,6 +30,7 @@ type TemplateData struct {
 	CWD        string
 	Term       string
 	RolePrompt string
+	Time       string
 }
 
 // Opts for a role.
@@ -87,6 +89,7 @@ func (o *Opts) Parse() (*configuration.Role, error) {
 		Home:     home,
 		CWD:      cwd,
 		Term:     os.Getenv("TERM"),
+		Time:     time.Now().Format("Mon Jan 2 15:04:05 MST 2006"),
 	}
 
 	// Build the result role.
