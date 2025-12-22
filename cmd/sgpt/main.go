@@ -73,23 +73,22 @@ func run() error {
 	}
 	defer store.Close()
 
+	var opts *grpc.Opts
 	if local {
-		config.BaseURL = "localhost:9090"
-	}
-
-	host, port, err := parseBaseURL(config.BaseURL)
-	if err != nil {
-		return fmt.Errorf("parsing base URL: %w", err)
-	}
-
-	if local {
-		host = ""
-	}
-
-	opts := &grpc.Opts{
-		Host:       host,
-		Port:       port,
-		DisableTLS: true,
+		opts = &grpc.Opts{
+			SocketPath: "/tmp/core.socket",
+			DisableTLS: true,
+		}
+	} else {
+		host, port, err := parseBaseURL(config.BaseURL)
+		if err != nil {
+			return fmt.Errorf("parsing base URL: %w", err)
+		}
+		opts = &grpc.Opts{
+			Host:       host,
+			Port:       port,
+			DisableTLS: true,
+		}
 	}
 
 	conn, err := grpc.NewConnection(opts, nil, nil)

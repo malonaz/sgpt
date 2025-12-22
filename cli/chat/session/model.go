@@ -56,6 +56,7 @@ type Model struct {
 	totalInputTokens   int32
 	totalOutputTokens  int32
 	lastInputTokens    int32
+	totalPrice         float64
 
 	// Runtime messages for display (decoupled from proto messages)
 	runtimeMessages        []*types.RuntimeMessage
@@ -241,13 +242,13 @@ func (m *Model) setTitle() {
 		toolsStr = " 🔧"
 	}
 
-	tokenStr := fmt.Sprintf("↑%s ↓%s", formatTokenCount(m.totalInputTokens), formatTokenCount(m.totalOutputTokens))
+	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(m.totalInputTokens), formatTokenCount(m.totalOutputTokens), m.totalPrice)
 
 	// Calculate context usage percentage
 	contextStr := ""
 	if contextLimit := m.opts.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
 		usagePercent := float64(m.lastInputTokens) / float64(contextLimit) * 100
-		contextStr = fmt.Sprintf(" │ 📦 %.0f%%", usagePercent)
+		contextStr = fmt.Sprintf(" │ 📦 %.0f%% (%s/%s)", usagePercent, formatTokenCount(m.lastInputTokens), formatTokenCount(contextLimit))
 	}
 
 	modelRn := &aipb.ModelResourceName{}

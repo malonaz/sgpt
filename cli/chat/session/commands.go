@@ -152,15 +152,25 @@ func (m *Model) startStreaming() tea.Cmd {
 			switch content := response.Content.(type) {
 			case *aiservicepb.TextToTextStreamResponse_ModelUsage:
 				usage := content.ModelUsage
+				log.Info("hi", usage.GetInputToken())
 				if usage.InputToken != nil {
 					m.totalInputTokens += usage.InputToken.Quantity
 					m.lastInputTokens = usage.InputToken.Quantity
+					m.totalPrice += usage.InputToken.Price
 				}
 				if usage.OutputToken != nil {
 					m.totalOutputTokens += usage.OutputToken.Quantity
+					m.totalPrice += usage.OutputToken.Price
 				}
 				if usage.OutputReasoningToken != nil {
 					m.totalOutputTokens += usage.OutputReasoningToken.Quantity
+					m.totalPrice += usage.OutputReasoningToken.Price
+				}
+				if usage.InputCacheReadToken != nil {
+					m.totalPrice += usage.InputCacheReadToken.Price
+				}
+				if usage.InputCacheWriteToken != nil {
+					m.totalPrice += usage.InputCacheWriteToken.Price
 				}
 				m.setTitle()
 				m.renderTitle()
