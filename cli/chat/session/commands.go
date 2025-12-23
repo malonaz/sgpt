@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/malonaz/sgpt/cli/chat/types"
 	"github.com/malonaz/sgpt/internal/tools"
@@ -131,6 +132,25 @@ func (m *Model) startStreaming() tea.Cmd {
 			})
 		}
 
+		defer func() {
+			m.totalModelUsage.InputToken.Quantity += m.lastModelUsage.GetInputToken().GetQuantity()
+			m.totalModelUsage.InputToken.Price += m.lastModelUsage.GetInputToken().GetPrice()
+			m.totalModelUsage.OutputToken.Quantity += m.lastModelUsage.GetOutputToken().GetQuantity()
+			m.totalModelUsage.OutputToken.Price += m.lastModelUsage.GetOutputToken().GetPrice()
+			m.totalModelUsage.OutputReasoningToken.Quantity += m.lastModelUsage.GetOutputReasoningToken().GetQuantity()
+			m.totalModelUsage.OutputReasoningToken.Price += m.lastModelUsage.GetOutputReasoningToken().GetPrice()
+			m.totalModelUsage.InputCacheReadToken.Quantity += m.lastModelUsage.GetInputCacheReadToken().GetQuantity()
+			m.totalModelUsage.InputCacheReadToken.Price += m.lastModelUsage.GetInputCacheReadToken().GetPrice()
+			m.totalModelUsage.InputCacheWriteToken.Quantity += m.lastModelUsage.GetInputCacheWriteToken().GetQuantity()
+			m.totalModelUsage.InputCacheWriteToken.Price += m.lastModelUsage.GetInputCacheWriteToken().GetPrice()
+
+			// Reset the model usages.
+			m.lastModelUsage = &aipb.ModelUsage{}
+
+			m.setTitle()
+			m.renderTitle()
+		}()
+
 		for {
 			select {
 			case <-streamCtx.Done():
@@ -151,29 +171,8 @@ func (m *Model) startStreaming() tea.Cmd {
 
 			switch content := response.Content.(type) {
 			case *aiservicepb.TextToTextStreamResponse_ModelUsage:
-				usage := content.ModelUsage
-				log.Info("hi", usage.GetInputToken())
-				if usage.InputToken != nil {
-					m.totalInputTokens += usage.InputToken.Quantity
-					m.lastInputTokens = usage.InputToken.Quantity
-					m.totalPrice += usage.InputToken.Price
-				}
-				if usage.OutputToken != nil {
-					m.totalOutputTokens += usage.OutputToken.Quantity
-					m.totalPrice += usage.OutputToken.Price
-				}
-				if usage.OutputReasoningToken != nil {
-					m.totalOutputTokens += usage.OutputReasoningToken.Quantity
-					m.totalPrice += usage.OutputReasoningToken.Price
-				}
-				if usage.InputCacheReadToken != nil {
-					m.totalPrice += usage.InputCacheReadToken.Price
-				}
-				if usage.InputCacheWriteToken != nil {
-					m.totalPrice += usage.InputCacheWriteToken.Price
-				}
-				m.setTitle()
-				m.renderTitle()
+				modelUsage := content.ModelUsage
+				proto.Merge(m.lastModelUsage, modelUsage)
 
 			case *aiservicepb.TextToTextStreamResponse_GenerationMetrics:
 			case *aiservicepb.TextToTextStreamResponse_ReasoningChunk:

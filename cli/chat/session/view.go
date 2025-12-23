@@ -187,8 +187,11 @@ func (m *Model) renderMessages() string {
 		}
 
 		m.blockViewportOffsets = append(m.blockViewportOffsets, blockOffsets)
-	}
 
+		if rm.Err != nil {
+			writeString(styles.MessageErrorStyle.Render("\nError: " + rm.Err.Error()))
+		}
+	}
 	return b.String()
 }
 

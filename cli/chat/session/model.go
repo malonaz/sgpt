@@ -53,10 +53,8 @@ type Model struct {
 	opts               types.ChatOptions
 	additionalMessages []*aipb.Message
 	injectedFiles      []string
-	totalInputTokens   int32
-	totalOutputTokens  int32
-	lastInputTokens    int32
-	totalPrice         float64
+	totalModelUsage    *aipb.ModelUsage
+	lastModelUsage     *aipb.ModelUsage
 
 	// Runtime messages for display (decoupled from proto messages)
 	runtimeMessages        []*types.RuntimeMessage
@@ -70,8 +68,9 @@ type Model struct {
 	renderer *markdown.Renderer
 
 	// UI state
-	title            string
-	titleHeight      int
+	title       string
+	titleHeight int
+
 	width            int
 	height           int
 	ready            bool
@@ -166,6 +165,14 @@ func New(
 		alertClipboardWrite:    *alertClipboardWrite,
 		navigationMessageIndex: -1,
 		navigationBlockIndex:   -1,
+		totalModelUsage: &aipb.ModelUsage{
+			InputToken:           &aipb.ResourceConsumption{},
+			OutputToken:          &aipb.ResourceConsumption{},
+			OutputReasoningToken: &aipb.ResourceConsumption{},
+			InputCacheReadToken:  &aipb.ResourceConsumption{},
+			InputCacheWriteToken: &aipb.ResourceConsumption{},
+		},
+		lastModelUsage: &aipb.ModelUsage{},
 	}
 
 	m.setTitle()
@@ -242,13 +249,18 @@ func (m *Model) setTitle() {
 		toolsStr = " 🔧"
 	}
 
-	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(m.totalInputTokens), formatTokenCount(m.totalOutputTokens), m.totalPrice)
+	totalInputTokens := m.totalModelUsage.GetInputToken().GetQuantity() + m.totalModelUsage.GetInputCacheReadToken().GetQuantity()
+	totalOutputTokens := m.totalModelUsage.GetOutputToken().GetQuantity() + m.totalModelUsage.GetOutputReasoningToken().GetQuantity()
+	totalPrice := m.totalModelUsage.GetInputToken().GetPrice() + m.totalModelUsage.GetOutputToken().GetPrice() + m.totalModelUsage.GetOutputReasoningToken().GetPrice() + m.totalModelUsage.GetInputCacheReadToken().GetPrice() + m.totalModelUsage.GetInputCacheWriteToken().GetPrice()
+
+	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), totalPrice)
 
 	// Calculate context usage percentage
 	contextStr := ""
 	if contextLimit := m.opts.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
-		usagePercent := float64(m.lastInputTokens) / float64(contextLimit) * 100
-		contextStr = fmt.Sprintf(" │ 📦 %.0f%% (%s/%s)", usagePercent, formatTokenCount(m.lastInputTokens), formatTokenCount(contextLimit))
+		lastInputTokens := m.lastModelUsage.GetInputToken().GetQuantity() + m.lastModelUsage.GetInputCacheReadToken().GetQuantity()
+		usagePercent := float64(lastInputTokens) / float64(contextLimit) * 100
+		contextStr = fmt.Sprintf(" │ 📦 %.0f%% (%s/%s)", usagePercent, formatTokenCount(lastInputTokens), formatTokenCount(contextLimit))
 	}
 
 	modelRn := &aipb.ModelResourceName{}

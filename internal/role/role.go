@@ -89,7 +89,7 @@ func (o *Opts) Parse() (*configuration.Role, error) {
 		Home:     home,
 		CWD:      cwd,
 		Term:     os.Getenv("TERM"),
-		Time:     time.Now().Format("Mon Jan 2 15:04:05 MST 2006"),
+		Time:     time.Now().Format("Mon Jan 2 3PM MST 2006"), // Hour resolution to allow for prompt caching.
 	}
 
 	// Build the result role.

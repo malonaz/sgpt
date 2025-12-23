@@ -1,4 +1,3 @@
-// file: cli/chat/styles/styles.go
 package styles
 
 import (
