@@ -1,4 +1,4 @@
-package session
+package tui
 
 import (
 	"context"
@@ -67,7 +67,7 @@ func (m *Model) startStreaming() tea.Cmd {
 
 		var toolsList []*aipb.Tool
 		if opts.EnableTools {
-			toolsList = append(toolsList, tools.ShellCommandTool)
+			toolsList = append(toolsList, tools.ShellCommand, tools.ReadFiles)
 		}
 
 		request := &aiservicepb.TextToTextStreamRequest{
@@ -264,25 +264,32 @@ func (m *Model) saveChat() tea.Cmd {
 	}
 }
 
-func (m *Model) promptToolCall(toolCalls []*aipb.ToolCall) tea.Cmd {
-	return func() tea.Msg {
-		if len(toolCalls) == 0 {
+func (m *Model) promptToolCall(toolCalls []*aipb.ToolCall) []tea.Cmd {
+	var cmds []tea.Cmd
+	for _, toolCall := range toolCalls {
+		cmd := func() tea.Msg {
+			switch toolCall.Name {
+			case tools.ShellCommand.Name:
+				args, err := tools.ParseShellCommandArgs(toolCall.Arguments)
+				if err != nil {
+					return types.StreamErrorMsg{Err: err}
+				}
+				m.pendingToolCall = toolCall
+				m.pendingToolArgs = args
+				m.awaitingConfirm = true
+
+			case tools.ReadFiles.Name:
+				args, err := tools.ParseReadFilesArgs(toolCall.Arguments)
+				if err != nil {
+					return types.StreamErrorMsg{Err: err}
+				}
+				_ = args
+			}
 			return nil
 		}
-
-		toolCall := toolCalls[0]
-
-		if toolCall.Name == "execute_shell_command" {
-			args, err := tools.ParseShellCommandArgs(toolCall.Arguments)
-			if err != nil {
-				return types.StreamErrorMsg{Err: err}
-			}
-			m.pendingToolCall = toolCall
-			m.pendingToolArgs = args
-			m.awaitingConfirm = true
-		}
-		return nil
+		cmds = append(cmds, cmd)
 	}
+	return cmds
 }
 
 func (m *Model) executeToolCall() tea.Cmd {

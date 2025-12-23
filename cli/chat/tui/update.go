@@ -1,4 +1,4 @@
-package session
+package tui
 
 import (
 	"context"
@@ -359,7 +359,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if len(msg.ToolCalls) > 0 && msg.Err == nil {
 			cmds = append(cmds, m.saveChat())
-			cmds = append(cmds, m.promptToolCall(msg.ToolCalls))
+			cmds = append(cmds, m.promptToolCall(msg.ToolCalls)...)
 			return m, tea.Batch(cmds...)
 		}
 

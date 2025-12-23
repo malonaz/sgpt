@@ -105,7 +105,6 @@ func run() error {
 
 	rootCmd.AddCommand(server.NewServeCmd(store))
 	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient))
-	rootCmd.AddCommand(chat.NewGenerateChatTitlesCmd(config, store, aiClient))
 	return rootCmd.Execute()
 }
 

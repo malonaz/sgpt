@@ -14,7 +14,7 @@ import (
 	"github.com/malonaz/core/go/grpc/interceptor"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/cli/chat/session"
+	"github.com/malonaz/sgpt/cli/chat/tui"
 	"github.com/malonaz/sgpt/cli/chat/types"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
@@ -169,7 +169,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			}
 
 			// Create the model
-			m, err := session.New(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
+			m, err := tui.New(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
 			if err != nil {
 				return err
 			}

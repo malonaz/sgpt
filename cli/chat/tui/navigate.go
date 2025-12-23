@@ -1,4 +1,4 @@
-package session
+package tui
 
 // toTop navigates to the first block of the first message.
 // Returns true if navigation occurred and re-render is needed.

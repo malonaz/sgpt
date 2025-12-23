@@ -30,7 +30,7 @@ func GetOpts(cmd *cobra.Command) *InjectionOpts {
 	return opts
 }
 
-// Parse files with 'contexxt files'.
+// Parse files with 'context files'.
 func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
 	filepathSet := map[string]struct{}{}
 	files := []*File{}

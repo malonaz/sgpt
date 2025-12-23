@@ -1,12 +1,9 @@
 go_library(
     name = "chat",
-    srcs = [
-        "cmd.go",
-        "generate_titles.go",
-    ],
+    srcs = ["cmd.go"],
     visibility = ["//..."],
     deps = [
-        "//cli/chat/session",
+        "//cli/chat/tui",
         "//cli/chat/types",
         "//internal/configuration",
         "//internal/file",

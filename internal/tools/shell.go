@@ -8,9 +8,9 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 )
 
-// ShellCommandTool defines the tool for executing shell commands.
-var ShellCommandTool = &aipb.Tool{
-	Name:        "execute_shell_command",
+// ShellCommand defines the tool for executing shell commands.
+var ShellCommand = &aipb.Tool{
+	Name:        "exec_shell",
 	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
 	JsonSchema: &aipb.JsonSchema{
 		Type: "object",

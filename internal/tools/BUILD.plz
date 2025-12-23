@@ -1,6 +1,9 @@
 go_library(
     name = "tools",
-    srcs = ["shell.go"],
+    srcs = [
+        "read_files.go",
+        "shell.go",
+    ],
     visibility = ["//..."],
     deps = ["//third_party/go:github.com__malonaz__core__genproto__ai__v1"],
 )
