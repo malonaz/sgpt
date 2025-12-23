@@ -3,11 +3,11 @@ go_library(
     srcs = ["cmd.go"],
     visibility = ["//..."],
     deps = [
-        "//cli/chat/tui",
-        "//cli/chat/types",
+        "//cli/tui",
         "//internal/configuration",
         "//internal/file",
         "//internal/role",
+        "//internal/types",
         "//store",
         "//third_party/go:github.com__charmbracelet__bubbletea",
         "//third_party/go:github.com__google__uuid",

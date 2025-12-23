@@ -16,13 +16,13 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"go.dalton.dog/bubbleup"
 
-	"github.com/malonaz/sgpt/cli/chat/styles"
-	"github.com/malonaz/sgpt/cli/chat/types"
+	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/types"
 	"github.com/malonaz/sgpt/store"
 )
 

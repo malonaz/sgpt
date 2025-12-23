@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/malonaz/sgpt/cli/chat/types"
+	"github.com/malonaz/sgpt/internal/types"
 )
 
 type KeyMapSession struct {

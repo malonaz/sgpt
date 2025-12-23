@@ -14,8 +14,8 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/malonaz/sgpt/cli/chat/types"
 	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/types"
 	"github.com/malonaz/sgpt/store"
 )
 

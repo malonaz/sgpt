@@ -14,11 +14,11 @@ import (
 	"github.com/malonaz/core/go/grpc/interceptor"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/cli/chat/tui"
-	"github.com/malonaz/sgpt/cli/chat/types"
+	"github.com/malonaz/sgpt/cli/tui"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
+	"github.com/malonaz/sgpt/internal/types"
 	"github.com/malonaz/sgpt/store"
 )
 

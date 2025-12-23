@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/malonaz/sgpt/cli/chat/styles"
-	"github.com/malonaz/sgpt/cli/chat/types"
+	"github.com/malonaz/sgpt/cli/tui/styles"
+	"github.com/malonaz/sgpt/internal/types"
 )
 
 // View renders the model.

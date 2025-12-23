@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 
-	"github.com/malonaz/sgpt/cli/chat/styles"
+	"github.com/malonaz/sgpt/cli/tui/styles"
 )
 
 // adjustTextareaHeight resizes the textarea based on content line count.
