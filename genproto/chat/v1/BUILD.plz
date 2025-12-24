@@ -6,9 +6,12 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
+        "//third_party/go:buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
+        "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
         "//third_party/go:github.com__malonaz__core__genproto__codegen__model__v1",
         "//third_party/go:go.einride.tech__aip__resourcename",
         "//third_party/go:google.golang.org__genproto__googleapis__api__annotations",
+        "//third_party/go:google.golang.org__genproto__googleapis__rpc__status",
         "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
         "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
         "//third_party/go:google.golang.org__protobuf__types__descriptorpb",

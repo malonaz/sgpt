@@ -1,15 +1,19 @@
 syntax = "proto3";
 
-package chat.v1;
+package sgpt.chat.v1;
 
+import "buf/validate/validate.proto";
 import "google/api/resource.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
+import "malonaz/ai/v1/message.proto";
+import "malonaz/ai/v1/metrics.proto";
 import "malonaz/codegen/model/v1/model.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/chat/v1";
 
-// A chat represents a conversation between a [contact][user.v1.Contact] and an agent.
+// A chat represents a chat between a user and SGPT.
 message Chat {
   option (google.api.resource) = {
     type: "chat.sgpt.com/Chat"
@@ -30,9 +34,41 @@ message Chat {
   // The deletion timestamp of the chat.
   google.protobuf.Timestamp delete_time = 4 [(malonaz.codegen.model.v1.field_opts).nullable = true];
 
+  // Tags for this chat.
+  repeated string tags = 5;
+
+  // Tracks all the files read by this chat.
+  repeated string files = 6;
+
   // Metadata for this chat.
-  ChatMetadata metadata = 5 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
+  ChatMetadata metadata = 10 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
 }
 
 // Metadata for a chat.
-message ChatMetadata {}
+message ChatMetadata {
+  // AI generated title for this chat.
+  string title = 1;
+
+  // The resource name of the model currently in use by this chat.
+  // Format: providers/{provider}/models/{model}
+  string current_model = 2 [
+    (google.api.resource_reference).type = "ai.malonaz.com/Model",
+    (buf.validate.field).required = true
+  ];
+
+  // Total cost of this chat.
+  double total_cost = 3;
+
+  // Tracks total model usage.
+  repeated malonaz.ai.v1.ModelUsage model_usages = 4;
+}
+
+// Message wraps around an ai message.
+message Message {
+  // The ai message.
+  malonaz.ai.v1.Message message = 1;
+  // Model usages for this message.
+  repeated malonaz.ai.v1.ModelUsage model_usages = 2;
+  // Status error if message generation failed.
+  google.rpc.Status error = 3;
+}

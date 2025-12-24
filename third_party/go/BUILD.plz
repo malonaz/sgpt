@@ -248,6 +248,50 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__AlexxIT__go2rtc",
+    _tag = "download",
+    module = "github.com/AlexxIT/go2rtc",
+    version = "v1.9.12",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__AlexxIT__go2rtc__pkg__core",
+    download = ":_github.com__AlexxIT__go2rtc#download",
+    install = ["pkg/core"],
+    module = "github.com/AlexxIT/go2rtc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__pion__rtp",
+        ":github.com__pion__sdp__v3",
+    ],
+)
+
+go_module(
+    name = "github.com__AlexxIT__go2rtc__pkg__pcm",
+    download = ":_github.com__AlexxIT__go2rtc#download",
+    install = ["pkg/pcm"],
+    module = "github.com/AlexxIT/go2rtc",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__AlexxIT__go2rtc__pkg__core",
+        ":github.com__AlexxIT__go2rtc__pkg__shell",
+        ":github.com__pion__rtp",
+        ":github.com__sigurn__crc16",
+        ":github.com__sigurn__crc8",
+    ],
+)
+
+go_module(
+    name = "github.com__AlexxIT__go2rtc__pkg__shell",
+    download = ":_github.com__AlexxIT__go2rtc#download",
+    install = ["pkg/shell"],
+    module = "github.com/AlexxIT/go2rtc",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__Masterminds__goutils",
     _tag = "download",
     module = "github.com/Masterminds/goutils",
@@ -390,6 +434,238 @@ go_module(
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
     deps = [":github.com__alecthomas__chroma__v2"],
+)
+
+go_mod_download(
+    name = "github.com__anthropics__anthropic-sdk-go",
+    _tag = "download",
+    module = "github.com/anthropics/anthropic-sdk-go",
+    version = "v1.19.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["."],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__apierror",
+        ":github.com__anthropics__anthropic-sdk-go__internal__apiform",
+        ":github.com__anthropics__anthropic-sdk-go__internal__apijson",
+        ":github.com__anthropics__anthropic-sdk-go__internal__apiquery",
+        ":github.com__anthropics__anthropic-sdk-go__internal__paramutil",
+        ":github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+        ":github.com__anthropics__anthropic-sdk-go__option",
+        ":github.com__anthropics__anthropic-sdk-go__packages__jsonl",
+        ":github.com__anthropics__anthropic-sdk-go__packages__pagination",
+        ":github.com__anthropics__anthropic-sdk-go__packages__param",
+        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+        ":github.com__anthropics__anthropic-sdk-go__packages__ssestream",
+        ":github.com__anthropics__anthropic-sdk-go__shared",
+        ":github.com__anthropics__anthropic-sdk-go__shared__constant",
+        ":github.com__tidwall__gjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__apierror",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/apierror"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__apijson",
+        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__apiform",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/apiform"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__anthropics__anthropic-sdk-go__packages__param"],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__apijson",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/apijson"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__packages__param",
+        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+        ":github.com__tidwall__gjson",
+        ":github.com__tidwall__sjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__apiquery",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/apiquery"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__anthropics__anthropic-sdk-go__packages__param"],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__encoding__json",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/encoding/json"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json__sentinel",
+        ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json__shims",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__encoding__json__sentinel",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/encoding/json/sentinel"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__anthropics__anthropic-sdk-go__internal__encoding__json__shims"],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__encoding__json__shims",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/encoding/json/shims"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__paramutil",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/paramutil"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__packages__param",
+        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/requestconfig"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal",
+        ":github.com__anthropics__anthropic-sdk-go__internal__apierror",
+        ":github.com__anthropics__anthropic-sdk-go__internal__apiform",
+        ":github.com__anthropics__anthropic-sdk-go__internal__apiquery",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__option",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["option"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+        ":github.com__tidwall__sjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__packages__jsonl",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["packages/jsonl"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__packages__pagination",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["packages/pagination"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__apijson",
+        ":github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+        ":github.com__anthropics__anthropic-sdk-go__option",
+        ":github.com__anthropics__anthropic-sdk-go__packages__param",
+        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__packages__param",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["packages/param"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json",
+        ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json__sentinel",
+        ":github.com__tidwall__sjson",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__packages__respjson",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["packages/respjson"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__packages__ssestream",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["packages/ssestream"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__shared",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["shared"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go__internal__apijson",
+        ":github.com__anthropics__anthropic-sdk-go__packages__param",
+        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+        ":github.com__anthropics__anthropic-sdk-go__shared__constant",
+    ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__shared__constant",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["shared/constant"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__anthropics__anthropic-sdk-go__internal__encoding__json"],
 )
 
 go_mod_download(
@@ -1013,6 +1289,82 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__go-json-experiment__json",
+    _tag = "download",
+    module = "github.com/go-json-experiment/json",
+    version = "v0.0.0-20251027170946-4849db3c2f7e",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__go-json-experiment__json",
+    download = ":_github.com__go-json-experiment__json#download",
+    install = ["."],
+    module = "github.com/go-json-experiment/json",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__go-json-experiment__json__internal",
+        ":github.com__go-json-experiment__json__internal__jsonflags",
+        ":github.com__go-json-experiment__json__internal__jsonopts",
+        ":github.com__go-json-experiment__json__internal__jsonwire",
+        ":github.com__go-json-experiment__json__jsontext",
+    ],
+)
+
+go_module(
+    name = "github.com__go-json-experiment__json__internal",
+    download = ":_github.com__go-json-experiment__json#download",
+    install = ["internal"],
+    module = "github.com/go-json-experiment/json",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__go-json-experiment__json__internal__jsonflags",
+    download = ":_github.com__go-json-experiment__json#download",
+    install = ["internal/jsonflags"],
+    module = "github.com/go-json-experiment/json",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__go-json-experiment__json__internal"],
+)
+
+go_module(
+    name = "github.com__go-json-experiment__json__internal__jsonopts",
+    download = ":_github.com__go-json-experiment__json#download",
+    install = ["internal/jsonopts"],
+    module = "github.com/go-json-experiment/json",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__go-json-experiment__json__internal",
+        ":github.com__go-json-experiment__json__internal__jsonflags",
+    ],
+)
+
+go_module(
+    name = "github.com__go-json-experiment__json__internal__jsonwire",
+    download = ":_github.com__go-json-experiment__json#download",
+    install = ["internal/jsonwire"],
+    module = "github.com/go-json-experiment/json",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__go-json-experiment__json__internal__jsonflags"],
+)
+
+go_module(
+    name = "github.com__go-json-experiment__json__jsontext",
+    download = ":_github.com__go-json-experiment__json#download",
+    install = ["jsontext"],
+    module = "github.com/go-json-experiment/json",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__go-json-experiment__json__internal",
+        ":github.com__go-json-experiment__json__internal__jsonflags",
+        ":github.com__go-json-experiment__json__internal__jsonopts",
+        ":github.com__go-json-experiment__json__internal__jsonwire",
+    ],
+)
+
+go_mod_download(
     name = "github.com__golang__protobuf",
     _tag = "download",
     module = "github.com/golang/protobuf",
@@ -1521,6 +1873,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__gorilla__websocket",
+    _tag = "download",
+    module = "github.com/gorilla/websocket",
+    version = "v1.5.3",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__gorilla__websocket",
+    download = ":_github.com__gorilla__websocket#download",
+    install = ["."],
+    module = "github.com/gorilla/websocket",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__grpc-ecosystem__go-grpc-middleware__providers__prometheus",
     _tag = "download",
     module = "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
@@ -1701,6 +2070,40 @@ go_module(
     module = "github.com/grpc-ecosystem/grpc-gateway/v2",
     visibility = ["PUBLIC"],
     deps = [],
+)
+
+go_mod_download(
+    name = "github.com__hashicorp__errwrap",
+    _tag = "download",
+    module = "github.com/hashicorp/errwrap",
+    version = "v1.0.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__hashicorp__errwrap",
+    download = ":_github.com__hashicorp__errwrap#download",
+    install = ["."],
+    module = "github.com/hashicorp/errwrap",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__hashicorp__go-multierror",
+    _tag = "download",
+    module = "github.com/hashicorp/go-multierror",
+    version = "v1.1.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__hashicorp__go-multierror",
+    download = ":_github.com__hashicorp__go-multierror#download",
+    install = ["."],
+    module = "github.com/hashicorp/go-multierror",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__hashicorp__errwrap"],
 )
 
 go_mod_download(
@@ -1985,7 +2388,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20251209142658-6bfac99ef9e1",
+    version = "v0.0.0-20251224155149-9567a335bd89",
     visibility = ["PUBLIC"],
 )
 
@@ -2025,6 +2428,7 @@ go_module(
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
     ],
 )
@@ -2039,6 +2443,8 @@ go_module(
         ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
     ],
 )
 
@@ -2124,6 +2530,143 @@ go_module(
 )
 
 go_module(
+    name = "github.com__malonaz__core__go__ai",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__genproto__audio__v1",
+        ":github.com__malonaz__core__go__ai",
+        ":github.com__malonaz__core__go__ai__ai_service__provider",
+        ":github.com__malonaz__core__go__ai__ai_service__provider__anthropic",
+        ":github.com__malonaz__core__go__ai__ai_service__provider__cartesia",
+        ":github.com__malonaz__core__go__ai__ai_service__provider__elevenlabs",
+        ":github.com__malonaz__core__go__ai__ai_service__provider__openai",
+        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__grpcinproc",
+        ":github.com__malonaz__core__go__pbutil",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service__provider",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service/provider"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":buf.build__go__protovalidate",
+        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__go__aip",
+        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__pbutil",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__proto",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service__provider__anthropic",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service/provider/anthropic"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__anthropics__anthropic-sdk-go",
+        ":github.com__anthropics__anthropic-sdk-go__option",
+        ":github.com__anthropics__anthropic-sdk-go__shared__constant",
+        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__go__ai__ai_service__provider",
+        ":github.com__malonaz__core__go__grpc",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__types__known__durationpb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service__provider__cartesia",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service/provider/cartesia"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__genproto__audio__v1",
+        ":github.com__malonaz__core__go__ai__ai_service__provider",
+        ":github.com__malonaz__core__go__audio",
+        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__websocket",
+        ":golang.org__x__sync__errgroup",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service__provider__elevenlabs",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service/provider/elevenlabs"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__genproto__audio__v1",
+        ":github.com__malonaz__core__go__ai__ai_service__provider",
+        ":github.com__malonaz__core__go__audio",
+        ":github.com__malonaz__core__go__grpc",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service__provider__openai",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service/provider/openai"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__genproto__audio__v1",
+        ":github.com__malonaz__core__go__ai__ai_service__provider",
+        ":github.com__malonaz__core__go__audio",
+        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__pbutil",
+        ":github.com__openai__openai-go__v3",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__shared",
+        ":github.com__sashabaranov__go-openai",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+    ],
+)
+
+go_module(
     name = "github.com__malonaz__core__go__aip",
     download = ":_github.com__malonaz__core#download",
     install = ["go/aip"],
@@ -2140,15 +2683,29 @@ go_module(
         ":go.einride.tech__aip__filtering",
         ":go.einride.tech__aip__ordering",
         ":go.einride.tech__aip__pagination",
+        ":go.einride.tech__aip__resourcename",
         ":go.einride.tech__spanner-aip__spanfiltering",
         ":go.einride.tech__spanner-aip__spanordering",
         ":golang.org__x__sync__errgroup",
+        ":google.golang.org__genproto__googleapis__api__annotations",
         ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__grpc",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__audio",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/audio"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__AlexxIT__go2rtc__pkg__pcm",
+        ":github.com__malonaz__core__genproto__audio__v1",
     ],
 )
 
@@ -2175,6 +2732,15 @@ go_module(
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__timestamppb",
     ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__binary",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/binary"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__hashicorp__go-multierror"],
 )
 
 go_module(
@@ -2232,6 +2798,18 @@ go_module(
         ":google.golang.org__protobuf__protoadapt",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__grpc__grpcinproc",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/grpc/grpcinproc"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc",
+        ":google.golang.org__grpc__metadata",
     ],
 )
 
@@ -2390,11 +2968,23 @@ go_module(
     deps = [":github.com__google__uuid"],
 )
 
+go_module(
+    name = "github.com__malonaz__core__go__websocket",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/websocket"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__go-json-experiment__json",
+        ":github.com__gorilla__websocket",
+    ],
+)
+
 go_mod_download(
     name = "github.com__mattn__go-colorable",
     _tag = "download",
     module = "github.com/mattn/go-colorable",
-    version = "v0.1.13",
+    version = "v0.1.14",
     visibility = ["PUBLIC"],
 )
 
@@ -2690,6 +3280,375 @@ if is_platform(
     go_module(name = "github.com__ncruces__go-strftime", download = ":_github.com__ncruces__go-strftime#download", install = ["."], module = "github.com/ncruces/go-strftime", visibility = ["PUBLIC"], deps = [])
 
 go_mod_download(
+    name = "github.com__openai__openai-go__v3",
+    _tag = "download",
+    module = "github.com/openai/openai-go/v3",
+    version = "v3.10.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["."],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__conversations",
+        ":github.com__openai__openai-go__v3__internal__apierror",
+        ":github.com__openai__openai-go__v3__internal__apiform",
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__internal__apiquery",
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__pagination",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__packages__ssestream",
+        ":github.com__openai__openai-go__v3__realtime",
+        ":github.com__openai__openai-go__v3__responses",
+        ":github.com__openai__openai-go__v3__shared",
+        ":github.com__openai__openai-go__v3__shared__constant",
+        ":github.com__openai__openai-go__v3__webhooks",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__conversations",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["conversations"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apierror",
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__internal__apiquery",
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__pagination",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__responses",
+        ":github.com__openai__openai-go__v3__shared",
+        ":github.com__openai__openai-go__v3__shared__constant",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__apierror",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/apierror"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__apiform",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/apiform"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__openai__openai-go__v3__packages__param"],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__apijson",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/apijson"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__tidwall__gjson",
+        ":github.com__tidwall__sjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__apiquery",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/apiquery"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__openai__openai-go__v3__packages__param"],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__encoding__json",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/encoding/json"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__encoding__json__sentinel",
+        ":github.com__openai__openai-go__v3__internal__encoding__json__shims",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__encoding__json__sentinel",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/encoding/json/sentinel"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__openai__openai-go__v3__internal__encoding__json__shims"],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__encoding__json__shims",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/encoding/json/shims"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__paramutil",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/paramutil"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__internal__requestconfig",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["internal/requestconfig"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal",
+        ":github.com__openai__openai-go__v3__internal__apierror",
+        ":github.com__openai__openai-go__v3__internal__apiform",
+        ":github.com__openai__openai-go__v3__internal__apiquery",
+        ":github.com__tidwall__gjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__option",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["option"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__tidwall__sjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__packages__pagination",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["packages/pagination"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__packages__param",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["packages/param"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__encoding__json",
+        ":github.com__openai__openai-go__v3__internal__encoding__json__sentinel",
+        ":github.com__tidwall__sjson",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__packages__respjson",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["packages/respjson"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__packages__ssestream",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["packages/ssestream"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__tidwall__gjson"],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__realtime",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["realtime"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apierror",
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__internal__encoding__json",
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__responses",
+        ":github.com__openai__openai-go__v3__shared",
+        ":github.com__openai__openai-go__v3__shared__constant",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__responses",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["responses"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apierror",
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__internal__apiquery",
+        ":github.com__openai__openai-go__v3__internal__paramutil",
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__pagination",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__packages__ssestream",
+        ":github.com__openai__openai-go__v3__shared",
+        ":github.com__openai__openai-go__v3__shared__constant",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__shared",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["shared"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__shared__constant",
+    ],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__shared__constant",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["shared/constant"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__openai__openai-go__v3__internal__encoding__json"],
+)
+
+go_module(
+    name = "github.com__openai__openai-go__v3__webhooks",
+    download = ":_github.com__openai__openai-go__v3#download",
+    install = ["webhooks"],
+    module = "github.com/openai/openai-go/v3",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__openai__openai-go__v3__internal__apierror",
+        ":github.com__openai__openai-go__v3__internal__apijson",
+        ":github.com__openai__openai-go__v3__internal__requestconfig",
+        ":github.com__openai__openai-go__v3__option",
+        ":github.com__openai__openai-go__v3__packages__param",
+        ":github.com__openai__openai-go__v3__packages__respjson",
+        ":github.com__openai__openai-go__v3__shared",
+        ":github.com__openai__openai-go__v3__shared__constant",
+    ],
+)
+
+go_mod_download(
+    name = "github.com__pion__randutil",
+    _tag = "download",
+    module = "github.com/pion/randutil",
+    version = "v0.1.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__pion__randutil",
+    download = ":_github.com__pion__randutil#download",
+    install = ["."],
+    module = "github.com/pion/randutil",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__pion__rtp",
+    _tag = "download",
+    module = "github.com/pion/rtp",
+    version = "v1.8.24",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__pion__rtp",
+    download = ":_github.com__pion__rtp#download",
+    install = ["."],
+    module = "github.com/pion/rtp",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__pion__randutil",
+        ":github.com__pion__rtp__codecs__av1__obu",
+    ],
+)
+
+go_module(
+    name = "github.com__pion__rtp__codecs__av1__obu",
+    download = ":_github.com__pion__rtp#download",
+    install = ["codecs/av1/obu"],
+    module = "github.com/pion/rtp",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__pion__sdp__v3",
+    _tag = "download",
+    module = "github.com/pion/sdp/v3",
+    version = "v3.0.16",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__pion__sdp__v3",
+    download = ":_github.com__pion__sdp__v3#download",
+    install = ["."],
+    module = "github.com/pion/sdp/v3",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__pion__randutil"],
+)
+
+go_mod_download(
     name = "github.com__pkg__errors",
     _tag = "download",
     module = "github.com/pkg/errors",
@@ -2905,8 +3864,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -2942,6 +3901,32 @@ go_module(
     download = ":_github.com__rivo__uniseg#download",
     install = ["."],
     module = "github.com/rivo/uniseg",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__sashabaranov__go-openai",
+    _tag = "download",
+    module = "github.com/goodenough227/go-openai",
+    version = "v0.0.0-20250207091202-52738616d5a4",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__sashabaranov__go-openai",
+    download = ":_github.com__sashabaranov__go-openai#download",
+    install = ["."],
+    module = "github.com/sashabaranov/go-openai",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__sashabaranov__go-openai__internal"],
+)
+
+go_module(
+    name = "github.com__sashabaranov__go-openai__internal",
+    download = ":_github.com__sashabaranov__go-openai#download",
+    install = ["internal"],
+    module = "github.com/sashabaranov/go-openai",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -2999,6 +3984,40 @@ go_module(
     download = ":_github.com__shopspring__decimal#download",
     install = ["."],
     module = "github.com/shopspring/decimal",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__sigurn__crc16",
+    _tag = "download",
+    module = "github.com/sigurn/crc16",
+    version = "v0.0.0-20240131213347-83fcde1e29d1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__sigurn__crc16",
+    download = ":_github.com__sigurn__crc16#download",
+    install = ["."],
+    module = "github.com/sigurn/crc16",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__sigurn__crc8",
+    _tag = "download",
+    module = "github.com/sigurn/crc8",
+    version = "v0.0.0-20220107193325-2243fe600f9f",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__sigurn__crc8",
+    download = ":_github.com__sigurn__crc8#download",
+    install = ["."],
+    module = "github.com/sigurn/crc8",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -3111,6 +4130,43 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__tidwall__gjson",
+    _tag = "download",
+    module = "github.com/tidwall/gjson",
+    version = "v1.18.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__tidwall__gjson",
+    download = ":_github.com__tidwall__gjson#download",
+    install = ["."],
+    module = "github.com/tidwall/gjson",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__tidwall__match",
+        ":github.com__tidwall__pretty",
+    ],
+)
+
+go_mod_download(
+    name = "github.com__tidwall__match",
+    _tag = "download",
+    module = "github.com/tidwall/match",
+    version = "v1.1.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__tidwall__match",
+    download = ":_github.com__tidwall__match#download",
+    install = ["."],
+    module = "github.com/tidwall/match",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__tidwall__pretty",
     _tag = "download",
     module = "github.com/tidwall/pretty",
@@ -3125,6 +4181,23 @@ go_module(
     module = "github.com/tidwall/pretty",
     visibility = ["PUBLIC"],
     deps = [],
+)
+
+go_mod_download(
+    name = "github.com__tidwall__sjson",
+    _tag = "download",
+    module = "github.com/tidwall/sjson",
+    version = "v1.2.5",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__tidwall__sjson",
+    download = ":_github.com__tidwall__sjson#download",
+    install = ["."],
+    module = "github.com/tidwall/sjson",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__tidwall__gjson"],
 )
 
 go_mod_download(
@@ -5686,8 +6759,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -5740,8 +6813,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -5767,8 +6840,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5776,8 +6849,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -5830,8 +6903,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -5857,8 +6930,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):

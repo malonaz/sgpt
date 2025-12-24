@@ -7,8 +7,11 @@
 package v1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	v1 "github.com/malonaz/core/genproto/ai/v1"
 	_ "github.com/malonaz/core/genproto/codegen/model/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
+	status "google.golang.org/genproto/googleapis/rpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	_ "google.golang.org/protobuf/types/descriptorpb"
@@ -25,7 +28,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A chat represents a conversation between a [contact][user.v1.Contact] and an agent.
+// A chat represents a chat between a user and SGPT.
 type Chat struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The resource name of the chat.
@@ -36,8 +39,12 @@ type Chat struct {
 	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	// The deletion timestamp of the chat.
 	DeleteTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=delete_time,json=deleteTime,proto3" json:"delete_time,omitempty"`
+	// Tags for this chat.
+	Tags []string `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
+	// Tracks all the files read by this chat.
+	Files []string `protobuf:"bytes,6,rep,name=files,proto3" json:"files,omitempty"`
 	// Metadata for this chat.
-	Metadata      *ChatMetadata `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Metadata      *ChatMetadata `protobuf:"bytes,10,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -100,6 +107,20 @@ func (x *Chat) GetDeleteTime() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Chat) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *Chat) GetFiles() []string {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
 func (x *Chat) GetMetadata() *ChatMetadata {
 	if x != nil {
 		return x.Metadata
@@ -109,7 +130,16 @@ func (x *Chat) GetMetadata() *ChatMetadata {
 
 // Metadata for a chat.
 type ChatMetadata struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// AI generated title for this chat.
+	Title string `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	// The resource name of the model currently in use by this chat.
+	// Format: providers/{provider}/models/{model}
+	CurrentModel string `protobuf:"bytes,2,opt,name=current_model,json=currentModel,proto3" json:"current_model,omitempty"`
+	// Total cost of this chat.
+	TotalCost float64 `protobuf:"fixed64,3,opt,name=total_cost,json=totalCost,proto3" json:"total_cost,omitempty"`
+	// Tracks total model usage.
+	ModelUsages   []*v1.ModelUsage `protobuf:"bytes,4,rep,name=model_usages,json=modelUsages,proto3" json:"model_usages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -144,11 +174,103 @@ func (*ChatMetadata) Descriptor() ([]byte, []int) {
 	return file_chat_v1_chat_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *ChatMetadata) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ChatMetadata) GetCurrentModel() string {
+	if x != nil {
+		return x.CurrentModel
+	}
+	return ""
+}
+
+func (x *ChatMetadata) GetTotalCost() float64 {
+	if x != nil {
+		return x.TotalCost
+	}
+	return 0
+}
+
+func (x *ChatMetadata) GetModelUsages() []*v1.ModelUsage {
+	if x != nil {
+		return x.ModelUsages
+	}
+	return nil
+}
+
+// Message wraps around an ai message.
+type Message struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The ai message.
+	Message *v1.Message `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	// Model usages for this message.
+	ModelUsages []*v1.ModelUsage `protobuf:"bytes,2,rep,name=model_usages,json=modelUsages,proto3" json:"model_usages,omitempty"`
+	// Status error if message generation failed.
+	Error         *status.Status `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Message) Reset() {
+	*x = Message{}
+	mi := &file_chat_v1_chat_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Message) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Message) ProtoMessage() {}
+
+func (x *Message) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Message.ProtoReflect.Descriptor instead.
+func (*Message) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Message) GetMessage() *v1.Message {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *Message) GetModelUsages() []*v1.ModelUsage {
+	if x != nil {
+		return x.ModelUsages
+	}
+	return nil
+}
+
+func (x *Message) GetError() *status.Status {
+	if x != nil {
+		return x.Error
+	}
+	return nil
+}
+
 var File_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
-	"\x12chat/v1/chat.proto\x12\achat.v1\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$malonaz/codegen/model/v1/model.proto\"\xcc\x02\n" +
+	"\x12chat/v1/chat.proto\x12\fsgpt.chat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\xfb\x02\n" +
 	"\x04Chat\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
 	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -156,10 +278,23 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\vupdate_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"updateTime\x12C\n" +
 	"\vdelete_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xba\xea\x0f\x02 \x01R\n" +
-	"deleteTime\x129\n" +
-	"\bmetadata\x18\x05 \x01(\v2\x15.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
-	"\x12chat.sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\x0e\n" +
-	"\fChatMetadataB*Z(github.com/malonaz/sgpt/genproto/chat/v1b\x06proto3"
+	"deleteTime\x12\x12\n" +
+	"\x04tags\x18\x05 \x03(\tR\x04tags\x12\x14\n" +
+	"\x05files\x18\x06 \x03(\tR\x05files\x12>\n" +
+	"\bmetadata\x18\n" +
+	" \x01(\v2\x1a.sgpt.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
+	"\x12chat.sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xc7\x01\n" +
+	"\fChatMetadata\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12D\n" +
+	"\rcurrent_model\x18\x02 \x01(\tB\x1f\xfaA\x16\n" +
+	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\fcurrentModel\x12\x1d\n" +
+	"\n" +
+	"total_cost\x18\x03 \x01(\x01R\ttotalCost\x12<\n" +
+	"\fmodel_usages\x18\x04 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\"\xa3\x01\n" +
+	"\aMessage\x120\n" +
+	"\amessage\x18\x01 \x01(\v2\x16.malonaz.ai.v1.MessageR\amessage\x12<\n" +
+	"\fmodel_usages\x18\x02 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\x12(\n" +
+	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusR\x05errorB*Z(github.com/malonaz/sgpt/genproto/chat/v1b\x06proto3"
 
 var (
 	file_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -173,22 +308,30 @@ func file_chat_v1_chat_proto_rawDescGZIP() []byte {
 	return file_chat_v1_chat_proto_rawDescData
 }
 
-var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_chat_v1_chat_proto_goTypes = []any{
-	(*Chat)(nil),                  // 0: chat.v1.Chat
-	(*ChatMetadata)(nil),          // 1: chat.v1.ChatMetadata
-	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
+	(*Chat)(nil),                  // 0: sgpt.chat.v1.Chat
+	(*ChatMetadata)(nil),          // 1: sgpt.chat.v1.ChatMetadata
+	(*Message)(nil),               // 2: sgpt.chat.v1.Message
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(*v1.ModelUsage)(nil),         // 4: malonaz.ai.v1.ModelUsage
+	(*v1.Message)(nil),            // 5: malonaz.ai.v1.Message
+	(*status.Status)(nil),         // 6: google.rpc.Status
 }
 var file_chat_v1_chat_proto_depIdxs = []int32{
-	2, // 0: chat.v1.Chat.create_time:type_name -> google.protobuf.Timestamp
-	2, // 1: chat.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
-	2, // 2: chat.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
-	1, // 3: chat.v1.Chat.metadata:type_name -> chat.v1.ChatMetadata
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // 0: sgpt.chat.v1.Chat.create_time:type_name -> google.protobuf.Timestamp
+	3, // 1: sgpt.chat.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
+	3, // 2: sgpt.chat.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
+	1, // 3: sgpt.chat.v1.Chat.metadata:type_name -> sgpt.chat.v1.ChatMetadata
+	4, // 4: sgpt.chat.v1.ChatMetadata.model_usages:type_name -> malonaz.ai.v1.ModelUsage
+	5, // 5: sgpt.chat.v1.Message.message:type_name -> malonaz.ai.v1.Message
+	4, // 6: sgpt.chat.v1.Message.model_usages:type_name -> malonaz.ai.v1.ModelUsage
+	6, // 7: sgpt.chat.v1.Message.error:type_name -> google.rpc.Status
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_chat_v1_chat_proto_init() }
@@ -202,7 +345,7 @@ func file_chat_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_v1_chat_proto_rawDesc), len(file_chat_v1_chat_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

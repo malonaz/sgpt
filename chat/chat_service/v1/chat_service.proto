@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package chat.chat_service.v1;
+package sgpt.chat.chat_service.v1;
 
 import "buf/validate/validate.proto";
 import "chat/v1/chat.proto";
@@ -25,7 +25,7 @@ service Chat {
   // Create a chat.
   //
   // See: https://google.aip.dev/133 (Standard methods: Create).
-  rpc CreateChat(CreateChatRequest) returns (chat.v1.Chat) {
+  rpc CreateChat(CreateChatRequest) returns (sgpt.chat.v1.Chat) {
     option (google.api.http) = {
       post: "/v1/{parent=organizations/*/users/*}/chats"
       body: "chat"
@@ -37,7 +37,7 @@ service Chat {
   // Update a chat.
   //
   // See: https://google.aip.dev/134 (Standard methods: Update).
-  rpc UpdateChat(UpdateChatRequest) returns (chat.v1.Chat) {
+  rpc UpdateChat(UpdateChatRequest) returns (sgpt.chat.v1.Chat) {
     option (google.api.http) = {
       patch: "/v1/{chat.name=organizations/*/users/*/chats/*}"
       body: "chat"
@@ -50,7 +50,7 @@ service Chat {
   //
   // See: https://google.aip.dev/135 (Standard methods: Delete).
   // See: https://google.aip.dev/164 (Soft delete).
-  rpc DeleteChat(DeleteChatRequest) returns (chat.v1.Chat) {
+  rpc DeleteChat(DeleteChatRequest) returns (sgpt.chat.v1.Chat) {
     option (google.api.http) = {delete: "/v1/{name=organizations/*/users/*/chats/*}"};
     option (google.api.method_signature) = "name";
     option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
@@ -59,7 +59,7 @@ service Chat {
   // Get a chat.
   //
   // See: https://google.aip.dev/131 (Standard methods: Get).
-  rpc GetChat(GetChatRequest) returns (chat.v1.Chat) {
+  rpc GetChat(GetChatRequest) returns (sgpt.chat.v1.Chat) {
     option (google.api.http) = {get: "/v1/{name=organizations/*/users/*/chats/*}"};
     option (google.api.method_signature) = "name";
     option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
@@ -106,7 +106,7 @@ message CreateChatRequest {
     }
   ];
   // The chat to create.
-  chat.v1.Chat chat = 3 [(buf.validate.field).required = true];
+  sgpt.chat.v1.Chat chat = 3 [(buf.validate.field).required = true];
   // If set, validate the request and preview the review, but do not actually create the resource.
   bool validate_only = 4;
 }
@@ -124,12 +124,7 @@ message GetChatRequest {
 // Request message for Chat.UpdateChat.
 message UpdateChatRequest {
   option (malonaz.codegen.aip.v1.update) = {
-    paths: [
-      "state",
-      "classification",
-      "metadata.transcript",
-      "metadata.analysis"
-    ]
+    paths: []
   };
   option (buf.validate.message).cel = {
     id: "1"
@@ -140,7 +135,7 @@ message UpdateChatRequest {
   // The chat to update with. The name must match or be empty.
   // The chat's `name` field is used to identify the chat to be updated.
   // Format: organizations/{organization}/users/{user}/chats/{chat}
-  chat.v1.Chat chat = 1 [(buf.validate.field).required = true];
+  sgpt.chat.v1.Chat chat = 1 [(buf.validate.field).required = true];
   // The list of fields to update.
   google.protobuf.FieldMask update_mask = 2 [(buf.validate.field).required = true];
 }
@@ -205,7 +200,7 @@ message ListChatsRequest {
 // Response message for Chat.ListChats.
 message ListChatsResponse {
   // The list of chats.
-  repeated chat.v1.Chat chats = 1;
+  repeated sgpt.chat.v1.Chat chats = 1;
   // A token to retrieve next page of results. Pass this value in the
   // [ListChatsRequest.page_token][chat.chat_service.v1.ListChatsRequest.page_token]
   // field in the subsequent call to `ListChats` method to retrieve the next
@@ -266,7 +261,7 @@ message SearchChatsRequest {
 // Response message for Chat.SearchChats.
 message SearchChatsResponse {
   // The list of chats matching the search query.
-  repeated chat.v1.Chat chats = 1;
+  repeated sgpt.chat.v1.Chat chats = 1;
 
   // A token to retrieve next page of results. Pass this value in the
   // [SearchChatsRequest.page_token][chat.chat_service.v1.SearchChatsRequest.page_token]

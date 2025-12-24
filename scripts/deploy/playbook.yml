@@ -1,0 +1,140 @@
+---
+- name: Deploy sgpt-server
+  hosts: servers
+  become: yes
+  vars_files:
+    - secrets.yml
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Create sgpt user
+      user:
+        name: sgpt
+        system: yes
+        shell: /usr/sbin/nologin
+        create_home: no
+
+    - name: Start Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Create data directory
+      file:
+        path: /data/sgpt-server/postgres
+        state: directory
+        owner: sgpt
+        group: sgpt
+        mode: '0755'
+
+    - name: Run PostgreSQL container
+      community.docker.docker_container:
+        name: postgres-sgpt-server
+        image: postgres:18
+        state: started
+        restart_policy: always
+        env:
+          POSTGRES_PASSWORD: "{{ postgres_password }}"
+        volumes:
+          - /data/sgpt-server/postgres:/var/lib/postgresql
+        ports:
+          - "{{ postgres_port }}:5432"
+
+    - name: Copy binary (server)
+      copy:
+        src: ../../plz-out/bin/cmd/server/server
+        dest: /usr/local/bin/sgpt-server
+        mode: '0755'
+
+    - name: Copy binary (chat-postgres-initializer)
+      copy:
+        src: ../../plz-out/bin/chat/migrations/initializer
+        dest: /usr/local/bin/chat-postgres-initializer
+        mode: '0755'
+
+    - name: Copy binary (chat-postgres-migrator)
+      copy:
+        src: ../../plz-out/bin/chat/migrations/migrator
+        dest: /usr/local/bin/chat-postgres-migrator
+        mode: '0755'
+
+    - name: Copy binary (chat-postgres-reset)
+      copy:
+        src: ../../plz-out/bin/chat/migrations/reset
+        dest: /usr/local/bin/chat-postgres-reset
+        mode: '0755'
+
+    - name: Create config directory
+      file:
+        path: /etc/sgpt-server
+        state: directory
+        owner: sgpt
+        group: sgpt
+        mode: '0700'
+
+    - name: Copy authentication configs
+      copy:
+        src: ../../cmd/server/authentication/
+        dest: /etc/sgpt-server/authentication/
+        owner: sgpt
+        group: sgpt
+        mode: '0600'
+      notify: Restart sgpt-server
+
+    - name: Create env file
+      template:
+        src: env.j2
+        dest: /etc/sgpt-server/.env
+        owner: sgpt
+        group: sgpt
+        mode: '0600'
+      notify: Restart sgpt-server
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/sgpt-server.service
+        content: |
+          [Unit]
+          Description=SGPT Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=sgpt
+          Group=sgpt
+          WorkingDirectory=/etc/sgpt-server
+          EnvironmentFile=/etc/sgpt-server/.env
+          ExecStart=/usr/local/bin/sgpt-server \
+            --logging.format=pretty \
+            --prometheus.disable \
+            --chat-postgres.user=chat \
+            --chat-postgres.database=chat \
+            --internal-grpc.disable-tls \
+            --internal-grpc.port=9876 \
+            --external-api-key-authentication.config=authentication/external_service_accounts.json \
+            --internal-service-authentication.config=authentication/internal_service_accounts.json \
+            --permission-authentication.config=authentication/roles.json
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart sgpt-server
+
+    - name: Enable and start sgpt-server
+      systemd:
+        name: sgpt-server
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: Restart sgpt-server
+      systemd:
+        name: sgpt-server
+        state: restarted

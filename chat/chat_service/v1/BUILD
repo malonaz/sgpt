@@ -12,12 +12,11 @@ grpc_library(
     additional_context = {
         GO_IMPORT_PATH: "github.com/malonaz/sgpt/genproto/chat/chat_service/v1",
     },
+    labels = ["copy_generated_code"],
     visibility = [
         "//chat/chat_service/...",
         "//cli/...",
-        "//engine/engine_service/...",
-        "//gateway/...",
-        "//server/...",
+        "//cmd/server/...",
     ],
     deps = [
         "//chat/v1",

@@ -584,25 +584,21 @@ var File_chat_chat_service_v1_chat_service_proto protoreflect.FileDescriptor
 
 const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\n" +
-	"'chat/chat_service/v1/chat_service.proto\x12\x14chat.chat_service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x12chat/v1/chat.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a malonaz/codegen/aip/v1/aip.proto\"\xda\x01\n" +
+	"'chat/chat_service/v1/chat_service.proto\x12\x19sgpt.chat.chat_service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x12chat/v1/chat.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a malonaz/codegen/aip/v1/aip.proto\"\xdf\x01\n" +
 	"\x11CreateChatRequest\x125\n" +
 	"\x06parent\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
 	"\x12user.sgpt.com/User\xbaH\x03\xc8\x01\x01R\x06parent\x12>\n" +
-	"\achat_id\x18\x02 \x01(\tB%\xbaH\"\xd8\x01\x01r\x1d\x10\x01\x18?2\x17^[a-z0-9](-?[a-z0-9])*$R\x06chatId\x12)\n" +
-	"\x04chat\x18\x03 \x01(\v2\r.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12#\n" +
+	"\achat_id\x18\x02 \x01(\tB%\xbaH\"\xd8\x01\x01r\x1d\x10\x01\x18?2\x17^[a-z0-9](-?[a-z0-9])*$R\x06chatId\x12.\n" +
+	"\x04chat\x18\x03 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12#\n" +
 	"\rvalidate_only\x18\x04 \x01(\bR\fvalidateOnly\"C\n" +
 	"\x0eGetChatRequest\x121\n" +
 	"\x04name\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\"\xfd\x01\n" +
-	"\x11UpdateChatRequest\x12)\n" +
-	"\x04chat\x18\x01 \x01(\v2\r.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12C\n" +
+	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\"\xc3\x01\n" +
+	"\x11UpdateChatRequest\x12.\n" +
+	"\x04chat\x18\x01 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12C\n" +
 	"\vupdate_mask\x18\x02 \x01(\v2\x1a.google.protobuf.FieldMaskB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"updateMask:x\xbaH1\x1a/\n" +
-	"\x011\x12\x15chat.name must be set\x1a\x13has(this.chat.name)\xea\x9c\xc1\x03?\n" +
-	"\x05state\n" +
-	"\x0eclassification\n" +
-	"\x13metadata.transcript\n" +
-	"\x11metadata.analysis\"k\n" +
+	"updateMask:9\xbaH1\x1a/\n" +
+	"\x011\x12\x15chat.name must be set\x1a\x13has(this.chat.name)\xea\x9c\xc1\x03\x00\"k\n" +
 	"\x11DeleteChatRequest\x121\n" +
 	"\x04name\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
 	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\x12#\n" +
@@ -619,9 +615,9 @@ const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\fshow_deleted\x18\x06 \x01(\bR\vshowDeleted:=\x82\xf3-\x03\b\xc8\x01\x8a\xf3-+\n" +
 	"\vcreate_time\n" +
 	"\vupdate_time\x12\x0fcreate_time asc\x92\xf3-\x03\n" +
-	"\x01*\"`\n" +
-	"\x11ListChatsResponse\x12#\n" +
-	"\x05chats\x18\x01 \x03(\v2\r.chat.v1.ChatR\x05chats\x12&\n" +
+	"\x01*\"e\n" +
+	"\x11ListChatsResponse\x12(\n" +
+	"\x05chats\x18\x01 \x03(\v2\x12.sgpt.chat.v1.ChatR\x05chats\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xd9\x01\n" +
 	"\x12SearchChatsRequest\x125\n" +
 	"\x06parent\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
@@ -632,25 +628,25 @@ const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x05 \x01(\tR\tpageToken:\x0e\x82\xf3-\x03\b\xc8\x01\x92\xf3-\x03\n" +
-	"\x01*\"b\n" +
-	"\x13SearchChatsResponse\x12#\n" +
-	"\x05chats\x18\x01 \x03(\v2\r.chat.v1.ChatR\x05chats\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\x81\b\n" +
-	"\x04Chat\x12\xa4\x01\n" +
+	"\x01*\"g\n" +
+	"\x13SearchChatsResponse\x12(\n" +
+	"\x05chats\x18\x01 \x03(\v2\x12.sgpt.chat.v1.ChatR\x05chats\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xbd\b\n" +
+	"\x04Chat\x12\xae\x01\n" +
 	"\n" +
-	"CreateChat\x12'.chat.chat_service.v1.CreateChatRequest\x1a\r.chat.v1.Chat\"^\xdaA\vparent,chat´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x022:\x04chat\"*/v1/{parent=organizations/*/users/*}/chats\x12\xae\x01\n" +
+	"CreateChat\x12,.sgpt.chat.chat_service.v1.CreateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"^\xdaA\vparent,chat´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x022:\x04chat\"*/v1/{parent=organizations/*/users/*}/chats\x12\xb8\x01\n" +
 	"\n" +
-	"UpdateChat\x12'.chat.chat_service.v1.UpdateChatRequest\x1a\r.chat.v1.Chat\"h\xdaA\x10chat,update_mask´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x027:\x04chat2//v1/{chat.name=organizations/*/users/*/chats/*}\x12\x97\x01\n" +
+	"UpdateChat\x12,.sgpt.chat.chat_service.v1.UpdateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"h\xdaA\x10chat,update_mask´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x027:\x04chat2//v1/{chat.name=organizations/*/users/*/chats/*}\x12\xa1\x01\n" +
 	"\n" +
-	"DeleteChat\x12'.chat.chat_service.v1.DeleteChatRequest\x1a\r.chat.v1.Chat\"Q\xdaA\x04name´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,**/v1/{name=organizations/*/users/*/chats/*}\x12\x91\x01\n" +
-	"\aGetChat\x12$.chat.chat_service.v1.GetChatRequest\x1a\r.chat.v1.Chat\"Q\xdaA\x04name´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,\x12*/v1/{name=organizations/*/users/*/chats/*}\x12\xb1\x01\n" +
-	"\tListChats\x12&.chat.chat_service.v1.ListChatsRequest\x1a'.chat.chat_service.v1.ListChatsResponse\"S\xdaA\x06parent´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,\x12*/v1/{parent=organizations/*/users/*}/chats\x12\xac\x01\n" +
-	"\vSearchChats\x12(.chat.chat_service.v1.SearchChatsRequest\x1a).chat.chat_service.v1.SearchChatsResponse\"H\xdaA\fparent,query\x82\xd3\xe4\x93\x023\x121/v1/{parent=organizations/*/users/*}/chats:search\x1a\x10\xcaA\rchat.sgpt.comB7Z5github.com/malonaz/sgpt/genproto/chat/chat_service/v1b\x06proto3"
+	"DeleteChat\x12,.sgpt.chat.chat_service.v1.DeleteChatRequest\x1a\x12.sgpt.chat.v1.Chat\"Q\xdaA\x04name´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,**/v1/{name=organizations/*/users/*/chats/*}\x12\x9b\x01\n" +
+	"\aGetChat\x12).sgpt.chat.chat_service.v1.GetChatRequest\x1a\x12.sgpt.chat.v1.Chat\"Q\xdaA\x04name´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,\x12*/v1/{name=organizations/*/users/*/chats/*}\x12\xbb\x01\n" +
+	"\tListChats\x12+.sgpt.chat.chat_service.v1.ListChatsRequest\x1a,.sgpt.chat.chat_service.v1.ListChatsResponse\"S\xdaA\x06parent´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,\x12*/v1/{parent=organizations/*/users/*}/chats\x12\xb6\x01\n" +
+	"\vSearchChats\x12-.sgpt.chat.chat_service.v1.SearchChatsRequest\x1a..sgpt.chat.chat_service.v1.SearchChatsResponse\"H\xdaA\fparent,query\x82\xd3\xe4\x93\x023\x121/v1/{parent=organizations/*/users/*}/chats:search\x1a\x10\xcaA\rchat.sgpt.comB7Z5github.com/malonaz/sgpt/genproto/chat/chat_service/v1b\x06proto3"
 
 var (
 	file_chat_chat_service_v1_chat_service_proto_rawDescOnce sync.Once
@@ -666,35 +662,35 @@ func file_chat_chat_service_v1_chat_service_proto_rawDescGZIP() []byte {
 
 var file_chat_chat_service_v1_chat_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_chat_chat_service_v1_chat_service_proto_goTypes = []any{
-	(*CreateChatRequest)(nil),     // 0: chat.chat_service.v1.CreateChatRequest
-	(*GetChatRequest)(nil),        // 1: chat.chat_service.v1.GetChatRequest
-	(*UpdateChatRequest)(nil),     // 2: chat.chat_service.v1.UpdateChatRequest
-	(*DeleteChatRequest)(nil),     // 3: chat.chat_service.v1.DeleteChatRequest
-	(*ListChatsRequest)(nil),      // 4: chat.chat_service.v1.ListChatsRequest
-	(*ListChatsResponse)(nil),     // 5: chat.chat_service.v1.ListChatsResponse
-	(*SearchChatsRequest)(nil),    // 6: chat.chat_service.v1.SearchChatsRequest
-	(*SearchChatsResponse)(nil),   // 7: chat.chat_service.v1.SearchChatsResponse
-	(*v1.Chat)(nil),               // 8: chat.v1.Chat
+	(*CreateChatRequest)(nil),     // 0: sgpt.chat.chat_service.v1.CreateChatRequest
+	(*GetChatRequest)(nil),        // 1: sgpt.chat.chat_service.v1.GetChatRequest
+	(*UpdateChatRequest)(nil),     // 2: sgpt.chat.chat_service.v1.UpdateChatRequest
+	(*DeleteChatRequest)(nil),     // 3: sgpt.chat.chat_service.v1.DeleteChatRequest
+	(*ListChatsRequest)(nil),      // 4: sgpt.chat.chat_service.v1.ListChatsRequest
+	(*ListChatsResponse)(nil),     // 5: sgpt.chat.chat_service.v1.ListChatsResponse
+	(*SearchChatsRequest)(nil),    // 6: sgpt.chat.chat_service.v1.SearchChatsRequest
+	(*SearchChatsResponse)(nil),   // 7: sgpt.chat.chat_service.v1.SearchChatsResponse
+	(*v1.Chat)(nil),               // 8: sgpt.chat.v1.Chat
 	(*fieldmaskpb.FieldMask)(nil), // 9: google.protobuf.FieldMask
 }
 var file_chat_chat_service_v1_chat_service_proto_depIdxs = []int32{
-	8,  // 0: chat.chat_service.v1.CreateChatRequest.chat:type_name -> chat.v1.Chat
-	8,  // 1: chat.chat_service.v1.UpdateChatRequest.chat:type_name -> chat.v1.Chat
-	9,  // 2: chat.chat_service.v1.UpdateChatRequest.update_mask:type_name -> google.protobuf.FieldMask
-	8,  // 3: chat.chat_service.v1.ListChatsResponse.chats:type_name -> chat.v1.Chat
-	8,  // 4: chat.chat_service.v1.SearchChatsResponse.chats:type_name -> chat.v1.Chat
-	0,  // 5: chat.chat_service.v1.Chat.CreateChat:input_type -> chat.chat_service.v1.CreateChatRequest
-	2,  // 6: chat.chat_service.v1.Chat.UpdateChat:input_type -> chat.chat_service.v1.UpdateChatRequest
-	3,  // 7: chat.chat_service.v1.Chat.DeleteChat:input_type -> chat.chat_service.v1.DeleteChatRequest
-	1,  // 8: chat.chat_service.v1.Chat.GetChat:input_type -> chat.chat_service.v1.GetChatRequest
-	4,  // 9: chat.chat_service.v1.Chat.ListChats:input_type -> chat.chat_service.v1.ListChatsRequest
-	6,  // 10: chat.chat_service.v1.Chat.SearchChats:input_type -> chat.chat_service.v1.SearchChatsRequest
-	8,  // 11: chat.chat_service.v1.Chat.CreateChat:output_type -> chat.v1.Chat
-	8,  // 12: chat.chat_service.v1.Chat.UpdateChat:output_type -> chat.v1.Chat
-	8,  // 13: chat.chat_service.v1.Chat.DeleteChat:output_type -> chat.v1.Chat
-	8,  // 14: chat.chat_service.v1.Chat.GetChat:output_type -> chat.v1.Chat
-	5,  // 15: chat.chat_service.v1.Chat.ListChats:output_type -> chat.chat_service.v1.ListChatsResponse
-	7,  // 16: chat.chat_service.v1.Chat.SearchChats:output_type -> chat.chat_service.v1.SearchChatsResponse
+	8,  // 0: sgpt.chat.chat_service.v1.CreateChatRequest.chat:type_name -> sgpt.chat.v1.Chat
+	8,  // 1: sgpt.chat.chat_service.v1.UpdateChatRequest.chat:type_name -> sgpt.chat.v1.Chat
+	9,  // 2: sgpt.chat.chat_service.v1.UpdateChatRequest.update_mask:type_name -> google.protobuf.FieldMask
+	8,  // 3: sgpt.chat.chat_service.v1.ListChatsResponse.chats:type_name -> sgpt.chat.v1.Chat
+	8,  // 4: sgpt.chat.chat_service.v1.SearchChatsResponse.chats:type_name -> sgpt.chat.v1.Chat
+	0,  // 5: sgpt.chat.chat_service.v1.Chat.CreateChat:input_type -> sgpt.chat.chat_service.v1.CreateChatRequest
+	2,  // 6: sgpt.chat.chat_service.v1.Chat.UpdateChat:input_type -> sgpt.chat.chat_service.v1.UpdateChatRequest
+	3,  // 7: sgpt.chat.chat_service.v1.Chat.DeleteChat:input_type -> sgpt.chat.chat_service.v1.DeleteChatRequest
+	1,  // 8: sgpt.chat.chat_service.v1.Chat.GetChat:input_type -> sgpt.chat.chat_service.v1.GetChatRequest
+	4,  // 9: sgpt.chat.chat_service.v1.Chat.ListChats:input_type -> sgpt.chat.chat_service.v1.ListChatsRequest
+	6,  // 10: sgpt.chat.chat_service.v1.Chat.SearchChats:input_type -> sgpt.chat.chat_service.v1.SearchChatsRequest
+	8,  // 11: sgpt.chat.chat_service.v1.Chat.CreateChat:output_type -> sgpt.chat.v1.Chat
+	8,  // 12: sgpt.chat.chat_service.v1.Chat.UpdateChat:output_type -> sgpt.chat.v1.Chat
+	8,  // 13: sgpt.chat.chat_service.v1.Chat.DeleteChat:output_type -> sgpt.chat.v1.Chat
+	8,  // 14: sgpt.chat.chat_service.v1.Chat.GetChat:output_type -> sgpt.chat.v1.Chat
+	5,  // 15: sgpt.chat.chat_service.v1.Chat.ListChats:output_type -> sgpt.chat.chat_service.v1.ListChatsResponse
+	7,  // 16: sgpt.chat.chat_service.v1.Chat.SearchChats:output_type -> sgpt.chat.chat_service.v1.SearchChatsResponse
 	11, // [11:17] is the sub-list for method output_type
 	5,  // [5:11] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name

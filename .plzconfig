@@ -1,5 +1,5 @@
 [please]
-version = 17.23.0
+version = 17.27.0
 location = ~/.please
 
 [build]
@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = 6bfac99ef9e15574270ef3a052e1f6e141b3c0e2
+core-revision = 9567a335bd8937322b38b26e05c4236fd7c91f91
 
 [sandbox ]
 test = false
@@ -60,18 +60,34 @@ ProtocFlags = -Ithird_party/proto
 Target = //plugins:core
 ProtocGenGoDep = //tools:protoc-gen-go-dep
 ProtocGenGrpcGoDep = //tools:protoc-gen-go-grpc-dep
+
 [alias "tidy"]
-desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
+desc = Tidy pulls third party deps and then calls `lint`
 cmd = run ///core//tools/tidy
 
 [alias "lint"]
-desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
+desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date
 cmd = run ///core//tools/tidy:lint
 
 [alias "bump"]
-desc = Tidy generates build targets for dependencies and makes sure that BUILD files are up-to-date.
-cmd = run //cmd:bump_core_dep
+desc = Bump the core dep.
+cmd = run ///core//scripts:bump_core_dep
 
-[alias "gen"]
-desc = Copy generated code from plz-out to git
-cmd = run //cmd:copy_generated_code
+[alias "postgres"]
+desc = Manage a local postgres docker image
+cmd = run ///core//scripts:postgres_docker  -- --port 8989
+subcommand = start
+subcommand = stop
+subcommand = reset
+subcommand = connect
+subcommand = connect chat
+positionallabels = true
+
+
+[alias "deploy"]
+desc = Apply ansible deployment playbook
+cmd = run //scripts/deploy:deploy
+
+[alias "tail"]
+desc = Tail the sgpt-server deployment logs
+cmd = run //scripts/deploy:tail

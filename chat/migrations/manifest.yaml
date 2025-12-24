@@ -4,6 +4,6 @@ directories:
     extension: false
     migrations:
       - filename: 001_init.sql
-        hash: 92c9a556486099dcbcfb9e76d0e05b76
+        hash: a83cb0f82994378ba3b7ab62ef7da0c6
       - filename: 002_tsvector.sql
         hash: 032e04769ee27f286105ccf60cd891ea

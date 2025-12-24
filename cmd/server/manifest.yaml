@@ -1,0 +1,17 @@
+name: server
+setup: true
+servers:
+  - type: grpc
+    name: internal
+    interceptors:
+      - type: session_local_context_injector
+      - type: external_api_key_authentication
+      - type: internal_service_authentication
+      - type: permission_authentication
+      - type: session_log_injector
+      - type: session_outgoing_context_injector
+    services:
+      - proto: //chat/chat_service/v1
+        manifest: //chat/chat_service:manifest
+      - proto: //third_party/proto:malonaz__core__genproto__ai__ai_service__v1
+        manifest: //ai/ai_service:manifest

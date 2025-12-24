@@ -61,7 +61,7 @@ func NewChatClient(cc grpc.ClientConnInterface) ChatClient {
 
 func (c *chatClient) CreateChat(ctx context.Context, in *CreateChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
-	err := c.cc.Invoke(ctx, "/chat.chat_service.v1.Chat/CreateChat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.Chat/CreateChat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (c *chatClient) CreateChat(ctx context.Context, in *CreateChatRequest, opts
 
 func (c *chatClient) UpdateChat(ctx context.Context, in *UpdateChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
-	err := c.cc.Invoke(ctx, "/chat.chat_service.v1.Chat/UpdateChat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.Chat/UpdateChat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (c *chatClient) UpdateChat(ctx context.Context, in *UpdateChatRequest, opts
 
 func (c *chatClient) DeleteChat(ctx context.Context, in *DeleteChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
-	err := c.cc.Invoke(ctx, "/chat.chat_service.v1.Chat/DeleteChat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.Chat/DeleteChat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (c *chatClient) DeleteChat(ctx context.Context, in *DeleteChatRequest, opts
 
 func (c *chatClient) GetChat(ctx context.Context, in *GetChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
-	err := c.cc.Invoke(ctx, "/chat.chat_service.v1.Chat/GetChat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.Chat/GetChat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *chatClient) GetChat(ctx context.Context, in *GetChatRequest, opts ...gr
 
 func (c *chatClient) ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error) {
 	out := new(ListChatsResponse)
-	err := c.cc.Invoke(ctx, "/chat.chat_service.v1.Chat/ListChats", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.Chat/ListChats", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (c *chatClient) ListChats(ctx context.Context, in *ListChatsRequest, opts .
 
 func (c *chatClient) SearchChats(ctx context.Context, in *SearchChatsRequest, opts ...grpc.CallOption) (*SearchChatsResponse, error) {
 	out := new(SearchChatsResponse)
-	err := c.cc.Invoke(ctx, "/chat.chat_service.v1.Chat/SearchChats", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.Chat/SearchChats", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func _Chat_CreateChat_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chat.chat_service.v1.Chat/CreateChat",
+		FullMethod: "/sgpt.chat.chat_service.v1.Chat/CreateChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServer).CreateChat(ctx, req.(*CreateChatRequest))
@@ -207,7 +207,7 @@ func _Chat_UpdateChat_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chat.chat_service.v1.Chat/UpdateChat",
+		FullMethod: "/sgpt.chat.chat_service.v1.Chat/UpdateChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServer).UpdateChat(ctx, req.(*UpdateChatRequest))
@@ -225,7 +225,7 @@ func _Chat_DeleteChat_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chat.chat_service.v1.Chat/DeleteChat",
+		FullMethod: "/sgpt.chat.chat_service.v1.Chat/DeleteChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServer).DeleteChat(ctx, req.(*DeleteChatRequest))
@@ -243,7 +243,7 @@ func _Chat_GetChat_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chat.chat_service.v1.Chat/GetChat",
+		FullMethod: "/sgpt.chat.chat_service.v1.Chat/GetChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServer).GetChat(ctx, req.(*GetChatRequest))
@@ -261,7 +261,7 @@ func _Chat_ListChats_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chat.chat_service.v1.Chat/ListChats",
+		FullMethod: "/sgpt.chat.chat_service.v1.Chat/ListChats",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServer).ListChats(ctx, req.(*ListChatsRequest))
@@ -279,7 +279,7 @@ func _Chat_SearchChats_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chat.chat_service.v1.Chat/SearchChats",
+		FullMethod: "/sgpt.chat.chat_service.v1.Chat/SearchChats",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServer).SearchChats(ctx, req.(*SearchChatsRequest))
@@ -291,7 +291,7 @@ func _Chat_SearchChats_Handler(srv interface{}, ctx context.Context, dec func(in
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Chat_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "chat.chat_service.v1.Chat",
+	ServiceName: "sgpt.chat.chat_service.v1.Chat",
 	HandlerType: (*ChatServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

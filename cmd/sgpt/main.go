@@ -15,11 +15,11 @@ import (
 
 	"github.com/malonaz/sgpt/cli/chat"
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/webserver"
 	"github.com/malonaz/sgpt/store"
+	"github.com/malonaz/sgpt/webserver"
 )
 
-const defaultConfigFilepath = "~/.config/sgpt/config.v2.json"
+const defaultConfigFilepath = "~/.config/sgpt/config.json"
 
 func main() {
 	if err := run(); err != nil {

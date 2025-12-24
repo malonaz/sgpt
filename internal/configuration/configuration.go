@@ -214,7 +214,12 @@ func findOverrideConfigPath() (string, error) {
 }
 
 func parseConfig(filepath string) (*Config, error) {
-	content, err := jsonnet.EvaluateFile(filepath)
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := jsonnet.EvaluateSnippet(string(data))
 	if err != nil {
 		return nil, errors.Wrap(err, "evaluating config")
 	}
