@@ -7,7 +7,7 @@ filegroup(
 )
 
 go_library(
-    name = "server",
+    name = "webserver",
     srcs = [
         "chat.go",
         "inbox.go",

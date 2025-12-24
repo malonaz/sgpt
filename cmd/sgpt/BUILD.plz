@@ -5,7 +5,7 @@ go_binary(
     deps = [
         "//cli/chat",
         "//internal/configuration",
-        "//server",
+        "//webserver",
         "//store",
         "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/go:github.com__malonaz__core__go__authentication",

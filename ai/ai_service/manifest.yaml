@@ -1,0 +1,2 @@
+name: ai-service
+implementation: //third_party/go:github.com__malonaz__core__go__ai__ai_service

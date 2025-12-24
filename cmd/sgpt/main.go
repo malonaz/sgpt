@@ -15,7 +15,7 @@ import (
 
 	"github.com/malonaz/sgpt/cli/chat"
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/server"
+	"github.com/malonaz/sgpt/webserver"
 	"github.com/malonaz/sgpt/store"
 )
 
@@ -103,7 +103,7 @@ func run() error {
 	defer conn.Close()
 	aiClient := aiservicepb.NewAiClient(conn.Get())
 
-	rootCmd.AddCommand(server.NewServeCmd(store))
+	rootCmd.AddCommand(webserver.NewServeCmd(store))
 	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient))
 	return rootCmd.Execute()
 }
