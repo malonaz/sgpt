@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/chat"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/store"
 	"github.com/malonaz/sgpt/webserver"
@@ -96,15 +97,15 @@ func run() error {
 		return fmt.Errorf("creating connection: %w", err)
 	}
 	conn.WithLogger(errorLogger)
-
 	if err := conn.Connect(ctx); err != nil {
 		return fmt.Errorf("connecting: %w", err)
 	}
 	defer conn.Close()
 	aiClient := aiservicepb.NewAiClient(conn.Get())
+	chatClient := chatservicepb.NewChatClient(conn.Get())
 
 	rootCmd.AddCommand(webserver.NewServeCmd(store))
-	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient))
+	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient, chatClient))
 	return rootCmd.Execute()
 }
 

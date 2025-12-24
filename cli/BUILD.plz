@@ -1,6 +1,6 @@
 go_library(
     name = "chat",
-    srcs = ["cmd.go"],
+    srcs = ["cli.go"],
     visibility = ["//..."],
     deps = [
         "//chat/chat_service/v1",

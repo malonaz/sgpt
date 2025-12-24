@@ -1,0 +1,9 @@
+go_library(
+    name = "app",
+    srcs = ["service.go"],
+    visibility = ["//..."],
+    deps = [
+        "//chat/chat_service/v1",
+        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
+    ],
+)
