@@ -83,6 +83,9 @@ subcommand = connect
 subcommand = connect chat
 positionallabels = true
 
+[alias "install"]
+desc = Installs sgpt
+cmd = run //scripts:install
 
 [alias "deploy"]
 desc = Apply ansible deployment playbook
