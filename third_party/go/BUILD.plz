@@ -2388,7 +2388,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20251224155149-9567a335bd89",
+    version = "v0.0.0-20251226101919-0ef436c40f6f",
     visibility = ["PUBLIC"],
 )
 
@@ -2793,11 +2793,14 @@ go_module(
         ":google.golang.org__grpc__keepalive",
         ":google.golang.org__grpc__metadata",
         ":google.golang.org__grpc__reflection",
+        ":google.golang.org__grpc__reflection__grpc_reflection_v1",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__protoadapt",
+        ":google.golang.org__protobuf__reflect__protodesc",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__types__descriptorpb",
     ],
 )
 
@@ -3864,8 +3867,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -6750,8 +6753,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6840,8 +6843,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6903,8 +6906,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6912,8 +6915,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6930,8 +6933,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
