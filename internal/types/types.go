@@ -108,7 +108,7 @@ func NewThinkingMessage(content string) *RuntimeMessage {
 
 // NewToolCallMessage creates a new tool call runtime message.
 func NewToolCallMessage(toolCall *aipb.ToolCall) (*RuntimeMessage, error) {
-	bytes, err := pbutil.JSONMarshalStruct(toolCall.Arguments)
+	bytes, err := pbutil.JSONMarshalPretty(toolCall.Arguments)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
 				result = append(result, NewAssistantMessage(m.Assistant.Content))
 			}
 			if m.Assistant.StructuredContent != nil {
-				if bytes, err := pbutil.JSONMarshalStruct(m.Assistant.StructuredContent); err == nil {
+				if bytes, err := pbutil.JSONMarshalPretty(m.Assistant.StructuredContent); err == nil {
 					result = append(result, NewAssistantMessage(string(bytes)))
 				}
 			}
@@ -177,7 +177,7 @@ func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
 			case *aipb.ToolResult_Content:
 				content = r.Content
 			case *aipb.ToolResult_StructuredContent:
-				if bytes, err := pbutil.JSONMarshalStruct(r.StructuredContent); err == nil {
+				if bytes, err := pbutil.JSONMarshalPretty(r.StructuredContent); err == nil {
 					content = string(bytes)
 				}
 			case *aipb.ToolResult_Error:

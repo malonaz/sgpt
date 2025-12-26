@@ -167,7 +167,7 @@ func (m *Model) renderMessages() string {
 
 		case types.RuntimeMessageTypeToolCall:
 			blockOffsets = append(blockOffsets, currentLine)
-			bytes, _ := pbutil.JSONMarshalStruct(rm.ToolCall.Arguments)
+			bytes, _ := pbutil.JSONMarshalPretty(rm.ToolCall.Arguments)
 			writeString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", rm.ToolCall.Name)))
 			writeString("\n")
 			writeString(styles.ToolCallStyle.Render(string(bytes)))

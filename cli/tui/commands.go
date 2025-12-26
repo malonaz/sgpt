@@ -270,7 +270,7 @@ func (m *Model) promptToolCall(toolCalls []*aipb.ToolCall) []tea.Cmd {
 	var cmds []tea.Cmd
 	for _, toolCall := range toolCalls {
 		cmd := func() tea.Msg {
-			bytes, err := pbutil.JSONMarshalStruct(toolCall.Arguments)
+			bytes, err := pbutil.JSONMarshalPretty(toolCall.Arguments)
 			if err != nil {
 				return types.StreamErrorMsg{Err: err}
 			}
