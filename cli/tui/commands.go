@@ -30,7 +30,7 @@ func (m *Model) sendMessage() tea.Cmd {
 	m.history.Add(userInput)
 	m.historyNavigating = false
 
-	userMessage := ai.NewUserMessage(userInput)
+	userMessage := ai.NewUserMessage(&aipb.UserMessage{Content: userInput})
 	m.runtimeMessages = append(m.runtimeMessages, types.NewUserMessage(userInput))
 	m.pendingUserMessage = userMessage
 
@@ -212,8 +212,11 @@ func (m *Model) finalizeResponse(done types.StreamDoneMsg) {
 
 	if hasContent {
 		// Build the proto message for persistence
-		assistantMessage := ai.NewAssistantMessage(done.Response, done.ToolCalls...)
-		assistantMessage.GetAssistant().Reasoning = done.Reasoning
+		assistantMessage := ai.NewAssistantMessage(&aipb.AssistantMessage{
+			Reasoning: done.Reasoning,
+			Content:   done.Response,
+			ToolCalls: done.ToolCalls,
+		})
 
 		if done.Err != nil {
 			m.pendingUserMessage = nil

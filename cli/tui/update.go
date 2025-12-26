@@ -378,7 +378,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case types.ToolResultMsg:
 		if msg.Result != "" && m.pendingToolCall != nil {
-			toolMessage := ai.NewToolResultMessage(m.pendingToolCall.Id, msg.Result)
+			toolMessage := ai.NewToolResultMessage(&aipb.ToolResultMessage{
+				ToolCallId: m.pendingToolCall.Id,
+				Result:     ai.NewToolResult(msg.Result),
+			})
 			m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage(m.pendingToolCall.Id, msg.Result))
 			m.chat.Messages = append(m.chat.Messages, toolMessage)
 		}

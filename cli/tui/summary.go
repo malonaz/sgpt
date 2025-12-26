@@ -33,7 +33,7 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, s *s
 
 	systemPrompt := `Generate a brief, concise title (max 6 words) for this conversation so far. YOU MUST ALWAYS OUTPUT SOMETHING.`
 	messages := []*aipb.Message{
-		ai.NewSystemMessage(systemPrompt),
+		ai.NewSystemMessage(&aipb.SystemMessage{Content: systemPrompt}),
 		userMessage,
 	}
 

@@ -144,12 +144,12 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			// Build additional messages (files + role)
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
 			// Inject role
-			message := ai.NewSystemMessage(parsedRole.Prompt)
+			message := ai.NewSystemMessage(&aipb.SystemMessage{Content: parsedRole.Prompt})
 			additionalMessages = append(additionalMessages, message)
 
 			// Inject files
 			for _, f := range files {
-				message := ai.NewUserMessage(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))
+				message := ai.NewUserMessage(&aipb.UserMessage{Content: fmt.Sprintf("file %s: `%s`", f.Path, f.Content)})
 				additionalMessages = append(additionalMessages, message)
 			}
 
