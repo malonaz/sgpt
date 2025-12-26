@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/pbutil"
 
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/markdown"
@@ -106,13 +107,18 @@ func NewThinkingMessage(content string) *RuntimeMessage {
 }
 
 // NewToolCallMessage creates a new tool call runtime message.
-func NewToolCallMessage(toolCall *aipb.ToolCall) *RuntimeMessage {
+func NewToolCallMessage(toolCall *aipb.ToolCall) (*RuntimeMessage, error) {
+	bytes, err := pbutil.JSONMarshalStruct(toolCall.Arguments)
+	if err != nil {
+		return nil, err
+	}
+	str := string(bytes)
 	return &RuntimeMessage{
 		Type:     RuntimeMessageTypeToolCall,
-		content:  toolCall.Arguments,
-		Blocks:   markdown.ParseBlocks(toolCall.Arguments),
+		content:  str,
+		Blocks:   markdown.ParseBlocks(str),
 		ToolCall: toolCall,
-	}
+	}, nil
 }
 
 // NewToolResultMessage creates a new tool result runtime message.
@@ -140,29 +146,44 @@ func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
 	var result []*RuntimeMessage
 
 	for _, msg := range messages {
-		switch msg.Role {
-		case aipb.Role_ROLE_USER:
-			result = append(result, NewUserMessage(msg.Content))
+		switch m := msg.Message.(type) {
+		case *aipb.Message_System:
+			result = append(result, NewSystemMessage(m.System.Content))
 
-		case aipb.Role_ROLE_ASSISTANT:
-			// Add thinking message if present
-			if msg.Reasoning != "" {
-				result = append(result, NewThinkingMessage(msg.Reasoning))
+		case *aipb.Message_User:
+			result = append(result, NewUserMessage(m.User.Content))
+
+		case *aipb.Message_Assistant:
+			if m.Assistant.Reasoning != "" {
+				result = append(result, NewThinkingMessage(m.Assistant.Reasoning))
 			}
-			// Add assistant response if present
-			if msg.Content != "" {
-				result = append(result, NewAssistantMessage(msg.Content))
+			if m.Assistant.Content != "" {
+				result = append(result, NewAssistantMessage(m.Assistant.Content))
 			}
-			// Add tool calls as separate messages
-			for _, tc := range msg.ToolCalls {
-				result = append(result, NewToolCallMessage(tc))
+			if m.Assistant.StructuredContent != nil {
+				if bytes, err := pbutil.JSONMarshalStruct(m.Assistant.StructuredContent); err == nil {
+					result = append(result, NewAssistantMessage(string(bytes)))
+				}
+			}
+			for _, tc := range m.Assistant.ToolCalls {
+				if tcMsg, err := NewToolCallMessage(tc); err == nil {
+					result = append(result, tcMsg)
+				}
 			}
 
-		case aipb.Role_ROLE_TOOL:
-			result = append(result, NewToolResultMessage(msg.ToolCallId, msg.Content))
-
-		case aipb.Role_ROLE_SYSTEM:
-			result = append(result, NewSystemMessage(msg.Content))
+		case *aipb.Message_Tool:
+			content := ""
+			switch r := m.Tool.Result.Result.(type) {
+			case *aipb.ToolResult_Content:
+				content = r.Content
+			case *aipb.ToolResult_StructuredContent:
+				if bytes, err := pbutil.JSONMarshalStruct(r.StructuredContent); err == nil {
+					content = string(bytes)
+				}
+			case *aipb.ToolResult_Error:
+				content = r.Error
+			}
+			result = append(result, NewToolResultMessage(m.Tool.ToolCallId, content))
 		}
 	}
 

@@ -166,6 +166,7 @@
         "github.com/jackc/puddle/v2": "//third_party/go:github.com__jackc__puddle__v2",
         "github.com/jackc/puddle/v2/internal/genstack": "//third_party/go:github.com__jackc__puddle__v2__internal__genstack",
         "github.com/jessevdk/go-flags": "//third_party/go:github.com__jessevdk__go-flags",
+        "github.com/karminski/streaming-json-go": "//third_party/go:github.com__karminski__streaming-json-go",
         "github.com/kballard/go-shellquote": "//third_party/go:github.com__kballard__go-shellquote",
         "github.com/lucasb-eyer/go-colorful": "//third_party/go:github.com__lucasb-eyer__go-colorful",
         "github.com/malonaz/core/genproto/ai/ai_service/v1": "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",

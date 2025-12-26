@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = 6c470cd188eb5c1829144dae668a649c030fb52a
+core-revision = c06835c9a85004b88d99ec721a0b1cb3ad04f7cd
 
 [sandbox ]
 test = false
@@ -75,7 +75,7 @@ cmd = run ///core//scripts:bump_core_dep
 
 [alias "postgres"]
 desc = Manage a local postgres docker image
-cmd = run ///core//scripts:postgres_docker  -- --port 8989 --name sgpt
+cmd = run ///core//scripts:postgres_docker -- --name sgpt --port 8989
 subcommand = start
 subcommand = stop
 subcommand = reset
@@ -94,3 +94,4 @@ cmd = run //scripts/deploy:deploy
 [alias "tail"]
 desc = Tail the sgpt-server deployment logs
 cmd = run //scripts/deploy:tail
+positionallabels = true

@@ -1,4 +1,5 @@
 #!/bin/bash
 set -e
 
-ssh h-malonaz "journalctl -u sgpt-server -f -o cat"
+n=${1:-50}
+ssh h-malonaz "journalctl -u sgpt-server -f -o cat -n $n"

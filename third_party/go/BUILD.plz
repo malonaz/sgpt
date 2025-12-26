@@ -2351,6 +2351,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__karminski__streaming-json-go",
+    _tag = "download",
+    module = "github.com/karminski/streaming-json-go",
+    version = "v0.0.4",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__karminski__streaming-json-go",
+    download = ":_github.com__karminski__streaming-json-go#download",
+    install = ["."],
+    module = "github.com/karminski/streaming-json-go",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__kballard__go-shellquote",
     _tag = "download",
     module = "github.com/kballard/go-shellquote",
@@ -2388,7 +2405,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20251226101919-0ef436c40f6f",
+    version = "v0.0.0-20251226165108-c06835c9a850",
     visibility = ["PUBLIC"],
 )
 
@@ -2535,7 +2552,11 @@ go_module(
     install = ["go/ai"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = [],
+    deps = [
+        ":github.com__malonaz__core__genproto__ai__v1",
+        ":google.golang.org__protobuf__types__known__structpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+    ],
 )
 
 go_module(
@@ -2572,6 +2593,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":buf.build__go__protovalidate",
+        ":github.com__karminski__streaming-json-go",
         ":github.com__malonaz__core__genproto__ai__ai_service__v1",
         ":github.com__malonaz__core__genproto__ai__v1",
         ":github.com__malonaz__core__go__aip",
@@ -2596,6 +2618,7 @@ go_module(
         ":github.com__malonaz__core__genproto__ai__v1",
         ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
     ],
@@ -2915,6 +2938,7 @@ go_module(
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
+        ":google.golang.org__protobuf__types__known__structpb",
     ],
 )
 
@@ -6816,8 +6840,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6825,8 +6849,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6906,8 +6930,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6915,8 +6939,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6951,8 +6975,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):

@@ -35,9 +35,9 @@ type ShellCommandArgs struct {
 }
 
 // ParseShellCommandArgs parses the JSON arguments for a shell command.
-func ParseShellCommandArgs(argumentsJSON string) (*ShellCommandArgs, error) {
+func ParseShellCommandArgs(bytes []byte) (*ShellCommandArgs, error) {
 	var args ShellCommandArgs
-	if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
+	if err := json.Unmarshal(bytes, &args); err != nil {
 		return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
 	}
 	if args.Command == "" {

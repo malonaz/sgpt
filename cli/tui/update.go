@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/ai"
 	"go.dalton.dog/bubbleup"
 	"golang.design/x/clipboard"
 	"google.golang.org/grpc/codes"
@@ -377,11 +378,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case types.ToolResultMsg:
 		if msg.Result != "" && m.pendingToolCall != nil {
-			toolMessage := &aipb.Message{
-				Role:       aipb.Role_ROLE_TOOL,
-				Content:    msg.Result,
-				ToolCallId: m.pendingToolCall.Id,
-			}
+			toolMessage := ai.NewToolResultMessage(m.pendingToolCall.Id, msg.Result)
 			m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage(m.pendingToolCall.Id, msg.Result))
 			m.chat.Messages = append(m.chat.Messages, toolMessage)
 		}

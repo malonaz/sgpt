@@ -32,9 +32,9 @@ type ReadFilesArgs struct {
 }
 
 // ParseReadFilesArgs parses the JSON arguments for reading files.
-func ParseReadFilesArgs(argumentsJSON string) (*ReadFilesArgs, error) {
+func ParseReadFilesArgs(bytes []byte) (*ReadFilesArgs, error) {
 	var args ReadFilesArgs
-	if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
+	if err := json.Unmarshal(bytes, &args); err != nil {
 		return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
 	}
 	if len(args.Paths) == 0 {

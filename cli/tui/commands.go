@@ -12,6 +12,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/ai"
+	"github.com/malonaz/core/go/pbutil"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/malonaz/sgpt/internal/tools"
@@ -28,10 +30,7 @@ func (m *Model) sendMessage() tea.Cmd {
 	m.history.Add(userInput)
 	m.historyNavigating = false
 
-	userMessage := &aipb.Message{
-		Role:    aipb.Role_ROLE_USER,
-		Content: userInput,
-	}
+	userMessage := ai.NewUserMessage(userInput)
 	m.runtimeMessages = append(m.runtimeMessages, types.NewUserMessage(userInput))
 	m.pendingUserMessage = userMessage
 
@@ -130,6 +129,7 @@ func (m *Model) startStreaming() tea.Cmd {
 				Reasoning: reasoningContent.String(),
 				ToolCalls: toolCalls,
 			})
+			cancel()
 		}
 
 		defer func() {
@@ -193,7 +193,10 @@ func (m *Model) startStreaming() tea.Cmd {
 
 			case *aiservicepb.TextToTextStreamResponse_ToolCall:
 				toolCalls = append(toolCalls, content.ToolCall)
-				toolMsg := types.NewToolCallMessage(content.ToolCall)
+				toolMsg, err := types.NewToolCallMessage(content.ToolCall)
+				if err != nil {
+					finalize(err)
+				}
 				*runtimeMessages = append(*runtimeMessages, toolMsg)
 			}
 
@@ -209,12 +212,8 @@ func (m *Model) finalizeResponse(done types.StreamDoneMsg) {
 
 	if hasContent {
 		// Build the proto message for persistence
-		assistantMessage := &aipb.Message{
-			Role:      aipb.Role_ROLE_ASSISTANT,
-			Content:   done.Response,
-			Reasoning: done.Reasoning,
-			ToolCalls: done.ToolCalls,
-		}
+		assistantMessage := ai.NewAssistantMessage(done.Response, done.ToolCalls...)
+		assistantMessage.GetAssistant().Reasoning = done.Reasoning
 
 		if done.Err != nil {
 			m.pendingUserMessage = nil
@@ -268,9 +267,14 @@ func (m *Model) promptToolCall(toolCalls []*aipb.ToolCall) []tea.Cmd {
 	var cmds []tea.Cmd
 	for _, toolCall := range toolCalls {
 		cmd := func() tea.Msg {
+			bytes, err := pbutil.JSONMarshalStruct(toolCall.Arguments)
+			if err != nil {
+				return types.StreamErrorMsg{Err: err}
+			}
+
 			switch toolCall.Name {
 			case tools.ShellCommand.Name:
-				args, err := tools.ParseShellCommandArgs(toolCall.Arguments)
+				args, err := tools.ParseShellCommandArgs(bytes)
 				if err != nil {
 					return types.StreamErrorMsg{Err: err}
 				}
@@ -279,7 +283,7 @@ func (m *Model) promptToolCall(toolCalls []*aipb.ToolCall) []tea.Cmd {
 				m.awaitingConfirm = true
 
 			case tools.ReadFiles.Name:
-				args, err := tools.ParseReadFilesArgs(toolCall.Arguments)
+				args, err := tools.ParseReadFilesArgs(bytes)
 				if err != nil {
 					return types.StreamErrorMsg{Err: err}
 				}

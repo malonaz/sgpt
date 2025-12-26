@@ -51,7 +51,7 @@ dst="$HOME/.local/bin/sgpt"
 if [ "$src" -ef "$dst" ]; then
     echo -e "${GREEN}✓${NC} Binary already at ~/.local/bin/sgpt"
 else
-    mv "$src" "$dst"
+    mv -f "$src" "$dst"
     echo -e "${GREEN}✓${NC} Installed binary to ~/.local/bin/sgpt"
 fi
 

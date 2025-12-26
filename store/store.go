@@ -3,7 +3,6 @@ package store
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -91,18 +90,5 @@ func (s *Store) Close() error {
 
 // computeSearchableContent concatenates the chat title and all message contents into a single searchable string.
 func (s *Store) computeSearchableContent(chat *Chat) (string, error) {
-	var contentParts []string
-
-	// Include the title if it exists
-	if chat.Title != nil {
-		contentParts = append(contentParts, *chat.Title)
-	}
-
-	// Include the content of all messages
-	for _, message := range chat.Messages {
-		contentParts = append(contentParts, message.Content)
-	}
-
-	// Combine everything into one string
-	return strings.Join(contentParts, " "), nil
+	return "", nil
 }

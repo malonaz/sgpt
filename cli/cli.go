@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/grpc/interceptor"
 	"github.com/spf13/cobra"
@@ -143,18 +144,12 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			// Build additional messages (files + role)
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
 			// Inject role
-			message := &aipb.Message{
-				Role:    aipb.Role_ROLE_SYSTEM,
-				Content: parsedRole.Prompt,
-			}
+			message := ai.NewSystemMessage(parsedRole.Prompt)
 			additionalMessages = append(additionalMessages, message)
 
 			// Inject files
 			for _, f := range files {
-				message := &aipb.Message{
-					Role:    aipb.Role_ROLE_USER,
-					Content: fmt.Sprintf("file %s: `%s`", f.Path, f.Content),
-				}
+				message := ai.NewUserMessage(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))
 				additionalMessages = append(additionalMessages, message)
 			}
 

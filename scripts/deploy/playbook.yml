@@ -50,6 +50,7 @@
         src: ../../plz-out/bin/cmd/server/server
         dest: /usr/local/bin/sgpt-server
         mode: '0755'
+      notify: Restart sgpt-server
 
     - name: Copy binary (chat-postgres-initializer)
       copy:

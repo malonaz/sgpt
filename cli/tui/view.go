@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/malonaz/core/go/pbutil"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/types"
@@ -166,9 +167,10 @@ func (m *Model) renderMessages() string {
 
 		case types.RuntimeMessageTypeToolCall:
 			blockOffsets = append(blockOffsets, currentLine)
+			bytes, _ := pbutil.JSONMarshalStruct(rm.ToolCall.Arguments)
 			writeString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", rm.ToolCall.Name)))
 			writeString("\n")
-			writeString(styles.ToolCallStyle.Render(rm.ToolCall.Arguments))
+			writeString(styles.ToolCallStyle.Render(string(bytes)))
 
 		case types.RuntimeMessageTypeToolResult:
 			blockOffsets = append(blockOffsets, currentLine)
