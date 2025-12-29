@@ -262,13 +262,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				case key.Matches(msg, km.OpenInEditor):
 					if m.navigationMessageIndex != -1 {
-						content := m.getSelectedContent()
-						return m, m.openInEditor(content)
+						content, ext := m.getSelectedContent()
+						return m, m.openInEditor(content, ext)
 					}
 
 				case key.Matches(msg, km.Copy):
 					if m.navigationMessageIndex != -1 {
-						content := m.getSelectedContent()
+						content, _ := m.getSelectedContent()
 						clipboard.Write(clipboard.FmtText, []byte(content))
 						cmds = append(cmds, m.alertClipboardWrite.NewAlertCmd(bubbleup.InfoKey, "Copied to clipboard!"))
 						return m, tea.Batch(cmds...)

@@ -83,8 +83,8 @@ subcommand = connect
 subcommand = connect chat
 positionallabels = true
 
-[alias "install"]
-desc = Installs sgpt
+[alias "cli"]
+desc = Installs sgpt cli
 cmd = run //scripts:install
 
 [alias "deploy"]

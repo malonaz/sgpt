@@ -213,19 +213,19 @@ func (m *Model) getMessagesForAPI() []*aipb.Message {
 }
 
 // getSelectedContent returns the content of the currently selected message or block.
-func (m *Model) getSelectedContent() string {
+func (m *Model) getSelectedContent() (string, string) {
 	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(m.runtimeMessages) {
-		return ""
+		return "", ""
 	}
 	msg := m.runtimeMessages[m.navigationMessageIndex]
 	if m.navigationBlockIndex != -1 {
 		blocks := msg.Blocks
 		if m.navigationBlockIndex >= 0 && m.navigationBlockIndex < len(blocks) {
-			return blocks[m.navigationBlockIndex].Content()
+			return blocks[m.navigationBlockIndex].Content(), blocks[m.navigationBlockIndex].Extension()
 		}
-		return ""
+		return "", ""
 	}
-	return msg.Content()
+	return msg.Content(), ""
 }
 
 func (m *Model) setTitle() {

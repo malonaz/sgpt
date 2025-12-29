@@ -321,7 +321,7 @@ func (m *Model) continueWithToolResult() tea.Cmd {
 	return m.startStreaming()
 }
 
-func (m *Model) openInEditor(content string) tea.Cmd {
+func (m *Model) openInEditor(content, ext string) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
@@ -331,7 +331,7 @@ func (m *Model) openInEditor(content string) tea.Cmd {
 	}
 
 	// Create temp file
-	tmpFile, err := os.CreateTemp("", "sgpt-message-*.md")
+	tmpFile, err := os.CreateTemp("", "sgpt-message-*."+ext)
 	if err != nil {
 		return func() tea.Msg {
 			return types.StreamErrorMsg{Err: fmt.Errorf("failed to create temp file: %w", err)}

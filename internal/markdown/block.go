@@ -16,6 +16,7 @@ var (
 type Block interface {
 	md() string
 	Content() string
+	Extension() string
 }
 
 // TextBlock represents plain text content.
@@ -28,6 +29,9 @@ func (b *TextBlock) md() string { return b.Text }
 
 // String returns the text content.
 func (b *TextBlock) Content() string { return b.Text }
+
+// Extension returns the file extension of a text block.
+func (b *TextBlock) Extension() string { return "txt" }
 
 // CodeBlock represents a code block with optional language.
 type CodeBlock struct {
@@ -43,6 +47,11 @@ func (b *CodeBlock) md() string {
 // String returns the code block.
 func (b *CodeBlock) Content() string {
 	return b.code
+}
+
+// Extension returns the file extension of a code block.
+func (b *CodeBlock) Extension() string {
+	return b.language
 }
 
 // ParseBlocks parses markdown content into a list of TextBlock and CodeBlock segments.
@@ -78,7 +87,7 @@ func ParseBlocks(content string) []Block {
 			language = content[langStart:langEnd]
 		}
 		if language == "" {
-			language = "text" // Fallback to text.
+			language = "md" // Fallback to text.
 		}
 
 		// Extract code
