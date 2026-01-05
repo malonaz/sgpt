@@ -178,6 +178,7 @@
         "github.com/malonaz/core/genproto/codegen/llm/v1": "//third_party/go:github.com__malonaz__core__genproto__codegen__llm__v1",
         "github.com/malonaz/core/genproto/codegen/model/v1": "//third_party/go:github.com__malonaz__core__genproto__codegen__model__v1",
         "github.com/malonaz/core/genproto/grpc/v1": "//third_party/go:github.com__malonaz__core__genproto__grpc__v1",
+        "github.com/malonaz/core/genproto/json/v1": "//third_party/go:github.com__malonaz__core__genproto__json__v1",
         "github.com/malonaz/core/go/ai": "//third_party/go:github.com__malonaz__core__go__ai",
         "github.com/malonaz/core/go/ai/ai_service": "//third_party/go:github.com__malonaz__core__go__ai__ai_service",
         "github.com/malonaz/core/go/ai/ai_service/provider": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",

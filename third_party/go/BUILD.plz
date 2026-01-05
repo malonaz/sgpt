@@ -2405,7 +2405,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20251231162554-b7ce6a966428",
+    version = "v0.0.0-20260105082545-2d5478fe99f1",
     visibility = ["PUBLIC"],
 )
 
@@ -2439,8 +2439,10 @@ go_module(
     deps = [
         ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":github.com__malonaz__core__genproto__audio__v1",
+        ":github.com__malonaz__core__genproto__json__v1",
         ":go.einride.tech__aip__resourcename",
         ":google.golang.org__genproto__googleapis__api__annotations",
+        ":google.golang.org__genproto__googleapis__rpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
@@ -2547,6 +2549,19 @@ go_module(
 )
 
 go_module(
+    name = "github.com__malonaz__core__genproto__json__v1",
+    download = ":_github.com__malonaz__core#download",
+    install = ["genproto/json/v1"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
     name = "github.com__malonaz__core__go__ai",
     download = ":_github.com__malonaz__core#download",
     install = ["go/ai"],
@@ -2554,6 +2569,10 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__genproto__json__v1",
+        ":github.com__malonaz__core__go__pbutil",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
     ],
@@ -2618,6 +2637,8 @@ go_module(
         ":github.com__anthropics__anthropic-sdk-go__shared__constant",
         ":github.com__malonaz__core__genproto__ai__ai_service__v1",
         ":github.com__malonaz__core__genproto__ai__v1",
+        ":github.com__malonaz__core__genproto__json__v1",
+        ":github.com__malonaz__core__go__ai",
         ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__grpc",
         ":github.com__malonaz__core__go__pbutil",
@@ -2676,6 +2697,7 @@ go_module(
         ":github.com__malonaz__core__genproto__ai__ai_service__v1",
         ":github.com__malonaz__core__genproto__ai__v1",
         ":github.com__malonaz__core__genproto__audio__v1",
+        ":github.com__malonaz__core__go__ai",
         ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__audio",
         ":github.com__malonaz__core__go__grpc",
@@ -3894,8 +3916,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -6771,8 +6793,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6798,8 +6820,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6834,8 +6856,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6888,8 +6910,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6897,8 +6919,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6951,8 +6973,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6960,8 +6982,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6978,8 +7000,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):

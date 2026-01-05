@@ -6,15 +6,16 @@ import (
 	"os/exec"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	jsonpb "github.com/malonaz/core/genproto/json/v1"
 )
 
 // ShellCommand defines the tool for executing shell commands.
 var ShellCommand = &aipb.Tool{
 	Name:        "exec_shell",
 	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
-	JsonSchema: &aipb.JsonSchema{
+	JsonSchema: &jsonpb.Schema{
 		Type: "object",
-		Properties: map[string]*aipb.JsonSchema{
+		Properties: map[string]*jsonpb.Schema{
 			"command": {
 				Type:        "string",
 				Description: "The shell command to execute",

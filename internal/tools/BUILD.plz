@@ -5,5 +5,8 @@ go_library(
         "shell.go",
     ],
     visibility = ["//..."],
-    deps = ["//third_party/go:github.com__malonaz__core__genproto__ai__v1"],
+    deps = [
+        "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
+        "//third_party/go:github.com__malonaz__core__genproto__json__v1",
+    ],
 )

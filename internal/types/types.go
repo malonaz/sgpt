@@ -181,7 +181,9 @@ func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
 					content = string(bytes)
 				}
 			case *aipb.ToolResult_Error:
-				content = r.Error
+				if bytes, err := pbutil.JSONMarshalPretty(r.Error); err == nil {
+					content = string(bytes)
+				}
 			}
 			result = append(result, NewToolResultMessage(m.Tool.ToolCallId, content))
 		}

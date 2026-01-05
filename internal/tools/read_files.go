@@ -7,19 +7,20 @@ import (
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	jsonpb "github.com/malonaz/core/genproto/json/v1"
 )
 
 // ReadFilesTool defines the tool for reading file contents.
 var ReadFiles = &aipb.Tool{
 	Name:        "read_files",
 	Description: "Read the contents of one or more files. Use this to examine file contents before making changes or to understand code structure.",
-	JsonSchema: &aipb.JsonSchema{
+	JsonSchema: &jsonpb.Schema{
 		Type: "object",
-		Properties: map[string]*aipb.JsonSchema{
+		Properties: map[string]*jsonpb.Schema{
 			"paths": {
 				Type:        "array",
 				Description: "List of file paths to read",
-				Items:       &aipb.JsonSchema{Type: "string"},
+				Items:       &jsonpb.Schema{Type: "string"},
 			},
 		},
 		Required: []string{"paths"},
