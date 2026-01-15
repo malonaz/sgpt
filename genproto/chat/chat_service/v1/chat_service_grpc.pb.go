@@ -40,11 +40,11 @@ type ChatServiceClient interface {
 	//
 	// See: https://google.aip.dev/131 (Standard methods: Get).
 	GetChat(ctx context.Context, in *GetChatRequest, opts ...grpc.CallOption) (*v1.Chat, error)
-	// List chats for a user.
+	// List chats.
 	//
 	// See: https://google.aip.dev/132 (Standard methods: List).
 	ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error)
-	// Search chats for a user.
+	// Search chats.
 	//
 	// See: https://google.aip.dev/136 (Custom methods).
 	// See: https://google.aip.dev/158 (Pagination).
@@ -134,11 +134,11 @@ type ChatServiceServer interface {
 	//
 	// See: https://google.aip.dev/131 (Standard methods: Get).
 	GetChat(context.Context, *GetChatRequest) (*v1.Chat, error)
-	// List chats for a user.
+	// List chats.
 	//
 	// See: https://google.aip.dev/132 (Standard methods: List).
 	ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error)
-	// Search chats for a user.
+	// Search chats.
 	//
 	// See: https://google.aip.dev/136 (Custom methods).
 	// See: https://google.aip.dev/158 (Pagination).

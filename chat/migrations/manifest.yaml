@@ -7,3 +7,5 @@ directories:
         hash: a83cb0f82994378ba3b7ab62ef7da0c6
       - filename: 002_tsvector.sql
         hash: 032e04769ee27f286105ccf60cd891ea
+      - filename: 003_make_tags_files_nullable.sql
+        hash: 525325e6f271c8bfcf2023338b802ec5

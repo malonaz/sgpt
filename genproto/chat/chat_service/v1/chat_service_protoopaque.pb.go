@@ -30,9 +30,9 @@ const (
 // Request message for Chat.CreateChat.
 type CreateChatRequest struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Parent       string                 `protobuf:"bytes,1,opt,name=parent,proto3"`
-	xxx_hidden_ChatId       string                 `protobuf:"bytes,2,opt,name=chat_id,json=chatId,proto3"`
-	xxx_hidden_Chat         *v1.Chat               `protobuf:"bytes,3,opt,name=chat,proto3"`
+	xxx_hidden_ChatId       string                 `protobuf:"bytes,1,opt,name=chat_id,json=chatId,proto3"`
+	xxx_hidden_Chat         *v1.Chat               `protobuf:"bytes,2,opt,name=chat,proto3"`
+	xxx_hidden_RequestId    string                 `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3"`
 	xxx_hidden_ValidateOnly bool                   `protobuf:"varint,4,opt,name=validate_only,json=validateOnly,proto3"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
@@ -63,13 +63,6 @@ func (x *CreateChatRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *CreateChatRequest) GetParent() string {
-	if x != nil {
-		return x.xxx_hidden_Parent
-	}
-	return ""
-}
-
 func (x *CreateChatRequest) GetChatId() string {
 	if x != nil {
 		return x.xxx_hidden_ChatId
@@ -84,15 +77,18 @@ func (x *CreateChatRequest) GetChat() *v1.Chat {
 	return nil
 }
 
+func (x *CreateChatRequest) GetRequestId() string {
+	if x != nil {
+		return x.xxx_hidden_RequestId
+	}
+	return ""
+}
+
 func (x *CreateChatRequest) GetValidateOnly() bool {
 	if x != nil {
 		return x.xxx_hidden_ValidateOnly
 	}
 	return false
-}
-
-func (x *CreateChatRequest) SetParent(v string) {
-	x.xxx_hidden_Parent = v
 }
 
 func (x *CreateChatRequest) SetChatId(v string) {
@@ -101,6 +97,10 @@ func (x *CreateChatRequest) SetChatId(v string) {
 
 func (x *CreateChatRequest) SetChat(v *v1.Chat) {
 	x.xxx_hidden_Chat = v
+}
+
+func (x *CreateChatRequest) SetRequestId(v string) {
+	x.xxx_hidden_RequestId = v
 }
 
 func (x *CreateChatRequest) SetValidateOnly(v bool) {
@@ -121,9 +121,6 @@ func (x *CreateChatRequest) ClearChat() {
 type CreateChatRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The resource name of the parent user for which this chat will be created.
-	// Format: organizations/{organization}/users/{user}
-	Parent string
 	// The ID to use for the resource, which will become the final component of
 	// the resource name.
 	//
@@ -132,6 +129,9 @@ type CreateChatRequest_builder struct {
 	ChatId string
 	// The chat to create.
 	Chat *v1.Chat
+	// A unique identifier for this request. Must be a UUID.
+	// This request is only idempotent if a `request_id` is provided.
+	RequestId string
 	// If set, validate the request and preview the review, but do not actually create the resource.
 	ValidateOnly bool
 }
@@ -140,9 +140,9 @@ func (b0 CreateChatRequest_builder) Build() *CreateChatRequest {
 	m0 := &CreateChatRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Parent = b.Parent
 	x.xxx_hidden_ChatId = b.ChatId
 	x.xxx_hidden_Chat = b.Chat
+	x.xxx_hidden_RequestId = b.RequestId
 	x.xxx_hidden_ValidateOnly = b.ValidateOnly
 	return m0
 }
@@ -195,7 +195,7 @@ type GetChatRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The resource name of the chat to retrieve.
-	// Format: organizations/{organization}/users/{user}/chats/{chat}
+	// Format: chats/{chat}
 	Name string
 }
 
@@ -290,7 +290,7 @@ type UpdateChatRequest_builder struct {
 
 	// The chat to update with. The name must match or be empty.
 	// The chat's `name` field is used to identify the chat to be updated.
-	// Format: organizations/{organization}/users/{user}/chats/{chat}
+	// Format: chats/{chat}
 	Chat *v1.Chat
 	// The list of fields to update.
 	UpdateMask *fieldmaskpb.FieldMask
@@ -365,7 +365,7 @@ type DeleteChatRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The resource name of the chat to delete.
-	// Format: organizations/{organization}/users/{user}/chats/{chat}
+	// Format: chats/{chat}
 	Name string
 	// If set to true, and the book is not found, the request will succeed
 	// but no action will be taken on the server
@@ -384,12 +384,11 @@ func (b0 DeleteChatRequest_builder) Build() *DeleteChatRequest {
 // Request message for Chat.ListChats.
 type ListChatsRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Parent      string                 `protobuf:"bytes,1,opt,name=parent,proto3"`
-	xxx_hidden_PageSize    int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3"`
-	xxx_hidden_PageToken   string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3"`
-	xxx_hidden_OrderBy     string                 `protobuf:"bytes,4,opt,name=order_by,json=orderBy,proto3"`
-	xxx_hidden_Filter      string                 `protobuf:"bytes,5,opt,name=filter,proto3"`
-	xxx_hidden_ShowDeleted bool                   `protobuf:"varint,6,opt,name=show_deleted,json=showDeleted,proto3"`
+	xxx_hidden_PageSize    int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3"`
+	xxx_hidden_PageToken   string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3"`
+	xxx_hidden_OrderBy     string                 `protobuf:"bytes,3,opt,name=order_by,json=orderBy,proto3"`
+	xxx_hidden_Filter      string                 `protobuf:"bytes,4,opt,name=filter,proto3"`
+	xxx_hidden_ShowDeleted bool                   `protobuf:"varint,5,opt,name=show_deleted,json=showDeleted,proto3"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -417,13 +416,6 @@ func (x *ListChatsRequest) ProtoReflect() protoreflect.Message {
 		return ms
 	}
 	return mi.MessageOf(x)
-}
-
-func (x *ListChatsRequest) GetParent() string {
-	if x != nil {
-		return x.xxx_hidden_Parent
-	}
-	return ""
 }
 
 func (x *ListChatsRequest) GetPageSize() int32 {
@@ -461,10 +453,6 @@ func (x *ListChatsRequest) GetShowDeleted() bool {
 	return false
 }
 
-func (x *ListChatsRequest) SetParent(v string) {
-	x.xxx_hidden_Parent = v
-}
-
 func (x *ListChatsRequest) SetPageSize(v int32) {
 	x.xxx_hidden_PageSize = v
 }
@@ -488,9 +476,6 @@ func (x *ListChatsRequest) SetShowDeleted(v bool) {
 type ListChatsRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The resource name of the parent, which owns this collection of chats.
-	// Format: organizations/{organization}/users/{user}
-	Parent string
 	// Requested page size. Server may return fewer chats than requested.
 	// If unspecified, server will pick an appropriate default.
 	PageSize int32
@@ -511,7 +496,6 @@ func (b0 ListChatsRequest_builder) Build() *ListChatsRequest {
 	m0 := &ListChatsRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Parent = b.Parent
 	x.xxx_hidden_PageSize = b.PageSize
 	x.xxx_hidden_PageToken = b.PageToken
 	x.xxx_hidden_OrderBy = b.OrderBy
@@ -602,11 +586,10 @@ func (b0 ListChatsResponse_builder) Build() *ListChatsResponse {
 // Request message for Chat.SearchChats.
 type SearchChatsRequest struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Parent    string                 `protobuf:"bytes,1,opt,name=parent,proto3"`
-	xxx_hidden_Filter    string                 `protobuf:"bytes,2,opt,name=filter,proto3"`
-	xxx_hidden_Query     string                 `protobuf:"bytes,3,opt,name=query,proto3"`
-	xxx_hidden_PageSize  int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3"`
-	xxx_hidden_PageToken string                 `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3"`
+	xxx_hidden_Filter    string                 `protobuf:"bytes,1,opt,name=filter,proto3"`
+	xxx_hidden_Query     string                 `protobuf:"bytes,2,opt,name=query,proto3"`
+	xxx_hidden_PageSize  int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3"`
+	xxx_hidden_PageToken string                 `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -634,13 +617,6 @@ func (x *SearchChatsRequest) ProtoReflect() protoreflect.Message {
 		return ms
 	}
 	return mi.MessageOf(x)
-}
-
-func (x *SearchChatsRequest) GetParent() string {
-	if x != nil {
-		return x.xxx_hidden_Parent
-	}
-	return ""
 }
 
 func (x *SearchChatsRequest) GetFilter() string {
@@ -671,10 +647,6 @@ func (x *SearchChatsRequest) GetPageToken() string {
 	return ""
 }
 
-func (x *SearchChatsRequest) SetParent(v string) {
-	x.xxx_hidden_Parent = v
-}
-
 func (x *SearchChatsRequest) SetFilter(v string) {
 	x.xxx_hidden_Filter = v
 }
@@ -694,9 +666,6 @@ func (x *SearchChatsRequest) SetPageToken(v string) {
 type SearchChatsRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The resource name of the parent user to search chats within.
-	// Format: organizations/{organization}/users/{user}
-	Parent string
 	// A filter expression.
 	Filter string
 	// The search query string to match against chat content.
@@ -731,7 +700,6 @@ func (b0 SearchChatsRequest_builder) Build() *SearchChatsRequest {
 	m0 := &SearchChatsRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Parent = b.Parent
 	x.xxx_hidden_Filter = b.Filter
 	x.xxx_hidden_Query = b.Query
 	x.xxx_hidden_PageSize = b.PageSize
@@ -822,69 +790,69 @@ var File_chat_chat_service_v1_chat_service_proto protoreflect.FileDescriptor
 
 const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\n" +
-	"'chat/chat_service/v1/chat_service.proto\x12\x19sgpt.chat.chat_service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x12chat/v1/chat.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a malonaz/codegen/aip/v1/aip.proto\"\xdf\x01\n" +
-	"\x11CreateChatRequest\x125\n" +
-	"\x06parent\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12user.sgpt.com/User\xbaH\x03\xc8\x01\x01R\x06parent\x12>\n" +
-	"\achat_id\x18\x02 \x01(\tB%\xbaH\"\xd8\x01\x01r\x1d\x10\x01\x18?2\x17^[a-z0-9](-?[a-z0-9])*$R\x06chatId\x12.\n" +
-	"\x04chat\x18\x03 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12#\n" +
+	"'chat/chat_service/v1/chat_service.proto\x12\x19sgpt.chat.chat_service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x12chat/v1/chat.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a malonaz/codegen/aip/v1/aip.proto\"\xd1\x01\n" +
+	"\x11CreateChatRequest\x12>\n" +
+	"\achat_id\x18\x01 \x01(\tB%\xbaH\"\xd8\x01\x01r\x1d\x10\x01\x18?2\x17^[a-z0-9](-?[a-z0-9])*$R\x06chatId\x12.\n" +
+	"\x04chat\x18\x02 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12'\n" +
+	"\n" +
+	"request_id\x18\x03 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\trequestId\x12#\n" +
 	"\rvalidate_only\x18\x04 \x01(\bR\fvalidateOnly\"C\n" +
 	"\x0eGetChatRequest\x121\n" +
 	"\x04name\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\"\xc3\x01\n" +
+	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\"\xea\x01\n" +
 	"\x11UpdateChatRequest\x12.\n" +
 	"\x04chat\x18\x01 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12C\n" +
 	"\vupdate_mask\x18\x02 \x01(\v2\x1a.google.protobuf.FieldMaskB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"updateMask:9\xbaH1\x1a/\n" +
-	"\x011\x12\x15chat.name must be set\x1a\x13has(this.chat.name)\xea\x9c\xc1\x03\x00\"k\n" +
+	"updateMask:`\xbaH1\x1a/\n" +
+	"\x011\x12\x15chat.name must be set\x1a\x13has(this.chat.name)\xea\x9c\xc1\x03'\n" +
+	"\x04tags\n" +
+	"\x05files\n" +
+	"\bmetadata\n" +
+	"\x0emetadata.title\"k\n" +
 	"\x11DeleteChatRequest\x121\n" +
 	"\x04name\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
 	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\x12#\n" +
-	"\rallow_missing\x18\x02 \x01(\bR\fallowMissing\"\xa6\x02\n" +
-	"\x10ListChatsRequest\x125\n" +
-	"\x06parent\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12user.sgpt.com/User\xbaH\x03\xc8\x01\x01R\x06parent\x12'\n" +
-	"\tpage_size\x18\x02 \x01(\x05B\n" +
+	"\rallow_missing\x18\x02 \x01(\bR\fallowMissing\"\xef\x01\n" +
+	"\x10ListChatsRequest\x12'\n" +
+	"\tpage_size\x18\x01 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x03 \x01(\tR\tpageToken\x12\x19\n" +
-	"\border_by\x18\x04 \x01(\tR\aorderBy\x12\x16\n" +
-	"\x06filter\x18\x05 \x01(\tR\x06filter\x12!\n" +
-	"\fshow_deleted\x18\x06 \x01(\bR\vshowDeleted:=\x82\xf3-\x03\b\xc8\x01\x8a\xf3-+\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x19\n" +
+	"\border_by\x18\x03 \x01(\tR\aorderBy\x12\x16\n" +
+	"\x06filter\x18\x04 \x01(\tR\x06filter\x12!\n" +
+	"\fshow_deleted\x18\x05 \x01(\bR\vshowDeleted:=\x82\xf3-\x03\b\xc8\x01\x8a\xf3-+\n" +
 	"\vcreate_time\n" +
 	"\vupdate_time\x12\x0fcreate_time asc\x92\xf3-\x03\n" +
 	"\x01*\"e\n" +
 	"\x11ListChatsResponse\x12(\n" +
 	"\x05chats\x18\x01 \x03(\v2\x12.sgpt.chat.v1.ChatR\x05chats\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xd9\x01\n" +
-	"\x12SearchChatsRequest\x125\n" +
-	"\x06parent\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12user.sgpt.com/User\xbaH\x03\xc8\x01\x01R\x06parent\x12\x16\n" +
-	"\x06filter\x18\x02 \x01(\tR\x06filter\x12\x1c\n" +
-	"\x05query\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x05query\x12'\n" +
-	"\tpage_size\x18\x04 \x01(\x05B\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xa2\x01\n" +
+	"\x12SearchChatsRequest\x12\x16\n" +
+	"\x06filter\x18\x01 \x01(\tR\x06filter\x12\x1c\n" +
+	"\x05query\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x05query\x12'\n" +
+	"\tpage_size\x18\x03 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x05 \x01(\tR\tpageToken:\x0e\x82\xf3-\x03\b\xc8\x01\x92\xf3-\x03\n" +
+	"page_token\x18\x04 \x01(\tR\tpageToken:\x0e\x82\xf3-\x03\b\xc8\x01\x92\xf3-\x03\n" +
 	"\x01*\"g\n" +
 	"\x13SearchChatsResponse\x12(\n" +
 	"\x05chats\x18\x01 \x03(\v2\x12.sgpt.chat.v1.ChatR\x05chats\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xc4\b\n" +
-	"\vChatService\x12\xae\x01\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\x82\a\n" +
+	"\vChatService\x12\x86\x01\n" +
 	"\n" +
-	"CreateChat\x12,.sgpt.chat.chat_service.v1.CreateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"^\xdaA\vparent,chat´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x022:\x04chat\"*/v1/{parent=organizations/*/users/*}/chats\x12\xb8\x01\n" +
+	"CreateChat\x12,.sgpt.chat.chat_service.v1.CreateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"6\xdaA\x04chat´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x11:\x04chat\"\t/v1/chats\x12\xa0\x01\n" +
 	"\n" +
-	"UpdateChat\x12,.sgpt.chat.chat_service.v1.UpdateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"h\xdaA\x10chat,update_mask´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x027:\x04chat2//v1/{chat.name=organizations/*/users/*/chats/*}\x12\xa1\x01\n" +
+	"UpdateChat\x12,.sgpt.chat.chat_service.v1.UpdateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"P\xdaA\x10chat,update_mask´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x1f:\x04chat2\x17/v1/{chat.name=chats/*}\x12\x89\x01\n" +
 	"\n" +
-	"DeleteChat\x12,.sgpt.chat.chat_service.v1.DeleteChatRequest\x1a\x12.sgpt.chat.v1.Chat\"Q\xdaA\x04name´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,**/v1/{name=organizations/*/users/*/chats/*}\x12\x9b\x01\n" +
-	"\aGetChat\x12).sgpt.chat.chat_service.v1.GetChatRequest\x1a\x12.sgpt.chat.v1.Chat\"Q\xdaA\x04name´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,\x12*/v1/{name=organizations/*/users/*/chats/*}\x12\xbb\x01\n" +
-	"\tListChats\x12+.sgpt.chat.chat_service.v1.ListChatsRequest\x1a,.sgpt.chat.chat_service.v1.ListChatsResponse\"S\xdaA\x06parent´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02,\x12*/v1/{parent=organizations/*/users/*}/chats\x12\xb6\x01\n" +
-	"\vSearchChats\x12-.sgpt.chat.chat_service.v1.SearchChatsRequest\x1a..sgpt.chat.chat_service.v1.SearchChatsResponse\"H\xdaA\fparent,query\x82\xd3\xe4\x93\x023\x121/v1/{parent=organizations/*/users/*}/chats:search\x1a\x10\xcaA\rchat.sgpt.comB7Z5github.com/malonaz/sgpt/genproto/chat/chat_service/v1b\x06proto3"
+	"DeleteChat\x12,.sgpt.chat.chat_service.v1.DeleteChatRequest\x1a\x12.sgpt.chat.v1.Chat\"9\xdaA\x04name´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x14*\x12/v1/{name=chats/*}\x12\x83\x01\n" +
+	"\aGetChat\x12).sgpt.chat.chat_service.v1.GetChatRequest\x1a\x12.sgpt.chat.v1.Chat\"9\xdaA\x04name´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x14\x12\x12/v1/{name=chats/*}\x12\x91\x01\n" +
+	"\tListChats\x12+.sgpt.chat.chat_service.v1.ListChatsRequest\x1a,.sgpt.chat.chat_service.v1.ListChatsResponse\")´-\x14\n" +
+	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\v\x12\t/v1/chats\x12\x8e\x01\n" +
+	"\vSearchChats\x12-.sgpt.chat.chat_service.v1.SearchChatsRequest\x1a..sgpt.chat.chat_service.v1.SearchChatsResponse\" \xdaA\x05query\x82\xd3\xe4\x93\x02\x12\x12\x10/v1/chats:search\x1a\x10\xcaA\rchat.sgpt.comB7Z5github.com/malonaz/sgpt/genproto/chat/chat_service/v1b\x06proto3"
 
 var file_chat_chat_service_v1_chat_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_chat_chat_service_v1_chat_service_proto_goTypes = []any{

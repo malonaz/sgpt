@@ -3,9 +3,9 @@ package webserver
 import (
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/malonaz/sgpt/store"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +16,9 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chatID := parts[2]
-	chat, err := s.store.GetChat(chatID)
+	chat, err := s.client.GetChat(r.Context(), &chatservicepb.GetChatRequest{
+		Name: chatName(chatID),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -24,12 +26,15 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	viewModel := ChatViewModel{
 		Chat:          chat,
-		FormattedTime: time.UnixMicro(chat.UpdateTimestamp).Format(time.RFC822),
+		ID:            chatIDFromName(chat.Name),
+		FormattedTime: chat.UpdateTime.AsTime().Format("Jan 2, 2006 3:04 PM"),
 	}
-	chatTitle := "Unamed chat"
-	if chat.Title != nil {
-		chatTitle = *chat.Title
+
+	chatTitle := "Unnamed chat"
+	if chat.Metadata != nil && chat.Metadata.Title != "" {
+		chatTitle = chat.Metadata.Title
 	}
+
 	data := PageData{
 		Title: chatTitle,
 		Chat:  &viewModel,
@@ -52,42 +57,41 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request, chatID str
 		return
 	}
 
-	// Get existing chat
-	chat, err := s.store.GetChat(chatID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Add new tag
-	chat.Tags = append(chat.Tags, tag)
-
-	// Update chat
-	err = s.store.UpdateChat(&store.UpdateChatRequest{
-		Chat:       chat,
-		UpdateMask: []string{"tags"},
+	chat, err := s.client.GetChat(r.Context(), &chatservicepb.GetChatRequest{
+		Name: chatName(chatID),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Redirect back to chat page
-	http.Redirect(w, r, "/chat/"+chatID, http.StatusSeeOther)
-}
+	chat.Tags = append(chat.Tags, tag)
 
-func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request, chatID string) {
-	if err := s.store.DeleteChat(chatID); err != nil {
+	_, err = s.client.UpdateChat(r.Context(), &chatservicepb.UpdateChatRequest{
+		Chat:       chat,
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"tags"}},
+	})
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// If the request is AJAX, return 200 OK
+	http.Redirect(w, r, "/chat/"+chatID, http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request, chatID string) {
+	_, err := s.client.DeleteChat(r.Context(), &chatservicepb.DeleteChatRequest{
+		Name: chatName(chatID),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	// Otherwise redirect to inbox
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

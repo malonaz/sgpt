@@ -5,7 +5,9 @@ import (
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/pbutil"
+	"google.golang.org/grpc/status"
 
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
@@ -142,17 +144,20 @@ func NewSystemMessage(content string) *RuntimeMessage {
 
 // RuntimeMessagesFromProto converts protobuf messages to runtime messages.
 // Each proto message may generate multiple runtime messages (e.g., thinking + response + tool calls).
-func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
+func RuntimeMessagesFromProto(messages []*chatpb.Message) []*RuntimeMessage {
 	var result []*RuntimeMessage
 
+	setError := func(message *chatpb.Message) {
+		if message.Error != nil {
+			result[len(result)-1].WithError(status.ErrorProto(message.Error))
+		}
+	}
 	for _, msg := range messages {
-		switch m := msg.Message.(type) {
+		switch m := msg.Message.Message.(type) {
 		case *aipb.Message_System:
 			result = append(result, NewSystemMessage(m.System.Content))
-
 		case *aipb.Message_User:
 			result = append(result, NewUserMessage(m.User.Content))
-
 		case *aipb.Message_Assistant:
 			if m.Assistant.Reasoning != "" {
 				result = append(result, NewThinkingMessage(m.Assistant.Reasoning))
@@ -187,6 +192,7 @@ func RuntimeMessagesFromProto(messages []*aipb.Message) []*RuntimeMessage {
 			}
 			result = append(result, NewToolResultMessage(m.Tool.ToolCallId, content))
 		}
+		setError(msg)
 	}
 
 	return result

@@ -4,12 +4,12 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//chat/chat_service/v1",
+        "//chat/v1",
         "//cli/tui",
         "//internal/configuration",
         "//internal/file",
         "//internal/role",
         "//internal/types",
-        "//store",
         "//third_party/go:github.com__charmbracelet__bubbletea",
         "//third_party/go:github.com__google__uuid",
         "//third_party/go:github.com__malonaz__core__go__ai",

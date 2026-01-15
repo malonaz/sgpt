@@ -10,30 +10,32 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/store"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 )
 
 //go:embed templates
 var templatesFS embed.FS
 
 type PageData struct {
-	Title       string
-	Query       string
-	Chat        *ChatViewModel
-	Chats       []ChatViewModel
-	CurrentPage int
-	TotalPages  int
-	ActiveTags  []string
+	Title         string
+	Query         string
+	Chat          *ChatViewModel
+	Chats         []ChatViewModel
+	CurrentPage   int
+	TotalPages    int
+	ActiveTags    []string
+	NextPageToken string
+	PrevTokens    []string
 }
 
-// ChatViewModel represents a chat with formatted time for the template
 type ChatViewModel struct {
-	*store.Chat
+	*chatpb.Chat
+	ID            string
 	FormattedTime string
 }
 
-// NewServeCmd creates a new serve command
-func NewServeCmd(s *store.Store) *cobra.Command {
+func NewServeCmd(chatClient chatservicepb.ChatServiceClient) *cobra.Command {
 	var opts struct {
 		Port     int
 		PageSize int
@@ -42,11 +44,10 @@ func NewServeCmd(s *store.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Serve a web interface for viewing chats",
-		Long:  "Serve a web interface for viewing chats",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			server := &Server{
-				store:    s,
-				pageSize: opts.PageSize,
+				client:   chatClient,
+				pageSize: int32(opts.PageSize),
 			}
 			return server.Start(opts.Port)
 		},
@@ -57,16 +58,16 @@ func NewServeCmd(s *store.Store) *cobra.Command {
 	return cmd
 }
 
-// Server handles the web interface
 type Server struct {
-	store    *store.Store
-	pageSize int
+	client   chatservicepb.ChatServiceClient
+	pageSize int32
 	tmpl     *template.Template
 }
 
 func (s *Server) Start(port int) error {
 	funcMap := sprig.HtmlFuncMap()
 	funcMap["formatMessage"] = formatMessage
+	funcMap["messageRole"] = messageRole
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseFS(templatesFS,
 		"templates/*.tmpl",
@@ -85,6 +86,7 @@ func (s *Server) Start(port int) error {
 	fmt.Printf("Server starting on http://localhost%s\n", addr)
 	return http.ListenAndServe(addr, nil)
 }
+
 func (s *Server) handleChatRoutes(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 3 {
@@ -94,7 +96,6 @@ func (s *Server) handleChatRoutes(w http.ResponseWriter, r *http.Request) {
 
 	chatID := parts[2]
 
-	// Handle different routes based on the path and method
 	switch {
 	case r.Method == "GET" && len(parts) == 3:
 		s.handleChat(w, r)
@@ -107,4 +108,19 @@ func (s *Server) handleChatRoutes(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func chatIDFromName(name string) string {
+	parts := strings.Split(name, "/")
+	if len(parts) >= 2 {
+		return parts[len(parts)-1]
+	}
+	return name
+}
+
+func chatName(id string) string {
+	if strings.HasPrefix(id, "chats/") {
+		return id
+	}
+	return "chats/" + id
 }

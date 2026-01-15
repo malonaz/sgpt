@@ -1,84 +1,79 @@
 package webserver
 
 import (
+	"fmt"
 	"net/http"
-	"strconv"
-	"time"
+	"strings"
 
-	"github.com/malonaz/sgpt/store"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 )
 
 func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
-	// Get page number from query parameters
-	page, err := strconv.Atoi(r.URL.Query().Get("page"))
-	if err != nil || page < 1 {
-		page = 1
-	}
-
-	// Get search query from query parameters
 	query := r.URL.Query().Get("q")
-
-	// Get tags from query parameters
 	tags := r.URL.Query()["tag"]
+	pageToken := r.URL.Query().Get("page_token")
 
-	// Define page size
-	const pageSize = 10
+	var chats []*chatpb.Chat
+	var nextPageToken string
 
-	var chats []*store.Chat
-	var totalPages int
-
-	// Handle either search or regular listing based on query presence
 	if query != "" {
-		// Handle search
-		searchResp, err := s.store.SearchChats(store.SearchChatsRequest{
-			Query:    query,
-			Page:     page,
-			PageSize: pageSize,
+		resp, err := s.client.SearchChats(r.Context(), &chatservicepb.SearchChatsRequest{
+			Query:     query,
+			PageSize:  s.pageSize,
+			PageToken: pageToken,
 		})
 		if err != nil {
 			http.Error(w, "Failed to search chats", http.StatusInternalServerError)
 			return
 		}
-		chats = searchResp.Chats
-		totalPages = searchResp.PageCount
+		chats = resp.Chats
+		nextPageToken = resp.NextPageToken
 	} else {
-		// Handle regular listing with optional tag filtering
-		listResp, err := s.store.ListChats(&store.ListChatsRequest{
-			Page:     page,
-			PageSize: pageSize,
-			Tags:     tags,
+		filter := buildTagFilter(tags)
+		resp, err := s.client.ListChats(r.Context(), &chatservicepb.ListChatsRequest{
+			PageSize:  s.pageSize,
+			PageToken: pageToken,
+			Filter:    filter,
+			OrderBy:   "update_time desc",
 		})
-
 		if err != nil {
 			http.Error(w, "Failed to list chats", http.StatusInternalServerError)
 			return
 		}
-		chats = listResp.Chats
-		totalPages = listResp.PageCount
+		chats = resp.Chats
+		nextPageToken = resp.NextPageToken
 	}
 
-	chatViews := []ChatViewModel{}
-	// Format timestamps for each chat
+	chatViews := make([]ChatViewModel, 0, len(chats))
 	for _, chat := range chats {
 		chatViews = append(chatViews, ChatViewModel{
 			Chat:          chat,
-			FormattedTime: time.UnixMicro(chat.UpdateTimestamp).Format("Jan 2, 2006 3:04 PM"),
+			ID:            chatIDFromName(chat.Name),
+			FormattedTime: chat.UpdateTime.AsTime().Format("Jan 2, 2006 3:04 PM"),
 		})
 	}
 
-	// Prepare template data using PageData
 	data := &PageData{
-		Title:       "Inbox",
-		Chats:       chatViews,
-		CurrentPage: page,
-		TotalPages:  totalPages,
-		Query:       query,
-		ActiveTags:  tags,
+		Title:         "Inbox",
+		Chats:         chatViews,
+		Query:         query,
+		ActiveTags:    tags,
+		NextPageToken: nextPageToken,
 	}
 
-	// Execute template
 	if err := s.tmpl.ExecuteTemplate(w, "base", data); err != nil {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
-		return
 	}
+}
+
+func buildTagFilter(tags []string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, tag := range tags {
+		parts = append(parts, fmt.Sprintf(`"%s" in tags`, tag))
+	}
+	return strings.Join(parts, " AND ")
 }

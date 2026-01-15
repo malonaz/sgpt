@@ -8,20 +8,22 @@ import (
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	"github.com/malonaz/core/go/pbutil/pbfieldmask"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/store"
 )
 
 // GenerateChatSummary creates a title/summary for the chat using the specified model.
-func GenerateChatSummary(ctx context.Context, config *configuration.Config, s *store.Store, aiClient aiservicepb.AiServiceClient, chat *store.Chat) error {
+func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient, chat *chatpb.Chat) error {
 	if config.Chat.SummaryModel == "" {
 		return nil
 	}
-	if len(chat.Messages) < 1 {
-		return fmt.Errorf("expected at least 2 messages, found %d", len(chat.Messages))
+	if len(chat.Metadata.Messages) < 1 {
+		return fmt.Errorf("expected at least 2 messages, found %d", len(chat.Metadata.Messages))
 	}
-	userMessage := chat.Messages[0]
+	userMessage := chat.Metadata.Messages[0].Message
 	if userMessage.GetUser() == nil {
 		return fmt.Errorf("expected first message to be user role")
 	}
@@ -55,12 +57,12 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, s *s
 	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
 
 	if cleanSummary != "" {
-		chat.Title = &cleanSummary
-		updateChatRequest := &store.UpdateChatRequest{
+		chat.Metadata.Title = cleanSummary
+		updateChatRequest := &chatservicepb.UpdateChatRequest{
 			Chat:       chat,
-			UpdateMask: []string{"title"},
+			UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
 		}
-		if err := s.UpdateChat(updateChatRequest); err != nil {
+		if _, err := chatClient.UpdateChat(ctx, updateChatRequest); err != nil {
 			return fmt.Errorf("updating chat title: %w", err)
 		}
 	}

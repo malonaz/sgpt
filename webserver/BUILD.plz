@@ -18,8 +18,11 @@ go_library(
     resources = [":templates"],
     visibility = ["//..."],
     deps = [
-        "//store",
+        "//chat/chat_service/v1",
+        "//chat/v1",
         "//third_party/go:github.com__Masterminds__sprig__v3",
         "//third_party/go:github.com__spf13__cobra",
+        "//third_party/go:google.golang.org__protobuf__types__known__fieldmaskpb",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

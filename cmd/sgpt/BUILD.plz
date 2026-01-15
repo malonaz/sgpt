@@ -6,7 +6,6 @@ go_binary(
         "//chat/chat_service/v1",
         "//cli/chat",
         "//internal/configuration",
-        "//store",
         "//third_party/go:github.com__malonaz__core__go__authentication",
         "//third_party/go:github.com__malonaz__core__go__grpc",
         "//third_party/go:github.com__malonaz__core__go__logging",

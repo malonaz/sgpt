@@ -3,14 +3,30 @@
     {
       "id": "ai:text_to_text",
       "permissions": [
-        "/malonaz.ai.ai_service.v1.Ai/TextToText",
-        "/malonaz.ai.ai_service.v1.Ai/TextToTextStream",
+        "/malonaz.ai.ai_service.v1.AiService/TextToText",
+        "/malonaz.ai.ai_service.v1.AiService/TextToTextStream",
       ],
     },
     {
       "id": "ai:model:reader",
       "permissions": [
-        "/malonaz.ai.ai_service.v1.Ai/ListModels",
+        "/malonaz.ai.ai_service.v1.AiService/ListModels",
+      ],
+    },
+    {
+      "id": "chat:reader",
+      "permissions": [
+        "/sgpt.chat.chat_service.v1.ChatService/ListChats",
+        "/sgpt.chat.chat_service.v1.ChatService/GetChat",
+      ],
+    },
+    {
+      "id": "chat:writer",
+      "inherited_role_ids": ["chat:chat:reader"],
+      "permissions": [
+        "/sgpt.chat.chat_service.v1.ChatService/CreateChat",
+        "/sgpt.chat.chat_service.v1.ChatService/DeleteChat",
+        "/sgpt.chat.chat_service.v1.ChatService/UpdateChat",
       ],
     },
   ],

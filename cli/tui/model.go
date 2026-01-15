@@ -17,13 +17,14 @@ import (
 	"go.dalton.dog/bubbleup"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/tools"
 	"github.com/malonaz/sgpt/internal/types"
-	"github.com/malonaz/sgpt/store"
 )
 
 const (
@@ -43,13 +44,13 @@ type FocusedComponent int
 // Model represents the Bubble Tea model for the chat session.
 type Model struct {
 	// Core dependencies
-	ctx      context.Context
-	config   *configuration.Config
-	store    *store.Store
-	aiClient aiservicepb.AiServiceClient
+	ctx        context.Context
+	config     *configuration.Config
+	aiClient   aiservicepb.AiServiceClient
+	chatClient chatservicepb.ChatServiceClient
 
 	// Chat state
-	chat               *store.Chat
+	chat               *chatpb.Chat
 	opts               types.ChatOptions
 	additionalMessages []*aipb.Message
 	injectedFiles      []string
@@ -111,9 +112,9 @@ type Model struct {
 func New(
 	ctx context.Context,
 	config *configuration.Config,
-	s *store.Store,
 	aiClient aiservicepb.AiServiceClient,
-	chat *store.Chat,
+	chatClient chatservicepb.ChatServiceClient,
+	chat *chatpb.Chat,
 	opts types.ChatOptions,
 	additionalMessages []*aipb.Message,
 	injectedFiles []string,
@@ -139,7 +140,7 @@ func New(
 	alertClipboardWrite := bubbleup.NewAlertModel(25, true, 1)
 
 	// Initialize runtime messages from existing chat messages
-	runtimeMsgs := types.RuntimeMessagesFromProto(chat.Messages)
+	runtimeMsgs := types.RuntimeMessagesFromProto(chat.Metadata.Messages)
 
 	renderer, err := markdown.NewRenderer(styles.DefaultTextareaWidth)
 	if err != nil {
@@ -149,8 +150,8 @@ func New(
 	m := &Model{
 		ctx:                    ctx,
 		config:                 config,
-		store:                  s,
 		aiClient:               aiClient,
+		chatClient:             chatClient,
 		chat:                   chat,
 		opts:                   opts,
 		windowFocused:          true,
@@ -204,8 +205,12 @@ func (m *Model) Init() tea.Cmd {
 
 // getMessagesForAPI returns messages suitable for sending to the API.
 func (m *Model) getMessagesForAPI() []*aipb.Message {
-	messages := make([]*aipb.Message, len(m.chat.Messages))
-	copy(messages, m.chat.Messages)
+	messages := make([]*aipb.Message, 0, len(m.chat.Metadata.Messages))
+	for _, msg := range m.chat.Metadata.Messages {
+		if msg.Error == nil {
+			messages = append(messages, msg.Message)
+		}
+	}
 	if m.pendingUserMessage != nil {
 		messages = append(messages, m.pendingUserMessage)
 	}

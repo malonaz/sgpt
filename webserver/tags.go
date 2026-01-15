@@ -3,18 +3,19 @@ package webserver
 import (
 	"net/http"
 
-	"github.com/malonaz/sgpt/store"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request, chatID, tagToRemove string) {
-	// Get existing chat
-	chat, err := s.store.GetChat(chatID)
+	chat, err := s.client.GetChat(r.Context(), &chatservicepb.GetChatRequest{
+		Name: chatName(chatID),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Remove the tag
 	newTags := make([]string, 0, len(chat.Tags))
 	for _, tag := range chat.Tags {
 		if tag != tagToRemove {
@@ -23,10 +24,9 @@ func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request, chatID,
 	}
 	chat.Tags = newTags
 
-	// Update chat
-	err = s.store.UpdateChat(&store.UpdateChatRequest{
+	_, err = s.client.UpdateChat(r.Context(), &chatservicepb.UpdateChatRequest{
 		Chat:       chat,
-		UpdateMask: []string{"tags"},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"tags"}},
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

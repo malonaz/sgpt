@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 	"github.com/malonaz/sgpt/internal/types"
 )
 
@@ -349,7 +350,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case types.StreamDoneMsg:
 		m.streaming = false
 		m.cancelStream = nil
-
 		if msg.Err != nil && msg.Err != context.Canceled {
 			if status.Code(msg.Err) != codes.Canceled {
 				m.err = msg.Err
@@ -377,21 +377,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case types.ToolResultMsg:
-		if msg.Result != "" && m.pendingToolCall != nil {
-			toolMessage := ai.NewToolResultMessage(&aipb.ToolResultMessage{
-				ToolCallId: m.pendingToolCall.Id,
-				Result:     ai.NewToolResult(msg.Result),
-			})
-			m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage(m.pendingToolCall.Id, msg.Result))
-			m.chat.Messages = append(m.chat.Messages, toolMessage)
+		// Parse tool result.
+		output, err := ai.ParseToolResult(msg.ToolResult)
+		if err != nil {
+			panic(err)
 		}
+		// Add to runtime message.
+		m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage(m.pendingToolCall.Id, output))
+
+		// Add regular message.
+		toolMessage := ai.NewToolResultMessage(&aipb.ToolResultMessage{
+			ToolCallId: msg.ToolCallID,
+			Result:     msg.ToolResult,
+		})
+		m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, &chatpb.Message{Message: toolMessage})
 
 		m.pendingToolCall = nil
 		m.pendingToolArgs = nil
 		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 
-		if msg.Result != "" {
+		if msg.ToolResult.GetError() == nil {
 			return m, m.continueWithToolResult()
 		}
 		return m, nil

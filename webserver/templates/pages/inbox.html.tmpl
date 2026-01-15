@@ -34,7 +34,7 @@
                 {{range .Chats}}
                     <a href="/chat/{{.ID}}" class="chat-item">
                         <div class="chat-item-header">
-                            <span class="chat-item-title">{{if .Title}}{{.Title}}{{else}}Chat {{.ID}}{{end}}</span>
+                            <span class="chat-item-title">{{if and .Metadata .Metadata.Title}}{{.Metadata.Title}}{{else}}Chat {{.ID}}{{end}}</span>
                             <div class="chat-item-meta">
                                 <span>{{.FormattedTime}}</span>
                                 <button class="delete-btn" onclick="deleteChat('{{.ID}}', event)" title="Delete">
@@ -61,8 +61,10 @@
                             </div>
                         {{end}}
                         <div class="chat-item-preview">
-                            {{range .Messages}}
-                                {{if eq .Role.String "ROLE_USER"}}{{.Content}}{{break}}{{end}}
+                            {{if .Metadata}}
+                                {{range .Metadata.Messages}}
+                                    {{if eq (.Message.Role | messageRole) "user"}}{{.Message.Content}}{{break}}{{end}}
+                                {{end}}
                             {{end}}
                         </div>
                     </a>
@@ -85,6 +87,7 @@
          event.stopPropagation();
          const url = new URL(window.location.href);
          url.searchParams.append(type, value);
+         url.searchParams.delete('page_token');
          window.location.href = url.toString();
      }
 
@@ -94,6 +97,7 @@
          if (input.value.trim()) {
              const url = new URL(window.location.href);
              url.searchParams.append('tag', input.value.trim());
+             url.searchParams.delete('page_token');
              window.location.href = url.toString();
          }
      }
@@ -102,6 +106,7 @@
          const url = new URL(window.location.href);
          const params = url.searchParams.getAll(type);
          url.searchParams.delete(type);
+         url.searchParams.delete('page_token');
          params.forEach(p => { if (p !== value) url.searchParams.append(type, p); });
          window.location.href = url.toString();
      }

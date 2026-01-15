@@ -17,17 +17,17 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui"
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/types"
-	"github.com/malonaz/sgpt/store"
 )
 
 var models []*aipb.Model
 
 // NewCmd instantiates and returns the chat command.
-func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
+func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
 	var opts struct {
 		FileInjection   *file.InjectionOpts
 		Role            *role.Opts
@@ -102,44 +102,53 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			for i, f := range files {
 				filePaths[i] = f.Path
 			}
+
+			// Process tags.
+			var tags []string
 			githubRepoSet := map[string]struct{}{}
 			for _, filePath := range filePaths {
 				githubRepo, err := file.GetGitHubRepo(filePath)
 				cobra.CheckErr(err)
 				githubRepoSet[githubRepo] = struct{}{}
 			}
-			githubRepos := make([]string, 0, len(githubRepoSet))
 			for githubRepo := range githubRepoSet {
-				githubRepos = append(githubRepos, githubRepo)
+				tags = append(tags, githubRepo)
 			}
 
 			// Parse or create chat
-			var chat *store.Chat
-			now := time.Now().UnixMicro()
+			var chat *chatpb.Chat
 			if opts.ChatID != "" {
-				chat, err = s.GetChat(opts.ChatID)
+				getChatRequest := &chatservicepb.GetChatRequest{Name: opts.ChatID}
+				chat, err = chatClient.GetChat(ctx, getChatRequest)
 				cobra.CheckErr(err)
 			} else if opts.Continue {
-				listChatsRequest := &store.ListChatsRequest{
+				listChatsRequest := &chatservicepb.ListChatsRequest{
 					PageSize: 1,
+					OrderBy:  "create_time desc",
 				}
-				listChatsResponse, err := s.ListChats(listChatsRequest)
+				listChatsResponse, err := chatClient.ListChats(ctx, listChatsRequest)
 				cobra.CheckErr(err)
 				if len(listChatsResponse.Chats) == 0 {
 					cobra.CheckErr(fmt.Errorf("no chat to continue"))
 				}
 				chat = listChatsResponse.Chats[0]
-				opts.ChatID = chat.ID
+				opts.ChatID = chat.Name
 			} else {
-				opts.ChatID = uuid.New().String()[:8]
-				chat = &store.Chat{
-					ID:    opts.ChatID,
-					Files: filePaths,
+				createChatRequest := &chatservicepb.CreateChatRequest{
+					RequestId: uuid.New().String(),
+					ChatId:    uuid.New().String()[:8],
+					Chat: &chatpb.Chat{
+						Files: filePaths,
+						Tags:  tags,
+						Metadata: &chatpb.ChatMetadata{
+							CurrentModel: opts.Model,
+						},
+					},
 				}
+				chat, err = chatClient.CreateChat(ctx, createChatRequest)
+				cobra.CheckErr(err)
+				opts.ChatID = chat.Name
 			}
-			chat.UpdateTimestamp = now
-			chat.Files = append(chat.Files, filePaths...)
-			chat.Tags = append(chat.Tags, githubRepos...)
 
 			// Build additional messages (files + role)
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
@@ -165,7 +174,7 @@ func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.A
 			}
 
 			// Create the model
-			m, err := tui.New(ctx, config, s, aiClient, chat, chatOpts, additionalMessages, filePaths)
+			m, err := tui.New(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)
 			if err != nil {
 				return err
 			}

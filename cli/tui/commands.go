@@ -14,11 +14,14 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/pbutil"
+	"github.com/malonaz/core/go/pbutil/pbfieldmask"
+	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/malonaz/sgpt/internal/tools"
 	"github.com/malonaz/sgpt/internal/types"
-	"github.com/malonaz/sgpt/store"
 )
 
 func (m *Model) sendMessage() tea.Cmd {
@@ -79,7 +82,6 @@ func (m *Model) startStreaming() tea.Cmd {
 				ReasoningEffort: opts.ReasoningEffort,
 			},
 		}
-
 		stream, err := aiClient.TextToTextStream(streamCtx, request)
 		if err != nil {
 			p.Send(types.StreamDoneMsg{Err: err})
@@ -208,28 +210,30 @@ func (m *Model) startStreaming() tea.Cmd {
 }
 
 func (m *Model) finalizeResponse(done types.StreamDoneMsg) {
-	hasContent := done.Response != "" || done.Reasoning != "" || len(done.ToolCalls) > 0
-
-	if hasContent {
-		// Build the proto message for persistence
-		assistantMessage := ai.NewAssistantMessage(&aipb.AssistantMessage{
-			Reasoning: done.Reasoning,
-			Content:   done.Response,
-			ToolCalls: done.ToolCalls,
-		})
-
-		if done.Err != nil {
-			m.pendingUserMessage = nil
-		} else {
-			if m.pendingUserMessage != nil {
-				m.chat.Messages = append(m.chat.Messages, m.pendingUserMessage)
-				m.pendingUserMessage = nil
-			}
-			m.chat.Messages = append(m.chat.Messages, assistantMessage)
-		}
-	} else if done.Err != nil {
-		m.pendingUserMessage = nil
+	// Add user message.
+	userMessage := &chatpb.Message{Message: m.pendingUserMessage}
+	if done.Err != nil {
+		userMessage.Error = status.Convert(done.Err).Proto()
 	}
+	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, userMessage)
+
+	// Add assistant message.
+	hasContent := done.Response != "" || done.Reasoning != "" || len(done.ToolCalls) > 0
+	if hasContent {
+		assistantMessage := &chatpb.Message{
+			Message: ai.NewAssistantMessage(&aipb.AssistantMessage{
+				Reasoning: done.Reasoning,
+				Content:   done.Response,
+				ToolCalls: done.ToolCalls,
+			}),
+		}
+		if done.Err != nil {
+			assistantMessage.Error = status.Convert(done.Err).Proto()
+		}
+		m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, assistantMessage)
+	}
+
+	m.pendingUserMessage = nil
 
 	wasAtBottom := m.viewport.AtBottom()
 	m.recalculateLayout()
@@ -240,28 +244,15 @@ func (m *Model) finalizeResponse(done types.StreamDoneMsg) {
 
 func (m *Model) saveChat() tea.Cmd {
 	return func() tea.Msg {
-		now := time.Now().UnixMicro()
-		if m.chat.CreationTimestamp == 0 {
-			m.chat.CreationTimestamp = now
-			m.chat.UpdateTimestamp = now
-			createReq := &store.CreateChatRequest{Chat: m.chat}
-			if _, err := m.store.CreateChat(createReq); err != nil {
-				return types.StreamErrorMsg{Err: err}
-			}
-
-			go func() {
-				_ = GenerateChatSummary(m.ctx, m.config, m.store, m.aiClient, m.chat)
-			}()
-		} else {
-			m.chat.UpdateTimestamp = now
-			updateReq := &store.UpdateChatRequest{
-				Chat:       m.chat,
-				UpdateMask: []string{"messages", "files", "tags"},
-			}
-			if err := m.store.UpdateChat(updateReq); err != nil {
-				return types.StreamErrorMsg{Err: err}
-			}
+		updateChatRequest := &chatservicepb.UpdateChatRequest{
+			Chat:       m.chat,
+			UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&chatpb.Chat{}).Proto(),
 		}
+		chat, err := m.chatClient.UpdateChat(m.ctx, updateChatRequest)
+		if err != nil {
+			return types.StreamErrorMsg{Err: err}
+		}
+		m.chat = chat
 		return types.ChatSavedMsg{}
 	}
 }
@@ -308,11 +299,17 @@ func (m *Model) executeToolCall() tea.Cmd {
 			return types.ToolCancelledMsg{}
 		}
 
+		var toolResult *aipb.ToolResult
 		result, err := tools.ExecuteShellCommand(args)
 		if err != nil {
-			return types.ToolResultMsg{Result: fmt.Sprintf("Error: %v", err)}
+			toolResult = ai.NewErrorToolResult(err)
+		} else {
+			toolResult = ai.NewToolResult(result)
 		}
-		return types.ToolResultMsg{Result: result}
+		return types.ToolResultMsg{
+			ToolCallID: m.pendingToolCall.Id,
+			ToolResult: toolResult,
+		}
 	}
 }
 

@@ -25,7 +25,8 @@ type ChatSavedMsg struct{}
 
 // ToolResultMsg contains the result of a tool execution.
 type ToolResultMsg struct {
-	Result string
+	ToolCallID string
+	ToolResult *aipb.ToolResult
 }
 
 // ToolCancelledMsg is sent when tool execution is cancelled.

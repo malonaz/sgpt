@@ -16,7 +16,6 @@ import (
 	"github.com/malonaz/sgpt/cli/chat"
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/store"
 	"github.com/malonaz/sgpt/webserver"
 )
 
@@ -68,12 +67,6 @@ func run() error {
 	ctx = authentication.WithAPIKey(ctx, "x-api-key", config.APIKey)
 	rootCmd.SetContext(ctx)
 
-	store, err := store.New(config.Database)
-	if err != nil {
-		return fmt.Errorf("creating new store: %v", err)
-	}
-	defer store.Close()
-
 	var opts *grpc.Opts
 	if local {
 		opts = &grpc.Opts{
@@ -104,8 +97,8 @@ func run() error {
 	aiClient := aiservicepb.NewAiServiceClient(conn.Get())
 	chatClient := chatservicepb.NewChatServiceClient(conn.Get())
 
-	rootCmd.AddCommand(webserver.NewServeCmd(store))
-	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient, chatClient))
+	rootCmd.AddCommand(webserver.NewServeCmd(chatClient))
+	rootCmd.AddCommand(chat.NewCmd(config, aiClient, chatClient))
 	return rootCmd.Execute()
 }
 

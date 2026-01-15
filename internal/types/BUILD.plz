@@ -6,9 +6,11 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
+        "//chat/v1",
         "//internal/configuration",
         "//internal/markdown",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:google.golang.org__grpc__status",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

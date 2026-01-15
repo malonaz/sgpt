@@ -35,10 +35,10 @@ message Chat {
   google.protobuf.Timestamp delete_time = 4 [(malonaz.codegen.model.v1.field_opts).nullable = true];
 
   // Tags for this chat.
-  repeated string tags = 5;
+  repeated string tags = 5 [(malonaz.codegen.model.v1.field_opts).nullable = true];
 
   // Tracks all the files read by this chat.
-  repeated string files = 6;
+  repeated string files = 6 [(malonaz.codegen.model.v1.field_opts).nullable = true];
 
   // Metadata for this chat.
   ChatMetadata metadata = 10 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
@@ -59,8 +59,11 @@ message ChatMetadata {
   // Total cost of this chat.
   double total_cost = 3;
 
+  // Messages for this chat.
+  repeated Message messages = 4;
+
   // Tracks total model usage.
-  repeated malonaz.ai.v1.ModelUsage model_usages = 4;
+  repeated malonaz.ai.v1.ModelUsage model_usages = 5;
 }
 
 // Message wraps around an ai message.

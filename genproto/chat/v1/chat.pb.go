@@ -239,8 +239,10 @@ type ChatMetadata struct {
 	CurrentModel string `protobuf:"bytes,2,opt,name=current_model,json=currentModel,proto3" json:"current_model,omitempty"`
 	// Total cost of this chat.
 	TotalCost float64 `protobuf:"fixed64,3,opt,name=total_cost,json=totalCost,proto3" json:"total_cost,omitempty"`
+	// Messages for this chat.
+	Messages []*Message `protobuf:"bytes,4,rep,name=messages,proto3" json:"messages,omitempty"`
 	// Tracks total model usage.
-	ModelUsages   []*v1.ModelUsage `protobuf:"bytes,4,rep,name=model_usages,json=modelUsages,proto3" json:"model_usages,omitempty"`
+	ModelUsages   []*v1.ModelUsage `protobuf:"bytes,5,rep,name=model_usages,json=modelUsages,proto3" json:"model_usages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -291,6 +293,13 @@ func (x *ChatMetadata) GetTotalCost() float64 {
 	return 0
 }
 
+func (x *ChatMetadata) GetMessages() []*Message {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 func (x *ChatMetadata) GetModelUsages() []*v1.ModelUsage {
 	if x != nil {
 		return x.ModelUsages
@@ -310,6 +319,10 @@ func (x *ChatMetadata) SetTotalCost(v float64) {
 	x.TotalCost = v
 }
 
+func (x *ChatMetadata) SetMessages(v []*Message) {
+	x.Messages = v
+}
+
 func (x *ChatMetadata) SetModelUsages(v []*v1.ModelUsage) {
 	x.ModelUsages = v
 }
@@ -324,6 +337,8 @@ type ChatMetadata_builder struct {
 	CurrentModel string
 	// Total cost of this chat.
 	TotalCost float64
+	// Messages for this chat.
+	Messages []*Message
 	// Tracks total model usage.
 	ModelUsages []*v1.ModelUsage
 }
@@ -335,6 +350,7 @@ func (b0 ChatMetadata_builder) Build() *ChatMetadata {
 	x.Title = b.Title
 	x.CurrentModel = b.CurrentModel
 	x.TotalCost = b.TotalCost
+	x.Messages = b.Messages
 	x.ModelUsages = b.ModelUsages
 	return m0
 }
@@ -457,7 +473,7 @@ var File_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
-	"\x12chat/v1/chat.proto\x12\fsgpt.chat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\xfb\x02\n" +
+	"\x12chat/v1/chat.proto\x12\fsgpt.chat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\x8b\x03\n" +
 	"\x04Chat\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
 	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -465,19 +481,20 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\vupdate_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"updateTime\x12C\n" +
 	"\vdelete_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xba\xea\x0f\x02 \x01R\n" +
-	"deleteTime\x12\x12\n" +
-	"\x04tags\x18\x05 \x03(\tR\x04tags\x12\x14\n" +
-	"\x05files\x18\x06 \x03(\tR\x05files\x12>\n" +
+	"deleteTime\x12\x1a\n" +
+	"\x04tags\x18\x05 \x03(\tB\x06\xba\xea\x0f\x02 \x01R\x04tags\x12\x1c\n" +
+	"\x05files\x18\x06 \x03(\tB\x06\xba\xea\x0f\x02 \x01R\x05files\x12>\n" +
 	"\bmetadata\x18\n" +
 	" \x01(\v2\x1a.sgpt.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
-	"\x12chat.sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xc7\x01\n" +
+	"\x12chat.sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xfa\x01\n" +
 	"\fChatMetadata\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12D\n" +
 	"\rcurrent_model\x18\x02 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\fcurrentModel\x12\x1d\n" +
 	"\n" +
-	"total_cost\x18\x03 \x01(\x01R\ttotalCost\x12<\n" +
-	"\fmodel_usages\x18\x04 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\"\xa3\x01\n" +
+	"total_cost\x18\x03 \x01(\x01R\ttotalCost\x121\n" +
+	"\bmessages\x18\x04 \x03(\v2\x15.sgpt.chat.v1.MessageR\bmessages\x12<\n" +
+	"\fmodel_usages\x18\x05 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\"\xa3\x01\n" +
 	"\aMessage\x120\n" +
 	"\amessage\x18\x01 \x01(\v2\x16.malonaz.ai.v1.MessageR\amessage\x12<\n" +
 	"\fmodel_usages\x18\x02 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\x12(\n" +
@@ -498,15 +515,16 @@ var file_chat_v1_chat_proto_depIdxs = []int32{
 	3, // 1: sgpt.chat.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
 	3, // 2: sgpt.chat.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
 	1, // 3: sgpt.chat.v1.Chat.metadata:type_name -> sgpt.chat.v1.ChatMetadata
-	4, // 4: sgpt.chat.v1.ChatMetadata.model_usages:type_name -> malonaz.ai.v1.ModelUsage
-	5, // 5: sgpt.chat.v1.Message.message:type_name -> malonaz.ai.v1.Message
-	4, // 6: sgpt.chat.v1.Message.model_usages:type_name -> malonaz.ai.v1.ModelUsage
-	6, // 7: sgpt.chat.v1.Message.error:type_name -> google.rpc.Status
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	2, // 4: sgpt.chat.v1.ChatMetadata.messages:type_name -> sgpt.chat.v1.Message
+	4, // 5: sgpt.chat.v1.ChatMetadata.model_usages:type_name -> malonaz.ai.v1.ModelUsage
+	5, // 6: sgpt.chat.v1.Message.message:type_name -> malonaz.ai.v1.Message
+	4, // 7: sgpt.chat.v1.Message.model_usages:type_name -> malonaz.ai.v1.ModelUsage
+	6, // 8: sgpt.chat.v1.Message.error:type_name -> google.rpc.Status
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_chat_v1_chat_proto_init() }
