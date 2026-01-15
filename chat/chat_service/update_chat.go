@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Service) UpdateChat(ctx context.Context, request *pb.UpdateChatRequest) (*chatpb.Chat, error) {
-	chat, err := s.ChatServer.UpdateChat(ctx, request)
+	chat, err := s.ChatServiceServer.UpdateChat(ctx, request)
 	if err != nil {
 		return nil, err
 	}

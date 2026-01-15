@@ -14,7 +14,7 @@ import (
 )
 
 // GenerateChatSummary creates a title/summary for the chat using the specified model.
-func GenerateChatSummary(ctx context.Context, config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient, chat *store.Chat) error {
+func GenerateChatSummary(ctx context.Context, config *configuration.Config, s *store.Store, aiClient aiservicepb.AiServiceClient, chat *store.Chat) error {
 	if config.Chat.SummaryModel == "" {
 		return nil
 	}

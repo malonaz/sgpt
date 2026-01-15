@@ -68,7 +68,6 @@ go_module(
     module = "buf.build/go/protovalidate",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":buf.build__go__protovalidate__cel",
         ":github.com__google__cel-go__cel",
         ":github.com__google__cel-go__interpreter",
@@ -78,6 +77,7 @@ go_module(
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__dynamicpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -157,8 +157,6 @@ go_module(
     module = "cloud.google.com/go/longrunning",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__api__annotations",
-        ":google.golang.org__genproto__googleapis__rpc__status",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
@@ -168,6 +166,8 @@ go_module(
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__emptypb",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__rpc__status",
     ],
 )
 
@@ -185,7 +185,7 @@ go_module(
     install = ["spansql"],
     module = "cloud.google.com/go/spanner",
     visibility = ["PUBLIC"],
-    deps = [":cloud.google.com__go__civil"],
+    deps = ["//third_party/go:cloud.google.com__go__civil"],
 )
 
 go_mod_download(
@@ -274,11 +274,11 @@ go_module(
     module = "github.com/AlexxIT/go2rtc",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__AlexxIT__go2rtc__pkg__core",
         ":github.com__AlexxIT__go2rtc__pkg__shell",
         ":github.com__pion__rtp",
         ":github.com__sigurn__crc16",
         ":github.com__sigurn__crc8",
+        "//third_party/go:github.com__AlexxIT__go2rtc__pkg__core",
     ],
 )
 
@@ -340,9 +340,6 @@ go_module(
     module = "github.com/Masterminds/sprig/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":dario.cat__mergo",
-        ":github.com__Masterminds__goutils",
-        ":github.com__Masterminds__semver__v3",
         ":github.com__google__uuid",
         ":github.com__huandu__xstrings",
         ":github.com__mitchellh__copystructure",
@@ -350,6 +347,9 @@ go_module(
         ":github.com__spf13__cast",
         ":golang.org__x__crypto__bcrypt",
         ":golang.org__x__crypto__scrypt",
+        "//third_party/go:dario.cat__mergo",
+        "//third_party/go:github.com__Masterminds__goutils",
+        "//third_party/go:github.com__Masterminds__semver__v3",
     ],
 )
 
@@ -377,9 +377,9 @@ go_module(
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__alecthomas__chroma__v2",
         ":github.com__alecthomas__chroma__v2__formatters__html",
         ":github.com__alecthomas__chroma__v2__formatters__svg",
+        "//third_party/go:github.com__alecthomas__chroma__v2",
     ],
 )
 
@@ -389,7 +389,7 @@ go_module(
     install = ["formatters/html"],
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
-    deps = [":github.com__alecthomas__chroma__v2"],
+    deps = ["//third_party/go:github.com__alecthomas__chroma__v2"],
 )
 
 go_module(
@@ -398,7 +398,7 @@ go_module(
     install = ["formatters/svg"],
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
-    deps = [":github.com__alecthomas__chroma__v2"],
+    deps = ["//third_party/go:github.com__alecthomas__chroma__v2"],
 )
 
 go_module(
@@ -408,8 +408,8 @@ go_module(
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__alecthomas__chroma__v2",
         ":github.com__dlclark__regexp2",
+        "//third_party/go:github.com__alecthomas__chroma__v2",
     ],
 )
 
@@ -420,10 +420,10 @@ go_module(
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__alecthomas__chroma__v2",
-        ":github.com__alecthomas__chroma__v2__formatters",
-        ":github.com__alecthomas__chroma__v2__lexers",
         ":github.com__alecthomas__chroma__v2__styles",
+        "//third_party/go:github.com__alecthomas__chroma__v2",
+        "//third_party/go:github.com__alecthomas__chroma__v2__formatters",
+        "//third_party/go:github.com__alecthomas__chroma__v2__lexers",
     ],
 )
 
@@ -433,7 +433,7 @@ go_module(
     install = ["styles"],
     module = "github.com/alecthomas/chroma/v2",
     visibility = ["PUBLIC"],
-    deps = [":github.com__alecthomas__chroma__v2"],
+    deps = ["//third_party/go:github.com__alecthomas__chroma__v2"],
 )
 
 go_mod_download(
@@ -571,10 +571,10 @@ go_module(
     module = "github.com/anthropics/anthropic-sdk-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__anthropics__anthropic-sdk-go__internal",
-        ":github.com__anthropics__anthropic-sdk-go__internal__apierror",
-        ":github.com__anthropics__anthropic-sdk-go__internal__apiform",
-        ":github.com__anthropics__anthropic-sdk-go__internal__apiquery",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apierror",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apiform",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apiquery",
     ],
 )
 
@@ -585,8 +585,8 @@ go_module(
     module = "github.com/anthropics/anthropic-sdk-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
         ":github.com__tidwall__sjson",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
     ],
 )
 
@@ -606,11 +606,11 @@ go_module(
     module = "github.com/anthropics/anthropic-sdk-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__anthropics__anthropic-sdk-go__internal__apijson",
-        ":github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
-        ":github.com__anthropics__anthropic-sdk-go__option",
         ":github.com__anthropics__anthropic-sdk-go__packages__param",
         ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apijson",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__option",
     ],
 )
 
@@ -621,9 +621,9 @@ go_module(
     module = "github.com/anthropics/anthropic-sdk-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json",
-        ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json__sentinel",
         ":github.com__tidwall__sjson",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__encoding__json",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__encoding__json__sentinel",
     ],
 )
 
@@ -652,10 +652,10 @@ go_module(
     module = "github.com/anthropics/anthropic-sdk-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__anthropics__anthropic-sdk-go__internal__apijson",
-        ":github.com__anthropics__anthropic-sdk-go__packages__param",
-        ":github.com__anthropics__anthropic-sdk-go__packages__respjson",
         ":github.com__anthropics__anthropic-sdk-go__shared__constant",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apijson",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__packages__param",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__packages__respjson",
     ],
 )
 
@@ -665,7 +665,7 @@ go_module(
     install = ["shared/constant"],
     module = "github.com/anthropics/anthropic-sdk-go",
     visibility = ["PUBLIC"],
-    deps = [":github.com__anthropics__anthropic-sdk-go__internal__encoding__json"],
+    deps = ["//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__encoding__json"],
 )
 
 go_mod_download(
@@ -743,8 +743,8 @@ go_module(
     module = "github.com/aymerick/douceur",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__aymerick__douceur__css",
         ":github.com__gorilla__css__scanner",
+        "//third_party/go:github.com__aymerick__douceur__css",
     ],
 )
 
@@ -894,10 +894,6 @@ go_module(
     module = "github.com/charmbracelet/bubbles",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__atotto__clipboard",
-        ":github.com__charmbracelet__bubbles__cursor",
-        ":github.com__charmbracelet__bubbles__key",
-        ":github.com__charmbracelet__bubbles__runeutil",
         ":github.com__charmbracelet__bubbles__textarea__memoization",
         ":github.com__charmbracelet__bubbles__viewport",
         ":github.com__charmbracelet__bubbletea",
@@ -905,6 +901,10 @@ go_module(
         ":github.com__charmbracelet__x__ansi",
         ":github.com__mattn__go-runewidth",
         ":github.com__rivo__uniseg",
+        "//third_party/go:github.com__atotto__clipboard",
+        "//third_party/go:github.com__charmbracelet__bubbles__cursor",
+        "//third_party/go:github.com__charmbracelet__bubbles__key",
+        "//third_party/go:github.com__charmbracelet__bubbles__runeutil",
     ],
 )
 
@@ -924,10 +924,10 @@ go_module(
     module = "github.com/charmbracelet/bubbles",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__charmbracelet__bubbles__key",
         ":github.com__charmbracelet__bubbletea",
         ":github.com__charmbracelet__lipgloss",
         ":github.com__charmbracelet__x__ansi",
+        "//third_party/go:github.com__charmbracelet__bubbles__key",
     ],
 )
 
@@ -1011,9 +1011,6 @@ go_module(
     module = "github.com/charmbracelet/glamour",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__alecthomas__chroma__v2",
-        ":github.com__alecthomas__chroma__v2__quick",
-        ":github.com__alecthomas__chroma__v2__styles",
         ":github.com__charmbracelet__glamour__internal__autolink",
         ":github.com__charmbracelet__lipgloss",
         ":github.com__charmbracelet__lipgloss__table",
@@ -1031,6 +1028,9 @@ go_module(
         ":github.com__yuin__goldmark__util",
         ":golang.org__x__text__cases",
         ":golang.org__x__text__language",
+        "//third_party/go:github.com__alecthomas__chroma__v2",
+        "//third_party/go:github.com__alecthomas__chroma__v2__quick",
+        "//third_party/go:github.com__alecthomas__chroma__v2__styles",
     ],
 )
 
@@ -1049,7 +1049,7 @@ go_module(
     install = ["styles"],
     module = "github.com/charmbracelet/glamour",
     visibility = ["PUBLIC"],
-    deps = [":github.com__charmbracelet__glamour__ansi"],
+    deps = ["//third_party/go:github.com__charmbracelet__glamour__ansi"],
 )
 
 go_mod_download(
@@ -1081,8 +1081,8 @@ go_module(
     module = "github.com/charmbracelet/lipgloss",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__charmbracelet__lipgloss",
         ":github.com__charmbracelet__x__ansi",
+        "//third_party/go:github.com__charmbracelet__lipgloss",
     ],
 )
 
@@ -1132,11 +1132,11 @@ go_module(
     module = "github.com/charmbracelet/x/cellbuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__charmbracelet__colorprofile",
-        ":github.com__charmbracelet__x__ansi",
         ":github.com__charmbracelet__x__term",
         ":github.com__mattn__go-runewidth",
         ":github.com__rivo__uniseg",
+        "//third_party/go:github.com__charmbracelet__colorprofile",
+        "//third_party/go:github.com__charmbracelet__x__ansi",
     ],
 )
 
@@ -1326,7 +1326,7 @@ go_module(
     install = ["internal/jsonflags"],
     module = "github.com/go-json-experiment/json",
     visibility = ["PUBLIC"],
-    deps = [":github.com__go-json-experiment__json__internal"],
+    deps = ["//third_party/go:github.com__go-json-experiment__json__internal"],
 )
 
 go_module(
@@ -1336,8 +1336,8 @@ go_module(
     module = "github.com/go-json-experiment/json",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__go-json-experiment__json__internal",
-        ":github.com__go-json-experiment__json__internal__jsonflags",
+        "//third_party/go:github.com__go-json-experiment__json__internal",
+        "//third_party/go:github.com__go-json-experiment__json__internal__jsonflags",
     ],
 )
 
@@ -1347,7 +1347,7 @@ go_module(
     install = ["internal/jsonwire"],
     module = "github.com/go-json-experiment/json",
     visibility = ["PUBLIC"],
-    deps = [":github.com__go-json-experiment__json__internal__jsonflags"],
+    deps = ["//third_party/go:github.com__go-json-experiment__json__internal__jsonflags"],
 )
 
 go_module(
@@ -1357,10 +1357,10 @@ go_module(
     module = "github.com/go-json-experiment/json",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__go-json-experiment__json__internal",
-        ":github.com__go-json-experiment__json__internal__jsonflags",
-        ":github.com__go-json-experiment__json__internal__jsonopts",
-        ":github.com__go-json-experiment__json__internal__jsonwire",
+        "//third_party/go:github.com__go-json-experiment__json__internal",
+        "//third_party/go:github.com__go-json-experiment__json__internal__jsonflags",
+        "//third_party/go:github.com__go-json-experiment__json__internal__jsonopts",
+        "//third_party/go:github.com__go-json-experiment__json__internal__jsonwire",
     ],
 )
 
@@ -1405,7 +1405,6 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":cel.dev__expr",
         ":github.com__google__cel-go__checker",
         ":github.com__google__cel-go__checker__decls",
         ":github.com__google__cel-go__common",
@@ -1423,7 +1422,6 @@ go_module(
         ":github.com__google__cel-go__common__types__traits",
         ":github.com__google__cel-go__interpreter",
         ":github.com__google__cel-go__parser",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protodesc",
         ":google.golang.org__protobuf__reflect__protoreflect",
@@ -1431,6 +1429,8 @@ go_module(
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__dynamicpb",
         ":google.golang.org__protobuf__types__known__anypb",
+        "//third_party/go:cel.dev__expr",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1452,7 +1452,7 @@ go_module(
         ":github.com__google__cel-go__common__types",
         ":github.com__google__cel-go__common__types__ref",
         ":github.com__google__cel-go__parser",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1463,9 +1463,9 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__types__known__emptypb",
         ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1477,7 +1477,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__google__cel-go__common__runes",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1488,13 +1488,13 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":cel.dev__expr",
-        ":github.com__google__cel-go__common",
         ":github.com__google__cel-go__common__types",
         ":github.com__google__cel-go__common__types__ref",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/go:cel.dev__expr",
+        "//third_party/go:github.com__google__cel-go__common",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1504,7 +1504,7 @@ go_module(
     install = ["common/containers"],
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
-    deps = [":github.com__google__cel-go__common__ast"],
+    deps = ["//third_party/go:github.com__google__cel-go__common__ast"],
 )
 
 go_module(
@@ -1514,9 +1514,9 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__cel-go__common__ast",
         ":github.com__google__cel-go__common__types",
         ":github.com__google__cel-go__common__types__ref",
+        "//third_party/go:github.com__google__cel-go__common__ast",
     ],
 )
 
@@ -1527,13 +1527,13 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__cel-go__checker__decls",
-        ":github.com__google__cel-go__common",
         ":github.com__google__cel-go__common__functions",
         ":github.com__google__cel-go__common__operators",
         ":github.com__google__cel-go__common__types",
         ":github.com__google__cel-go__common__types__ref",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
+        "//third_party/go:github.com__google__cel-go__checker__decls",
+        "//third_party/go:github.com__google__cel-go__common",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1544,8 +1544,8 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__cel-go__common__decls",
         ":github.com__google__cel-go__common__types",
+        "//third_party/go:github.com__google__cel-go__common__decls",
     ],
 )
 
@@ -1592,14 +1592,14 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__cel-go__common",
-        ":github.com__google__cel-go__common__decls",
-        ":github.com__google__cel-go__common__functions",
-        ":github.com__google__cel-go__common__operators",
-        ":github.com__google__cel-go__common__overloads",
         ":github.com__google__cel-go__common__types",
         ":github.com__google__cel-go__common__types__ref",
         ":github.com__google__cel-go__common__types__traits",
+        "//third_party/go:github.com__google__cel-go__common",
+        "//third_party/go:github.com__google__cel-go__common__decls",
+        "//third_party/go:github.com__google__cel-go__common__functions",
+        "//third_party/go:github.com__google__cel-go__common__operators",
+        "//third_party/go:github.com__google__cel-go__common__overloads",
     ],
 )
 
@@ -1610,14 +1610,10 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":cel.dev__expr",
-        ":github.com__google__cel-go__checker__decls",
-        ":github.com__google__cel-go__common__overloads",
         ":github.com__google__cel-go__common__types__pb",
         ":github.com__google__cel-go__common__types__ref",
         ":github.com__google__cel-go__common__types__traits",
         ":github.com__stoewer__go-strcase",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__encoding__protojson",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
@@ -1626,6 +1622,10 @@ go_module(
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         ":google.golang.org__protobuf__types__known__wrapperspb",
+        "//third_party/go:cel.dev__expr",
+        "//third_party/go:github.com__google__cel-go__checker__decls",
+        "//third_party/go:github.com__google__cel-go__common__overloads",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1636,7 +1636,6 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__encoding__protowire",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
@@ -1648,6 +1647,7 @@ go_module(
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         ":google.golang.org__protobuf__types__known__wrapperspb",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1658,9 +1658,9 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -1670,7 +1670,7 @@ go_module(
     install = ["common/types/traits"],
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
-    deps = [":github.com__google__cel-go__common__types__ref"],
+    deps = ["//third_party/go:github.com__google__cel-go__common__types__ref"],
 )
 
 go_module(
@@ -1680,18 +1680,6 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__cel-go__cel",
-        ":github.com__google__cel-go__checker",
-        ":github.com__google__cel-go__common",
-        ":github.com__google__cel-go__common__ast",
-        ":github.com__google__cel-go__common__decls",
-        ":github.com__google__cel-go__common__env",
-        ":github.com__google__cel-go__common__operators",
-        ":github.com__google__cel-go__common__overloads",
-        ":github.com__google__cel-go__common__types",
-        ":github.com__google__cel-go__common__types__pb",
-        ":github.com__google__cel-go__common__types__ref",
-        ":github.com__google__cel-go__common__types__traits",
         ":github.com__google__cel-go__interpreter",
         ":github.com__google__cel-go__parser",
         ":golang.org__x__text__language",
@@ -1699,6 +1687,18 @@ go_module(
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/go:github.com__google__cel-go__cel",
+        "//third_party/go:github.com__google__cel-go__checker",
+        "//third_party/go:github.com__google__cel-go__common",
+        "//third_party/go:github.com__google__cel-go__common__ast",
+        "//third_party/go:github.com__google__cel-go__common__decls",
+        "//third_party/go:github.com__google__cel-go__common__env",
+        "//third_party/go:github.com__google__cel-go__common__operators",
+        "//third_party/go:github.com__google__cel-go__common__overloads",
+        "//third_party/go:github.com__google__cel-go__common__types",
+        "//third_party/go:github.com__google__cel-go__common__types__pb",
+        "//third_party/go:github.com__google__cel-go__common__types__ref",
+        "//third_party/go:github.com__google__cel-go__common__types__traits",
     ],
 )
 
@@ -1709,15 +1709,15 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__cel-go__common",
-        ":github.com__google__cel-go__common__ast",
-        ":github.com__google__cel-go__common__containers",
-        ":github.com__google__cel-go__common__functions",
-        ":github.com__google__cel-go__common__operators",
-        ":github.com__google__cel-go__common__overloads",
-        ":github.com__google__cel-go__common__types",
-        ":github.com__google__cel-go__common__types__ref",
-        ":github.com__google__cel-go__common__types__traits",
+        "//third_party/go:github.com__google__cel-go__common",
+        "//third_party/go:github.com__google__cel-go__common__ast",
+        "//third_party/go:github.com__google__cel-go__common__containers",
+        "//third_party/go:github.com__google__cel-go__common__functions",
+        "//third_party/go:github.com__google__cel-go__common__operators",
+        "//third_party/go:github.com__google__cel-go__common__overloads",
+        "//third_party/go:github.com__google__cel-go__common__types",
+        "//third_party/go:github.com__google__cel-go__common__types__ref",
+        "//third_party/go:github.com__google__cel-go__common__types__traits",
     ],
 )
 
@@ -1728,14 +1728,14 @@ go_module(
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__antlr4-go__antlr__v4",
-        ":github.com__google__cel-go__common",
-        ":github.com__google__cel-go__common__ast",
-        ":github.com__google__cel-go__common__operators",
-        ":github.com__google__cel-go__common__runes",
-        ":github.com__google__cel-go__common__types",
-        ":github.com__google__cel-go__common__types__ref",
         ":github.com__google__cel-go__parser__gen",
+        "//third_party/go:github.com__antlr4-go__antlr__v4",
+        "//third_party/go:github.com__google__cel-go__common",
+        "//third_party/go:github.com__google__cel-go__common__ast",
+        "//third_party/go:github.com__google__cel-go__common__operators",
+        "//third_party/go:github.com__google__cel-go__common__runes",
+        "//third_party/go:github.com__google__cel-go__common__types",
+        "//third_party/go:github.com__google__cel-go__common__types__ref",
     ],
 )
 
@@ -1745,7 +1745,7 @@ go_module(
     install = ["parser/gen"],
     module = "github.com/google/cel-go",
     visibility = ["PUBLIC"],
-    deps = [":github.com__antlr4-go__antlr__v4"],
+    deps = ["//third_party/go:github.com__antlr4-go__antlr__v4"],
 )
 
 go_mod_download(
@@ -1789,7 +1789,7 @@ go_module(
     install = ["astgen"],
     module = "github.com/google/go-jsonnet",
     visibility = ["PUBLIC"],
-    deps = [":github.com__google__go-jsonnet__ast"],
+    deps = ["//third_party/go:github.com__google__go-jsonnet__ast"],
 )
 
 go_module(
@@ -1798,7 +1798,7 @@ go_module(
     install = ["internal/errors"],
     module = "github.com/google/go-jsonnet",
     visibility = ["PUBLIC"],
-    deps = [":github.com__google__go-jsonnet__ast"],
+    deps = ["//third_party/go:github.com__google__go-jsonnet__ast"],
 )
 
 go_module(
@@ -1808,8 +1808,8 @@ go_module(
     module = "github.com/google/go-jsonnet",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__go-jsonnet__ast",
-        ":github.com__google__go-jsonnet__internal__errors",
+        "//third_party/go:github.com__google__go-jsonnet__ast",
+        "//third_party/go:github.com__google__go-jsonnet__internal__errors",
     ],
 )
 
@@ -1820,9 +1820,9 @@ go_module(
     module = "github.com/google/go-jsonnet",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__go-jsonnet__ast",
-        ":github.com__google__go-jsonnet__internal__errors",
-        ":github.com__google__go-jsonnet__internal__parser",
+        "//third_party/go:github.com__google__go-jsonnet__ast",
+        "//third_party/go:github.com__google__go-jsonnet__internal__errors",
+        "//third_party/go:github.com__google__go-jsonnet__internal__parser",
     ],
 )
 
@@ -1833,8 +1833,8 @@ go_module(
     module = "github.com/google/go-jsonnet",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__google__go-jsonnet__ast",
-        ":github.com__google__go-jsonnet__internal__parser",
+        "//third_party/go:github.com__google__go-jsonnet__ast",
+        "//third_party/go:github.com__google__go-jsonnet__internal__parser",
     ],
 )
 
@@ -1948,12 +1948,12 @@ go_module(
     module = "github.com/grpc-ecosystem/go-grpc-middleware/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__peer",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
     ],
 )
 
@@ -1964,12 +1964,12 @@ go_module(
     module = "github.com/grpc-ecosystem/go-grpc-middleware/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:buf.build__go__protovalidate",
     ],
 )
 
@@ -2005,8 +2005,8 @@ go_module(
     module = "github.com/grpc-ecosystem/go-grpc-middleware/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
         ":google.golang.org__grpc",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
     ],
 )
 
@@ -2043,7 +2043,6 @@ go_module(
     module = "github.com/grpc-ecosystem/grpc-gateway/v2",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__grpc-ecosystem__grpc-gateway__v2__internal__httprule",
         ":github.com__grpc-ecosystem__grpc-gateway__v2__utilities",
         ":google.golang.org__genproto__googleapis__api__httpbody",
         ":google.golang.org__genproto__protobuf__field_mask",
@@ -2060,6 +2059,7 @@ go_module(
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         ":google.golang.org__protobuf__types__known__wrapperspb",
+        "//third_party/go:github.com__grpc-ecosystem__grpc-gateway__v2__internal__httprule",
     ],
 )
 
@@ -2103,7 +2103,7 @@ go_module(
     install = ["."],
     module = "github.com/hashicorp/go-multierror",
     visibility = ["PUBLIC"],
-    deps = [":github.com__hashicorp__errwrap"],
+    deps = ["//third_party/go:github.com__hashicorp__errwrap"],
 )
 
 go_mod_download(
@@ -2240,15 +2240,15 @@ go_module(
     module = "github.com/jackc/pgx/v5",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__jackc__pgpassfile",
-        ":github.com__jackc__pgservicefile",
-        ":github.com__jackc__pgx__v5__internal__iobufpool",
-        ":github.com__jackc__pgx__v5__internal__pgio",
         ":github.com__jackc__pgx__v5__pgconn__ctxwatch",
         ":github.com__jackc__pgx__v5__pgconn__internal__bgreader",
         ":github.com__jackc__pgx__v5__pgproto3",
         ":golang.org__x__crypto__pbkdf2",
         ":golang.org__x__text__secure__precis",
+        "//third_party/go:github.com__jackc__pgpassfile",
+        "//third_party/go:github.com__jackc__pgservicefile",
+        "//third_party/go:github.com__jackc__pgx__v5__internal__iobufpool",
+        "//third_party/go:github.com__jackc__pgx__v5__internal__pgio",
     ],
 )
 
@@ -2267,7 +2267,7 @@ go_module(
     install = ["pgconn/internal/bgreader"],
     module = "github.com/jackc/pgx/v5",
     visibility = ["PUBLIC"],
-    deps = [":github.com__jackc__pgx__v5__internal__iobufpool"],
+    deps = ["//third_party/go:github.com__jackc__pgx__v5__internal__iobufpool"],
 )
 
 go_module(
@@ -2277,8 +2277,8 @@ go_module(
     module = "github.com/jackc/pgx/v5",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__jackc__pgx__v5__internal__iobufpool",
-        ":github.com__jackc__pgx__v5__internal__pgio",
+        "//third_party/go:github.com__jackc__pgx__v5__internal__iobufpool",
+        "//third_party/go:github.com__jackc__pgx__v5__internal__pgio",
     ],
 )
 
@@ -2288,7 +2288,7 @@ go_module(
     install = ["pgtype"],
     module = "github.com/jackc/pgx/v5",
     visibility = ["PUBLIC"],
-    deps = [":github.com__jackc__pgx__v5__internal__pgio"],
+    deps = ["//third_party/go:github.com__jackc__pgx__v5__internal__pgio"],
 )
 
 go_module(
@@ -2298,9 +2298,9 @@ go_module(
     module = "github.com/jackc/pgx/v5",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__jackc__pgx__v5",
-        ":github.com__jackc__pgx__v5__pgconn",
         ":github.com__jackc__puddle__v2",
+        "//third_party/go:github.com__jackc__pgx__v5",
+        "//third_party/go:github.com__jackc__pgx__v5__pgconn",
     ],
 )
 
@@ -2405,7 +2405,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260105082545-2d5478fe99f1",
+    version = "v0.0.0-20260114194910-6f8b364b6008",
     visibility = ["PUBLIC"],
 )
 
@@ -2416,17 +2416,17 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__audio__v1",
-        ":github.com__malonaz__core__genproto__codegen__aip__v1",
-        ":google.golang.org__genproto__googleapis__api__annotations",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
+        "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -2437,18 +2437,18 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
-        ":github.com__malonaz__core__genproto__audio__v1",
-        ":github.com__malonaz__core__genproto__json__v1",
         ":go.einride.tech__aip__resourcename",
-        ":google.golang.org__genproto__googleapis__api__annotations",
-        ":google.golang.org__genproto__googleapis__rpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__rpc__status",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
+        "//third_party/proto:malonaz__core__genproto__json__v1",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -2459,11 +2459,11 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -2474,10 +2474,10 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -2488,10 +2488,10 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -2506,19 +2506,6 @@ go_module(
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
-    ],
-)
-
-go_module(
-    name = "github.com__malonaz__core__genproto__codegen__llm__v1",
-    download = ":_github.com__malonaz__core#download",
-    install = ["genproto/codegen/llm/v1"],
-    module = "github.com/malonaz/core",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
-        ":google.golang.org__protobuf__types__descriptorpb",
     ],
 )
 
@@ -2555,9 +2542,9 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -2568,13 +2555,13 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__json__v1",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__json__v1",
     ],
 )
 
@@ -2585,10 +2572,6 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__audio__v1",
-        ":github.com__malonaz__core__go__ai",
         ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__ai__ai_service__provider__anthropic",
         ":github.com__malonaz__core__go__ai__ai_service__provider__cartesia",
@@ -2602,6 +2585,10 @@ go_module(
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
     ],
 )
 
@@ -2612,16 +2599,16 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
-        ":github.com__karminski__streaming-json-go",
-        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
-        ":github.com__malonaz__core__genproto__ai__v1",
         ":github.com__malonaz__core__go__aip",
         ":github.com__malonaz__core__go__grpc",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__karminski__streaming-json-go",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
 
@@ -2632,18 +2619,18 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__anthropics__anthropic-sdk-go",
-        ":github.com__anthropics__anthropic-sdk-go__option",
-        ":github.com__anthropics__anthropic-sdk-go__shared__constant",
-        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__json__v1",
-        ":github.com__malonaz__core__go__ai",
-        ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__grpc",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__option",
+        "//third_party/go:github.com__anthropics__anthropic-sdk-go__shared__constant",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__json__v1",
     ],
 )
 
@@ -2654,10 +2641,6 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__audio__v1",
-        ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__audio",
         ":github.com__malonaz__core__go__grpc",
         ":github.com__malonaz__core__go__websocket",
@@ -2665,6 +2648,10 @@ go_module(
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
     ],
 )
 
@@ -2675,15 +2662,15 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__audio__v1",
-        ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__audio",
         ":github.com__malonaz__core__go__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
     ],
 )
 
@@ -2694,11 +2681,6 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__genproto__ai__ai_service__v1",
-        ":github.com__malonaz__core__genproto__ai__v1",
-        ":github.com__malonaz__core__genproto__audio__v1",
-        ":github.com__malonaz__core__go__ai",
-        ":github.com__malonaz__core__go__ai__ai_service__provider",
         ":github.com__malonaz__core__go__audio",
         ":github.com__malonaz__core__go__grpc",
         ":github.com__malonaz__core__go__pbutil",
@@ -2711,6 +2693,11 @@ go_module(
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
     ],
 )
 
@@ -2721,13 +2708,9 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
-        ":github.com__huandu__xstrings",
-        ":github.com__malonaz__core__genproto__codegen__aip__v1",
-        ":github.com__malonaz__core__genproto__codegen__model__v1",
         ":github.com__malonaz__core__go__pbutil",
+        ":github.com__malonaz__core__go__pbutil__pbfieldmask",
         ":github.com__malonaz__core__go__uuid",
-        ":go.einride.tech__aip__fieldmask",
         ":go.einride.tech__aip__filtering",
         ":go.einride.tech__aip__ordering",
         ":go.einride.tech__aip__pagination",
@@ -2735,13 +2718,17 @@ go_module(
         ":go.einride.tech__spanner-aip__spanfiltering",
         ":go.einride.tech__spanner-aip__spanordering",
         ":golang.org__x__sync__errgroup",
-        ":google.golang.org__genproto__googleapis__api__annotations",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__grpc",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
+        "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__huandu__xstrings",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__api__expr__v1alpha1",
+        "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
+        "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
     ],
 )
 
@@ -2752,8 +2739,8 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__AlexxIT__go2rtc__pkg__pcm",
-        ":github.com__malonaz__core__genproto__audio__v1",
+        "//third_party/go:github.com__AlexxIT__go2rtc__pkg__pcm",
+        "//third_party/proto:malonaz__core__genproto__audio__v1",
     ],
 )
 
@@ -2764,11 +2751,6 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
-        ":github.com__malonaz__core__genproto__authentication__v1",
         ":github.com__malonaz__core__go__grpc__interceptor",
         ":github.com__malonaz__core__go__jsonnet",
         ":github.com__malonaz__core__go__pbutil",
@@ -2779,6 +2761,11 @@ go_module(
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
+        "//third_party/proto:malonaz__core__genproto__authentication__v1",
     ],
 )
 
@@ -2788,7 +2775,7 @@ go_module(
     install = ["go/binary"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = [":github.com__hashicorp__go-multierror"],
+    deps = ["//third_party/go:github.com__hashicorp__go-multierror"],
 )
 
 go_module(
@@ -2806,7 +2793,7 @@ go_module(
     install = ["go/flags"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = [":github.com__jessevdk__go-flags"],
+    deps = ["//third_party/go:github.com__jessevdk__go-flags"],
 )
 
 go_module(
@@ -2816,12 +2803,6 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__providers__prometheus",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__recovery",
-        ":github.com__grpc-ecosystem__grpc-gateway__v2__runtime",
-        ":github.com__malonaz__core__genproto__grpc__v1",
-        ":github.com__malonaz__core__go__certs",
         ":github.com__malonaz__core__go__grpc__interceptor",
         ":github.com__malonaz__core__go__health",
         ":github.com__malonaz__core__go__pbutil",
@@ -2829,8 +2810,6 @@ go_module(
         ":github.com__prometheus__client_golang__prometheus",
         ":github.com__sercand__kuberesolver__v5",
         ":golang.org__x__net__context",
-        ":google.golang.org__genproto__googleapis__api__annotations",
-        ":google.golang.org__genproto__googleapis__rpc__errdetails",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__balancer__roundrobin",
         ":google.golang.org__grpc__codes",
@@ -2849,6 +2828,14 @@ go_module(
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__descriptorpb",
+        "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__providers__prometheus",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__recovery",
+        "//third_party/go:github.com__grpc-ecosystem__grpc-gateway__v2__runtime",
+        "//third_party/go:github.com__malonaz__core__genproto__grpc__v1",
+        "//third_party/go:github.com__malonaz__core__go__certs",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__rpc__errdetails",
     ],
 )
 
@@ -2871,16 +2858,7 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__logging",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__protovalidate",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__retry",
-        ":github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
-        ":github.com__malonaz__core__go__pbutil",
-        ":google.golang.org__genproto__googleapis__api__annotations",
-        ":google.golang.org__genproto__googleapis__rpc__errdetails",
+        ":github.com__malonaz__core__go__pbutil__pbfieldmask",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__metadata",
@@ -2889,6 +2867,15 @@ go_module(
         ":google.golang.org__protobuf__protoadapt",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__logging",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__protovalidate",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__retry",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__rpc__errdetails",
     ],
 )
 
@@ -2914,7 +2901,7 @@ go_module(
     install = ["go/http"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = [":github.com__malonaz__core__go__health"],
+    deps = ["//third_party/go:github.com__malonaz__core__go__health"],
 )
 
 go_module(
@@ -2923,7 +2910,7 @@ go_module(
     install = ["go/jsonnet"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = [":github.com__google__go-jsonnet"],
+    deps = ["//third_party/go:github.com__google__go-jsonnet"],
 )
 
 go_module(
@@ -2951,19 +2938,34 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":buf.build__go__protovalidate",
-        ":github.com__mennanov__fmutils",
         ":github.com__tidwall__pretty",
-        ":go.einride.tech__aip__fieldmask",
         ":google.golang.org__protobuf__encoding__protojson",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
+        ":google.golang.org__protobuf__types__dynamicpb",
+        ":google.golang.org__protobuf__types__known__anypb",
+        ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/go:buf.build__go__protovalidate",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__pbutil__pbfieldmask",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/pbutil/pbfieldmask"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__mennanov__fmutils",
+        ":go.einride.tech__aip__fieldmask",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
-        ":google.golang.org__protobuf__types__known__structpb",
     ],
 )
 
@@ -2974,10 +2976,10 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__jackc__pgerrcode",
-        ":github.com__jackc__pgx__v5",
-        ":github.com__jackc__pgx__v5__pgconn",
-        ":github.com__jackc__pgx__v5__pgxpool",
+        "//third_party/go:github.com__jackc__pgerrcode",
+        "//third_party/go:github.com__jackc__pgx__v5",
+        "//third_party/go:github.com__jackc__pgx__v5__pgconn",
+        "//third_party/go:github.com__jackc__pgx__v5__pgxpool",
     ],
 )
 
@@ -2988,8 +2990,8 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__go__postgres",
         ":github.com__malonaz__core__go__postgres__migrator__migrations",
+        "//third_party/go:github.com__malonaz__core__go__postgres",
     ],
 )
 
@@ -3017,7 +3019,7 @@ go_module(
     install = ["go/uuid"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = [":github.com__google__uuid"],
+    deps = ["//third_party/go:github.com__google__uuid"],
 )
 
 go_module(
@@ -3027,8 +3029,8 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__go-json-experiment__json",
-        ":github.com__gorilla__websocket",
+        "//third_party/go:github.com__go-json-experiment__json",
+        "//third_party/go:github.com__gorilla__websocket",
     ],
 )
 
@@ -3117,7 +3119,7 @@ go_module(
     install = ["."],
     module = "github.com/mgutz/ansi",
     visibility = ["PUBLIC"],
-    deps = [":github.com__mattn__go-colorable"],
+    deps = ["//third_party/go:github.com__mattn__go-colorable"],
 )
 
 go_mod_download(
@@ -3135,9 +3137,9 @@ go_module(
     module = "github.com/microcosm-cc/bluemonday",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__aymerick__douceur__parser",
         ":github.com__microcosm-cc__bluemonday__css",
         ":golang.org__x__net__html",
+        "//third_party/go:github.com__aymerick__douceur__parser",
     ],
 )
 
@@ -3198,7 +3200,7 @@ go_module(
     install = ["."],
     module = "github.com/muesli/ansi",
     visibility = ["PUBLIC"],
-    deps = [":github.com__mattn__go-runewidth"],
+    deps = ["//third_party/go:github.com__mattn__go-runewidth"],
 )
 
 go_module(
@@ -3207,7 +3209,7 @@ go_module(
     install = ["compressor"],
     module = "github.com/muesli/ansi",
     visibility = ["PUBLIC"],
-    deps = [":github.com__muesli__ansi"],
+    deps = ["//third_party/go:github.com__muesli__ansi"],
 )
 
 go_mod_download(
@@ -3241,7 +3243,7 @@ go_module(
     install = ["ansi"],
     module = "github.com/muesli/reflow",
     visibility = ["PUBLIC"],
-    deps = [":github.com__mattn__go-runewidth"],
+    deps = ["//third_party/go:github.com__mattn__go-runewidth"],
 )
 
 go_module(
@@ -3250,7 +3252,7 @@ go_module(
     install = ["indent"],
     module = "github.com/muesli/reflow",
     visibility = ["PUBLIC"],
-    deps = [":github.com__muesli__reflow__ansi"],
+    deps = ["//third_party/go:github.com__muesli__reflow__ansi"],
 )
 
 go_module(
@@ -3260,8 +3262,8 @@ go_module(
     module = "github.com/muesli/reflow",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__mattn__go-runewidth",
-        ":github.com__muesli__reflow__ansi",
+        "//third_party/go:github.com__mattn__go-runewidth",
+        "//third_party/go:github.com__muesli__reflow__ansi",
     ],
 )
 
@@ -3271,7 +3273,7 @@ go_module(
     install = ["wordwrap"],
     module = "github.com/muesli/reflow",
     visibility = ["PUBLIC"],
-    deps = [":github.com__muesli__reflow__ansi"],
+    deps = ["//third_party/go:github.com__muesli__reflow__ansi"],
 )
 
 go_mod_download(
@@ -3289,11 +3291,11 @@ go_module(
     module = "github.com/muesli/termenv",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__aymanbagabas__go-osc52__v2",
-        ":github.com__lucasb-eyer__go-colorful",
-        ":github.com__mattn__go-isatty",
         ":github.com__rivo__uniseg",
         ":golang.org__x__sys__unix",
+        "//third_party/go:github.com__aymanbagabas__go-osc52__v2",
+        "//third_party/go:github.com__lucasb-eyer__go-colorful",
+        "//third_party/go:github.com__mattn__go-isatty",
     ],
 )
 
@@ -3488,11 +3490,11 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal",
-        ":github.com__openai__openai-go__v3__internal__apierror",
-        ":github.com__openai__openai-go__v3__internal__apiform",
-        ":github.com__openai__openai-go__v3__internal__apiquery",
         ":github.com__tidwall__gjson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apierror",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apiform",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apiquery",
     ],
 )
 
@@ -3503,8 +3505,8 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__requestconfig",
         ":github.com__tidwall__sjson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__requestconfig",
     ],
 )
 
@@ -3515,11 +3517,11 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__apijson",
-        ":github.com__openai__openai-go__v3__internal__requestconfig",
-        ":github.com__openai__openai-go__v3__option",
         ":github.com__openai__openai-go__v3__packages__param",
         ":github.com__openai__openai-go__v3__packages__respjson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apijson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__requestconfig",
+        "//third_party/go:github.com__openai__openai-go__v3__option",
     ],
 )
 
@@ -3530,9 +3532,9 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__encoding__json",
-        ":github.com__openai__openai-go__v3__internal__encoding__json__sentinel",
         ":github.com__tidwall__sjson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__encoding__json",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__encoding__json__sentinel",
     ],
 )
 
@@ -3561,16 +3563,16 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__apierror",
-        ":github.com__openai__openai-go__v3__internal__apijson",
-        ":github.com__openai__openai-go__v3__internal__encoding__json",
-        ":github.com__openai__openai-go__v3__internal__requestconfig",
-        ":github.com__openai__openai-go__v3__option",
-        ":github.com__openai__openai-go__v3__packages__param",
-        ":github.com__openai__openai-go__v3__packages__respjson",
         ":github.com__openai__openai-go__v3__responses",
         ":github.com__openai__openai-go__v3__shared",
         ":github.com__openai__openai-go__v3__shared__constant",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apierror",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apijson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__encoding__json",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__requestconfig",
+        "//third_party/go:github.com__openai__openai-go__v3__option",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__param",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__respjson",
     ],
 )
 
@@ -3581,18 +3583,18 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__apierror",
-        ":github.com__openai__openai-go__v3__internal__apijson",
-        ":github.com__openai__openai-go__v3__internal__apiquery",
-        ":github.com__openai__openai-go__v3__internal__paramutil",
-        ":github.com__openai__openai-go__v3__internal__requestconfig",
-        ":github.com__openai__openai-go__v3__option",
-        ":github.com__openai__openai-go__v3__packages__pagination",
-        ":github.com__openai__openai-go__v3__packages__param",
-        ":github.com__openai__openai-go__v3__packages__respjson",
-        ":github.com__openai__openai-go__v3__packages__ssestream",
         ":github.com__openai__openai-go__v3__shared",
         ":github.com__openai__openai-go__v3__shared__constant",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apierror",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apijson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apiquery",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__paramutil",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__requestconfig",
+        "//third_party/go:github.com__openai__openai-go__v3__option",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__pagination",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__param",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__respjson",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__ssestream",
     ],
 )
 
@@ -3603,10 +3605,10 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__apijson",
-        ":github.com__openai__openai-go__v3__packages__param",
-        ":github.com__openai__openai-go__v3__packages__respjson",
         ":github.com__openai__openai-go__v3__shared__constant",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apijson",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__param",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__respjson",
     ],
 )
 
@@ -3616,7 +3618,7 @@ go_module(
     install = ["shared/constant"],
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
-    deps = [":github.com__openai__openai-go__v3__internal__encoding__json"],
+    deps = ["//third_party/go:github.com__openai__openai-go__v3__internal__encoding__json"],
 )
 
 go_module(
@@ -3626,14 +3628,14 @@ go_module(
     module = "github.com/openai/openai-go/v3",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__openai__openai-go__v3__internal__apierror",
-        ":github.com__openai__openai-go__v3__internal__apijson",
-        ":github.com__openai__openai-go__v3__internal__requestconfig",
-        ":github.com__openai__openai-go__v3__option",
-        ":github.com__openai__openai-go__v3__packages__param",
-        ":github.com__openai__openai-go__v3__packages__respjson",
-        ":github.com__openai__openai-go__v3__shared",
-        ":github.com__openai__openai-go__v3__shared__constant",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apierror",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__apijson",
+        "//third_party/go:github.com__openai__openai-go__v3__internal__requestconfig",
+        "//third_party/go:github.com__openai__openai-go__v3__option",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__param",
+        "//third_party/go:github.com__openai__openai-go__v3__packages__respjson",
+        "//third_party/go:github.com__openai__openai-go__v3__shared",
+        "//third_party/go:github.com__openai__openai-go__v3__shared__constant",
     ],
 )
 
@@ -3669,8 +3671,8 @@ go_module(
     module = "github.com/pion/rtp",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__pion__randutil",
         ":github.com__pion__rtp__codecs__av1__obu",
+        "//third_party/go:github.com__pion__randutil",
     ],
 )
 
@@ -3697,7 +3699,7 @@ go_module(
     install = ["."],
     module = "github.com/pion/sdp/v3",
     visibility = ["PUBLIC"],
-    deps = [":github.com__pion__randutil"],
+    deps = ["//third_party/go:github.com__pion__randutil"],
 )
 
 go_mod_download(
@@ -3767,8 +3769,8 @@ go_module(
     module = "github.com/prometheus/client_golang",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__beorn7__perks__quantile",
-        ":github.com__cespare__xxhash__v2",
+        "//third_party/go:github.com__beorn7__perks__quantile",
+        "//third_party/go:github.com__cespare__xxhash__v2",
         ":github.com__prometheus__client_golang__prometheus__internal",
         ":github.com__prometheus__client_model__go",
         ":github.com__prometheus__common__expfmt",
@@ -3802,7 +3804,7 @@ go_module(
     install = ["prometheus/promauto"],
     module = "github.com/prometheus/client_golang",
     visibility = ["PUBLIC"],
-    deps = [":github.com__prometheus__client_golang__prometheus"],
+    deps = ["//third_party/go:github.com__prometheus__client_golang__prometheus"],
 )
 
 go_module(
@@ -3812,11 +3814,11 @@ go_module(
     module = "github.com/prometheus/client_golang",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__prometheus__client_golang__internal__github.com__golang__gddo__httputil",
-        ":github.com__prometheus__client_golang__prometheus",
         ":github.com__prometheus__client_golang__prometheus__promhttp__internal",
         ":github.com__prometheus__client_model__go",
         ":github.com__prometheus__common__expfmt",
+        "//third_party/go:github.com__prometheus__client_golang__internal__github.com__golang__gddo__httputil",
+        "//third_party/go:github.com__prometheus__client_golang__prometheus",
     ],
 )
 
@@ -3865,13 +3867,13 @@ go_module(
     module = "github.com/prometheus/common",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__munnerz__goautoneg",
-        ":github.com__prometheus__client_model__go",
         ":github.com__prometheus__common__model",
         ":google.golang.org__protobuf__encoding__protodelim",
         ":google.golang.org__protobuf__encoding__prototext",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__munnerz__goautoneg",
+        "//third_party/go:github.com__prometheus__client_model__go",
     ],
 )
 
@@ -3882,9 +3884,9 @@ go_module(
     module = "github.com/prometheus/common",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__prometheus__client_model__go",
         ":go.yaml.in__yaml__v2",
         ":google.golang.org__protobuf__proto",
+        "//third_party/go:github.com__prometheus__client_model__go",
     ],
 )
 
@@ -3907,8 +3909,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -4015,11 +4017,11 @@ go_module(
     module = "github.com/sercand/kuberesolver/v5",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__fsnotify__fsnotify",
-        ":github.com__prometheus__client_golang__prometheus",
-        ":github.com__prometheus__client_golang__prometheus__promauto",
         ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__resolver",
+        "//third_party/go:github.com__fsnotify__fsnotify",
+        "//third_party/go:github.com__prometheus__client_golang__prometheus",
+        "//third_party/go:github.com__prometheus__client_golang__prometheus__promauto",
     ],
 )
 
@@ -4157,9 +4159,9 @@ go_module(
     module = "github.com/stretchr/testify",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__davecgh__go-spew__spew",
-        ":github.com__pmezard__go-difflib__difflib",
         ":github.com__stretchr__testify__assert__yaml",
+        "//third_party/go:github.com__davecgh__go-spew__spew",
+        "//third_party/go:github.com__pmezard__go-difflib__difflib",
     ],
 )
 
@@ -4178,7 +4180,7 @@ go_module(
     install = ["require"],
     module = "github.com/stretchr/testify",
     visibility = ["PUBLIC"],
-    deps = [":github.com__stretchr__testify__assert"],
+    deps = ["//third_party/go:github.com__stretchr__testify__assert"],
 )
 
 go_mod_download(
@@ -4249,7 +4251,7 @@ go_module(
     install = ["."],
     module = "github.com/tidwall/sjson",
     visibility = ["PUBLIC"],
-    deps = [":github.com__tidwall__gjson"],
+    deps = ["//third_party/go:github.com__tidwall__gjson"],
 )
 
 go_mod_download(
@@ -4311,14 +4313,14 @@ go_module(
     module = "github.com/yuin/goldmark",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__yuin__goldmark",
-        ":github.com__yuin__goldmark__ast",
         ":github.com__yuin__goldmark__extension__ast",
         ":github.com__yuin__goldmark__parser",
         ":github.com__yuin__goldmark__renderer",
         ":github.com__yuin__goldmark__renderer__html",
         ":github.com__yuin__goldmark__text",
         ":github.com__yuin__goldmark__util",
+        "//third_party/go:github.com__yuin__goldmark",
+        "//third_party/go:github.com__yuin__goldmark__ast",
     ],
 )
 
@@ -4328,7 +4330,7 @@ go_module(
     install = ["extension/ast"],
     module = "github.com/yuin/goldmark",
     visibility = ["PUBLIC"],
-    deps = [":github.com__yuin__goldmark__ast"],
+    deps = ["//third_party/go:github.com__yuin__goldmark__ast"],
 )
 
 go_module(
@@ -4338,9 +4340,9 @@ go_module(
     module = "github.com/yuin/goldmark",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__yuin__goldmark__ast",
         ":github.com__yuin__goldmark__text",
         ":github.com__yuin__goldmark__util",
+        "//third_party/go:github.com__yuin__goldmark__ast",
     ],
 )
 
@@ -4351,8 +4353,8 @@ go_module(
     module = "github.com/yuin/goldmark",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__yuin__goldmark__ast",
         ":github.com__yuin__goldmark__util",
+        "//third_party/go:github.com__yuin__goldmark__ast",
     ],
 )
 
@@ -4363,9 +4365,9 @@ go_module(
     module = "github.com/yuin/goldmark",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__yuin__goldmark__ast",
-        ":github.com__yuin__goldmark__renderer",
         ":github.com__yuin__goldmark__util",
+        "//third_party/go:github.com__yuin__goldmark__ast",
+        "//third_party/go:github.com__yuin__goldmark__renderer",
     ],
 )
 
@@ -4402,15 +4404,15 @@ go_module(
     module = "github.com/yuin/goldmark-emoji",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__yuin__goldmark",
         ":github.com__yuin__goldmark-emoji__ast",
         ":github.com__yuin__goldmark-emoji__definition",
-        ":github.com__yuin__goldmark__ast",
-        ":github.com__yuin__goldmark__parser",
-        ":github.com__yuin__goldmark__renderer",
-        ":github.com__yuin__goldmark__renderer__html",
-        ":github.com__yuin__goldmark__text",
-        ":github.com__yuin__goldmark__util",
+        "//third_party/go:github.com__yuin__goldmark",
+        "//third_party/go:github.com__yuin__goldmark__ast",
+        "//third_party/go:github.com__yuin__goldmark__parser",
+        "//third_party/go:github.com__yuin__goldmark__renderer",
+        "//third_party/go:github.com__yuin__goldmark__renderer__html",
+        "//third_party/go:github.com__yuin__goldmark__text",
+        "//third_party/go:github.com__yuin__goldmark__util",
     ],
 )
 
@@ -4422,7 +4424,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__yuin__goldmark-emoji__definition",
-        ":github.com__yuin__goldmark__ast",
+        "//third_party/go:github.com__yuin__goldmark__ast",
     ],
 )
 
@@ -4450,11 +4452,11 @@ go_module(
     module = "go.dalton.dog/bubbleup",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__charmbracelet__bubbletea",
-        ":github.com__charmbracelet__lipgloss",
-        ":github.com__lucasb-eyer__go-colorful",
-        ":github.com__mattn__go-runewidth",
-        ":github.com__muesli__reflow__ansi",
+        "//third_party/go:github.com__charmbracelet__bubbletea",
+        "//third_party/go:github.com__charmbracelet__lipgloss",
+        "//third_party/go:github.com__lucasb-eyer__go-colorful",
+        "//third_party/go:github.com__mattn__go-runewidth",
+        "//third_party/go:github.com__muesli__reflow__ansi",
     ],
 )
 
@@ -4486,9 +4488,9 @@ go_module(
     module = "go.einride.tech/aip",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -4499,9 +4501,9 @@ go_module(
     module = "go.einride.tech/aip",
     visibility = ["PUBLIC"],
     deps = [
-        ":go.einride.tech__aip__fieldmask",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
+        "//third_party/go:go.einride.tech__aip__fieldmask",
     ],
 )
 
@@ -4539,11 +4541,11 @@ go_module(
     module = "go.einride.tech/spanner-aip",
     visibility = ["PUBLIC"],
     deps = [
-        ":cloud.google.com__go__spanner__spansql",
-        ":go.einride.tech__aip__filtering",
-        ":google.golang.org__genproto__googleapis__api__expr__v1alpha1",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:cloud.google.com__go__spanner__spansql",
+        "//third_party/go:go.einride.tech__aip__filtering",
+        "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
 
@@ -4554,8 +4556,8 @@ go_module(
     module = "go.einride.tech/spanner-aip",
     visibility = ["PUBLIC"],
     deps = [
-        ":cloud.google.com__go__spanner__spansql",
-        ":go.einride.tech__aip__ordering",
+        "//third_party/go:cloud.google.com__go__spanner__spansql",
+        "//third_party/go:go.einride.tech__aip__ordering",
     ],
 )
 
@@ -4634,7 +4636,7 @@ go_module(
     install = ["scrypt"],
     module = "golang.org/x/crypto",
     visibility = ["PUBLIC"],
-    deps = [":golang.org__x__crypto__pbkdf2"],
+    deps = ["//third_party/go:golang.org__x__crypto__pbkdf2"],
 )
 
 go_module(
@@ -4715,9 +4717,9 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":golang.org__x__net__http2__hpack",
-        ":golang.org__x__net__http__httpguts",
         ":golang.org__x__net__idna",
         ":golang.org__x__net__internal__httpcommon",
+        "//third_party/go:golang.org__x__net__http__httpguts",
     ],
 )
 
@@ -4750,8 +4752,8 @@ go_module(
     module = "golang.org/x/net",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__net__http2__hpack",
-        ":golang.org__x__net__http__httpguts",
+        "//third_party/go:golang.org__x__net__http2__hpack",
+        "//third_party/go:golang.org__x__net__http__httpguts",
     ],
 )
 
@@ -4770,14 +4772,14 @@ go_module(
     install = ["trace"],
     module = "golang.org/x/net",
     visibility = ["PUBLIC"],
-    deps = [":golang.org__x__net__internal__timeseries"],
+    deps = ["//third_party/go:golang.org__x__net__internal__timeseries"],
 )
 
 go_mod_download(
     name = "golang.org__x__sync",
     _tag = "download",
     module = "golang.org/x/sync",
-    version = "v0.18.0",
+    version = "v0.19.0",
     visibility = ["PUBLIC"],
 )
 
@@ -4839,14 +4841,14 @@ go_module(
     install = ["."],
     module = "golang.org/x/term",
     visibility = ["PUBLIC"],
-    deps = [":golang.org__x__sys__unix"],
+    deps = ["//third_party/go:golang.org__x__sys__unix"],
 )
 
 go_mod_download(
     name = "golang.org__x__text",
     _tag = "download",
     module = "golang.org/x/text",
-    version = "v0.30.0",
+    version = "v0.32.0",
     visibility = ["PUBLIC"],
 )
 
@@ -4921,7 +4923,7 @@ go_module(
     install = ["internal/language/compact"],
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
-    deps = [":golang.org__x__text__internal__language"],
+    deps = ["//third_party/go:golang.org__x__text__internal__language"],
 )
 
 go_module(
@@ -4931,9 +4933,9 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__text__internal__language__compact",
         ":golang.org__x__text__internal__stringset",
         ":golang.org__x__text__language",
+        "//third_party/go:golang.org__x__text__internal__language__compact",
     ],
 )
 
@@ -4962,8 +4964,8 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__text__internal__language",
-        ":golang.org__x__text__internal__language__compact",
+        "//third_party/go:golang.org__x__text__internal__language",
+        "//third_party/go:golang.org__x__text__internal__language__compact",
     ],
 )
 
@@ -4974,11 +4976,11 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__text__feature__plural",
-        ":golang.org__x__text__internal__format",
-        ":golang.org__x__text__internal__number",
-        ":golang.org__x__text__language",
         ":golang.org__x__text__message__catalog",
+        "//third_party/go:golang.org__x__text__feature__plural",
+        "//third_party/go:golang.org__x__text__internal__format",
+        "//third_party/go:golang.org__x__text__internal__number",
+        "//third_party/go:golang.org__x__text__language",
     ],
 )
 
@@ -4989,9 +4991,9 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__text__internal",
-        ":golang.org__x__text__internal__catmsg",
-        ":golang.org__x__text__language",
+        "//third_party/go:golang.org__x__text__internal",
+        "//third_party/go:golang.org__x__text__internal__catmsg",
+        "//third_party/go:golang.org__x__text__language",
     ],
 )
 
@@ -5023,13 +5025,13 @@ go_module(
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__text__cases",
-        ":golang.org__x__text__language",
-        ":golang.org__x__text__runes",
-        ":golang.org__x__text__secure__bidirule",
         ":golang.org__x__text__transform",
         ":golang.org__x__text__unicode__norm",
         ":golang.org__x__text__width",
+        "//third_party/go:golang.org__x__text__cases",
+        "//third_party/go:golang.org__x__text__language",
+        "//third_party/go:golang.org__x__text__runes",
+        "//third_party/go:golang.org__x__text__secure__bidirule",
     ],
 )
 
@@ -5057,7 +5059,7 @@ go_module(
     install = ["unicode/norm"],
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
-    deps = [":golang.org__x__text__transform"],
+    deps = ["//third_party/go:golang.org__x__text__transform"],
 )
 
 go_module(
@@ -5066,7 +5068,7 @@ go_module(
     install = ["width"],
     module = "golang.org/x/text",
     visibility = ["PUBLIC"],
-    deps = [":golang.org__x__text__transform"],
+    deps = ["//third_party/go:golang.org__x__text__transform"],
 )
 
 go_mod_download(
@@ -5084,8 +5086,8 @@ go_module(
     module = "google.golang.org/genproto",
     visibility = ["PUBLIC"],
     deps = [
-        ":cloud.google.com__go__longrunning__autogen__longrunningpb",
         ":google.golang.org__grpc",
+        "//third_party/go:cloud.google.com__go__longrunning__autogen__longrunningpb",
     ],
 )
 
@@ -5125,11 +5127,11 @@ go_module(
     module = "google.golang.org/genproto/googleapis/api",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__api",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__known__durationpb",
+        "//third_party/proto:google__api",
     ],
 )
 
@@ -5140,7 +5142,6 @@ go_module(
     module = "google.golang.org/genproto/googleapis/api",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__rpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__known__anypb",
@@ -5148,6 +5149,7 @@ go_module(
         ":google.golang.org__protobuf__types__known__emptypb",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:google__rpc__status",
     ],
 )
 
@@ -5213,7 +5215,6 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__net__trace",
         ":google.golang.org__grpc__backoff",
         ":google.golang.org__grpc__balancer",
         ":google.golang.org__grpc__balancer__base",
@@ -5257,6 +5258,7 @@ go_module(
         ":google.golang.org__grpc__stats",
         ":google.golang.org__grpc__status",
         ":google.golang.org__grpc__tap",
+        "//third_party/go:golang.org__x__net__trace",
     ],
 )
 
@@ -5304,10 +5306,10 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
         ":google.golang.org__grpc__connectivity",
         ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__resolver",
+        "//third_party/go:google.golang.org__grpc__balancer",
     ],
 )
 
@@ -5318,10 +5320,10 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
-        ":google.golang.org__grpc__balancer__base",
         ":google.golang.org__grpc__connectivity",
         ":google.golang.org__grpc__resolver",
+        "//third_party/go:google.golang.org__grpc__balancer",
+        "//third_party/go:google.golang.org__grpc__balancer__base",
     ],
 )
 
@@ -5341,7 +5343,6 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
         ":google.golang.org__grpc__balancer__pickfirst__internal",
         ":google.golang.org__grpc__balancer__pickfirst__pickfirstleaf",
         ":google.golang.org__grpc__connectivity",
@@ -5351,6 +5352,7 @@ go_module(
         ":google.golang.org__grpc__internal__pretty",
         ":google.golang.org__grpc__resolver",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__balancer",
     ],
 )
 
@@ -5370,8 +5372,6 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
-        ":google.golang.org__grpc__balancer__pickfirst__internal",
         ":google.golang.org__grpc__connectivity",
         ":google.golang.org__grpc__experimental__stats",
         ":google.golang.org__grpc__grpclog",
@@ -5380,6 +5380,8 @@ go_module(
         ":google.golang.org__grpc__internal__pretty",
         ":google.golang.org__grpc__resolver",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__balancer",
+        "//third_party/go:google.golang.org__grpc__balancer__pickfirst__internal",
     ],
 )
 
@@ -5390,11 +5392,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
-        ":google.golang.org__grpc__balancer__endpointsharding",
-        ":google.golang.org__grpc__balancer__pickfirst__pickfirstleaf",
         ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__internal__grpclog",
+        "//third_party/go:google.golang.org__grpc__balancer",
+        "//third_party/go:google.golang.org__grpc__balancer__endpointsharding",
+        "//third_party/go:google.golang.org__grpc__balancer__pickfirst__pickfirstleaf",
     ],
 )
 
@@ -5446,11 +5448,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__attributes",
         ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__internal__credentials",
         ":google.golang.org__grpc__internal__envconfig",
         ":google.golang.org__protobuf__proto",
+        "//third_party/go:google.golang.org__grpc__attributes",
     ],
 )
 
@@ -5460,7 +5462,7 @@ go_module(
     install = ["credentials/insecure"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__credentials"],
+    deps = ["//third_party/go:google.golang.org__grpc__credentials"],
 )
 
 go_module(
@@ -5481,7 +5483,7 @@ go_module(
     install = ["encoding/gzip"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__encoding"],
+    deps = ["//third_party/go:google.golang.org__grpc__encoding"],
 )
 
 go_module(
@@ -5491,10 +5493,10 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__encoding",
         ":google.golang.org__grpc__mem",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__protoadapt",
+        "//third_party/go:google.golang.org__grpc__encoding",
     ],
 )
 
@@ -5536,15 +5538,15 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc",
-        ":google.golang.org__grpc__balancer",
-        ":google.golang.org__grpc__codes",
-        ":google.golang.org__grpc__connectivity",
-        ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__health__grpc_health_v1",
         ":google.golang.org__grpc__internal",
         ":google.golang.org__grpc__internal__backoff",
         ":google.golang.org__grpc__status",
+        "//third_party/go:google.golang.org__grpc",
+        "//third_party/go:google.golang.org__grpc__balancer",
+        "//third_party/go:google.golang.org__grpc__codes",
+        "//third_party/go:google.golang.org__grpc__connectivity",
+        "//third_party/go:google.golang.org__grpc__grpclog",
     ],
 )
 
@@ -5555,11 +5557,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc",
-        ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__grpc",
+        "//third_party/go:google.golang.org__grpc__codes",
     ],
 )
 
@@ -5570,9 +5572,9 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__sys__unix",
-        ":google.golang.org__grpc__connectivity",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:golang.org__x__sys__unix",
+        "//third_party/go:google.golang.org__grpc__connectivity",
     ],
 )
 
@@ -5582,7 +5584,7 @@ go_module(
     install = ["internal/backoff"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__backoff"],
+    deps = ["//third_party/go:google.golang.org__grpc__backoff"],
 )
 
 go_module(
@@ -5592,11 +5594,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
-        ":google.golang.org__grpc__balancer__base",
-        ":google.golang.org__grpc__connectivity",
         ":google.golang.org__grpc__resolver",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__balancer",
+        "//third_party/go:google.golang.org__grpc__balancer__base",
+        "//third_party/go:google.golang.org__grpc__connectivity",
     ],
 )
 
@@ -5616,14 +5618,14 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__binarylog__grpc_binarylog_v1",
-        ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__internal__grpcutil",
         ":google.golang.org__grpc__metadata",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:google.golang.org__grpc__binarylog__grpc_binarylog_v1",
+        "//third_party/go:google.golang.org__grpc__grpclog",
     ],
 )
 
@@ -5643,15 +5645,15 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__connectivity",
-        ":google.golang.org__grpc__credentials",
-        ":google.golang.org__grpc__grpclog",
-        ":google.golang.org__grpc__internal",
+        "//third_party/go:google.golang.org__grpc__connectivity",
+        "//third_party/go:google.golang.org__grpc__credentials",
+        "//third_party/go:google.golang.org__grpc__grpclog",
+        "//third_party/go:google.golang.org__grpc__internal",
     ] + select({
         ":__config_darwin_amd64": [],
         ":__config_darwin_arm64": [],
-        ":__config_linux_amd64": [":golang.org__x__sys__unix"],
-        ":__config_linux_arm64": [":golang.org__x__sys__unix"],
+        ":__config_linux_amd64": ["//third_party/go:golang.org__x__sys__unix"],
+        ":__config_linux_arm64": ["//third_party/go:golang.org__x__sys__unix"],
         "default": [],
     }),
 )
@@ -5662,7 +5664,7 @@ go_module(
     install = ["internal/credentials"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__grpclog"],
+    deps = ["//third_party/go:google.golang.org__grpc__grpclog"],
 )
 
 go_module(
@@ -5680,7 +5682,7 @@ go_module(
     install = ["internal/grpclog"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__grpclog"],
+    deps = ["//third_party/go:google.golang.org__grpc__grpclog"],
 )
 
 go_module(
@@ -5689,7 +5691,7 @@ go_module(
     install = ["internal/grpcsync"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__internal__buffer"],
+    deps = ["//third_party/go:google.golang.org__grpc__internal__buffer"],
 )
 
 go_module(
@@ -5763,12 +5765,12 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__grpclog",
-        ":google.golang.org__grpc__internal__proxyattributes",
         ":google.golang.org__grpc__internal__transport",
         ":google.golang.org__grpc__internal__transport__networktype",
         ":google.golang.org__grpc__resolver",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__grpclog",
+        "//third_party/go:google.golang.org__grpc__internal__proxyattributes",
     ],
 )
 
@@ -5779,13 +5781,13 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer__grpclb__state",
-        ":google.golang.org__grpc__grpclog",
-        ":google.golang.org__grpc__internal__backoff",
-        ":google.golang.org__grpc__internal__envconfig",
         ":google.golang.org__grpc__internal__resolver__dns__internal",
         ":google.golang.org__grpc__resolver",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__balancer__grpclb__state",
+        "//third_party/go:google.golang.org__grpc__grpclog",
+        "//third_party/go:google.golang.org__grpc__internal__backoff",
+        "//third_party/go:google.golang.org__grpc__internal__envconfig",
     ],
 )
 
@@ -5826,10 +5828,10 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__balancer",
-        ":google.golang.org__grpc__codes",
-        ":google.golang.org__grpc__grpclog",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__balancer",
+        "//third_party/go:google.golang.org__grpc__codes",
+        "//third_party/go:google.golang.org__grpc__grpclog",
     ],
 )
 
@@ -5840,8 +5842,8 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__experimental__stats",
         ":google.golang.org__grpc__stats",
+        "//third_party/go:google.golang.org__grpc__experimental__stats",
     ],
 )
 
@@ -5852,11 +5854,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__rpc__status",
-        ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__protoadapt",
         ":google.golang.org__protobuf__types__known__anypb",
+        "//third_party/go:google.golang.org__grpc__codes",
+        "//third_party/proto:google__rpc__status",
     ],
 )
 
@@ -5866,11 +5868,11 @@ go_module(
     install = ["internal/syscall"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__grpclog"] + select({
+    deps = ["//third_party/go:google.golang.org__grpc__grpclog"] + select({
         ":__config_darwin_amd64": [],
         ":__config_darwin_arm64": [],
-        ":__config_linux_amd64": [":golang.org__x__sys__unix"],
-        ":__config_linux_arm64": [":golang.org__x__sys__unix"],
+        ":__config_linux_amd64": ["//third_party/go:golang.org__x__sys__unix"],
+        ":__config_linux_arm64": ["//third_party/go:golang.org__x__sys__unix"],
         "default": [],
     }),
 )
@@ -5882,22 +5884,6 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__net__http2",
-        ":golang.org__x__net__http2__hpack",
-        ":google.golang.org__grpc__codes",
-        ":google.golang.org__grpc__credentials",
-        ":google.golang.org__grpc__grpclog",
-        ":google.golang.org__grpc__internal",
-        ":google.golang.org__grpc__internal__channelz",
-        ":google.golang.org__grpc__internal__credentials",
-        ":google.golang.org__grpc__internal__grpclog",
-        ":google.golang.org__grpc__internal__grpcsync",
-        ":google.golang.org__grpc__internal__grpcutil",
-        ":google.golang.org__grpc__internal__metadata",
-        ":google.golang.org__grpc__internal__pretty",
-        ":google.golang.org__grpc__internal__proxyattributes",
-        ":google.golang.org__grpc__internal__status",
-        ":google.golang.org__grpc__internal__syscall",
         ":google.golang.org__grpc__internal__transport__networktype",
         ":google.golang.org__grpc__keepalive",
         ":google.golang.org__grpc__mem",
@@ -5908,6 +5894,22 @@ go_module(
         ":google.golang.org__grpc__status",
         ":google.golang.org__grpc__tap",
         ":google.golang.org__protobuf__proto",
+        "//third_party/go:golang.org__x__net__http2",
+        "//third_party/go:golang.org__x__net__http2__hpack",
+        "//third_party/go:google.golang.org__grpc__codes",
+        "//third_party/go:google.golang.org__grpc__credentials",
+        "//third_party/go:google.golang.org__grpc__grpclog",
+        "//third_party/go:google.golang.org__grpc__internal",
+        "//third_party/go:google.golang.org__grpc__internal__channelz",
+        "//third_party/go:google.golang.org__grpc__internal__credentials",
+        "//third_party/go:google.golang.org__grpc__internal__grpclog",
+        "//third_party/go:google.golang.org__grpc__internal__grpcsync",
+        "//third_party/go:google.golang.org__grpc__internal__grpcutil",
+        "//third_party/go:google.golang.org__grpc__internal__metadata",
+        "//third_party/go:google.golang.org__grpc__internal__pretty",
+        "//third_party/go:google.golang.org__grpc__internal__proxyattributes",
+        "//third_party/go:google.golang.org__grpc__internal__status",
+        "//third_party/go:google.golang.org__grpc__internal__syscall",
     ],
 )
 
@@ -5935,7 +5937,7 @@ go_module(
     install = ["mem"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__internal"],
+    deps = ["//third_party/go:google.golang.org__grpc__internal"],
 )
 
 go_module(
@@ -5944,7 +5946,7 @@ go_module(
     install = ["metadata"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__internal"],
+    deps = ["//third_party/go:google.golang.org__grpc__internal"],
 )
 
 go_module(
@@ -5953,7 +5955,7 @@ go_module(
     install = ["peer"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__credentials"],
+    deps = ["//third_party/go:google.golang.org__grpc__credentials"],
 )
 
 go_module(
@@ -5963,13 +5965,13 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc",
         ":google.golang.org__grpc__reflection__grpc_reflection_v1",
         ":google.golang.org__grpc__reflection__grpc_reflection_v1alpha",
         ":google.golang.org__grpc__reflection__internal",
         ":google.golang.org__protobuf__reflect__protodesc",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__grpc",
     ],
 )
 
@@ -5980,11 +5982,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc",
-        ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__grpc",
+        "//third_party/go:google.golang.org__grpc__codes",
     ],
 )
 
@@ -5995,11 +5997,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc",
-        ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__grpc",
+        "//third_party/go:google.golang.org__grpc__codes",
     ],
 )
 
@@ -6010,15 +6012,15 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc",
-        ":google.golang.org__grpc__codes",
-        ":google.golang.org__grpc__reflection__grpc_reflection_v1",
-        ":google.golang.org__grpc__reflection__grpc_reflection_v1alpha",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protodesc",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__grpc",
+        "//third_party/go:google.golang.org__grpc__codes",
+        "//third_party/go:google.golang.org__grpc__reflection__grpc_reflection_v1",
+        "//third_party/go:google.golang.org__grpc__reflection__grpc_reflection_v1alpha",
     ],
 )
 
@@ -6029,11 +6031,11 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__attributes",
-        ":google.golang.org__grpc__credentials",
-        ":google.golang.org__grpc__experimental__stats",
-        ":google.golang.org__grpc__internal",
         ":google.golang.org__grpc__serviceconfig",
+        "//third_party/go:google.golang.org__grpc__attributes",
+        "//third_party/go:google.golang.org__grpc__credentials",
+        "//third_party/go:google.golang.org__grpc__experimental__stats",
+        "//third_party/go:google.golang.org__grpc__internal",
     ],
 )
 
@@ -6044,8 +6046,8 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__grpc__internal__resolver__dns",
-        ":google.golang.org__grpc__resolver",
+        "//third_party/go:google.golang.org__grpc__internal__resolver__dns",
+        "//third_party/go:google.golang.org__grpc__resolver",
     ],
 )
 
@@ -6064,7 +6066,7 @@ go_module(
     install = ["stats"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__metadata"],
+    deps = ["//third_party/go:google.golang.org__grpc__metadata"],
 )
 
 go_module(
@@ -6074,9 +6076,9 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__genproto__googleapis__rpc__status",
-        ":google.golang.org__grpc__codes",
-        ":google.golang.org__grpc__internal__status",
+        "//third_party/go:google.golang.org__grpc__codes",
+        "//third_party/go:google.golang.org__grpc__internal__status",
+        "//third_party/proto:google__rpc__status",
     ],
 )
 
@@ -6086,7 +6088,7 @@ go_module(
     install = ["tap"],
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__grpc__metadata"],
+    deps = ["//third_party/go:google.golang.org__grpc__metadata"],
 )
 
 go_mod_download(
@@ -6235,9 +6237,9 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__detrand",
         ":google.golang.org__protobuf__internal__errors",
         ":google.golang.org__protobuf__internal__strs",
+        "//third_party/go:google.golang.org__protobuf__internal__detrand",
     ],
 )
 
@@ -6248,9 +6250,9 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protowire",
         ":google.golang.org__protobuf__internal__errors",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
     ],
 )
 
@@ -6261,10 +6263,10 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__encoding__defval",
         ":google.golang.org__protobuf__internal__filedesc",
         ":google.golang.org__protobuf__internal__strs",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__defval",
     ],
 )
 
@@ -6275,10 +6277,10 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__detrand",
         ":google.golang.org__protobuf__internal__errors",
         ":google.golang.org__protobuf__internal__flags",
         ":google.golang.org__protobuf__internal__strs",
+        "//third_party/go:google.golang.org__protobuf__internal__detrand",
     ],
 )
 
@@ -6288,7 +6290,7 @@ go_module(
     install = ["internal/errors"],
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
-    deps = [":google.golang.org__protobuf__internal__detrand"],
+    deps = ["//third_party/go:google.golang.org__protobuf__internal__detrand"],
 )
 
 go_module(
@@ -6298,19 +6300,19 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protowire",
-        ":google.golang.org__protobuf__internal__descfmt",
-        ":google.golang.org__protobuf__internal__descopts",
-        ":google.golang.org__protobuf__internal__editiondefaults",
-        ":google.golang.org__protobuf__internal__encoding__defval",
-        ":google.golang.org__protobuf__internal__encoding__messageset",
-        ":google.golang.org__protobuf__internal__errors",
         ":google.golang.org__protobuf__internal__genid",
         ":google.golang.org__protobuf__internal__pragma",
         ":google.golang.org__protobuf__internal__strs",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
+        "//third_party/go:google.golang.org__protobuf__internal__descfmt",
+        "//third_party/go:google.golang.org__protobuf__internal__descopts",
+        "//third_party/go:google.golang.org__protobuf__internal__editiondefaults",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__defval",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__messageset",
+        "//third_party/go:google.golang.org__protobuf__internal__errors",
     ],
 )
 
@@ -6321,11 +6323,11 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__descopts",
-        ":google.golang.org__protobuf__internal__filedesc",
         ":google.golang.org__protobuf__internal__impl",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__protobuf__internal__descopts",
+        "//third_party/go:google.golang.org__protobuf__internal__filedesc",
     ],
 )
 
@@ -6354,16 +6356,6 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__prototext",
-        ":google.golang.org__protobuf__encoding__protowire",
-        ":google.golang.org__protobuf__internal__descopts",
-        ":google.golang.org__protobuf__internal__detrand",
-        ":google.golang.org__protobuf__internal__encoding__messageset",
-        ":google.golang.org__protobuf__internal__encoding__tag",
-        ":google.golang.org__protobuf__internal__errors",
-        ":google.golang.org__protobuf__internal__filedesc",
-        ":google.golang.org__protobuf__internal__flags",
-        ":google.golang.org__protobuf__internal__genid",
         ":google.golang.org__protobuf__internal__order",
         ":google.golang.org__protobuf__internal__pragma",
         ":google.golang.org__protobuf__internal__protolazy",
@@ -6372,6 +6364,16 @@ go_module(
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__runtime__protoiface",
+        "//third_party/go:google.golang.org__protobuf__encoding__prototext",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
+        "//third_party/go:google.golang.org__protobuf__internal__descopts",
+        "//third_party/go:google.golang.org__protobuf__internal__detrand",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__messageset",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__tag",
+        "//third_party/go:google.golang.org__protobuf__internal__errors",
+        "//third_party/go:google.golang.org__protobuf__internal__filedesc",
+        "//third_party/go:google.golang.org__protobuf__internal__flags",
+        "//third_party/go:google.golang.org__protobuf__internal__genid",
     ],
 )
 
@@ -6400,8 +6402,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protowire",
         ":google.golang.org__protobuf__runtime__protoiface",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
     ],
 )
 
@@ -6421,8 +6423,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__flags",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__internal__flags",
     ],
 )
 
@@ -6442,17 +6444,17 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protowire",
-        ":google.golang.org__protobuf__internal__encoding__messageset",
-        ":google.golang.org__protobuf__internal__errors",
-        ":google.golang.org__protobuf__internal__flags",
-        ":google.golang.org__protobuf__internal__genid",
-        ":google.golang.org__protobuf__internal__order",
-        ":google.golang.org__protobuf__internal__pragma",
-        ":google.golang.org__protobuf__internal__strs",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__runtime__protoiface",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__messageset",
+        "//third_party/go:google.golang.org__protobuf__internal__errors",
+        "//third_party/go:google.golang.org__protobuf__internal__flags",
+        "//third_party/go:google.golang.org__protobuf__internal__genid",
+        "//third_party/go:google.golang.org__protobuf__internal__order",
+        "//third_party/go:google.golang.org__protobuf__internal__pragma",
+        "//third_party/go:google.golang.org__protobuf__internal__strs",
     ],
 )
 
@@ -6463,9 +6465,9 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__runtime__protoiface",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__proto",
     ],
 )
 
@@ -6476,21 +6478,21 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protowire",
-        ":google.golang.org__protobuf__internal__editiondefaults",
-        ":google.golang.org__protobuf__internal__editionssupport",
-        ":google.golang.org__protobuf__internal__encoding__defval",
-        ":google.golang.org__protobuf__internal__errors",
-        ":google.golang.org__protobuf__internal__filedesc",
-        ":google.golang.org__protobuf__internal__flags",
-        ":google.golang.org__protobuf__internal__genid",
-        ":google.golang.org__protobuf__internal__pragma",
-        ":google.golang.org__protobuf__internal__strs",
-        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__gofeaturespb",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
+        "//third_party/go:google.golang.org__protobuf__internal__editiondefaults",
+        "//third_party/go:google.golang.org__protobuf__internal__editionssupport",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__defval",
+        "//third_party/go:google.golang.org__protobuf__internal__errors",
+        "//third_party/go:google.golang.org__protobuf__internal__filedesc",
+        "//third_party/go:google.golang.org__protobuf__internal__flags",
+        "//third_party/go:google.golang.org__protobuf__internal__genid",
+        "//third_party/go:google.golang.org__protobuf__internal__pragma",
+        "//third_party/go:google.golang.org__protobuf__internal__strs",
+        "//third_party/go:google.golang.org__protobuf__proto",
     ],
 )
 
@@ -6501,8 +6503,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protowire",
-        ":google.golang.org__protobuf__internal__pragma",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
+        "//third_party/go:google.golang.org__protobuf__internal__pragma",
     ],
 )
 
@@ -6513,10 +6515,10 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__encoding__messageset",
-        ":google.golang.org__protobuf__internal__errors",
-        ":google.golang.org__protobuf__internal__flags",
-        ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__messageset",
+        "//third_party/go:google.golang.org__protobuf__internal__errors",
+        "//third_party/go:google.golang.org__protobuf__internal__flags",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
     ],
 )
 
@@ -6527,8 +6529,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__pragma",
-        ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__internal__pragma",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
     ],
 )
 
@@ -6539,11 +6541,11 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__filedesc",
-        ":google.golang.org__protobuf__internal__filetype",
-        ":google.golang.org__protobuf__internal__impl",
-        ":google.golang.org__protobuf__internal__protolazy",
-        ":google.golang.org__protobuf__internal__version",
+        "//third_party/go:google.golang.org__protobuf__internal__filedesc",
+        "//third_party/go:google.golang.org__protobuf__internal__filetype",
+        "//third_party/go:google.golang.org__protobuf__internal__impl",
+        "//third_party/go:google.golang.org__protobuf__internal__protolazy",
+        "//third_party/go:google.golang.org__protobuf__internal__version",
     ],
 )
 
@@ -6554,8 +6556,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6566,11 +6568,11 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__internal__errors",
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__reflect__protoregistry",
-        ":google.golang.org__protobuf__runtime__protoiface",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__internal__errors",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoiface",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6581,9 +6583,9 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
-        ":google.golang.org__protobuf__types__descriptorpb",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__types__descriptorpb",
     ],
 )
 
@@ -6594,10 +6596,10 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__proto",
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__reflect__protoregistry",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__proto",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6608,8 +6610,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6620,8 +6622,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6632,9 +6634,9 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__proto",
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__proto",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6645,9 +6647,9 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__encoding__protojson",
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__encoding__protojson",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6658,8 +6660,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6670,8 +6672,8 @@ go_module(
     module = "google.golang.org/protobuf",
     visibility = ["PUBLIC"],
     deps = [
-        ":google.golang.org__protobuf__reflect__protoreflect",
-        ":google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 
@@ -6724,16 +6726,16 @@ go_module(
     module = "modernc.org/libc",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__dustin__go-humanize",
-        ":github.com__google__uuid",
-        ":golang.org__x__sys__unix",
+        "//third_party/go:github.com__dustin__go-humanize",
+        "//third_party/go:github.com__google__uuid",
+        "//third_party/go:golang.org__x__sys__unix",
         ":modernc.org__libc__uuid__uuid",
         ":modernc.org__mathutil",
         ":modernc.org__memory",
     ] + select({
         ":__config_darwin_amd64": [
-            ":github.com__mattn__go-isatty",
-            ":github.com__ncruces__go-strftime",
+            "//third_party/go:github.com__mattn__go-isatty",
+            "//third_party/go:github.com__ncruces__go-strftime",
             ":modernc.org__libc__errno",
             ":modernc.org__libc__fcntl",
             ":modernc.org__libc__fts",
@@ -6759,8 +6761,8 @@ go_module(
             ":modernc.org__libc__wctype",
         ],
         ":__config_darwin_arm64": [
-            ":github.com__mattn__go-isatty",
-            ":github.com__ncruces__go-strftime",
+            "//third_party/go:github.com__mattn__go-isatty",
+            "//third_party/go:github.com__ncruces__go-strftime",
             ":modernc.org__libc__errno",
             ":modernc.org__libc__fcntl",
             ":modernc.org__libc__fts",
@@ -6793,8 +6795,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6820,8 +6822,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6847,8 +6849,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6856,8 +6858,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["darwin"],
 ):
@@ -6901,8 +6903,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -6973,8 +6975,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -7000,8 +7002,8 @@ go_module(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["darwin"],
 ):
@@ -7021,7 +7023,7 @@ go_module(
     install = ["."],
     module = "modernc.org/mathutil",
     visibility = ["PUBLIC"],
-    deps = [":github.com__remyoudompheng__bigfft"],
+    deps = ["//third_party/go:github.com__remyoudompheng__bigfft"],
 )
 
 go_mod_download(
@@ -7056,10 +7058,10 @@ go_module(
     module = "modernc.org/sqlite",
     visibility = ["PUBLIC"],
     deps = [
-        ":golang.org__x__sys__unix",
-        ":modernc.org__libc",
-        ":modernc.org__libc__sys__types",
         ":modernc.org__sqlite__lib",
+        "//third_party/go:golang.org__x__sys__unix",
+        "//third_party/go:modernc.org__libc",
+        "//third_party/go:modernc.org__libc__sys__types",
     ],
 )
 
@@ -7070,8 +7072,8 @@ go_module(
     module = "modernc.org/sqlite",
     visibility = ["PUBLIC"],
     deps = [
-        ":modernc.org__libc",
-        ":modernc.org__libc__sys__types",
+        "//third_party/go:modernc.org__libc",
+        "//third_party/go:modernc.org__libc__sys__types",
     ],
 )
 

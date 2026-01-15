@@ -23,7 +23,6 @@ go_binary(
         "//chat/chat_service",
         "//chat/chat_service/v1",
         "//chat/store",
-        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/go:github.com__malonaz__core__go__ai__ai_service",
         "//third_party/go:github.com__malonaz__core__go__authentication",
         "//third_party/go:github.com__malonaz__core__go__binary",
@@ -34,6 +33,7 @@ go_binary(
         "//third_party/go:github.com__malonaz__core__go__logging",
         "//third_party/go:github.com__malonaz__core__go__postgres",
         "//third_party/go:github.com__malonaz__core__go__prometheus",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
     ],
 )
 

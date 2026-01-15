@@ -6,13 +6,13 @@ import (
 )
 
 type App struct {
-	AiClient   aiservicepb.AiClient
-	ChatClient chatservicepb.ChatClient
+	AiServiceClient   aiservicepb.AiServiceClient
+	ChatServiceClient chatservicepb.ChatServiceClient
 }
 
-func NewApp(aiClient aiservicepb.AiClient, chatClient chatservicepb.ChatClient) (*App, error) {
+func NewApp(aiServiceClient aiservicepb.AiServiceClient, chatServiceClient chatservicepb.ChatServiceClient) (*App, error) {
 	return &App{
-		AiClient:   aiClient,
-		ChatClient: chatClient,
+		AiServiceClient:   aiServiceClient,
+		ChatServiceClient: chatServiceClient,
 	}, nil
 }

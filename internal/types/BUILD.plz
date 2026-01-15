@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//internal/configuration",
         "//internal/markdown",
-        "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

@@ -26,8 +26,6 @@ go_library(
         "//third_party/go:github.com__charmbracelet__bubbles__viewport",
         "//third_party/go:github.com__charmbracelet__bubbletea",
         "//third_party/go:github.com__charmbracelet__lipgloss",
-        "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
-        "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/go:go.dalton.dog__bubbleup",
@@ -35,5 +33,7 @@ go_library(
         "//third_party/go:google.golang.org__grpc__codes",
         "//third_party/go:google.golang.org__grpc__status",
         "//third_party/go:google.golang.org__protobuf__proto",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

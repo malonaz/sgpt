@@ -1,143 +1,190 @@
 package(default_visibility = ["PUBLIC"])
 
 ######################### BUF ########################
-external_github_proto_library(
+github_proto_library(
     name = "validate",
-    dir = "buf/validate",
-    files = [
-        "proto/protovalidate/buf/validate/validate.proto",
-    ],
-    go_dep = "//third_party/go:buf.build__gen__go__bufbuild__protovalidate__protocolbuffers__go__buf__validate",
+    additional_context = {GO_IMPORT_PATH: "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"},
+    dir = "proto/protovalidate/buf/validate",
+    files = ["validate.proto"],
     repo = "bufbuild/protovalidate",
     revision = "v1.0.0",
+    root_dir = "proto/protovalidate",
 )
 
 ######################### GOOGLEAPIS ########################
-GOOGLEAPI_REVISION = "5e5d500bc4f8c4d5591cd1fda817556b3fe663a7"
+GOOGLEAPI_REVISION = "9a477cd3c26a704130e2a2fb44a40281d9312e4c"
 
-external_github_proto_library(
+github_proto_library(
+    name = "google__api",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/api"},
+    dir = "google/api",
+    files = ["launch_stage.proto"],
+    repo = "googleapis/googleapis",
+    revision = GOOGLEAPI_REVISION,
+)
+
+github_proto_library(
     name = "google__api__annotations",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/api/annotations"},
+    dir = "google/api",
     files = [
-        "google/api/annotations.proto",
-        "google/api/client.proto",
-        "google/api/field_behavior.proto",
-        "google/api/http.proto",
-        "google/api/resource.proto",
+        "annotations.proto",
+        "client.proto",
+        "field_behavior.proto",
+        "http.proto",
+        "resource.proto",
     ],
-    go_dep = "//third_party/go:google.golang.org__genproto__googleapis__api__annotations",
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
+    deps = [":google__api"],
 )
 
-external_github_proto_library(
+github_proto_library(
     name = "google__api__expr__v1alpha1",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/api/expr/v1alpha1"},
+    dir = "google/api/expr/v1alpha1",
     files = [
-        "google/api/expr/v1alpha1/checked.proto",
-        "google/api/expr/v1alpha1/eval.proto",
-        "google/api/expr/v1alpha1/explain.proto",
-        "google/api/expr/v1alpha1/syntax.proto",
-        "google/api/expr/v1alpha1/value.proto",
+        "checked.proto",
+        "eval.proto",
+        "explain.proto",
+        "syntax.proto",
+        "value.proto",
     ],
-    go_dep = "//third_party/go:google.golang.org__genproto__googleapis__api__expr__v1alpha1",
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
+    deps = [":google__rpc__status"],
 )
 
-external_github_proto_library(
+github_proto_library(
     name = "google__rpc__status",
-    files = ["google/rpc/status.proto"],
-    go_dep = "//third_party/go:google.golang.org__genproto__googleapis__rpc__status",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/rpc/status"},
+    dir = "google/rpc",
+    files = ["status.proto"],
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
 )
 
-external_github_proto_library(
-    name = "google__type__postaladdress",
-    files = ["google/type/postal_address.proto"],
-    go_dep = "//third_party/go:google.golang.org__genproto__googleapis__type__postaladdress",
-    repo = "googleapis/googleapis",
-    revision = GOOGLEAPI_REVISION,
-)
-
-external_github_proto_library(
-    name = "google__type__date",
-    files = ["google/type/date.proto"],
-    go_dep = "//third_party/go:google.golang.org__genproto__googleapis__type__date",
-    repo = "googleapis/googleapis",
-    revision = GOOGLEAPI_REVISION,
-)
-
-external_github_proto_library(
-    name = "google__type__timeofday",
-    files = ["google/type/timeofday.proto"],
-    go_dep = "//third_party/go:google.golang.org__genproto__googleapis__type__timeofday",
+github_proto_library(
+    name = "google__rpc__errdetails",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/rpc/errdetails"},
+    dir = "google/rpc",
+    files = ["error_details.proto"],
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
 )
 
 ######################### MALONAZ ########################
-external_github_proto_library(
+github_proto_library(
     name = "malonaz__core__genproto__authentication__v1",
-    files = ["malonaz/authentication/v1/authentication.proto"],
-    go_dep = "//third_party/go:github.com__malonaz__core__genproto__authentication__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/authentication/v1"},
+    dir = "malonaz/authentication/v1",
+    files = ["authentication.proto"],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
+    deps = [":validate"],
 )
 
-external_github_proto_library(
+github_proto_library(
     name = "malonaz__core__genproto__audio__v1",
-    files = [
-        "malonaz/audio/v1/audio.proto",
-    ],
-    go_dep = "//third_party/go:github.com__malonaz__core__genproto__audio__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/audio/v1"},
+    dir = "malonaz/audio/v1",
+    files = ["audio.proto"],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
+    deps = [":validate"],
 )
 
-external_github_proto_library(
+github_proto_library(
     name = "malonaz__core__genproto__json__v1",
-    files = [
-        "malonaz/json/v1/schema.proto",
-    ],
-    go_dep = "//third_party/go:github.com__malonaz__core__genproto__json__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/json/v1"},
+    dir = "malonaz/json/v1",
+    files = ["schema.proto"],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
+    deps = [":validate"],
 )
 
-external_github_proto_library(
+github_proto_library(
     name = "malonaz__core__genproto__ai__v1",
+    additional_context = {
+        GO_IMPORT_PATH: "github.com/malonaz/core/genproto/ai/v1",
+        GENERATE_GO_AIP: True,
+    },
+    dir = "malonaz/ai/v1",
     files = [
-        "malonaz/ai/v1/message.proto",
-        "malonaz/ai/v1/metrics.proto",
-        "malonaz/ai/v1/model.proto",
-        "malonaz/ai/v1/tool.proto",
-        "malonaz/ai/v1/voice.proto",
+        "message.proto",
+        "metrics.proto",
+        "model.proto",
+        "tool.proto",
+        "voice.proto",
     ],
-    go_dep = "//third_party/go:github.com__malonaz__core__genproto__ai__v1",
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
+    deps = [
+        ":google__api__annotations",
+        ":google__rpc__status",
+        ":malonaz__core__genproto__audio__v1",
+        ":malonaz__core__genproto__json__v1",
+        ":validate",
+    ],
 )
 
-external_github_proto_library(
+github_grpc_library(
     name = "malonaz__core__genproto__ai__ai_service__v1",
-    files = [
-        "malonaz/ai/ai_service/v1/ai_service.proto",
-    ],
-    go_dep = "//third_party/go:github.com__malonaz__core__genproto__ai__ai_service__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/ai/ai_service/v1"},
+    dir = "malonaz/ai/ai_service/v1",
+    files = ["ai_service.proto"],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
+    deps = [
+        ":google__api__annotations",
+        ":malonaz__core__genproto__ai__v1",
+        ":malonaz__core__genproto__audio__v1",
+        ":malonaz__core__genproto__codegen__aip__v1",
+        ":validate",
+    ],
 )
 
-for name in [
-    "model",
-    "gateway",
-    "aip",
-    "llm",
-]:
-    external_github_proto_library(
-        name = f"malonaz__core__genproto__codegen__{name}__v1",
-        files = [f"malonaz/codegen/{name}/v1/{name}.proto"],
-        go_dep = f"//third_party/go:github.com__malonaz__core__genproto__codegen__{name}__v1",
-        repo = "malonaz/core",
-        revision = CONFIG.CORE_REVISION,
-    )
+github_grpc_library(
+    name = "malonaz__core__genproto__ai__ai_engine__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/ai/ai_engine/v1"},
+    dir = "malonaz/ai/ai_engine/v1",
+    files = ["ai_engine.proto"],
+    repo = "malonaz/core",
+    revision = CONFIG.CORE_REVISION,
+    deps = [
+        ":google__api__annotations",
+        ":malonaz__core__genproto__ai__v1",
+        ":validate",
+    ],
+)
+
+github_proto_library(
+    name = "malonaz__core__genproto__codegen__model__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/codegen/model/v1"},
+    dir = "malonaz/codegen/model/v1",
+    files = ["model.proto"],
+    repo = "malonaz/core",
+    revision = CONFIG.CORE_REVISION,
+    deps = [":validate"],
+)
+
+github_proto_library(
+    name = "malonaz__core__genproto__codegen__gateway__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/codegen/gateway/v1"},
+    dir = "malonaz/codegen/gateway/v1",
+    files = ["gateway.proto"],
+    repo = "malonaz/core",
+    revision = CONFIG.CORE_REVISION,
+    deps = [":validate"],
+)
+
+github_proto_library(
+    name = "malonaz__core__genproto__codegen__aip__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/codegen/aip/v1"},
+    dir = "malonaz/codegen/aip/v1",
+    files = ["aip.proto"],
+    repo = "malonaz/core",
+    revision = CONFIG.CORE_REVISION,
+    deps = [":validate"],
+)

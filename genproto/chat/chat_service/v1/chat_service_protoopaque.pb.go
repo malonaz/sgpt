@@ -4,7 +4,7 @@
 // 	protoc        v6.32.1
 // source: chat/chat_service/v1/chat_service.proto
 
-//go:build !protoopaque
+//go:build protoopaque
 
 package v1
 
@@ -29,22 +29,13 @@ const (
 
 // Request message for Chat.CreateChat.
 type CreateChatRequest struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The resource name of the parent user for which this chat will be created.
-	// Format: organizations/{organization}/users/{user}
-	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
-	// The ID to use for the resource, which will become the final component of
-	// the resource name.
-	//
-	// This value should be 4-63 characters, and valid characters
-	// are /[a-z][0-9]-/.
-	ChatId string `protobuf:"bytes,2,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
-	// The chat to create.
-	Chat *v1.Chat `protobuf:"bytes,3,opt,name=chat,proto3" json:"chat,omitempty"`
-	// If set, validate the request and preview the review, but do not actually create the resource.
-	ValidateOnly  bool `protobuf:"varint,4,opt,name=validate_only,json=validateOnly,proto3" json:"validate_only,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Parent       string                 `protobuf:"bytes,1,opt,name=parent,proto3"`
+	xxx_hidden_ChatId       string                 `protobuf:"bytes,2,opt,name=chat_id,json=chatId,proto3"`
+	xxx_hidden_Chat         *v1.Chat               `protobuf:"bytes,3,opt,name=chat,proto3"`
+	xxx_hidden_ValidateOnly bool                   `protobuf:"varint,4,opt,name=validate_only,json=validateOnly,proto3"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *CreateChatRequest) Reset() {
@@ -74,57 +65,57 @@ func (x *CreateChatRequest) ProtoReflect() protoreflect.Message {
 
 func (x *CreateChatRequest) GetParent() string {
 	if x != nil {
-		return x.Parent
+		return x.xxx_hidden_Parent
 	}
 	return ""
 }
 
 func (x *CreateChatRequest) GetChatId() string {
 	if x != nil {
-		return x.ChatId
+		return x.xxx_hidden_ChatId
 	}
 	return ""
 }
 
 func (x *CreateChatRequest) GetChat() *v1.Chat {
 	if x != nil {
-		return x.Chat
+		return x.xxx_hidden_Chat
 	}
 	return nil
 }
 
 func (x *CreateChatRequest) GetValidateOnly() bool {
 	if x != nil {
-		return x.ValidateOnly
+		return x.xxx_hidden_ValidateOnly
 	}
 	return false
 }
 
 func (x *CreateChatRequest) SetParent(v string) {
-	x.Parent = v
+	x.xxx_hidden_Parent = v
 }
 
 func (x *CreateChatRequest) SetChatId(v string) {
-	x.ChatId = v
+	x.xxx_hidden_ChatId = v
 }
 
 func (x *CreateChatRequest) SetChat(v *v1.Chat) {
-	x.Chat = v
+	x.xxx_hidden_Chat = v
 }
 
 func (x *CreateChatRequest) SetValidateOnly(v bool) {
-	x.ValidateOnly = v
+	x.xxx_hidden_ValidateOnly = v
 }
 
 func (x *CreateChatRequest) HasChat() bool {
 	if x == nil {
 		return false
 	}
-	return x.Chat != nil
+	return x.xxx_hidden_Chat != nil
 }
 
 func (x *CreateChatRequest) ClearChat() {
-	x.Chat = nil
+	x.xxx_hidden_Chat = nil
 }
 
 type CreateChatRequest_builder struct {
@@ -149,21 +140,19 @@ func (b0 CreateChatRequest_builder) Build() *CreateChatRequest {
 	m0 := &CreateChatRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Parent = b.Parent
-	x.ChatId = b.ChatId
-	x.Chat = b.Chat
-	x.ValidateOnly = b.ValidateOnly
+	x.xxx_hidden_Parent = b.Parent
+	x.xxx_hidden_ChatId = b.ChatId
+	x.xxx_hidden_Chat = b.Chat
+	x.xxx_hidden_ValidateOnly = b.ValidateOnly
 	return m0
 }
 
 // Request message for Chat.GetChat.
 type GetChatRequest struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The resource name of the chat to retrieve.
-	// Format: organizations/{organization}/users/{user}/chats/{chat}
-	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetChatRequest) Reset() {
@@ -193,13 +182,13 @@ func (x *GetChatRequest) ProtoReflect() protoreflect.Message {
 
 func (x *GetChatRequest) GetName() string {
 	if x != nil {
-		return x.Name
+		return x.xxx_hidden_Name
 	}
 	return ""
 }
 
 func (x *GetChatRequest) SetName(v string) {
-	x.Name = v
+	x.xxx_hidden_Name = v
 }
 
 type GetChatRequest_builder struct {
@@ -214,21 +203,17 @@ func (b0 GetChatRequest_builder) Build() *GetChatRequest {
 	m0 := &GetChatRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Name = b.Name
+	x.xxx_hidden_Name = b.Name
 	return m0
 }
 
 // Request message for Chat.UpdateChat.
 type UpdateChatRequest struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The chat to update with. The name must match or be empty.
-	// The chat's `name` field is used to identify the chat to be updated.
-	// Format: organizations/{organization}/users/{user}/chats/{chat}
-	Chat *v1.Chat `protobuf:"bytes,1,opt,name=chat,proto3" json:"chat,omitempty"`
-	// The list of fields to update.
-	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Chat       *v1.Chat               `protobuf:"bytes,1,opt,name=chat,proto3"`
+	xxx_hidden_UpdateMask *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *UpdateChatRequest) Reset() {
@@ -258,46 +243,46 @@ func (x *UpdateChatRequest) ProtoReflect() protoreflect.Message {
 
 func (x *UpdateChatRequest) GetChat() *v1.Chat {
 	if x != nil {
-		return x.Chat
+		return x.xxx_hidden_Chat
 	}
 	return nil
 }
 
 func (x *UpdateChatRequest) GetUpdateMask() *fieldmaskpb.FieldMask {
 	if x != nil {
-		return x.UpdateMask
+		return x.xxx_hidden_UpdateMask
 	}
 	return nil
 }
 
 func (x *UpdateChatRequest) SetChat(v *v1.Chat) {
-	x.Chat = v
+	x.xxx_hidden_Chat = v
 }
 
 func (x *UpdateChatRequest) SetUpdateMask(v *fieldmaskpb.FieldMask) {
-	x.UpdateMask = v
+	x.xxx_hidden_UpdateMask = v
 }
 
 func (x *UpdateChatRequest) HasChat() bool {
 	if x == nil {
 		return false
 	}
-	return x.Chat != nil
+	return x.xxx_hidden_Chat != nil
 }
 
 func (x *UpdateChatRequest) HasUpdateMask() bool {
 	if x == nil {
 		return false
 	}
-	return x.UpdateMask != nil
+	return x.xxx_hidden_UpdateMask != nil
 }
 
 func (x *UpdateChatRequest) ClearChat() {
-	x.Chat = nil
+	x.xxx_hidden_Chat = nil
 }
 
 func (x *UpdateChatRequest) ClearUpdateMask() {
-	x.UpdateMask = nil
+	x.xxx_hidden_UpdateMask = nil
 }
 
 type UpdateChatRequest_builder struct {
@@ -315,22 +300,18 @@ func (b0 UpdateChatRequest_builder) Build() *UpdateChatRequest {
 	m0 := &UpdateChatRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Chat = b.Chat
-	x.UpdateMask = b.UpdateMask
+	x.xxx_hidden_Chat = b.Chat
+	x.xxx_hidden_UpdateMask = b.UpdateMask
 	return m0
 }
 
 // Request message for Chat.DeleteChat.
 type DeleteChatRequest struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The resource name of the chat to delete.
-	// Format: organizations/{organization}/users/{user}/chats/{chat}
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// If set to true, and the book is not found, the request will succeed
-	// but no action will be taken on the server
-	AllowMissing  bool `protobuf:"varint,2,opt,name=allow_missing,json=allowMissing,proto3" json:"allow_missing,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name         string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_AllowMissing bool                   `protobuf:"varint,2,opt,name=allow_missing,json=allowMissing,proto3"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *DeleteChatRequest) Reset() {
@@ -360,24 +341,24 @@ func (x *DeleteChatRequest) ProtoReflect() protoreflect.Message {
 
 func (x *DeleteChatRequest) GetName() string {
 	if x != nil {
-		return x.Name
+		return x.xxx_hidden_Name
 	}
 	return ""
 }
 
 func (x *DeleteChatRequest) GetAllowMissing() bool {
 	if x != nil {
-		return x.AllowMissing
+		return x.xxx_hidden_AllowMissing
 	}
 	return false
 }
 
 func (x *DeleteChatRequest) SetName(v string) {
-	x.Name = v
+	x.xxx_hidden_Name = v
 }
 
 func (x *DeleteChatRequest) SetAllowMissing(v bool) {
-	x.AllowMissing = v
+	x.xxx_hidden_AllowMissing = v
 }
 
 type DeleteChatRequest_builder struct {
@@ -395,33 +376,22 @@ func (b0 DeleteChatRequest_builder) Build() *DeleteChatRequest {
 	m0 := &DeleteChatRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Name = b.Name
-	x.AllowMissing = b.AllowMissing
+	x.xxx_hidden_Name = b.Name
+	x.xxx_hidden_AllowMissing = b.AllowMissing
 	return m0
 }
 
 // Request message for Chat.ListChats.
 type ListChatsRequest struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The resource name of the parent, which owns this collection of chats.
-	// Format: organizations/{organization}/users/{user}
-	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
-	// Requested page size. Server may return fewer chats than requested.
-	// If unspecified, server will pick an appropriate default.
-	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// A token identifying a page of results the server should return.
-	// This is the value of
-	// [ListChatsResponse.next_page_token][chat.chat_service.v1.ListChatsResponse.next_page_token]
-	// returned from the previous call to `ListChats` method.
-	PageToken string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	// Can order by...
-	OrderBy string `protobuf:"bytes,4,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
-	// Can filter on id, user_id, create_time, update_time, and delete_time.
-	Filter string `protobuf:"bytes,5,opt,name=filter,proto3" json:"filter,omitempty"`
-	// If set to true, soft deleted resources will be shown.
-	ShowDeleted   bool `protobuf:"varint,6,opt,name=show_deleted,json=showDeleted,proto3" json:"show_deleted,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Parent      string                 `protobuf:"bytes,1,opt,name=parent,proto3"`
+	xxx_hidden_PageSize    int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3"`
+	xxx_hidden_PageToken   string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3"`
+	xxx_hidden_OrderBy     string                 `protobuf:"bytes,4,opt,name=order_by,json=orderBy,proto3"`
+	xxx_hidden_Filter      string                 `protobuf:"bytes,5,opt,name=filter,proto3"`
+	xxx_hidden_ShowDeleted bool                   `protobuf:"varint,6,opt,name=show_deleted,json=showDeleted,proto3"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ListChatsRequest) Reset() {
@@ -451,68 +421,68 @@ func (x *ListChatsRequest) ProtoReflect() protoreflect.Message {
 
 func (x *ListChatsRequest) GetParent() string {
 	if x != nil {
-		return x.Parent
+		return x.xxx_hidden_Parent
 	}
 	return ""
 }
 
 func (x *ListChatsRequest) GetPageSize() int32 {
 	if x != nil {
-		return x.PageSize
+		return x.xxx_hidden_PageSize
 	}
 	return 0
 }
 
 func (x *ListChatsRequest) GetPageToken() string {
 	if x != nil {
-		return x.PageToken
+		return x.xxx_hidden_PageToken
 	}
 	return ""
 }
 
 func (x *ListChatsRequest) GetOrderBy() string {
 	if x != nil {
-		return x.OrderBy
+		return x.xxx_hidden_OrderBy
 	}
 	return ""
 }
 
 func (x *ListChatsRequest) GetFilter() string {
 	if x != nil {
-		return x.Filter
+		return x.xxx_hidden_Filter
 	}
 	return ""
 }
 
 func (x *ListChatsRequest) GetShowDeleted() bool {
 	if x != nil {
-		return x.ShowDeleted
+		return x.xxx_hidden_ShowDeleted
 	}
 	return false
 }
 
 func (x *ListChatsRequest) SetParent(v string) {
-	x.Parent = v
+	x.xxx_hidden_Parent = v
 }
 
 func (x *ListChatsRequest) SetPageSize(v int32) {
-	x.PageSize = v
+	x.xxx_hidden_PageSize = v
 }
 
 func (x *ListChatsRequest) SetPageToken(v string) {
-	x.PageToken = v
+	x.xxx_hidden_PageToken = v
 }
 
 func (x *ListChatsRequest) SetOrderBy(v string) {
-	x.OrderBy = v
+	x.xxx_hidden_OrderBy = v
 }
 
 func (x *ListChatsRequest) SetFilter(v string) {
-	x.Filter = v
+	x.xxx_hidden_Filter = v
 }
 
 func (x *ListChatsRequest) SetShowDeleted(v bool) {
-	x.ShowDeleted = v
+	x.xxx_hidden_ShowDeleted = v
 }
 
 type ListChatsRequest_builder struct {
@@ -541,27 +511,22 @@ func (b0 ListChatsRequest_builder) Build() *ListChatsRequest {
 	m0 := &ListChatsRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Parent = b.Parent
-	x.PageSize = b.PageSize
-	x.PageToken = b.PageToken
-	x.OrderBy = b.OrderBy
-	x.Filter = b.Filter
-	x.ShowDeleted = b.ShowDeleted
+	x.xxx_hidden_Parent = b.Parent
+	x.xxx_hidden_PageSize = b.PageSize
+	x.xxx_hidden_PageToken = b.PageToken
+	x.xxx_hidden_OrderBy = b.OrderBy
+	x.xxx_hidden_Filter = b.Filter
+	x.xxx_hidden_ShowDeleted = b.ShowDeleted
 	return m0
 }
 
 // Response message for Chat.ListChats.
 type ListChatsResponse struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The list of chats.
-	Chats []*v1.Chat `protobuf:"bytes,1,rep,name=chats,proto3" json:"chats,omitempty"`
-	// A token to retrieve next page of results. Pass this value in the
-	// [ListChatsRequest.page_token][chat.chat_service.v1.ListChatsRequest.page_token]
-	// field in the subsequent call to `ListChats` method to retrieve the next
-	// page of results.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Chats         *[]*v1.Chat            `protobuf:"bytes,1,rep,name=chats,proto3"`
+	xxx_hidden_NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ListChatsResponse) Reset() {
@@ -591,24 +556,26 @@ func (x *ListChatsResponse) ProtoReflect() protoreflect.Message {
 
 func (x *ListChatsResponse) GetChats() []*v1.Chat {
 	if x != nil {
-		return x.Chats
+		if x.xxx_hidden_Chats != nil {
+			return *x.xxx_hidden_Chats
+		}
 	}
 	return nil
 }
 
 func (x *ListChatsResponse) GetNextPageToken() string {
 	if x != nil {
-		return x.NextPageToken
+		return x.xxx_hidden_NextPageToken
 	}
 	return ""
 }
 
 func (x *ListChatsResponse) SetChats(v []*v1.Chat) {
-	x.Chats = v
+	x.xxx_hidden_Chats = &v
 }
 
 func (x *ListChatsResponse) SetNextPageToken(v string) {
-	x.NextPageToken = v
+	x.xxx_hidden_NextPageToken = v
 }
 
 type ListChatsResponse_builder struct {
@@ -627,47 +594,21 @@ func (b0 ListChatsResponse_builder) Build() *ListChatsResponse {
 	m0 := &ListChatsResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Chats = b.Chats
-	x.NextPageToken = b.NextPageToken
+	x.xxx_hidden_Chats = &b.Chats
+	x.xxx_hidden_NextPageToken = b.NextPageToken
 	return m0
 }
 
 // Request message for Chat.SearchChats.
 type SearchChatsRequest struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The resource name of the parent user to search chats within.
-	// Format: organizations/{organization}/users/{user}
-	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
-	// A filter expression.
-	Filter string `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
-	// The search query string to match against chat content.
-	//
-	// This performs a full-text search across all messages in each chat's transcript.
-	// The search uses PostgreSQL's `plainto_tsquery` with the 'simple' dictionary,
-	// which means:
-	// - Multiple words are treated as an AND query (all words must be present)
-	// - Common stopwords are NOT removed (due to 'simple' configuration)
-	// - No stemming is applied (searches for exact word forms)
-	// - Special characters and punctuation are ignored
-	//
-	// Results are automatically ranked by relevance, with the most relevant
-	// chats appearing first.
-	//
-	// Examples:
-	// - "refund policy" - matches chats containing both "refund" AND "policy"
-	// - "order 12345" - matches chats containing both "order" AND "12345"
-	// - "how to cancel" - matches chats containing all three words
-	Query string `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
-	// Requested page size. Server may return fewer chats than requested.
-	// If unspecified, server will pick an appropriate default.
-	PageSize int32 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// A token identifying a page of results the server should return.
-	// This is the value of
-	// [SearchChatsResponse.next_page_token][chat.chat_service.v1.SearchChatsResponse.next_page_token]
-	// returned from the previous call to `SearchChats` method.
-	PageToken     string `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Parent    string                 `protobuf:"bytes,1,opt,name=parent,proto3"`
+	xxx_hidden_Filter    string                 `protobuf:"bytes,2,opt,name=filter,proto3"`
+	xxx_hidden_Query     string                 `protobuf:"bytes,3,opt,name=query,proto3"`
+	xxx_hidden_PageSize  int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3"`
+	xxx_hidden_PageToken string                 `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *SearchChatsRequest) Reset() {
@@ -697,57 +638,57 @@ func (x *SearchChatsRequest) ProtoReflect() protoreflect.Message {
 
 func (x *SearchChatsRequest) GetParent() string {
 	if x != nil {
-		return x.Parent
+		return x.xxx_hidden_Parent
 	}
 	return ""
 }
 
 func (x *SearchChatsRequest) GetFilter() string {
 	if x != nil {
-		return x.Filter
+		return x.xxx_hidden_Filter
 	}
 	return ""
 }
 
 func (x *SearchChatsRequest) GetQuery() string {
 	if x != nil {
-		return x.Query
+		return x.xxx_hidden_Query
 	}
 	return ""
 }
 
 func (x *SearchChatsRequest) GetPageSize() int32 {
 	if x != nil {
-		return x.PageSize
+		return x.xxx_hidden_PageSize
 	}
 	return 0
 }
 
 func (x *SearchChatsRequest) GetPageToken() string {
 	if x != nil {
-		return x.PageToken
+		return x.xxx_hidden_PageToken
 	}
 	return ""
 }
 
 func (x *SearchChatsRequest) SetParent(v string) {
-	x.Parent = v
+	x.xxx_hidden_Parent = v
 }
 
 func (x *SearchChatsRequest) SetFilter(v string) {
-	x.Filter = v
+	x.xxx_hidden_Filter = v
 }
 
 func (x *SearchChatsRequest) SetQuery(v string) {
-	x.Query = v
+	x.xxx_hidden_Query = v
 }
 
 func (x *SearchChatsRequest) SetPageSize(v int32) {
-	x.PageSize = v
+	x.xxx_hidden_PageSize = v
 }
 
 func (x *SearchChatsRequest) SetPageToken(v string) {
-	x.PageToken = v
+	x.xxx_hidden_PageToken = v
 }
 
 type SearchChatsRequest_builder struct {
@@ -790,26 +731,21 @@ func (b0 SearchChatsRequest_builder) Build() *SearchChatsRequest {
 	m0 := &SearchChatsRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Parent = b.Parent
-	x.Filter = b.Filter
-	x.Query = b.Query
-	x.PageSize = b.PageSize
-	x.PageToken = b.PageToken
+	x.xxx_hidden_Parent = b.Parent
+	x.xxx_hidden_Filter = b.Filter
+	x.xxx_hidden_Query = b.Query
+	x.xxx_hidden_PageSize = b.PageSize
+	x.xxx_hidden_PageToken = b.PageToken
 	return m0
 }
 
 // Response message for Chat.SearchChats.
 type SearchChatsResponse struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The list of chats matching the search query.
-	Chats []*v1.Chat `protobuf:"bytes,1,rep,name=chats,proto3" json:"chats,omitempty"`
-	// A token to retrieve next page of results. Pass this value in the
-	// [SearchChatsRequest.page_token][chat.chat_service.v1.SearchChatsRequest.page_token]
-	// field in the subsequent call to `SearchChats` method to retrieve the next
-	// page of results.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Chats         *[]*v1.Chat            `protobuf:"bytes,1,rep,name=chats,proto3"`
+	xxx_hidden_NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *SearchChatsResponse) Reset() {
@@ -839,24 +775,26 @@ func (x *SearchChatsResponse) ProtoReflect() protoreflect.Message {
 
 func (x *SearchChatsResponse) GetChats() []*v1.Chat {
 	if x != nil {
-		return x.Chats
+		if x.xxx_hidden_Chats != nil {
+			return *x.xxx_hidden_Chats
+		}
 	}
 	return nil
 }
 
 func (x *SearchChatsResponse) GetNextPageToken() string {
 	if x != nil {
-		return x.NextPageToken
+		return x.xxx_hidden_NextPageToken
 	}
 	return ""
 }
 
 func (x *SearchChatsResponse) SetChats(v []*v1.Chat) {
-	x.Chats = v
+	x.xxx_hidden_Chats = &v
 }
 
 func (x *SearchChatsResponse) SetNextPageToken(v string) {
-	x.NextPageToken = v
+	x.xxx_hidden_NextPageToken = v
 }
 
 type SearchChatsResponse_builder struct {
@@ -875,8 +813,8 @@ func (b0 SearchChatsResponse_builder) Build() *SearchChatsResponse {
 	m0 := &SearchChatsResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Chats = b.Chats
-	x.NextPageToken = b.NextPageToken
+	x.xxx_hidden_Chats = &b.Chats
+	x.xxx_hidden_NextPageToken = b.NextPageToken
 	return m0
 }
 

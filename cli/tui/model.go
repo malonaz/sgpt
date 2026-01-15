@@ -46,7 +46,7 @@ type Model struct {
 	ctx      context.Context
 	config   *configuration.Config
 	store    *store.Store
-	aiClient aiservicepb.AiClient
+	aiClient aiservicepb.AiServiceClient
 
 	// Chat state
 	chat               *store.Chat
@@ -112,7 +112,7 @@ func New(
 	ctx context.Context,
 	config *configuration.Config,
 	s *store.Store,
-	aiClient aiservicepb.AiClient,
+	aiClient aiservicepb.AiServiceClient,
 	chat *store.Chat,
 	opts types.ChatOptions,
 	additionalMessages []*aipb.Message,

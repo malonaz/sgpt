@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = 2d5478fe99f1684e99bc97e3a66093a7024298f7
+core-revision = 6f8b364b6008b29eb33697f11afca43595ac8ad4
 
 [sandbox ]
 test = false
@@ -54,7 +54,7 @@ CgoEnabled = true
 [Plugin "proto"]
 Target = //plugins:proto
 LanguageDef = ///core//build_defs/proto:go
-ProtocFlags = -Ithird_party/proto
+ProtocTool = //tools:protoc
 
 [Plugin "core"]
 Target = //plugins:core

@@ -4,7 +4,7 @@
 // 	protoc        v6.32.1
 // source: chat/v1/chat.proto
 
-//go:build !protoopaque
+//go:build protoopaque
 
 package v1
 
@@ -31,23 +31,16 @@ const (
 
 // A chat represents a chat between a user and SGPT.
 type Chat struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The resource name of the chat.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The creation timestamp of the chat.
-	CreateTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	// The last update timestamp of the chat.
-	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
-	// The deletion timestamp of the chat.
-	DeleteTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=delete_time,json=deleteTime,proto3" json:"delete_time,omitempty"`
-	// Tags for this chat.
-	Tags []string `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Tracks all the files read by this chat.
-	Files []string `protobuf:"bytes,6,rep,name=files,proto3" json:"files,omitempty"`
-	// Metadata for this chat.
-	Metadata      *ChatMetadata `protobuf:"bytes,10,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name       string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_CreateTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=create_time,json=createTime,proto3"`
+	xxx_hidden_UpdateTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=update_time,json=updateTime,proto3"`
+	xxx_hidden_DeleteTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=delete_time,json=deleteTime,proto3"`
+	xxx_hidden_Tags       []string               `protobuf:"bytes,5,rep,name=tags,proto3"`
+	xxx_hidden_Files      []string               `protobuf:"bytes,6,rep,name=files,proto3"`
+	xxx_hidden_Metadata   *ChatMetadata          `protobuf:"bytes,10,opt,name=metadata,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Chat) Reset() {
@@ -77,123 +70,123 @@ func (x *Chat) ProtoReflect() protoreflect.Message {
 
 func (x *Chat) GetName() string {
 	if x != nil {
-		return x.Name
+		return x.xxx_hidden_Name
 	}
 	return ""
 }
 
 func (x *Chat) GetCreateTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.CreateTime
+		return x.xxx_hidden_CreateTime
 	}
 	return nil
 }
 
 func (x *Chat) GetUpdateTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.UpdateTime
+		return x.xxx_hidden_UpdateTime
 	}
 	return nil
 }
 
 func (x *Chat) GetDeleteTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.DeleteTime
+		return x.xxx_hidden_DeleteTime
 	}
 	return nil
 }
 
 func (x *Chat) GetTags() []string {
 	if x != nil {
-		return x.Tags
+		return x.xxx_hidden_Tags
 	}
 	return nil
 }
 
 func (x *Chat) GetFiles() []string {
 	if x != nil {
-		return x.Files
+		return x.xxx_hidden_Files
 	}
 	return nil
 }
 
 func (x *Chat) GetMetadata() *ChatMetadata {
 	if x != nil {
-		return x.Metadata
+		return x.xxx_hidden_Metadata
 	}
 	return nil
 }
 
 func (x *Chat) SetName(v string) {
-	x.Name = v
+	x.xxx_hidden_Name = v
 }
 
 func (x *Chat) SetCreateTime(v *timestamppb.Timestamp) {
-	x.CreateTime = v
+	x.xxx_hidden_CreateTime = v
 }
 
 func (x *Chat) SetUpdateTime(v *timestamppb.Timestamp) {
-	x.UpdateTime = v
+	x.xxx_hidden_UpdateTime = v
 }
 
 func (x *Chat) SetDeleteTime(v *timestamppb.Timestamp) {
-	x.DeleteTime = v
+	x.xxx_hidden_DeleteTime = v
 }
 
 func (x *Chat) SetTags(v []string) {
-	x.Tags = v
+	x.xxx_hidden_Tags = v
 }
 
 func (x *Chat) SetFiles(v []string) {
-	x.Files = v
+	x.xxx_hidden_Files = v
 }
 
 func (x *Chat) SetMetadata(v *ChatMetadata) {
-	x.Metadata = v
+	x.xxx_hidden_Metadata = v
 }
 
 func (x *Chat) HasCreateTime() bool {
 	if x == nil {
 		return false
 	}
-	return x.CreateTime != nil
+	return x.xxx_hidden_CreateTime != nil
 }
 
 func (x *Chat) HasUpdateTime() bool {
 	if x == nil {
 		return false
 	}
-	return x.UpdateTime != nil
+	return x.xxx_hidden_UpdateTime != nil
 }
 
 func (x *Chat) HasDeleteTime() bool {
 	if x == nil {
 		return false
 	}
-	return x.DeleteTime != nil
+	return x.xxx_hidden_DeleteTime != nil
 }
 
 func (x *Chat) HasMetadata() bool {
 	if x == nil {
 		return false
 	}
-	return x.Metadata != nil
+	return x.xxx_hidden_Metadata != nil
 }
 
 func (x *Chat) ClearCreateTime() {
-	x.CreateTime = nil
+	x.xxx_hidden_CreateTime = nil
 }
 
 func (x *Chat) ClearUpdateTime() {
-	x.UpdateTime = nil
+	x.xxx_hidden_UpdateTime = nil
 }
 
 func (x *Chat) ClearDeleteTime() {
-	x.DeleteTime = nil
+	x.xxx_hidden_DeleteTime = nil
 }
 
 func (x *Chat) ClearMetadata() {
-	x.Metadata = nil
+	x.xxx_hidden_Metadata = nil
 }
 
 type Chat_builder struct {
@@ -219,30 +212,25 @@ func (b0 Chat_builder) Build() *Chat {
 	m0 := &Chat{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Name = b.Name
-	x.CreateTime = b.CreateTime
-	x.UpdateTime = b.UpdateTime
-	x.DeleteTime = b.DeleteTime
-	x.Tags = b.Tags
-	x.Files = b.Files
-	x.Metadata = b.Metadata
+	x.xxx_hidden_Name = b.Name
+	x.xxx_hidden_CreateTime = b.CreateTime
+	x.xxx_hidden_UpdateTime = b.UpdateTime
+	x.xxx_hidden_DeleteTime = b.DeleteTime
+	x.xxx_hidden_Tags = b.Tags
+	x.xxx_hidden_Files = b.Files
+	x.xxx_hidden_Metadata = b.Metadata
 	return m0
 }
 
 // Metadata for a chat.
 type ChatMetadata struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// AI generated title for this chat.
-	Title string `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
-	// The resource name of the model currently in use by this chat.
-	// Format: providers/{provider}/models/{model}
-	CurrentModel string `protobuf:"bytes,2,opt,name=current_model,json=currentModel,proto3" json:"current_model,omitempty"`
-	// Total cost of this chat.
-	TotalCost float64 `protobuf:"fixed64,3,opt,name=total_cost,json=totalCost,proto3" json:"total_cost,omitempty"`
-	// Tracks total model usage.
-	ModelUsages   []*v1.ModelUsage `protobuf:"bytes,4,rep,name=model_usages,json=modelUsages,proto3" json:"model_usages,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Title        string                 `protobuf:"bytes,1,opt,name=title,proto3"`
+	xxx_hidden_CurrentModel string                 `protobuf:"bytes,2,opt,name=current_model,json=currentModel,proto3"`
+	xxx_hidden_TotalCost    float64                `protobuf:"fixed64,3,opt,name=total_cost,json=totalCost,proto3"`
+	xxx_hidden_ModelUsages  *[]*v1.ModelUsage      `protobuf:"bytes,4,rep,name=model_usages,json=modelUsages,proto3"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ChatMetadata) Reset() {
@@ -272,46 +260,48 @@ func (x *ChatMetadata) ProtoReflect() protoreflect.Message {
 
 func (x *ChatMetadata) GetTitle() string {
 	if x != nil {
-		return x.Title
+		return x.xxx_hidden_Title
 	}
 	return ""
 }
 
 func (x *ChatMetadata) GetCurrentModel() string {
 	if x != nil {
-		return x.CurrentModel
+		return x.xxx_hidden_CurrentModel
 	}
 	return ""
 }
 
 func (x *ChatMetadata) GetTotalCost() float64 {
 	if x != nil {
-		return x.TotalCost
+		return x.xxx_hidden_TotalCost
 	}
 	return 0
 }
 
 func (x *ChatMetadata) GetModelUsages() []*v1.ModelUsage {
 	if x != nil {
-		return x.ModelUsages
+		if x.xxx_hidden_ModelUsages != nil {
+			return *x.xxx_hidden_ModelUsages
+		}
 	}
 	return nil
 }
 
 func (x *ChatMetadata) SetTitle(v string) {
-	x.Title = v
+	x.xxx_hidden_Title = v
 }
 
 func (x *ChatMetadata) SetCurrentModel(v string) {
-	x.CurrentModel = v
+	x.xxx_hidden_CurrentModel = v
 }
 
 func (x *ChatMetadata) SetTotalCost(v float64) {
-	x.TotalCost = v
+	x.xxx_hidden_TotalCost = v
 }
 
 func (x *ChatMetadata) SetModelUsages(v []*v1.ModelUsage) {
-	x.ModelUsages = v
+	x.xxx_hidden_ModelUsages = &v
 }
 
 type ChatMetadata_builder struct {
@@ -332,24 +322,21 @@ func (b0 ChatMetadata_builder) Build() *ChatMetadata {
 	m0 := &ChatMetadata{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Title = b.Title
-	x.CurrentModel = b.CurrentModel
-	x.TotalCost = b.TotalCost
-	x.ModelUsages = b.ModelUsages
+	x.xxx_hidden_Title = b.Title
+	x.xxx_hidden_CurrentModel = b.CurrentModel
+	x.xxx_hidden_TotalCost = b.TotalCost
+	x.xxx_hidden_ModelUsages = &b.ModelUsages
 	return m0
 }
 
 // Message wraps around an ai message.
 type Message struct {
-	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// The ai message.
-	Message *v1.Message `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// Model usages for this message.
-	ModelUsages []*v1.ModelUsage `protobuf:"bytes,2,rep,name=model_usages,json=modelUsages,proto3" json:"model_usages,omitempty"`
-	// Status error if message generation failed.
-	Error         *status.Status `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Message     *v1.Message            `protobuf:"bytes,1,opt,name=message,proto3"`
+	xxx_hidden_ModelUsages *[]*v1.ModelUsage      `protobuf:"bytes,2,rep,name=model_usages,json=modelUsages,proto3"`
+	xxx_hidden_Error       *status.Status         `protobuf:"bytes,3,opt,name=error,proto3"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Message) Reset() {
@@ -379,57 +366,59 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 func (x *Message) GetMessage() *v1.Message {
 	if x != nil {
-		return x.Message
+		return x.xxx_hidden_Message
 	}
 	return nil
 }
 
 func (x *Message) GetModelUsages() []*v1.ModelUsage {
 	if x != nil {
-		return x.ModelUsages
+		if x.xxx_hidden_ModelUsages != nil {
+			return *x.xxx_hidden_ModelUsages
+		}
 	}
 	return nil
 }
 
 func (x *Message) GetError() *status.Status {
 	if x != nil {
-		return x.Error
+		return x.xxx_hidden_Error
 	}
 	return nil
 }
 
 func (x *Message) SetMessage(v *v1.Message) {
-	x.Message = v
+	x.xxx_hidden_Message = v
 }
 
 func (x *Message) SetModelUsages(v []*v1.ModelUsage) {
-	x.ModelUsages = v
+	x.xxx_hidden_ModelUsages = &v
 }
 
 func (x *Message) SetError(v *status.Status) {
-	x.Error = v
+	x.xxx_hidden_Error = v
 }
 
 func (x *Message) HasMessage() bool {
 	if x == nil {
 		return false
 	}
-	return x.Message != nil
+	return x.xxx_hidden_Message != nil
 }
 
 func (x *Message) HasError() bool {
 	if x == nil {
 		return false
 	}
-	return x.Error != nil
+	return x.xxx_hidden_Error != nil
 }
 
 func (x *Message) ClearMessage() {
-	x.Message = nil
+	x.xxx_hidden_Message = nil
 }
 
 func (x *Message) ClearError() {
-	x.Error = nil
+	x.xxx_hidden_Error = nil
 }
 
 type Message_builder struct {
@@ -447,9 +436,9 @@ func (b0 Message_builder) Build() *Message {
 	m0 := &Message{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.Message = b.Message
-	x.ModelUsages = b.ModelUsages
-	x.Error = b.Error
+	x.xxx_hidden_Message = b.Message
+	x.xxx_hidden_ModelUsages = &b.ModelUsages
+	x.xxx_hidden_Error = b.Error
 	return m0
 }
 

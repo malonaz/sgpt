@@ -101,8 +101,8 @@ func run() error {
 		return fmt.Errorf("connecting: %w", err)
 	}
 	defer conn.Close()
-	aiClient := aiservicepb.NewAiClient(conn.Get())
-	chatClient := chatservicepb.NewChatClient(conn.Get())
+	aiClient := aiservicepb.NewAiServiceClient(conn.Get())
+	chatClient := chatservicepb.NewChatServiceClient(conn.Get())
 
 	rootCmd.AddCommand(webserver.NewServeCmd(store))
 	rootCmd.AddCommand(chat.NewCmd(config, store, aiClient, chatClient))

@@ -19,7 +19,6 @@ proto_library(
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__rpc__status",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
-        "//third_party/proto:malonaz__core__genproto__codegen__llm__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
         "//third_party/proto:malonaz__core__genproto__json__v1",
         "//third_party/proto:validate",

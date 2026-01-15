@@ -27,7 +27,7 @@ import (
 var models []*aipb.Model
 
 // NewCmd instantiates and returns the chat command.
-func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiClient, chatClient chatservicepb.ChatClient) *cobra.Command {
+func NewCmd(config *configuration.Config, s *store.Store, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
 	var opts struct {
 		FileInjection   *file.InjectionOpts
 		Role            *role.Opts
@@ -234,7 +234,7 @@ func filterModels(models []*aipb.Model, prefix string) []string {
 	return matches
 }
 
-func fetchModels(ctx context.Context, aiClient aiservicepb.AiClient) error {
+func fetchModels(ctx context.Context, aiClient aiservicepb.AiServiceClient) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

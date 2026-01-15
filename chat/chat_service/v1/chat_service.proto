@@ -19,7 +19,7 @@ option go_package = "github.com/malonaz/sgpt/genproto/chat/chat_service/v1";
 // - The API has a collection of Chat resources, each owned by a User
 //   (from the User service).
 // - Each Chat resource has a format of: organizations/{organization}/users/{user}/chats/{chat}
-service Chat {
+service ChatService {
   option (google.api.default_host) = "chat.sgpt.com";
 
   // Create a chat.

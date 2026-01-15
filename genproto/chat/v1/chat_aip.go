@@ -2,7 +2,7 @@
 //
 // versions:
 // 	protoc-gen-go-aip development
-// 	protoc v6.30.0
+// 	protoc v6.32.1
 // source: chat/v1/chat.proto
 
 package v1
