@@ -8,6 +8,13 @@
       ],
     },
     {
+      "id": "ai:speech_to_text",
+      "permissions": [
+        "/malonaz.ai.ai_service.v1.AiService/SpeechToText",
+        "/malonaz.ai.ai_service.v1.AiService/SpeechToTextStream"
+      ]
+    },
+    {
       "id": "ai:model:reader",
       "permissions": [
         "/malonaz.ai.ai_service.v1.AiService/ListModels",
