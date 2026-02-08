@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/pbutil"
 	"google.golang.org/grpc/status"
 
@@ -147,52 +148,38 @@ func NewSystemMessage(content string) *RuntimeMessage {
 func RuntimeMessagesFromProto(messages []*chatpb.Message) []*RuntimeMessage {
 	var result []*RuntimeMessage
 
-	setError := func(message *chatpb.Message) {
-		if message.Error != nil {
-			result[len(result)-1].WithError(status.ErrorProto(message.Error))
-		}
-	}
 	for _, msg := range messages {
-		switch m := msg.Message.Message.(type) {
-		case *aipb.Message_System:
-			result = append(result, NewSystemMessage(m.System.Content))
-		case *aipb.Message_User:
-			result = append(result, NewUserMessage(m.User.Content))
-		case *aipb.Message_Assistant:
-			if m.Assistant.Reasoning != "" {
-				result = append(result, NewThinkingMessage(m.Assistant.Reasoning))
-			}
-			if m.Assistant.Content != "" {
-				result = append(result, NewAssistantMessage(m.Assistant.Content))
-			}
-			if m.Assistant.StructuredContent != nil {
-				if bytes, err := pbutil.JSONMarshalPretty(m.Assistant.StructuredContent); err == nil {
-					result = append(result, NewAssistantMessage(string(bytes)))
+		aiMsg := msg.Message
+		if aiMsg == nil {
+			continue
+		}
+
+		for _, block := range aiMsg.Blocks {
+			switch c := block.Content.(type) {
+			case *aipb.Block_Text:
+				switch aiMsg.Role {
+				case aipb.Role_ROLE_SYSTEM:
+					result = append(result, NewSystemMessage(c.Text))
+				case aipb.Role_ROLE_USER:
+					result = append(result, NewUserMessage(c.Text))
+				case aipb.Role_ROLE_ASSISTANT:
+					result = append(result, NewAssistantMessage(c.Text))
 				}
-			}
-			for _, tc := range m.Assistant.ToolCalls {
-				if tcMsg, err := NewToolCallMessage(tc); err == nil {
+			case *aipb.Block_Thought:
+				result = append(result, NewThinkingMessage(c.Thought))
+			case *aipb.Block_ToolCall:
+				if tcMsg, err := NewToolCallMessage(c.ToolCall); err == nil {
 					result = append(result, tcMsg)
 				}
+			case *aipb.Block_ToolResult:
+				content, _ := ai.ParseToolResult(c.ToolResult)
+				result = append(result, NewToolResultMessage(c.ToolResult.ToolCallId, content))
 			}
-
-		case *aipb.Message_Tool:
-			content := ""
-			switch r := m.Tool.Result.Result.(type) {
-			case *aipb.ToolResult_Content:
-				content = r.Content
-			case *aipb.ToolResult_StructuredContent:
-				if bytes, err := pbutil.JSONMarshalPretty(r.StructuredContent); err == nil {
-					content = string(bytes)
-				}
-			case *aipb.ToolResult_Error:
-				if bytes, err := pbutil.JSONMarshalPretty(r.Error); err == nil {
-					content = string(bytes)
-				}
-			}
-			result = append(result, NewToolResultMessage(m.Tool.ToolCallId, content))
 		}
-		setError(msg)
+
+		if msg.Error != nil && len(result) > 0 {
+			result[len(result)-1].WithError(status.ErrorProto(msg.Error))
+		}
 	}
 
 	return result

@@ -33,7 +33,7 @@ func (m *Model) sendMessage() tea.Cmd {
 	m.history.Add(userInput)
 	m.historyNavigating = false
 
-	userMessage := ai.NewUserMessage(&aipb.UserMessage{Content: userInput})
+	userMessage := ai.NewUserMessage(ai.NewTextBlock(userInput))
 	m.runtimeMessages = append(m.runtimeMessages, types.NewUserMessage(userInput))
 	m.pendingUserMessage = userMessage
 
@@ -94,6 +94,7 @@ func (m *Model) startStreaming() tea.Cmd {
 		var toolCalls []*aipb.ToolCall
 
 		// Track content for persistence
+		var blocks []*aipb.Block
 		var responseContent strings.Builder
 		var reasoningContent strings.Builder
 
@@ -126,10 +127,8 @@ func (m *Model) startStreaming() tea.Cmd {
 				sendRender()
 			}
 			p.Send(types.StreamDoneMsg{
-				Err:       err,
-				Response:  responseContent.String(),
-				Reasoning: reasoningContent.String(),
-				ToolCalls: toolCalls,
+				Err:    err,
+				Blocks: blocks,
 			})
 			cancel()
 		}
@@ -177,31 +176,35 @@ func (m *Model) startStreaming() tea.Cmd {
 				proto.Merge(m.lastModelUsage, modelUsage)
 
 			case *aiservicepb.TextToTextStreamResponse_GenerationMetrics:
-			case *aiservicepb.TextToTextStreamResponse_ReasoningChunk:
-				reasoningContent.WriteString(content.ReasoningChunk)
-				if thinkingMsg == nil {
-					thinkingMsg = types.NewThinkingMessage("").WithStreaming()
-					*runtimeMessages = append(*runtimeMessages, thinkingMsg)
-				}
-				thinkingMsg.AppendContent(content.ReasoningChunk)
+			case *aiservicepb.TextToTextStreamResponse_Block:
+				block := content.Block
+				blocks = append(blocks, block)
+				switch blockContent := block.Content.(type) {
+				case *aipb.Block_Thought:
+					reasoningContent.WriteString(blockContent.Thought)
+					if thinkingMsg == nil {
+						thinkingMsg = types.NewThinkingMessage("").WithStreaming()
+						*runtimeMessages = append(*runtimeMessages, thinkingMsg)
+					}
+					thinkingMsg.AppendContent(blockContent.Thought)
 
-			case *aiservicepb.TextToTextStreamResponse_ContentChunk:
-				responseContent.WriteString(content.ContentChunk)
-				if assistantMsg == nil {
-					assistantMsg = types.NewAssistantMessage("").WithStreaming()
-					*runtimeMessages = append(*runtimeMessages, assistantMsg)
-				}
-				assistantMsg.AppendContent(content.ContentChunk)
+				case *aipb.Block_Text:
+					responseContent.WriteString(blockContent.Text)
+					if assistantMsg == nil {
+						assistantMsg = types.NewAssistantMessage("").WithStreaming()
+						*runtimeMessages = append(*runtimeMessages, assistantMsg)
+					}
+					assistantMsg.AppendContent(blockContent.Text)
 
-			case *aiservicepb.TextToTextStreamResponse_ToolCall:
-				toolCalls = append(toolCalls, content.ToolCall)
-				toolMsg, err := types.NewToolCallMessage(content.ToolCall)
-				if err != nil {
-					finalize(err)
+				case *aipb.Block_ToolCall:
+					toolCalls = append(toolCalls, blockContent.ToolCall)
+					toolMsg, err := types.NewToolCallMessage(blockContent.ToolCall)
+					if err != nil {
+						finalize(err)
+					}
+					*runtimeMessages = append(*runtimeMessages, toolMsg)
 				}
-				*runtimeMessages = append(*runtimeMessages, toolMsg)
 			}
-
 			checkRender()
 		}
 	}()
@@ -218,23 +221,14 @@ func (m *Model) finalizeResponse(done types.StreamDoneMsg) {
 	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, userMessage)
 
 	// Add assistant message.
-	hasContent := done.Response != "" || done.Reasoning != "" || len(done.ToolCalls) > 0
-	if hasContent {
-		assistantMessage := &chatpb.Message{
-			Message: ai.NewAssistantMessage(&aipb.AssistantMessage{
-				Reasoning: done.Reasoning,
-				Content:   done.Response,
-				ToolCalls: done.ToolCalls,
-			}),
-		}
-		if done.Err != nil {
-			assistantMessage.Error = status.Convert(done.Err).Proto()
-		}
-		m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, assistantMessage)
+	assistantMessage := &chatpb.Message{
+		Message: ai.NewAssistantMessage(done.Blocks...),
 	}
-
+	if done.Err != nil {
+		assistantMessage.Error = status.Convert(done.Err).Proto()
+	}
+	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, assistantMessage)
 	m.pendingUserMessage = nil
-
 	wasAtBottom := m.viewport.AtBottom()
 	m.recalculateLayout()
 	if wasAtBottom {
@@ -302,9 +296,9 @@ func (m *Model) executeToolCall() tea.Cmd {
 		var toolResult *aipb.ToolResult
 		result, err := tools.ExecuteShellCommand(args)
 		if err != nil {
-			toolResult = ai.NewErrorToolResult(err)
+			toolResult = ai.NewErrorToolResult("TODO: <ToolName>", m.pendingToolCall.Id, err)
 		} else {
-			toolResult = ai.NewToolResult(result)
+			toolResult = ai.NewToolResult("TODO: <ToolName>", m.pendingToolCall.Id, result)
 		}
 		return types.ToolResultMsg{
 			ToolCallID: m.pendingToolCall.Id,

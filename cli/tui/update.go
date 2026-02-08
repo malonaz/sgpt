@@ -358,9 +358,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.finalizeResponse(msg)
 
-		if len(msg.ToolCalls) > 0 && msg.Err == nil {
+		var toolCalls []*aipb.ToolCall
+		for _, block := range ai.FilterBlocks(msg.Blocks, ai.BlockTypeToolCall) {
+			toolCalls = append(toolCalls, block.GetToolCall())
+		}
+		if len(toolCalls) > 0 && msg.Err == nil {
 			cmds = append(cmds, m.saveChat())
-			cmds = append(cmds, m.promptToolCall(msg.ToolCalls)...)
+			cmds = append(cmds, m.promptToolCall(toolCalls)...)
 			return m, tea.Batch(cmds...)
 		}
 
@@ -386,10 +390,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.runtimeMessages = append(m.runtimeMessages, types.NewToolResultMessage(m.pendingToolCall.Id, output))
 
 		// Add regular message.
-		toolMessage := ai.NewToolResultMessage(&aipb.ToolResultMessage{
-			ToolCallId: msg.ToolCallID,
-			Result:     msg.ToolResult,
-		})
+		toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(msg.ToolResult))
 		m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, &chatpb.Message{Message: toolMessage})
 
 		m.pendingToolCall = nil

@@ -74,6 +74,7 @@ github_proto_library(
 )
 
 ######################### MALONAZ ########################
+
 github_proto_library(
     name = "malonaz__core__genproto__authentication__v1",
     additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/authentication/v1"},
@@ -129,11 +130,34 @@ github_proto_library(
     ],
 )
 
+github_proto_library(
+    name = "malonaz__core__genproto__grpc__v1",
+    additional_context = {
+        GO_IMPORT_PATH: "github.com/malonaz/core/genproto/grpc/v1",
+        GENERATE_GO_AIP: True,
+    },
+    dir = "malonaz/grpc/v1",
+    files = [
+        "grpc.proto",
+    ],
+    repo = "malonaz/core",
+    revision = CONFIG.CORE_REVISION,
+    deps = [
+    ],
+)
+
 github_grpc_library(
     name = "malonaz__core__genproto__ai__ai_service__v1",
     additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/ai/ai_service/v1"},
     dir = "malonaz/ai/ai_service/v1",
-    files = ["ai_service.proto"],
+    files = [
+        "ai_service.proto",
+        "model.proto",
+        "speech_to_text.proto",
+        "text_to_speech.proto",
+        "text_to_text.proto",
+        "voice.proto",
+    ],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
     deps = [

@@ -11,10 +11,8 @@ type StreamErrorMsg struct {
 
 // StreamDoneMsg indicates streaming has finished with final content for persistence.
 type StreamDoneMsg struct {
-	Err       error
-	Response  string
-	Reasoning string
-	ToolCalls []*aipb.ToolCall
+	Err    error
+	Blocks []*aipb.Block
 }
 
 // StreamRenderMsg triggers a re-render of the viewport.

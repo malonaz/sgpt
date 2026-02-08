@@ -24,7 +24,7 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 		return fmt.Errorf("expected at least 2 messages, found %d", len(chat.Metadata.Messages))
 	}
 	userMessage := chat.Metadata.Messages[0].Message
-	if userMessage.GetUser() == nil {
+	if userMessage.Role != aipb.Role_ROLE_USER {
 		return fmt.Errorf("expected first message to be user role")
 	}
 
@@ -35,7 +35,7 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 
 	systemPrompt := `Generate a brief, concise title (max 6 words) for this conversation so far. YOU MUST ALWAYS OUTPUT SOMETHING.`
 	messages := []*aipb.Message{
-		ai.NewSystemMessage(&aipb.SystemMessage{Content: systemPrompt}),
+		ai.NewSystemMessage(ai.NewTextBlock(systemPrompt)),
 		userMessage,
 	}
 
@@ -52,7 +52,11 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 		return fmt.Errorf("failed to generate summary: %w", err)
 	}
 
-	cleanSummary := strings.TrimSpace(response.Message.GetAssistant().GetContent())
+	var summary string
+	for _, block := range ai.FilterBlocks(response.GetMessage().GetBlocks(), ai.BlockTypeText) {
+		summary += block.GetText()
+	}
+	cleanSummary := strings.TrimSpace(summary)
 	cleanSummary = strings.Trim(cleanSummary, `"'`)
 	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
 
