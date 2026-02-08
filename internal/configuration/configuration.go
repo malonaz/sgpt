@@ -14,7 +14,6 @@ import (
 )
 
 var defaultConfig = Config{
-	Database: "~/.config/sgpt/sgpt.db",
 	Models: []*Model{
 		{
 			Name:  "providers/openai/models/gpt-4",
@@ -53,13 +52,17 @@ type Model struct {
 	Alias string `json:"alias"`
 }
 
+type GRPCClient struct {
+	BaseURL string `json:"base_url"`
+	APIKey  string `json:"api_key"`
+}
+
 // Config holds configuration for the sgpt tool.
 type Config struct {
-	BaseURL  string      `json:"base_url"`
-	APIKey   string      `json:"api_key"`
-	Database string      `json:"database"`
-	Models   []*Model    `json:"models"`
-	Chat     *ChatConfig `json:"chat"`
+	ChatService *GRPCClient `json:"chat_service"`
+	AiService   *GRPCClient `json:"ai_service"`
+	Models      []*Model    `json:"models"`
+	Chat        *ChatConfig `json:"chat"`
 }
 
 // ChatConfig holds configuration for sgpt chat.
@@ -117,13 +120,6 @@ func Parse(path string) (*Config, error) {
 			return nil, errors.Wrap(err, "merging override config")
 		}
 	}
-
-	expandedDatabasePath, err := file.ExpandPath(config.Database)
-	if err != nil {
-		return nil, errors.Wrap(err, "expanding database path")
-	}
-	config.Database = expandedDatabasePath
-
 	return config, nil
 }
 

@@ -1,8 +1,8 @@
-name: server
+name: sgpt
 setup: true
 servers:
   - type: grpc
-    name: internal
+    name: sgpt
     interceptors:
       - type: session_local_context_injector
       - type: external_api_key_authentication
@@ -13,5 +13,3 @@ servers:
     services:
       - proto: //chat/chat_service/v1
         manifest: //chat/chat_service:manifest
-      - proto: //third_party/proto:malonaz__core__genproto__ai__ai_service__v1
-        manifest: //ai/ai_service:manifest

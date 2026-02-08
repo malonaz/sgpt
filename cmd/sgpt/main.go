@@ -64,38 +64,61 @@ func run() error {
 		return fmt.Errorf("parsing config: %v", err)
 	}
 
-	ctx = authentication.WithAPIKey(ctx, "x-api-key", config.APIKey)
-	rootCmd.SetContext(ctx)
+	// Instantiate AI Client.
+	var aiClient aiservicepb.AiServiceClient
+	{
+		grpcConfig := config.AiService
+		ctx = authentication.WithAPIKey(ctx, "x-api-key", grpcConfig.APIKey)
+		rootCmd.SetContext(ctx)
 
-	var opts *grpc.Opts
-	if local {
-		opts = &grpc.Opts{
-			SocketPath: "/tmp/core.socket",
-			DisableTLS: true,
-		}
-	} else {
-		host, port, err := parseBaseURL(config.BaseURL)
+		host, port, err := parseBaseURL(grpcConfig.BaseURL)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
 		}
-		opts = &grpc.Opts{
+		opts := &grpc.Opts{
 			Host:       host,
 			Port:       port,
 			DisableTLS: true,
 		}
+		conn, err := grpc.NewConnection(opts, nil, nil)
+		if err != nil {
+			return fmt.Errorf("creating connection: %w", err)
+		}
+		conn.WithLogger(errorLogger)
+		if err := conn.Connect(ctx); err != nil {
+			return fmt.Errorf("connecting: %w", err)
+		}
+		defer conn.Close()
+		aiClient = aiservicepb.NewAiServiceClient(conn.Get())
 	}
 
-	conn, err := grpc.NewConnection(opts, nil, nil)
-	if err != nil {
-		return fmt.Errorf("creating connection: %w", err)
+	// Instantiate CHAT Client.
+	var chatClient chatservicepb.ChatServiceClient
+	{
+		grpcConfig := config.ChatService
+		ctx = authentication.WithAPIKey(ctx, "x-api-key", grpcConfig.APIKey)
+		rootCmd.SetContext(ctx)
+
+		host, port, err := parseBaseURL(grpcConfig.BaseURL)
+		if err != nil {
+			return fmt.Errorf("parsing base URL: %w", err)
+		}
+		opts := &grpc.Opts{
+			Host:       host,
+			Port:       port,
+			DisableTLS: true,
+		}
+		conn, err := grpc.NewConnection(opts, nil, nil)
+		if err != nil {
+			return fmt.Errorf("creating connection: %w", err)
+		}
+		conn.WithLogger(errorLogger)
+		if err := conn.Connect(ctx); err != nil {
+			return fmt.Errorf("connecting: %w", err)
+		}
+		defer conn.Close()
+		chatClient = chatservicepb.NewChatServiceClient(conn.Get())
 	}
-	conn.WithLogger(errorLogger)
-	if err := conn.Connect(ctx); err != nil {
-		return fmt.Errorf("connecting: %w", err)
-	}
-	defer conn.Close()
-	aiClient := aiservicepb.NewAiServiceClient(conn.Get())
-	chatClient := chatservicepb.NewChatServiceClient(conn.Get())
 
 	rootCmd.AddCommand(webserver.NewServeCmd(chatClient))
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, chatClient))

@@ -1,7 +1,6 @@
 go_main_manifest(
     name = "manifest",
     deps = [
-        "//ai/ai_service:manifest",
         "//chat/chat_service:manifest",
         "//chat/chat_service/v1",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
@@ -14,7 +13,7 @@ go_main_src(
 )
 
 go_binary(
-    name = "server",
+    name = "sgpt-server",
     srcs = [
         "init.go",
         ":main.go",
@@ -23,7 +22,6 @@ go_binary(
         "//chat/chat_service",
         "//chat/chat_service/v1",
         "//chat/store",
-        "//third_party/go:github.com__malonaz__core__go__ai__ai_service",
         "//third_party/go:github.com__malonaz__core__go__authentication",
         "//third_party/go:github.com__malonaz__core__go__binary",
         "//third_party/go:github.com__malonaz__core__go__certs",
@@ -33,7 +31,6 @@ go_binary(
         "//third_party/go:github.com__malonaz__core__go__logging",
         "//third_party/go:github.com__malonaz__core__go__postgres",
         "//third_party/go:github.com__malonaz__core__go__prometheus",
-        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
     ],
 )
 
@@ -41,7 +38,7 @@ _databases = [
     "chat",
 ]
 
-_binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{db}/migrations:migrator" for db in _databases] + ["//cmd/server"]
+_binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{db}/migrations:migrator" for db in _databases] + ["//cmd/sgpt-server"]
 
 _env = {
     "POSTGRES_HOST": "localhost",
@@ -57,15 +54,15 @@ _env_str = " ".join([f"{k}={v}" for k, v in _env.items()])
 sh_cmd(
     name = "local",
     cmd = " ".join([
-        f"env $(cat .env | xargs) {_env_str} plz-out/bin/cmd/server/server",
+        f"env $(cat .env | xargs) {_env_str} plz-out/bin/cmd/sgpt-server/sgpt-server",
         "--logging.format=pretty",
         "--prometheus.disable",
         # Servers.
         "--internal-grpc.disable-tls",
         "--internal-grpc.socket-path=/tmp/core.socket",
-        "--external-api-key-authentication.config=cmd/server/authentication/external_service_accounts.json",
-        "--internal-service-authentication.config=cmd/server/authentication/internal_service_accounts.json",
-        "--permission-authentication.config=cmd/server/authentication/roles.json",
+        "--external-api-key-authentication.config=cmd/sgpt-server/authentication/external_service_accounts.json",
+        "--internal-service-authentication.config=cmd/sgpt-server/authentication/internal_service_accounts.json",
+        "--permission-authentication.config=cmd/sgpt-server/authentication/roles.json",
     ]),
     data = _binary_deps,
     expand_env_vars = False,
