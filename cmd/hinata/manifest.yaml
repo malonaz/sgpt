@@ -1,8 +1,8 @@
-name: sgpt
+name: hinata
 setup: true
 servers:
   - type: grpc
-    name: sgpt
+    name: hinata-external
     interceptors:
       - type: session_local_context_injector
       - type: external_api_key_authentication

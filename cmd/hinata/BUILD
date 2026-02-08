@@ -13,7 +13,7 @@ go_main_src(
 )
 
 go_binary(
-    name = "sgpt-server",
+    name = "hinata",
     srcs = [
         "init.go",
         ":main.go",
@@ -38,7 +38,7 @@ _databases = [
     "chat",
 ]
 
-_binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{db}/migrations:migrator" for db in _databases] + ["//cmd/sgpt-server"]
+_binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{db}/migrations:migrator" for db in _databases] + ["//cmd/hinata"]
 
 _env = {
     "POSTGRES_HOST": "localhost",
@@ -54,15 +54,15 @@ _env_str = " ".join([f"{k}={v}" for k, v in _env.items()])
 sh_cmd(
     name = "local",
     cmd = " ".join([
-        f"env $(cat .env | xargs) {_env_str} plz-out/bin/cmd/sgpt-server/sgpt-server",
+        f"env $(cat .env | xargs) {_env_str} plz-out/bin/cmd/hinata/hinata",
         "--logging.format=pretty",
         "--prometheus.disable",
         # Servers.
         "--internal-grpc.disable-tls",
         "--internal-grpc.socket-path=/tmp/core.socket",
-        "--external-api-key-authentication.config=cmd/sgpt-server/authentication/external_service_accounts.json",
-        "--internal-service-authentication.config=cmd/sgpt-server/authentication/internal_service_accounts.json",
-        "--permission-authentication.config=cmd/sgpt-server/authentication/roles.json",
+        "--external-api-key-authentication.config=cmd/hinata/authentication/external_service_accounts.json",
+        "--internal-service-authentication.config=cmd/hinata/authentication/internal_service_accounts.json",
+        "--permission-authentication.config=cmd/hinata/authentication/roles.json",
     ]),
     data = _binary_deps,
     expand_env_vars = False,

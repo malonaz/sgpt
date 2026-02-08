@@ -68,7 +68,7 @@ func run() error {
 	var aiClient aiservicepb.AiServiceClient
 	{
 		grpcConfig := config.AiService
-		ctx = authentication.WithAPIKey(ctx, "x-api-key", grpcConfig.APIKey)
+		ctx = authentication.WithAPIKey(ctx, "tsunade-api-key", grpcConfig.APIKey)
 		rootCmd.SetContext(ctx)
 
 		host, port, err := parseBaseURL(grpcConfig.BaseURL)
@@ -96,7 +96,7 @@ func run() error {
 	var chatClient chatservicepb.ChatServiceClient
 	{
 		grpcConfig := config.ChatService
-		ctx = authentication.WithAPIKey(ctx, "x-api-key", grpcConfig.APIKey)
+		ctx = authentication.WithAPIKey(ctx, "hinata-api-key", grpcConfig.APIKey)
 		rootCmd.SetContext(ctx)
 
 		host, port, err := parseBaseURL(grpcConfig.BaseURL)

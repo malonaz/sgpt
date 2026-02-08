@@ -86,12 +86,3 @@ positionallabels = true
 [alias "cli"]
 desc = Installs sgpt cli
 cmd = run //scripts:install
-
-[alias "deploy"]
-desc = Apply ansible deployment playbook
-cmd = run //scripts/deploy:deploy
-
-[alias "tail"]
-desc = Tail the sgpt-server deployment logs
-cmd = run //scripts/deploy:tail
-positionallabels = true

@@ -30,15 +30,6 @@ func setup(ctx context.Context) error {
 	}
 
 	env := os.Getenv("ENV")
-	if env != "" && false {
-		resetDB := binary.MustNew(
-			fmt.Sprintf("./resetdb"),
-			binaryLoggingArgs("reset_db_job")...,
-		).WithLogger(rawLogger).AsJob()
-		if err := resetDB.RunAsJob(); err != nil {
-			return fmt.Errorf("running db reset: %w", err)
-		}
-	}
 	for _, database := range databases {
 		var initializer *binary.Binary
 		var migrator *binary.Binary
@@ -54,11 +45,11 @@ func setup(ctx context.Context) error {
 			).WithLogger(rawLogger).AsJob()
 		} else {
 			initializer = binary.MustNew(
-				fmt.Sprintf("%s-postgres-initializer", database),
+				fmt.Sprintf("hinata-%s-postgres-initializer", database),
 				binaryLoggingArgs("postgres_initializer_job_%s", database)...,
 			).WithLogger(rawLogger).AsJob()
 			migrator = binary.MustNew(
-				fmt.Sprintf("%s-postgres-migrator", database),
+				fmt.Sprintf("hinata-%s-postgres-migrator", database),
 				binaryLoggingArgs("postgres_migrator_job_%s", database)...,
 			).WithLogger(rawLogger).AsJob()
 		}
