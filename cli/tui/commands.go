@@ -178,29 +178,40 @@ func (m *Model) startStreaming() tea.Cmd {
 			case *aiservicepb.TextToTextStreamResponse_GenerationMetrics:
 			case *aiservicepb.TextToTextStreamResponse_Block:
 				block := content.Block
-				blocks = append(blocks, block)
+				blockIndex := block.Index
+
 				switch blockContent := block.Content.(type) {
 				case *aipb.Block_Thought:
 					reasoningContent.WriteString(blockContent.Thought)
-					if thinkingMsg == nil {
+					if blockIndex >= int64(len(blocks)) {
+						blocks = append(blocks, block)
 						thinkingMsg = types.NewThinkingMessage("").WithStreaming()
 						*runtimeMessages = append(*runtimeMessages, thinkingMsg)
+					} else {
+						existing := blocks[blockIndex]
+						existing.GetContent().(*aipb.Block_Thought).Thought += blockContent.Thought
 					}
 					thinkingMsg.AppendContent(blockContent.Thought)
 
 				case *aipb.Block_Text:
 					responseContent.WriteString(blockContent.Text)
-					if assistantMsg == nil {
+					if blockIndex >= int64(len(blocks)) {
+						blocks = append(blocks, block)
 						assistantMsg = types.NewAssistantMessage("").WithStreaming()
 						*runtimeMessages = append(*runtimeMessages, assistantMsg)
+					} else {
+						existing := blocks[blockIndex]
+						existing.GetContent().(*aipb.Block_Text).Text += blockContent.Text
 					}
 					assistantMsg.AppendContent(blockContent.Text)
 
 				case *aipb.Block_ToolCall:
+					blocks = append(blocks, block)
 					toolCalls = append(toolCalls, blockContent.ToolCall)
 					toolMsg, err := types.NewToolCallMessage(blockContent.ToolCall)
 					if err != nil {
 						finalize(err)
+						return
 					}
 					*runtimeMessages = append(*runtimeMessages, toolMsg)
 				}
