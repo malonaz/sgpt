@@ -89,14 +89,10 @@ func (m *Model) startStreaming() tea.Cmd {
 		}
 
 		// Track streaming messages
+		accumulator := ai.NewTextToTextAccumulator()
 		var thinkingMsg *types.RuntimeMessage
 		var assistantMsg *types.RuntimeMessage
 		var toolCalls []*aipb.ToolCall
-
-		// Track content for persistence
-		var blocks []*aipb.Block
-		var responseContent strings.Builder
-		var reasoningContent strings.Builder
 
 		// Throttling
 		lastRender := time.Now()
@@ -128,7 +124,7 @@ func (m *Model) startStreaming() tea.Cmd {
 			}
 			p.Send(types.StreamDoneMsg{
 				Err:    err,
-				Blocks: blocks,
+				Blocks: accumulator.Message.GetBlocks(),
 			})
 			cancel()
 		}
@@ -169,6 +165,35 @@ func (m *Model) startStreaming() tea.Cmd {
 				}
 				return
 			}
+			if err := accumulator.Add(response); err != nil {
+				finalize(err)
+			}
+
+			var text string
+			textBlocks := ai.FilterBlocks(accumulator.Message.GetBlocks(), ai.BlockTypeText)
+			if len(textBlocks) > 0 {
+				for _, block := range textBlocks {
+					text += block.GetText()
+				}
+				if assistantMsg == nil {
+					assistantMsg = types.NewAssistantMessage("").WithStreaming()
+					*runtimeMessages = append(*runtimeMessages, assistantMsg)
+				}
+				assistantMsg.SetContent(text)
+			}
+
+			var thought string
+			thoughtBlocks := ai.FilterBlocks(accumulator.Message.GetBlocks(), ai.BlockTypeThought)
+			if len(thoughtBlocks) > 0 {
+				for _, block := range thoughtBlocks {
+					thought += block.GetThought()
+				}
+				if thinkingMsg == nil {
+					thinkingMsg = types.NewThinkingMessage("").WithStreaming()
+					*runtimeMessages = append(*runtimeMessages, thinkingMsg)
+				}
+				thinkingMsg.SetContent(thought)
+			}
 
 			switch content := response.Content.(type) {
 			case *aiservicepb.TextToTextStreamResponse_ModelUsage:
@@ -178,35 +203,9 @@ func (m *Model) startStreaming() tea.Cmd {
 			case *aiservicepb.TextToTextStreamResponse_GenerationMetrics:
 			case *aiservicepb.TextToTextStreamResponse_Block:
 				block := content.Block
-				blockIndex := block.Index
 
 				switch blockContent := block.Content.(type) {
-				case *aipb.Block_Thought:
-					reasoningContent.WriteString(blockContent.Thought)
-					if blockIndex >= int64(len(blocks)) {
-						blocks = append(blocks, block)
-						thinkingMsg = types.NewThinkingMessage("").WithStreaming()
-						*runtimeMessages = append(*runtimeMessages, thinkingMsg)
-					} else {
-						existing := blocks[blockIndex]
-						existing.GetContent().(*aipb.Block_Thought).Thought += blockContent.Thought
-					}
-					thinkingMsg.AppendContent(blockContent.Thought)
-
-				case *aipb.Block_Text:
-					responseContent.WriteString(blockContent.Text)
-					if blockIndex >= int64(len(blocks)) {
-						blocks = append(blocks, block)
-						assistantMsg = types.NewAssistantMessage("").WithStreaming()
-						*runtimeMessages = append(*runtimeMessages, assistantMsg)
-					} else {
-						existing := blocks[blockIndex]
-						existing.GetContent().(*aipb.Block_Text).Text += blockContent.Text
-					}
-					assistantMsg.AppendContent(blockContent.Text)
-
 				case *aipb.Block_ToolCall:
-					blocks = append(blocks, block)
 					toolCalls = append(toolCalls, blockContent.ToolCall)
 					toolMsg, err := types.NewToolCallMessage(blockContent.ToolCall)
 					if err != nil {

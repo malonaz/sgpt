@@ -185,9 +185,9 @@ func RuntimeMessagesFromProto(messages []*chatpb.Message) []*RuntimeMessage {
 	return result
 }
 
-// AppendContent appends to the content and re-parses blocks.
-func (rm *RuntimeMessage) AppendContent(content string) {
-	rm.content += content
+// SetContent replaces this message's content.
+func (rm *RuntimeMessage) SetContent(content string) {
+	rm.content = content
 	rm.Blocks = markdown.ParseBlocks(rm.content)
 }
 

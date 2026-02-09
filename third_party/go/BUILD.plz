@@ -3097,7 +3097,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260208180530-04d1c58d89e3",
+    version = "v0.0.0-20260209130516-f5fd88207c12",
     visibility = ["PUBLIC"],
 )
 
@@ -3250,8 +3250,10 @@ go_module(
     deps = [
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__status",
+        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
@@ -3275,7 +3277,6 @@ go_module(
         ":github.com__malonaz__core__go__grpc__grpcinproc",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
-        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:github.com__malonaz__core__go__ai",
@@ -4652,8 +4653,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
