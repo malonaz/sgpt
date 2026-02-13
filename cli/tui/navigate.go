@@ -90,6 +90,7 @@ func (m *Model) toNextMessage() bool {
 
 // toPreviousBlock navigates to the previous block within the current message,
 // or to the last block of the previous message if at the first block.
+// When in select-all mode (blockIndex == -1), re-enters block mode at the last block.
 // Returns true if navigation occurred and re-render is needed.
 func (m *Model) toPreviousBlock() bool {
 	if len(m.runtimeMessages) == 0 {
@@ -98,14 +99,14 @@ func (m *Model) toPreviousBlock() bool {
 
 	// Initialize navigation at last message's last block
 	if m.navigationMessageIndex == -1 {
-		return m.toPreviousMessage() // Handles moving to previous page + last block.
+		return m.toPreviousMessage()
 	}
 
-	// Enable block mode at current message's last block
-	//if m.navigationBlockIndex == -1 {
-	//	m.navigationBlockIndex = m.lastBlockIndex()
-	//	return true
-	//}
+	// Exit select-all mode by entering block mode at last block
+	if m.navigationBlockIndex == -1 {
+		m.navigationBlockIndex = m.lastBlockIndex()
+		return true
+	}
 
 	// Move to previous block in current message
 	if m.navigationBlockIndex > 0 {
@@ -119,6 +120,7 @@ func (m *Model) toPreviousBlock() bool {
 
 // toNextBlock navigates to the next block within the current message,
 // or to the first block of the next message if at the last block.
+// When in select-all mode (blockIndex == -1), re-enters block mode at the first block.
 // Returns true if navigation occurred and re-render is needed.
 func (m *Model) toNextBlock() bool {
 	if len(m.runtimeMessages) == 0 {
@@ -130,11 +132,11 @@ func (m *Model) toNextBlock() bool {
 		return false
 	}
 
-	// Enable block mode at current message's first block
-	//if m.navigationBlockIndex == -1 {
-	//	m.navigationBlockIndex = 0
-	//	return true
-	//}
+	// Exit select-all mode by entering block mode at first block
+	if m.navigationBlockIndex == -1 {
+		m.navigationBlockIndex = 0
+		return true
+	}
 
 	blocks := m.runtimeMessages[m.navigationMessageIndex].Blocks
 

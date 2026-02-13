@@ -32,6 +32,7 @@ type KeyMapViewport struct {
 	ToNextMessage     key.Binding
 	ToPreviousBlock   key.Binding
 	ToNextBlock       key.Binding
+	SelectAllBlocks   key.Binding
 	ScrollUp          key.Binding
 	ScrollDown        key.Binding
 	OpenInEditor      key.Binding
@@ -76,6 +77,10 @@ var keyMapViewport = KeyMapViewport{
 	),
 	ToNextBlock: key.NewBinding(
 		key.WithKeys("alt+]"),
+	),
+	// Select all blocks.
+	SelectAllBlocks: key.NewBinding(
+		key.WithKeys("alt+a"),
 	),
 
 	// Scrolling.
@@ -250,6 +255,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.toNextBlock() {
 						m.viewport.SetContent(m.renderMessages())
 						m.scrollToNavigatedBlock()
+					}
+					return m, nil
+
+				case key.Matches(msg, km.SelectAllBlocks):
+					if m.navigationMessageIndex != -1 {
+						m.navigationBlockIndex = -1
+						m.viewport.SetContent(m.renderMessages())
+						m.scrollToNavigatedMessage()
 					}
 					return m, nil
 

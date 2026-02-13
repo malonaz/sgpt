@@ -51,15 +51,17 @@ func (m *Model) renderTitle() string {
 	return rendered
 }
 
-// getBlockIndicatorStyle returns the style for a block indicator.
 func (m *Model) getBlockIndicatorStyle(messageIndex, blockIndex int) lipgloss.Style {
 	if m.focusedComponent != FocusViewport {
 		return styles.BlockIndicatorStyle
 	}
-	if m.navigationMessageIndex != messageIndex || m.navigationBlockIndex != blockIndex {
+	if m.navigationMessageIndex != messageIndex {
 		return styles.BlockIndicatorStyle
 	}
-	return styles.BlockIndicatorSelectedStyle
+	if m.navigationBlockIndex == -1 || m.navigationBlockIndex == blockIndex {
+		return styles.BlockIndicatorSelectedStyle
+	}
+	return styles.BlockIndicatorStyle
 }
 
 // renderBlockWithIndicator renders a block with a left indicator bar.
