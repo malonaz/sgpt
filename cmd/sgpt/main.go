@@ -71,14 +71,14 @@ func run() error {
 		ctx = authentication.WithAPIKey(ctx, "tsunade-api-key", grpcConfig.APIKey)
 		rootCmd.SetContext(ctx)
 
-		host, port, err := parseBaseURL(grpcConfig.BaseURL)
+		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseURL)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
 		}
 		opts := &grpc.Opts{
 			Host:       host,
 			Port:       port,
-			DisableTLS: true,
+			DisableTLS: disableTLS,
 		}
 		conn, err := grpc.NewConnection(opts, nil, nil)
 		if err != nil {
@@ -99,14 +99,14 @@ func run() error {
 		ctx = authentication.WithAPIKey(ctx, "hinata-api-key", grpcConfig.APIKey)
 		rootCmd.SetContext(ctx)
 
-		host, port, err := parseBaseURL(grpcConfig.BaseURL)
+		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseURL)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
 		}
 		opts := &grpc.Opts{
 			Host:       host,
 			Port:       port,
-			DisableTLS: true,
+			DisableTLS: disableTLS,
 		}
 		conn, err := grpc.NewConnection(opts, nil, nil)
 		if err != nil {
@@ -125,14 +125,17 @@ func run() error {
 	return rootCmd.Execute()
 }
 
-func parseBaseURL(baseURL string) (string, int, error) {
-	parts := strings.Split(baseURL, ":")
-	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("invalid format, expected host:port, got %s", baseURL)
+func parseBaseURL(baseURL string) (host string, port int, disableTLS bool, err error) {
+	if strings.Contains(baseURL, ":") {
+		parts := strings.Split(baseURL, ":")
+		if len(parts) != 2 {
+			return "", 0, false, fmt.Errorf("invalid format, expected host:port, got %s", baseURL)
+		}
+		port, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return "", 0, false, fmt.Errorf("invalid port: %w", err)
+		}
+		return parts[0], port, true, nil
 	}
-	port, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid port: %w", err)
-	}
-	return parts[0], port, nil
+	return baseURL, 443, false, nil
 }
