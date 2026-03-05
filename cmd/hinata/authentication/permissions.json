@@ -1,0 +1,25 @@
+// Service accounts.
+local internal_service_accounts = import 'internal_service_accounts.json';
+local external_service_accounts = import 'external_service_accounts.json';
+
+{
+  "service_accounts": internal_service_accounts.service_accounts + external_service_accounts.service_accounts,
+  "roles": [
+    {
+      "id": "chat:reader",
+      "permissions": [
+        "/sgpt.chat.chat_service.v1.ChatService/ListChats",
+        "/sgpt.chat.chat_service.v1.ChatService/GetChat",
+      ],
+    },
+    {
+      "id": "chat:writer",
+      "inherited_role_ids": ["chat:reader"],
+      "permissions": [
+        "/sgpt.chat.chat_service.v1.ChatService/CreateChat",
+        "/sgpt.chat.chat_service.v1.ChatService/DeleteChat",
+        "/sgpt.chat.chat_service.v1.ChatService/UpdateChat",
+      ],
+    },
+  ],
+}
