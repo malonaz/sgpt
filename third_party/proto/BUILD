@@ -113,6 +113,8 @@ github_proto_library(
     },
     dir = "malonaz/ai/v1",
     files = [
+        "chat.proto",
+        "errors.proto",
         "message.proto",
         "metrics.proto",
         "model.proto",
@@ -125,6 +127,7 @@ github_proto_library(
         ":google__api__annotations",
         ":google__rpc__status",
         ":malonaz__core__genproto__audio__v1",
+        ":malonaz__core__genproto__codegen__model__v1",
         ":malonaz__core__genproto__json__v1",
         ":validate",
     ],
@@ -138,7 +141,9 @@ github_proto_library(
     },
     dir = "malonaz/grpc/v1",
     files = [
+        "gateway.proto",
         "grpc.proto",
+        "http_cookie.proto",
     ],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
@@ -152,6 +157,7 @@ github_grpc_library(
     dir = "malonaz/ai/ai_service/v1",
     files = [
         "ai_service.proto",
+        "chat.proto",
         "model.proto",
         "speech_to_text.proto",
         "text_to_speech.proto",

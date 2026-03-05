@@ -3,5 +3,5 @@ go_toolchain(
     architectures = [
         "linux_amd64",
     ],
-    version = "1.25.5",
+    version = "1.26.0",
 )

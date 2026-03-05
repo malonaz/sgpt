@@ -1,6 +1,6 @@
 module github.com/malonaz/sgpt
 
-go 1.25.5
+go 1.26.0
 
 replace github.com/sashabaranov/go-openai => github.com/goodenough227/go-openai v0.0.0-20250207091202-52738616d5a4
 
@@ -20,13 +20,13 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/malonaz/core v0.0.0-20260209130516-f5fd88207c12
+	github.com/malonaz/core v0.0.0-20260305093913-b1510a635f04
 	github.com/pkg/errors v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
 	go.dalton.dog/bubbleup v1.1.0
-	go.einride.tech/aip v0.73.0
+	go.einride.tech/aip v0.80.0
 	golang.design/x/clipboard v0.7.1
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409
@@ -61,6 +61,7 @@ require (
 	github.com/chzyer/test v1.0.0 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dimuska139/go-email-normalizer/v5 v5.0.0 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -105,6 +106,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nyaruka/phonenumbers v1.6.10 // indirect
 	github.com/openai/openai-go/v3 v3.10.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtp v1.8.24 // indirect

@@ -1433,6 +1433,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__dimuska139__go-email-normalizer__v5",
+    _tag = "download",
+    module = "github.com/dimuska139/go-email-normalizer/v5",
+    version = "v5.0.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__dimuska139__go-email-normalizer__v5",
+    download = ":_github.com__dimuska139__go-email-normalizer__v5#download",
+    install = ["."],
+    module = "github.com/dimuska139/go-email-normalizer/v5",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__dlclark__regexp2",
     _tag = "download",
     module = "github.com/dlclark/regexp2",
@@ -3097,8 +3114,56 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260209130516-f5fd88207c12",
+    version = "v0.0.0-20260305093913-b1510a635f04",
     visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__malonaz__core__gengo__ai__ai_service__rpc",
+    download = ":_github.com__malonaz__core#download",
+    install = ["gengo/ai/ai_service/rpc"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__gengo__ai__model",
+        ":github.com__malonaz__core__go__aip",
+        ":github.com__malonaz__core__go__grpc__status",
+        ":github.com__malonaz__core__go__uuid",
+        ":go.einride.tech__aip__resourcename",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__metadata",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__gengo__ai__model",
+    download = ":_github.com__malonaz__core#download",
+    install = ["gengo/ai/model"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__go__pbutil",
+        ":go.einride.tech__aip__resourcename",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__gengo__ai__store",
+    download = ":_github.com__malonaz__core#download",
+    install = ["gengo/ai/store"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__go__postgres",
+        "//third_party/go:github.com__jackc__pgx__v5",
+        "//third_party/go:github.com__malonaz__core__gengo__ai__model",
+    ],
 )
 
 go_module(
@@ -3114,6 +3179,7 @@ go_module(
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__fieldmaskpb",
         ":google.golang.org__protobuf__types__known__structpb",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
@@ -3140,6 +3206,7 @@ go_module(
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__rpc__status",
         "//third_party/proto:malonaz__core__genproto__audio__v1",
+        "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
         "//third_party/proto:malonaz__core__genproto__json__v1",
         "//third_party/proto:validate",
     ],
@@ -3171,6 +3238,19 @@ go_module(
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/proto:validate",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__genproto__canonicalize__v1",
+    download = ":_github.com__malonaz__core#download",
+    install = ["genproto/canonicalize/v1"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__descriptorpb",
     ],
 )
 
@@ -3273,12 +3353,18 @@ go_module(
         ":github.com__malonaz__core__go__ai__ai_service__provider__google",
         ":github.com__malonaz__core__go__ai__ai_service__provider__openai",
         ":github.com__malonaz__core__go__ai__ai_service__provider__xai",
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__aip",
         ":github.com__malonaz__core__go__grpc__grpcinproc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__pbutil",
+        ":github.com__malonaz__core__go__pbutil__pbfieldmask",
+        ":golang.org__x__sync__errgroup",
         ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__malonaz__core__gengo__ai__ai_service__rpc",
+        "//third_party/go:github.com__malonaz__core__gengo__ai__store",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
@@ -3294,13 +3380,15 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__aip",
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
+        ":github.com__malonaz__core__go__jsonnet",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__structpb",
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/go:github.com__karminski__streaming-json-go",
+        "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
@@ -3313,7 +3401,7 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
@@ -3336,7 +3424,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__audio",
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__websocket",
         ":golang.org__x__sync__errgroup",
         ":google.golang.org__grpc__codes",
@@ -3356,7 +3444,7 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":google.golang.org__grpc__codes",
         "//third_party/go:github.com__coder__websocket",
         "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
@@ -3374,6 +3462,7 @@ go_module(
     deps = [
         ":github.com__malonaz__core__go__audio",
         ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
@@ -3392,10 +3481,11 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":google.golang.org__genai",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
+        "//third_party/go:cloud.google.com__go__auth__credentials",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
@@ -3411,7 +3501,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__audio",
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__pbutil",
         ":github.com__openai__openai-go__v3",
         ":github.com__openai__openai-go__v3__option",
@@ -3437,7 +3527,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__audio",
-        ":github.com__malonaz__core__go__grpc",
+        ":github.com__malonaz__core__go__grpc__status",
         ":google.golang.org__grpc__codes",
         "//third_party/go:github.com__gorilla__websocket",
         "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
@@ -3510,19 +3600,21 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__go__grpc__interceptor",
+        ":github.com__malonaz__core__go__grpc__middleware",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__jsonnet",
         ":github.com__malonaz__core__go__pbutil",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
-        ":google.golang.org__grpc__health__grpc_health_v1",
         ":google.golang.org__grpc__metadata",
+        ":google.golang.org__grpc__peer",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2",
-        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
         "//third_party/proto:malonaz__core__genproto__authentication__v1",
     ],
@@ -3535,6 +3627,18 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = ["//third_party/go:github.com__hashicorp__go-multierror"],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__canonicalize",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/canonicalize"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__nyaruka__phonenumbers",
+        "//third_party/go:github.com__dimuska139__go-email-normalizer__v5",
+    ],
 )
 
 go_module(
@@ -3562,9 +3666,10 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
-        ":github.com__malonaz__core__go__grpc__interceptor",
+        ":github.com__malonaz__core__go__grpc__middleware",
         ":github.com__malonaz__core__go__health",
         ":github.com__malonaz__core__go__pbutil",
+        ":github.com__malonaz__core__go__pbutil__pbreflection",
         ":github.com__malonaz__core__go__prometheus",
         ":github.com__prometheus__client_golang__prometheus",
         ":github.com__sercand__kuberesolver__v5",
@@ -3580,9 +3685,7 @@ go_module(
         ":google.golang.org__grpc__metadata",
         ":google.golang.org__grpc__reflection",
         ":google.golang.org__grpc__reflection__grpc_reflection_v1",
-        ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
-        ":google.golang.org__protobuf__protoadapt",
         ":google.golang.org__protobuf__reflect__protodesc",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
@@ -3590,13 +3693,12 @@ go_module(
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__providers__prometheus",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__recovery",
+        "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
         "//third_party/go:github.com__grpc-ecosystem__grpc-gateway__v2__runtime",
         "//third_party/go:github.com__grpc-ecosystem__grpc-gateway__v2__utilities",
         "//third_party/go:github.com__huandu__xstrings",
         "//third_party/go:github.com__malonaz__core__genproto__grpc__v1",
         "//third_party/go:github.com__malonaz__core__go__certs",
-        "//third_party/proto:google__rpc__errdetails",
-        "//third_party/proto:google__rpc__status",
     ],
 )
 
@@ -3613,19 +3715,24 @@ go_module(
 )
 
 go_module(
-    name = "github.com__malonaz__core__go__grpc__interceptor",
+    name = "github.com__malonaz__core__go__grpc__middleware",
     download = ":_github.com__malonaz__core#download",
-    install = ["go/grpc/interceptor"],
+    install = ["go/grpc/middleware"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
+        ":github.com__malonaz__core__go__pbutil",
+        ":github.com__malonaz__core__go__pbutil__pbcanonicalize",
         ":github.com__malonaz__core__go__pbutil__pbfieldmask",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__health__grpc_health_v1",
         ":google.golang.org__grpc__metadata",
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__protoadapt",
+        ":google.golang.org__protobuf__reflect__protopath",
+        ":google.golang.org__protobuf__reflect__protorange",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
         "//third_party/go:buf.build__go__protovalidate",
@@ -3635,8 +3742,25 @@ go_module(
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__protovalidate",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__retry",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__selector",
+        "//third_party/go:github.com__malonaz__core__genproto__canonicalize__v1",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__rpc__errdetails",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__grpc__status",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/grpc/status"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__grpc__status",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__types__known__anypb",
+        "//third_party/proto:google__rpc__errdetails",
+        "//third_party/proto:google__rpc__status",
     ],
 )
 
@@ -3671,7 +3795,10 @@ go_module(
     install = ["go/jsonnet"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__google__go-jsonnet"],
+    deps = [
+        "//third_party/go:github.com__google__go-jsonnet",
+        "//third_party/go:github.com__google__go-jsonnet__ast",
+    ],
 )
 
 go_module(
@@ -3700,16 +3827,37 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__tidwall__pretty",
+        ":google.golang.org__grpc",
         ":google.golang.org__protobuf__encoding__protojson",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
-        ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__dynamicpb",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__structpb",
         "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/proto:google__api__annotations",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__pbutil__pbcanonicalize",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/pbutil/pbcanonicalize"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protopath",
+        ":google.golang.org__protobuf__reflect__protorange",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:github.com__malonaz__core__genproto__canonicalize__v1",
+        "//third_party/go:github.com__malonaz__core__go__canonicalize",
+        "//third_party/go:github.com__malonaz__core__go__grpc__status",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/proto:google__rpc__errdetails",
     ],
 )
 
@@ -3727,6 +3875,32 @@ go_module(
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__pbutil__pbreflection",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/pbutil/pbreflection"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__grpc",
+        ":google.golang.org__grpc__reflection",
+        ":google.golang.org__grpc__reflection__grpc_reflection_v1",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protodesc",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__types__descriptorpb",
+        ":google.golang.org__protobuf__types__dynamicpb",
+        "//third_party/go:github.com__huandu__xstrings",
+        "//third_party/go:github.com__malonaz__core__go__aip",
+        "//third_party/go:github.com__malonaz__core__go__grpc__grpcinproc",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
+        "//third_party/proto:malonaz__core__genproto__codegen__gateway__v1",
     ],
 )
 
@@ -4075,6 +4249,30 @@ go_module(
     module = "github.com/munnerz/goautoneg",
     visibility = ["PUBLIC"],
     deps = [],
+)
+
+go_mod_download(
+    name = "github.com__nyaruka__phonenumbers",
+    _tag = "download",
+    module = "github.com/nyaruka/phonenumbers",
+    version = "v1.6.10",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__nyaruka__phonenumbers",
+    download = ":_github.com__nyaruka__phonenumbers#download",
+    install = ["."],
+    module = "github.com/nyaruka/phonenumbers",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":golang.org__x__exp__slices",
+        ":golang.org__x__text__language",
+        ":golang.org__x__text__language__display",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
 )
 
 go_mod_download(
@@ -4653,8 +4851,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -5191,7 +5389,7 @@ go_mod_download(
     name = "go.einride.tech__aip",
     _tag = "download",
     module = "go.einride.tech/aip",
-    version = "v0.73.0",
+    version = "v0.80.0",
     visibility = ["PUBLIC"],
 )
 
@@ -5217,6 +5415,7 @@ go_module(
     deps = [
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__types__dynamicpb",
         "//third_party/proto:google__api__expr__v1alpha1",
     ],
 )
@@ -6053,6 +6252,18 @@ go_module(
     deps = [
         "//third_party/go:golang.org__x__text__internal__language",
         "//third_party/go:golang.org__x__text__internal__language__compact",
+    ],
+)
+
+go_module(
+    name = "golang.org__x__text__language__display",
+    download = ":_golang.org__x__text#download",
+    install = ["language/display"],
+    module = "golang.org/x/text",
+    visibility = ["PUBLIC"],
+    deps = [
+        "//third_party/go:golang.org__x__text__internal__format",
+        "//third_party/go:golang.org__x__text__language",
     ],
 )
 
@@ -7471,6 +7682,23 @@ go_module(
 )
 
 go_module(
+    name = "google.golang.org__protobuf__internal__msgfmt",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["internal/msgfmt"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__internal__order",
+        ":google.golang.org__protobuf__proto",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__protobuf__encoding__protowire",
+        "//third_party/go:google.golang.org__protobuf__internal__detrand",
+        "//third_party/go:google.golang.org__protobuf__internal__genid",
+    ],
+)
+
+go_module(
     name = "google.golang.org__protobuf__internal__order",
     download = ":_google.golang.org__protobuf#download",
     install = ["internal/order"],
@@ -7586,6 +7814,35 @@ go_module(
         "//third_party/go:google.golang.org__protobuf__internal__pragma",
         "//third_party/go:google.golang.org__protobuf__internal__strs",
         "//third_party/go:google.golang.org__protobuf__proto",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__reflect__protopath",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["reflect/protopath"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__internal__encoding__text",
+        "//third_party/go:google.golang.org__protobuf__internal__msgfmt",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__protobuf__reflect__protorange",
+    download = ":_google.golang.org__protobuf#download",
+    install = ["reflect/protorange"],
+    module = "google.golang.org/protobuf",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
+        "//third_party/go:google.golang.org__protobuf__internal__genid",
+        "//third_party/go:google.golang.org__protobuf__internal__order",
+        "//third_party/go:google.golang.org__protobuf__proto",
+        "//third_party/go:google.golang.org__protobuf__reflect__protopath",
     ],
 )
 

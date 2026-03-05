@@ -166,14 +166,8 @@ func New(
 		alertClipboardWrite:    *alertClipboardWrite,
 		navigationMessageIndex: -1,
 		navigationBlockIndex:   -1,
-		totalModelUsage: &aipb.ModelUsage{
-			InputToken:           &aipb.ResourceConsumption{},
-			OutputToken:          &aipb.ResourceConsumption{},
-			OutputReasoningToken: &aipb.ResourceConsumption{},
-			InputCacheReadToken:  &aipb.ResourceConsumption{},
-			InputCacheWriteToken: &aipb.ResourceConsumption{},
-		},
-		lastModelUsage: &aipb.ModelUsage{},
+		totalModelUsage:        &aipb.ModelUsage{},
+		lastModelUsage:         &aipb.ModelUsage{},
 	}
 
 	m.setTitle()
@@ -254,16 +248,15 @@ func (m *Model) setTitle() {
 		toolsStr = " 🔧"
 	}
 
-	totalInputTokens := m.totalModelUsage.GetInputToken().GetQuantity() + m.totalModelUsage.GetInputCacheReadToken().GetQuantity()
+	totalInputTokens := m.totalModelUsage.GetInputToken().GetQuantity() + m.totalModelUsage.GetInputTokenCacheRead().GetQuantity()
 	totalOutputTokens := m.totalModelUsage.GetOutputToken().GetQuantity() + m.totalModelUsage.GetOutputReasoningToken().GetQuantity()
-	totalPrice := m.totalModelUsage.GetInputToken().GetPrice() + m.totalModelUsage.GetOutputToken().GetPrice() + m.totalModelUsage.GetOutputReasoningToken().GetPrice() + m.totalModelUsage.GetInputCacheReadToken().GetPrice() + m.totalModelUsage.GetInputCacheWriteToken().GetPrice()
+	totalPrice := m.totalModelUsage.GetInputToken().GetPrice() + m.totalModelUsage.GetOutputToken().GetPrice() + m.totalModelUsage.GetOutputReasoningToken().GetPrice() + m.totalModelUsage.GetInputTokenCacheRead().GetPrice() + m.totalModelUsage.GetInputTokenCacheWrite().GetPrice()
 
 	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), totalPrice)
 
-	// Calculate context usage percentage
 	contextStr := ""
 	if contextLimit := m.opts.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
-		lastInputTokens := m.lastModelUsage.GetInputToken().GetQuantity() + m.lastModelUsage.GetInputCacheReadToken().GetQuantity()
+		lastInputTokens := m.lastModelUsage.GetInputToken().GetQuantity() + m.lastModelUsage.GetInputTokenCacheRead().GetQuantity()
 		usagePercent := float64(lastInputTokens) / float64(contextLimit) * 100
 		contextStr = fmt.Sprintf(" │ 📦 %.0f%% (%s/%s)", usagePercent, formatTokenCount(lastInputTokens), formatTokenCount(contextLimit))
 	}

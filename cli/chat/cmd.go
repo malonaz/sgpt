@@ -12,7 +12,7 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/aip"
-	"github.com/malonaz/core/go/grpc/interceptor"
+	"github.com/malonaz/core/go/grpc/middleware"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/tui"
@@ -247,7 +247,7 @@ func fetchModels(ctx context.Context, aiClient aiservicepb.AiServiceClient) erro
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	ctx = interceptor.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
+	ctx = middleware.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
 
 	listModelsRequest := &aiservicepb.ListModelsRequest{
 		Parent: "providers/-",

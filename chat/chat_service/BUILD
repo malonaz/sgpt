@@ -23,7 +23,7 @@ go_library(
         "//chat/store",
         "//chat/v1",
         "//third_party/go:github.com__malonaz__core__go__aip",
-        "//third_party/go:github.com__malonaz__core__go__grpc",
+        "//third_party/go:github.com__malonaz__core__go__grpc__status",
         "//third_party/go:google.golang.org__grpc__codes",
     ],
 )

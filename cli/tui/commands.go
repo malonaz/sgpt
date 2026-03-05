@@ -130,20 +130,9 @@ func (m *Model) startStreaming() tea.Cmd {
 		}
 
 		defer func() {
-			m.totalModelUsage.InputToken.Quantity += m.lastModelUsage.GetInputToken().GetQuantity()
-			m.totalModelUsage.InputToken.Price += m.lastModelUsage.GetInputToken().GetPrice()
-			m.totalModelUsage.OutputToken.Quantity += m.lastModelUsage.GetOutputToken().GetQuantity()
-			m.totalModelUsage.OutputToken.Price += m.lastModelUsage.GetOutputToken().GetPrice()
-			m.totalModelUsage.OutputReasoningToken.Quantity += m.lastModelUsage.GetOutputReasoningToken().GetQuantity()
-			m.totalModelUsage.OutputReasoningToken.Price += m.lastModelUsage.GetOutputReasoningToken().GetPrice()
-			m.totalModelUsage.InputCacheReadToken.Quantity += m.lastModelUsage.GetInputCacheReadToken().GetQuantity()
-			m.totalModelUsage.InputCacheReadToken.Price += m.lastModelUsage.GetInputCacheReadToken().GetPrice()
-			m.totalModelUsage.InputCacheWriteToken.Quantity += m.lastModelUsage.GetInputCacheWriteToken().GetQuantity()
-			m.totalModelUsage.InputCacheWriteToken.Price += m.lastModelUsage.GetInputCacheWriteToken().GetPrice()
-
+			ai.AggregateModelUsage(m.totalModelUsage, m.lastModelUsage)
 			// Reset the model usages.
 			m.lastModelUsage = &aipb.ModelUsage{}
-
 			m.setTitle()
 			m.renderTitle()
 		}()
