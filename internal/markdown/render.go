@@ -43,8 +43,10 @@ func NewRenderer(width int) (*Renderer, error) {
 // The index is used for caching. Use -1 for non-cached rendering.
 // Set finalized to true when the content is complete (enables full caching).
 func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block) string {
+	disableCache := messageIndex == -1
+
 	// Check cache first for the full content
-	if md, ok := r.mdCache[messageIndex]; ok {
+	if md, ok := r.mdCache[messageIndex]; ok && !disableCache {
 		return md
 	}
 
@@ -53,7 +55,7 @@ func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block)
 	for i, block := range blocks {
 		blockIndex := messageIndex*1_000_000_000 + i
 		r.blockCache[blockIndex] = block
-		if md, ok := r.blockMdCache[blockIndex]; ok {
+		if md, ok := r.blockMdCache[blockIndex]; ok && !disableCache {
 			sb.WriteString(md)
 			continue
 		}
@@ -66,7 +68,9 @@ func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block)
 			md = r.toMarkdownBlockIncremental(block, blockIndex)
 		} else {
 			md = r.toMarkdownBlock(block.md())
-			r.blockMdCache[blockIndex] = md
+			if !disableCache {
+				r.blockMdCache[blockIndex] = md
+			}
 		}
 		sb.WriteString(md)
 
@@ -77,7 +81,7 @@ func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block)
 
 	// Store in cache
 	result := sb.String()
-	if finalized {
+	if finalized && !disableCache {
 		r.mdCache[messageIndex] = result
 	}
 

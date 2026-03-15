@@ -41,7 +41,7 @@ message Chat {
   repeated string files = 6 [(malonaz.codegen.model.v1.field_opts).nullable = true];
 
   // Metadata for this chat.
-  ChatMetadata metadata = 10 [(malonaz.codegen.model.v1.field_opts).as_proto_bytes = true];
+  ChatMetadata metadata = 10 [(malonaz.codegen.model.v1.field_opts).as_json_bytes = true];
 }
 
 // Metadata for a chat.

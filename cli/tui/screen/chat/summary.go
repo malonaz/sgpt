@@ -1,4 +1,4 @@
-package tui
+package chat
 
 import (
 	"context"
@@ -9,20 +9,20 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
+
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
 	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
-
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-// GenerateChatSummary creates a title/summary for the chat using the specified model.
 func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient, chat *chatpb.Chat) error {
 	if config.Chat.SummaryModel == "" {
 		return nil
 	}
 	if len(chat.Metadata.Messages) < 1 {
-		return fmt.Errorf("expected at least 2 messages, found %d", len(chat.Metadata.Messages))
+		return fmt.Errorf("expected at least 1 message, found %d", len(chat.Metadata.Messages))
 	}
+
 	userMessage := chat.Metadata.Messages[0].Message
 	if userMessage.Role != aipb.Role_ROLE_USER {
 		return fmt.Errorf("expected first message to be user role")
@@ -39,7 +39,7 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 		userMessage,
 	}
 
-	request := &aiservicepb.TextToTextRequest{
+	textToTextRequest := &aiservicepb.TextToTextRequest{
 		Model:    summaryModel,
 		Messages: messages,
 		Configuration: &aiservicepb.TextToTextConfiguration{
@@ -47,29 +47,30 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 		},
 	}
 
-	response, err := aiClient.TextToText(ctx, request)
+	textToTextResponse, err := aiClient.TextToText(ctx, textToTextRequest)
 	if err != nil {
-		return fmt.Errorf("failed to generate summary: %w", err)
+		return fmt.Errorf("generating summary: %w", err)
 	}
 
 	var summary string
-	for _, block := range ai.FilterBlocks(response.GetMessage().GetBlocks(), ai.BlockTypeText) {
+	for _, block := range ai.FilterBlocks(textToTextResponse.GetMessage().GetBlocks(), ai.BlockTypeText) {
 		summary += block.GetText()
 	}
 	cleanSummary := strings.TrimSpace(summary)
 	cleanSummary = strings.Trim(cleanSummary, `"'`)
 	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
 
-	if cleanSummary != "" {
-		chat.Metadata.Title = cleanSummary
-		updateChatRequest := &chatservicepb.UpdateChatRequest{
-			Chat:       chat,
-			UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
-		}
-		if _, err := chatClient.UpdateChat(ctx, updateChatRequest); err != nil {
-			return fmt.Errorf("updating chat title: %w", err)
-		}
+	if cleanSummary == "" {
+		return nil
 	}
 
+	chat.Metadata.Title = cleanSummary
+	updateChatRequest := &chatservicepb.UpdateChatRequest{
+		Chat:       chat,
+		UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
+	}
+	if _, err := chatClient.UpdateChat(ctx, updateChatRequest); err != nil {
+		return fmt.Errorf("updating chat title: %w", err)
+	}
 	return nil
 }

@@ -1,0 +1,19 @@
+go_library(
+    name = "search",
+    srcs = [
+        "model.go",
+        "update.go",
+        "view.go",
+    ],
+    visibility = ["//..."],
+    deps = [
+        "//chat/chat_service/v1",
+        "//chat/v1",
+        "//cli/tui/screen",
+        "//cli/tui/styles",
+        "//third_party/go:charm.land__bubbles__v2__key",
+        "//third_party/go:charm.land__bubbles__v2__textarea",
+        "//third_party/go:charm.land__bubbles__v2__viewport",
+        "//third_party/go:charm.land__bubbletea__v2",
+    ],
+)

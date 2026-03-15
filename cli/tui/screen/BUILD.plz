@@ -1,0 +1,9 @@
+go_library(
+    name = "screen",
+    srcs = ["screen.go"],
+    visibility = ["//..."],
+    deps = [
+        "//chat/v1",
+        "//third_party/go:charm.land__bubbletea__v2",
+    ],
+)

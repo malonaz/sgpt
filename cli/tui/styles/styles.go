@@ -4,73 +4,88 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Layout constants
 const (
-	// Textarea
 	MinTextareaHeight    = 3
 	MaxTextareaHeight    = 20
 	DefaultTextareaWidth = 80
 	TextAreaPaddingLeft  = 1
 
-	// Viewport
 	MinViewportHeight = 1
 
-	// Layout
 	MessagePaddingLeft = 2
 
-	// Block indicator
 	BlockIndicatorChar  = "┃"
-	BlockIndicatorWidth = 2 // Character width + space
+	BlockIndicatorWidth = 2
 
-	// Confirmation dialog
 	ConfirmPaddingHorizontal = 2
 	ConfirmPaddingVertical   = 1
 	ConfirmMarginTop         = 1
 
-	// Help
 	HelpMarginTop = 1
 
-	// Truncation
 	TruncateLength       = 100
 	TruncateSuffix       = "..."
 	TruncateSuffixLength = 3
+
+	TabBarHeight = 1
 )
 
-// Color palette
 var (
-	PrimaryColor           = lipgloss.Color("#7C3AED") // Purple
-	SecondaryColor         = lipgloss.Color("#06B6D4") // Cyan
-	AccentColor            = lipgloss.Color("#F59E0B") // Amber
-	SuccessColor           = lipgloss.Color("#10B981") // Green
-	ErrorColor             = lipgloss.Color("#EF4444") // Red
-	MutedColor             = lipgloss.Color("#6B7280") // Gray
-	TextColor              = lipgloss.Color("#F9FAFB") // Light gray
-	DimTextColor           = lipgloss.Color("#9CA3AF") // Dim gray
+	PrimaryColor           = lipgloss.Color("#7C3AED")
+	SecondaryColor         = lipgloss.Color("#06B6D4")
+	AccentColor            = lipgloss.Color("#F59E0B")
+	SuccessColor           = lipgloss.Color("#10B981")
+	ErrorColor             = lipgloss.Color("#EF4444")
+	MutedColor             = lipgloss.Color("#6B7280")
+	TextColor              = lipgloss.Color("#F9FAFB")
+	DimTextColor           = lipgloss.Color("#9CA3AF")
 	MessageColor           = lipgloss.Color("#E5E7EB")
 	ThoughtColor           = lipgloss.Color("#FCD34D")
-	FileColor              = lipgloss.Color("#F472B6") // Pink
+	FileColor              = lipgloss.Color("#F472B6")
 	BorderColor            = lipgloss.Color("#4B5563")
 	DividerColor           = lipgloss.Color("#374151")
 	CodeBgColor            = lipgloss.Color("#374151")
 	MessageSelectedColor   = PrimaryColor
-	MessageUnselectedColor = lipgloss.Color("#9CA3AF") // Dim gray
-	BlockIndicatorColor    = lipgloss.Color("#4B5563") // Default block indicator color
+	MessageUnselectedColor = lipgloss.Color("#9CA3AF")
+	BlockIndicatorColor    = lipgloss.Color("#4B5563")
+
+	TabActiveColor   = PrimaryColor
+	TabInactiveColor = lipgloss.Color("#374151")
+	TabTextColor     = TextColor
+	TabDimTextColor  = DimTextColor
 )
 
-// Title bar
 var (
 	TitleStyle = lipgloss.NewStyle().
 			Background(PrimaryColor).
 			Foreground(TextColor).
-			Bold(true).
-			MarginBottom(1)
+			Bold(true)
 
 	StatusStyle = lipgloss.NewStyle().
 			Foreground(DimTextColor).
 			Background(PrimaryColor)
 )
 
-// Messages.
+var (
+	TabBarStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#1F2937"))
+
+	TabActiveStyle = lipgloss.NewStyle().
+			Background(TabActiveColor).
+			Foreground(TabTextColor).
+			Bold(true).
+			Padding(0, 1)
+
+	TabInactiveStyle = lipgloss.NewStyle().
+				Background(TabInactiveColor).
+				Foreground(TabDimTextColor).
+				Padding(0, 1)
+
+	TabStreamingIndicator = lipgloss.NewStyle().
+				Foreground(AccentColor).
+				Bold(true)
+)
+
 var (
 	messageStyle = lipgloss.NewStyle().
 			Foreground(TextColor).
@@ -91,12 +106,10 @@ var (
 			Inherit(AIMessageStyle).
 			BorderForeground(ThoughtColor)
 
-	// User message
 	UserLabelStyle = lipgloss.NewStyle().
 			Foreground(SuccessColor).
 			Bold(true)
 
-	// Ai message
 	AILabelStyle = lipgloss.NewStyle().
 			Foreground(SecondaryColor).
 			Bold(true)
@@ -112,7 +125,6 @@ var (
 				PaddingLeft(MessagePaddingLeft)
 )
 
-// Reasoning/thought
 var (
 	ThoughtLabelStyle = lipgloss.NewStyle().
 				Foreground(AccentColor).
@@ -127,7 +139,6 @@ var (
 			Foreground(DimTextColor)
 )
 
-// Block indicator
 var (
 	BlockIndicatorStyle = lipgloss.NewStyle().
 				Foreground(BlockIndicatorColor)
@@ -136,7 +147,6 @@ var (
 					Foreground(MessageSelectedColor)
 )
 
-// Tools
 var (
 	ToolLabelStyle = lipgloss.NewStyle().
 			Foreground(AccentColor).
@@ -151,28 +161,24 @@ var (
 			PaddingLeft(MessagePaddingLeft)
 )
 
-// File injection
 var (
 	FileStyle = lipgloss.NewStyle().
 		Foreground(FileColor).
 		Italic(true)
 )
 
-// System message
 var (
 	SystemStyle = lipgloss.NewStyle().
 		Foreground(MutedColor).
 		Italic(true)
 )
 
-// Error
 var (
 	ErrorStyle = lipgloss.NewStyle().
 		Foreground(ErrorColor).
 		Bold(true)
 )
 
-// Input area
 var (
 	TextAreaStyle = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -180,13 +186,11 @@ var (
 		PaddingLeft(TextAreaPaddingLeft)
 )
 
-// Spinner
 var (
 	SpinnerStyle = lipgloss.NewStyle().
 		Foreground(SecondaryColor)
 )
 
-// Help text
 var (
 	HelpStyle = lipgloss.NewStyle().
 		Foreground(MutedColor).
@@ -194,7 +198,6 @@ var (
 		MarginTop(HelpMarginTop)
 )
 
-// Confirmation dialog
 var (
 	ConfirmBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -211,28 +214,64 @@ var (
 				Background(CodeBgColor)
 )
 
-// Viewport
 var (
 	ViewportStyle = lipgloss.NewStyle().Margin(0).Padding(0)
 )
 
-// Divider
 var (
 	DividerStyle = lipgloss.NewStyle().
 		Foreground(DividerColor)
 )
 
-// MessageHorizontalFrameSize returns the horizontal frame size of AI messages.
+var (
+	MenuSelectedStyle = lipgloss.NewStyle().
+				Background(PrimaryColor).
+				Foreground(TextColor).
+				Bold(true).
+				Padding(0, 1)
+
+	MenuItemStyle = lipgloss.NewStyle().
+			Foreground(TextColor).
+			Padding(0, 1)
+
+	MenuHeaderStyle = lipgloss.NewStyle().
+			Foreground(DimTextColor).
+			Bold(true).
+			Padding(0, 1).
+			BorderBottom(true).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(DividerColor)
+
+	MenuDimStyle = lipgloss.NewStyle().
+			Foreground(DimTextColor)
+
+	MenuTitleStyle = lipgloss.NewStyle().
+			Foreground(SecondaryColor)
+
+	MenuTagStyle = lipgloss.NewStyle().
+			Foreground(AccentColor).
+			Italic(true)
+)
+
+var (
+	SearchInputStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(SecondaryColor).
+				PaddingLeft(1)
+
+	SearchPromptStyle = lipgloss.NewStyle().
+				Foreground(SecondaryColor).
+				Bold(true)
+)
+
 func MessageHorizontalFrameSize() int {
 	return AIMessageStyle.GetHorizontalFrameSize()
 }
 
-// Divider creates a horizontal divider of the specified width.
 func Divider(width int) string {
 	return DividerStyle.Render(lipgloss.NewStyle().Width(width).Render("─"))
 }
 
-// Truncate truncates a string to the specified length with a suffix.
 func Truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s

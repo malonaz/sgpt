@@ -18,8 +18,20 @@ func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.
 		return status.Errorf(codes.Internal, "unmarshaling chat resource name: %v", err).Err()
 	}
 
-	// Compute the searchable content.
 	var sb strings.Builder
+	if chat.GetMetadata().GetTitle() != "" {
+		sb.WriteString(chat.GetMetadata().GetTitle())
+		sb.WriteString("\n")
+	}
+	for _, message := range chat.GetMetadata().GetMessages() {
+		for _, block := range message.GetMessage().GetBlocks() {
+			if block.GetText() != "" {
+				sb.WriteString(block.GetText())
+				sb.WriteString("\n")
+			}
+		}
+	}
+
 	searchableContent := sb.String()
 	if len(searchableContent) == 0 {
 		return nil

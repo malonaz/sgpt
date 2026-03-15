@@ -16,17 +16,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/tui"
+	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
 	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
-	"github.com/malonaz/sgpt/internal/types"
 )
 
 var models []*aipb.Model
 
-// NewCmd instantiates and returns the chat command.
 func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
 	var opts struct {
 		FileInjection   *file.InjectionOpts
@@ -39,6 +38,7 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 		ReasoningEffort string
 		EnableTools     bool
 	}
+
 	cmd := &cobra.Command{
 		Use: "chat",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -54,14 +54,11 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 					opts.Model = config.Chat.DefaultModel
 				}
 			}
-
 			opts.Model, err = config.ResolveModelAlias(opts.Model)
 			cobra.CheckErr(err)
 
 			if len(models) == 0 {
-				if err := fetchModels(ctx, aiClient); err != nil {
-					cobra.CheckErr(err)
-				}
+				cobra.CheckErr(fetchModels(ctx, aiClient))
 			}
 
 			var selectedModel *aipb.Model
@@ -76,8 +73,7 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 			}
 
 			var reasoningEffort aipb.ReasoningEffort
-			opts.ReasoningEffort = strings.ToLower(opts.ReasoningEffort)
-			switch opts.ReasoningEffort {
+			switch strings.ToLower(opts.ReasoningEffort) {
 			case "":
 			case "low", "l":
 				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_LOW
@@ -143,15 +139,12 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 			}
 
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
-			message := ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt))
-			additionalMessages = append(additionalMessages, message)
-
+			additionalMessages = append(additionalMessages, ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt)))
 			for _, f := range files {
-				message := ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content)))
-				additionalMessages = append(additionalMessages, message)
+				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))))
 			}
 
-			chatOpts := types.ChatOptions{
+			chatOpts := chatscreen.Options{
 				Model:           selectedModel,
 				Role:            parsedRole,
 				MaxTokens:       opts.MaxTokens,
@@ -161,43 +154,31 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				ChatID:          opts.ChatID,
 			}
 
-			m, err := tui.New(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)
-			if err != nil {
-				return err
-			}
+			app := tui.NewApp(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)
 
-			// v2: AltScreen, MouseMode, and ReportFocus are now declared in View().
-			p := tea.NewProgram(
-				m,
-				tea.WithContext(ctx),
-				tea.WithFilter(m.Filter()),
-			)
-
-			m.SetProgram(p)
+			p := tea.NewProgram(app, tea.WithContext(ctx))
+			app.SetProgram(p)
 
 			if _, err := p.Run(); err != nil {
-				return fmt.Errorf("error running chat: %w", err)
+				return fmt.Errorf("running chat: %w", err)
 			}
-
 			return nil
 		},
 	}
 
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
-	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias to use (e.g., 'o' for gpt-4o, '4' for gpt-4)")
+	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias")
 	cmd.Flags().Int32Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
-	cmd.Flags().StringVar(&opts.ChatID, "id", "", "specify a chat id")
+	cmd.Flags().StringVar(&opts.ChatID, "id", "", "Chat ID to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
-	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Specify a reasoning level (LOW, MEDIUM, HIGH)")
-	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage (shell commands, etc)")
+	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Reasoning level (low, medium, high)")
+	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(models) == 0 {
-			if err := fetchModels(cmd.Context(), aiClient); err != nil {
-				cobra.CheckErr(err)
-			}
+			fetchModels(cmd.Context(), aiClient)
 		}
 		return filterModels(models, toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -206,36 +187,28 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 }
 
 func filterModels(models []*aipb.Model, prefix string) []string {
-	var modelNames []string
+	var names []string
 	for _, model := range models {
-		modelNames = append(modelNames, model.Name)
+		names = append(names, model.Name)
 	}
-
 	if prefix == "" {
-		return modelNames
+		return names
 	}
-
-	var matches []string
 	lowerPrefix := strings.ToLower(prefix)
-
-	for _, name := range modelNames {
+	var matches []string
+	for _, name := range names {
 		if strings.Contains(strings.ToLower(name), lowerPrefix) {
 			matches = append(matches, name)
 		}
 	}
-
 	return matches
 }
 
 func fetchModels(ctx context.Context, aiClient aiservicepb.AiServiceClient) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-
 	ctx = middleware.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
-
-	listModelsRequest := &aiservicepb.ListModelsRequest{
-		Parent: "providers/-",
-	}
+	listModelsRequest := &aiservicepb.ListModelsRequest{Parent: "providers/-"}
 	fetchedModels, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
 	if err != nil {
 		return err

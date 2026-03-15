@@ -1,0 +1,9 @@
+go_library(
+    name = "component",
+    srcs = [
+        "confirm.go",
+        "tab_bar.go",
+    ],
+    visibility = ["//..."],
+    deps = ["//cli/tui/styles"],
+)

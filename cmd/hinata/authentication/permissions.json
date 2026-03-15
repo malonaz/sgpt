@@ -9,6 +9,7 @@ local external_service_accounts = import 'external_service_accounts.json';
       "id": "chat:reader",
       "permissions": [
         "/sgpt.chat.chat_service.v1.ChatService/ListChats",
+        "/sgpt.chat.chat_service.v1.ChatService/SearchChats",
         "/sgpt.chat.chat_service.v1.ChatService/GetChat",
       ],
     },

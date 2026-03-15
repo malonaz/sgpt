@@ -1,5 +1,10 @@
 name: chat
 directories:
+  - name: extensions
+    extension: true
+    migrations:
+      - filename: 001_add_pg_trgm.sql
+        hash: 106a59094d5cd047cb07f39e68db563a
   - name: chat
     extension: false
     migrations:
@@ -9,3 +14,7 @@ directories:
         hash: 032e04769ee27f286105ccf60cd891ea
       - filename: 003_make_tags_files_nullable.sql
         hash: 525325e6f271c8bfcf2023338b802ec5
+      - filename: 004_use_trigram.sql
+        hash: 877709b0373c989662963040da92d245
+      - filename: 005_metadata_to_jsonb.sql
+        hash: 65a9ca8e7009e2c62381bca7c294247f
