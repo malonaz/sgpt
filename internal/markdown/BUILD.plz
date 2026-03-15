@@ -6,8 +6,8 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
-        "//third_party/go:github.com__charmbracelet__glamour",
-        "//third_party/go:github.com__charmbracelet__glamour__ansi",
-        "//third_party/go:github.com__charmbracelet__glamour__styles",
+        "//third_party/go:charm.land__glamour__v2",
+        "//third_party/go:charm.land__glamour__v2__ansi",
+        "//third_party/go:charm.land__glamour__v2__styles",
     ],
 )

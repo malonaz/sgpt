@@ -4,21 +4,24 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/malonaz/core/go/pbutil"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/types"
 )
 
-// View renders the model.
-func (m *Model) View() string {
+// View renders the full TUI frame as a declarative tea.View: title bar, viewport
+// (scrollable message area), and either the tool confirmation dialog or the textarea
+// input, plus any active alert overlay. AltScreen and ReportFocus are set declaratively.
+func (m *Model) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.NewView("")
 	}
 
 	if !m.ready {
-		return "Initializing..."
+		return tea.NewView("Initializing...")
 	}
 
 	var b strings.Builder
@@ -42,15 +45,25 @@ func (m *Model) View() string {
 		b.WriteString(styles.HelpStyle.Render("Press Y to confirm, N or Esc to cancel"))
 	}
 
-	return m.alertClipboardWrite.Render(b.String())
+	content := m.renderAlert(b.String())
+
+	view := tea.NewView(content)
+	view.AltScreen = true
+	view.ReportFocus = true
+	return view
 }
 
+// renderTitle renders the title bar at the current terminal width and caches
+// its height (in lines) for layout calculations.
 func (m *Model) renderTitle() string {
 	rendered := styles.TitleStyle.Width(m.width).Render(m.title)
 	m.titleHeight = lipgloss.Height(rendered)
 	return rendered
 }
 
+// getBlockIndicatorStyle returns the appropriate indicator style for a block based
+// on whether the viewport is focused and whether this specific block (or its parent
+// message in select-all mode) is currently selected.
 func (m *Model) getBlockIndicatorStyle(messageIndex, blockIndex int) lipgloss.Style {
 	if m.focusedComponent != FocusViewport {
 		return styles.BlockIndicatorStyle
@@ -64,7 +77,8 @@ func (m *Model) getBlockIndicatorStyle(messageIndex, blockIndex int) lipgloss.St
 	return styles.BlockIndicatorStyle
 }
 
-// renderBlockWithIndicator renders a block with a left indicator bar.
+// renderBlockWithIndicator prepends a vertical bar indicator to each line of the
+// given content string. The indicator color reflects whether the block is selected.
 func (m *Model) renderBlockWithIndicator(content string, messageIndex, blockIndex int) string {
 	indicatorStyle := m.getBlockIndicatorStyle(messageIndex, blockIndex)
 	lines := strings.Split(content, "\n")
@@ -80,6 +94,8 @@ func (m *Model) renderBlockWithIndicator(content string, messageIndex, blockInde
 	return result.String()
 }
 
+// getStyle returns the message border style with the appropriate border color
+// based on whether the viewport is focused and whether this message is selected.
 func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style {
 	style = style.Width(m.width - styles.MessageHorizontalFrameSize())
 	if m.focusedComponent != FocusViewport {
@@ -92,6 +108,9 @@ func (m *Model) getStyle(style lipgloss.Style, messageIndex int) lipgloss.Style 
 	return style.BorderForeground(fg)
 }
 
+// renderMessages builds the full viewport content string from all runtime messages.
+// It populates messageViewportOffsets and blockViewportOffsets as a side effect so
+// that navigation and scrolling can map message/block indices to viewport line numbers.
 func (m *Model) renderMessages() string {
 	currentLine := 0
 	var b strings.Builder
@@ -100,7 +119,7 @@ func (m *Model) renderMessages() string {
 		currentLine += strings.Count(s, "\n")
 	}
 
-	contentWidth := m.viewport.Width
+	contentWidth := m.viewport.Width()
 
 	if len(m.injectedFiles) > 0 {
 		for i, f := range m.injectedFiles {
@@ -111,7 +130,6 @@ func (m *Model) renderMessages() string {
 		writeString("\n")
 	}
 
-	// Reset viewport offsets
 	m.messageViewportOffsets = make([]int, 0, len(m.runtimeMessages))
 	m.blockViewportOffsets = make([][]int, 0, len(m.runtimeMessages))
 
@@ -121,12 +139,10 @@ func (m *Model) renderMessages() string {
 		}
 		m.messageViewportOffsets = append(m.messageViewportOffsets, currentLine)
 
-		// Track block offsets for this message
 		blockOffsets := make([]int, 0, len(rm.Blocks))
 
 		switch rm.Type {
 		case types.RuntimeMessageTypeUser:
-			// Always render blocks with indicators
 			var blockContent strings.Builder
 			for bi, block := range rm.Blocks {
 				if bi > 0 {
@@ -140,7 +156,6 @@ func (m *Model) renderMessages() string {
 			writeString(style.Render(blockContent.String()))
 
 		case types.RuntimeMessageTypeThinking:
-			// Always render blocks with indicators
 			var blockContent strings.Builder
 			for bi, block := range rm.Blocks {
 				if bi > 0 {
@@ -154,7 +169,6 @@ func (m *Model) renderMessages() string {
 			writeString(style.Render(blockContent.String()))
 
 		case types.RuntimeMessageTypeAssistant:
-			// Always render blocks with indicators
 			var blockContent strings.Builder
 			for bi, block := range rm.Blocks {
 				if bi > 0 {
@@ -199,6 +213,8 @@ func (m *Model) renderMessages() string {
 	return b.String()
 }
 
+// renderConfirmDialog renders the tool call confirmation dialog box showing the
+// command to be executed and its optional working directory.
 func (m *Model) renderConfirmDialog() string {
 	var b strings.Builder
 	b.WriteString(styles.ConfirmTitleStyle.Render("🔧 Execute Shell Command?"))

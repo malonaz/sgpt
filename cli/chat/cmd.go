@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -44,11 +44,9 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			// Parse model and role.
 			parsedRole, err := opts.Role.Parse()
 			cobra.CheckErr(err)
 
-			// Set defaults
 			if opts.Model == "" {
 				if parsedRole != nil && parsedRole.Model != "" {
 					opts.Model = parsedRole.Model
@@ -57,17 +55,15 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				}
 			}
 
-			// Resolve model alias
 			opts.Model, err = config.ResolveModelAlias(opts.Model)
 			cobra.CheckErr(err)
 
-			// Fetch models if not already cached
 			if len(models) == 0 {
-				err := fetchModels(ctx, aiClient)
-				cobra.CheckErr(err)
+				if err := fetchModels(ctx, aiClient); err != nil {
+					cobra.CheckErr(err)
+				}
 			}
 
-			// Find the model by name
 			var selectedModel *aipb.Model
 			for _, model := range models {
 				if model.Name == opts.Model {
@@ -79,7 +75,6 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				return fmt.Errorf("model not found: %s", opts.Model)
 			}
 
-			// Parse reasoning effort.
 			var reasoningEffort aipb.ReasoningEffort
 			opts.ReasoningEffort = strings.ToLower(opts.ReasoningEffort)
 			switch opts.ReasoningEffort {
@@ -94,7 +89,6 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				return fmt.Errorf("unknown reasoning effort %s", opts.ReasoningEffort)
 			}
 
-			// Parse files
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
@@ -103,7 +97,6 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				filePaths[i] = f.Path
 			}
 
-			// Process tags.
 			var tags []string
 			githubRepoSet := map[string]struct{}{}
 			for _, filePath := range filePaths {
@@ -115,7 +108,6 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				tags = append(tags, githubRepo)
 			}
 
-			// Parse or create chat
 			var chat *chatpb.Chat
 			if opts.ChatID != "" {
 				getChatRequest := &chatservicepb.GetChatRequest{Name: opts.ChatID}
@@ -150,19 +142,15 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				opts.ChatID = chat.Name
 			}
 
-			// Build additional messages (files + role)
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
-			// Inject role
 			message := ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt))
 			additionalMessages = append(additionalMessages, message)
 
-			// Inject files
 			for _, f := range files {
 				message := ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content)))
 				additionalMessages = append(additionalMessages, message)
 			}
 
-			// Create chat options
 			chatOpts := types.ChatOptions{
 				Model:           selectedModel,
 				Role:            parsedRole,
@@ -173,23 +161,18 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				ChatID:          opts.ChatID,
 			}
 
-			// Create the model
 			m, err := tui.New(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)
 			if err != nil {
 				return err
 			}
 
-			// Create the Bubble Tea program
+			// v2: AltScreen, MouseMode, and ReportFocus are now declared in View().
 			p := tea.NewProgram(
 				m,
-				tea.WithAltScreen(),
 				tea.WithContext(ctx),
 				tea.WithFilter(m.Filter()),
-				tea.WithMouseCellMotion(),
-				tea.WithReportFocus(),
 			)
 
-			// Set the program reference for async message sending
 			m.SetProgram(p)
 
 			if _, err := p.Run(); err != nil {
@@ -212,8 +195,9 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(models) == 0 {
-			err := fetchModels(cmd.Context(), aiClient)
-			cobra.CheckErr(err)
+			if err := fetchModels(cmd.Context(), aiClient); err != nil {
+				cobra.CheckErr(err)
+			}
 		}
 		return filterModels(models, toComplete), cobra.ShellCompDirectiveNoFileComp
 	})

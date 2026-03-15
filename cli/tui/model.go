@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	"go.dalton.dog/bubbleup"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
@@ -30,6 +30,9 @@ import (
 const (
 	renderThrottleInterval = 66 * time.Millisecond
 
+	// alertDuration controls how long the clipboard alert overlay is shown.
+	alertDuration = 2 * time.Second
+
 	FocusTextarea FocusedComponent = iota
 	FocusViewport
 )
@@ -40,6 +43,16 @@ var (
 )
 
 type FocusedComponent int
+
+// alertDismissMsg is sent when the alert overlay timer expires.
+type alertDismissMsg struct{}
+
+// AlertOverlay holds state for a temporary notification banner displayed over
+// the TUI content (e.g., "Copied to clipboard!").
+type AlertOverlay struct {
+	message string
+	visible bool
+}
 
 // Model represents the Bubble Tea model for the chat session.
 type Model struct {
@@ -59,8 +72,8 @@ type Model struct {
 
 	// Runtime messages for display (decoupled from proto messages)
 	runtimeMessages        []*types.RuntimeMessage
-	messageViewportOffsets []int   // Tracks the line offset of each message in the viewport.
-	blockViewportOffsets   [][]int // Tracks the line offset of each block within each message (for block mode).
+	messageViewportOffsets []int
+	blockViewportOffsets   [][]int
 
 	// UI components
 	textarea textarea.Model
@@ -81,8 +94,8 @@ type Model struct {
 	windowFocused    bool
 	focusedComponent FocusedComponent
 
-	// Alert notifications.
-	alertClipboardWrite bubbleup.AlertModel
+	// Alert notification overlay (replaces bubbleup).
+	alert AlertOverlay
 
 	// Tool confirmation state
 	pendingToolCall *aipb.ToolCall
@@ -105,7 +118,7 @@ type Model struct {
 
 	// Tracks the index of the message we're currently navigating. (-1 if none is selected).
 	navigationMessageIndex int
-	navigationBlockIndex   int // Index within the current message's block. (-1 if we're not in block mode).
+	navigationBlockIndex   int
 }
 
 // New creates a new chat session model.
@@ -121,7 +134,6 @@ func New(
 ) (*Model, error) {
 	log = debug.GetLogger()
 
-	// Create textarea for input
 	ta := textarea.New()
 	ta.Placeholder = "Type your message... (Ctrl+J to send, Alt+V to view, Alt+P/N for history, Ctrl+C to quit)"
 	ta.Focus()
@@ -132,14 +144,10 @@ func New(
 	ta.KeyMap.InsertNewline.SetEnabled(true)
 	ta.Prompt = ""
 
-	// Create spinner
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = styles.SpinnerStyle
 
-	alertClipboardWrite := bubbleup.NewAlertModel(25, true, 1)
-
-	// Initialize runtime messages from existing chat messages
 	runtimeMsgs := types.RuntimeMessagesFromProto(chat.Metadata.Messages)
 
 	renderer, err := markdown.NewRenderer(styles.DefaultTextareaWidth)
@@ -163,7 +171,6 @@ func New(
 		history:                history.NewHistory(),
 		runtimeMessages:        runtimeMsgs,
 		renderer:               renderer,
-		alertClipboardWrite:    *alertClipboardWrite,
 		navigationMessageIndex: -1,
 		navigationBlockIndex:   -1,
 		totalModelUsage:        &aipb.ModelUsage{},
@@ -188,13 +195,37 @@ func (m *Model) getProgram() *tea.Program {
 	return m.program
 }
 
-// Init initializes the model.
+// Init initializes the model with textarea blink and spinner tick commands.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		textarea.Blink,
 		m.spinner.Tick,
-		m.alertClipboardWrite.Init(),
 	)
+}
+
+// showAlert displays a temporary notification overlay with the given message.
+// It returns a tea.Cmd that will dismiss the alert after alertDuration.
+func (m *Model) showAlert(message string) tea.Cmd {
+	m.alert.message = message
+	m.alert.visible = true
+	return tea.Tick(alertDuration, func(time.Time) tea.Msg {
+		return alertDismissMsg{}
+	})
+}
+
+// renderAlert overlays the alert banner on top of the given content string
+// if the alert is currently visible.
+func (m *Model) renderAlert(content string) string {
+	if !m.alert.visible {
+		return content
+	}
+	alertStyle := lipgloss.NewStyle().
+		Background(styles.SuccessColor).
+		Foreground(lipgloss.Color("#000000")).
+		Bold(true).
+		Padding(0, 1)
+	banner := alertStyle.Render(m.alert.message)
+	return lipgloss.JoinVertical(lipgloss.Left, banner, content)
 }
 
 // getMessagesForAPI returns messages suitable for sending to the API.

@@ -126,6 +126,233 @@ go_module(
 )
 
 go_mod_download(
+    name = "charm.land__bubbles__v2",
+    _tag = "download",
+    module = "charm.land/bubbles/v2",
+    version = "v2.0.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__cursor",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["cursor"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":charm.land__bubbletea__v2",
+        ":charm.land__lipgloss__v2",
+    ],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__internal__memoization",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["internal/memoization"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__internal__runeutil",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["internal/runeutil"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__key",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["key"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__spinner",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["spinner"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":charm.land__bubbletea__v2",
+        ":charm.land__lipgloss__v2",
+    ],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__textarea",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["textarea"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":charm.land__bubbles__v2__viewport",
+        ":charm.land__bubbletea__v2",
+        ":charm.land__lipgloss__v2",
+        ":github.com__atotto__clipboard",
+        ":github.com__charmbracelet__x__ansi",
+        ":github.com__mattn__go-runewidth",
+        ":github.com__rivo__uniseg",
+        "//third_party/go:charm.land__bubbles__v2__cursor",
+        "//third_party/go:charm.land__bubbles__v2__internal__memoization",
+        "//third_party/go:charm.land__bubbles__v2__internal__runeutil",
+        "//third_party/go:charm.land__bubbles__v2__key",
+    ],
+)
+
+go_module(
+    name = "charm.land__bubbles__v2__viewport",
+    download = ":_charm.land__bubbles__v2#download",
+    install = ["viewport"],
+    module = "charm.land/bubbles/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":charm.land__bubbletea__v2",
+        ":charm.land__lipgloss__v2",
+        ":github.com__charmbracelet__x__ansi",
+        ":github.com__rivo__uniseg",
+        "//third_party/go:charm.land__bubbles__v2__key",
+    ],
+)
+
+go_mod_download(
+    name = "charm.land__bubbletea__v2",
+    _tag = "download",
+    module = "charm.land/bubbletea/v2",
+    version = "v2.0.2",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "charm.land__bubbletea__v2",
+    download = ":_charm.land__bubbletea__v2#download",
+    install = ["."],
+    module = "charm.land/bubbletea/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__colorprofile",
+        ":github.com__charmbracelet__ultraviolet",
+        ":github.com__charmbracelet__x__ansi",
+        ":github.com__charmbracelet__x__term",
+        ":github.com__lucasb-eyer__go-colorful",
+        ":github.com__muesli__cancelreader",
+        ":golang.org__x__sys__unix",
+    ],
+)
+
+go_mod_download(
+    name = "charm.land__glamour__v2",
+    _tag = "download",
+    module = "charm.land/glamour/v2",
+    version = "v2.0.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "charm.land__glamour__v2",
+    download = ":_charm.land__glamour__v2#download",
+    install = ["."],
+    module = "charm.land/glamour/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":charm.land__glamour__v2__ansi",
+        ":charm.land__glamour__v2__styles",
+        ":github.com__yuin__goldmark",
+        ":github.com__yuin__goldmark-emoji",
+        ":github.com__yuin__goldmark__extension",
+        ":github.com__yuin__goldmark__parser",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__util",
+    ],
+)
+
+go_module(
+    name = "charm.land__glamour__v2__ansi",
+    download = ":_charm.land__glamour__v2#download",
+    install = ["ansi"],
+    module = "charm.land/glamour/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":charm.land__glamour__v2__internal__autolink",
+        ":charm.land__lipgloss__v2",
+        ":charm.land__lipgloss__v2__table",
+        ":github.com__alecthomas__chroma__v2",
+        ":github.com__alecthomas__chroma__v2__quick",
+        ":github.com__alecthomas__chroma__v2__styles",
+        ":github.com__charmbracelet__x__ansi",
+        ":github.com__charmbracelet__x__exp__slice",
+        ":github.com__microcosm-cc__bluemonday",
+        ":github.com__yuin__goldmark-emoji__ast",
+        ":github.com__yuin__goldmark__ast",
+        ":github.com__yuin__goldmark__extension__ast",
+        ":github.com__yuin__goldmark__renderer",
+        ":github.com__yuin__goldmark__util",
+        ":golang.org__x__text__cases",
+        ":golang.org__x__text__language",
+    ],
+)
+
+go_module(
+    name = "charm.land__glamour__v2__internal__autolink",
+    download = ":_charm.land__glamour__v2#download",
+    install = ["internal/autolink"],
+    module = "charm.land/glamour/v2",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_module(
+    name = "charm.land__glamour__v2__styles",
+    download = ":_charm.land__glamour__v2#download",
+    install = ["styles"],
+    module = "charm.land/glamour/v2",
+    visibility = ["PUBLIC"],
+    deps = ["//third_party/go:charm.land__glamour__v2__ansi"],
+)
+
+go_mod_download(
+    name = "charm.land__lipgloss__v2",
+    _tag = "download",
+    module = "charm.land/lipgloss/v2",
+    version = "v2.0.2",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "charm.land__lipgloss__v2",
+    download = ":_charm.land__lipgloss__v2#download",
+    install = ["."],
+    module = "charm.land/lipgloss/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__colorprofile",
+        ":github.com__charmbracelet__ultraviolet",
+        ":github.com__charmbracelet__x__ansi",
+        ":github.com__charmbracelet__x__term",
+        ":github.com__clipperhouse__displaywidth",
+        ":github.com__lucasb-eyer__go-colorful",
+        ":github.com__rivo__uniseg",
+    ],
+)
+
+go_module(
+    name = "charm.land__lipgloss__v2__table",
+    download = ":_charm.land__lipgloss__v2#download",
+    install = ["table"],
+    module = "charm.land/lipgloss/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__x__ansi",
+        "//third_party/go:charm.land__lipgloss__v2",
+    ],
+)
+
+go_mod_download(
     name = "cloud.google.com__go",
     _tag = "download",
     module = "cloud.google.com/go",
@@ -543,7 +770,7 @@ go_mod_download(
     name = "github.com__alecthomas__chroma__v2",
     _tag = "download",
     module = "github.com/alecthomas/chroma/v2",
-    version = "v2.14.0",
+    version = "v2.20.0",
     visibility = ["PUBLIC"],
 )
 
@@ -1024,104 +1251,10 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__charmbracelet__bubbles",
-    _tag = "download",
-    module = "github.com/charmbracelet/bubbles",
-    version = "v0.21.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__cursor",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["cursor"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__bubbletea",
-        ":github.com__charmbracelet__lipgloss",
-    ],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__key",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["key"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__runeutil",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["runeutil"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__spinner",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["spinner"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__bubbletea",
-        ":github.com__charmbracelet__lipgloss",
-    ],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__textarea",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["textarea"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__bubbles__textarea__memoization",
-        ":github.com__charmbracelet__bubbles__viewport",
-        ":github.com__charmbracelet__bubbletea",
-        ":github.com__charmbracelet__lipgloss",
-        ":github.com__charmbracelet__x__ansi",
-        ":github.com__mattn__go-runewidth",
-        ":github.com__rivo__uniseg",
-        "//third_party/go:github.com__atotto__clipboard",
-        "//third_party/go:github.com__charmbracelet__bubbles__cursor",
-        "//third_party/go:github.com__charmbracelet__bubbles__key",
-        "//third_party/go:github.com__charmbracelet__bubbles__runeutil",
-    ],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__textarea__memoization",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["textarea/memoization"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbles__viewport",
-    download = ":_github.com__charmbracelet__bubbles#download",
-    install = ["viewport"],
-    module = "github.com/charmbracelet/bubbles",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__bubbletea",
-        ":github.com__charmbracelet__lipgloss",
-        ":github.com__charmbracelet__x__ansi",
-        "//third_party/go:github.com__charmbracelet__bubbles__key",
-    ],
-)
-
-go_mod_download(
     name = "github.com__charmbracelet__bubbletea",
     _tag = "download",
     module = "github.com/charmbracelet/bubbletea",
-    version = "v1.3.10",
+    version = "v1.1.1",
     visibility = ["PUBLIC"],
 )
 
@@ -1137,6 +1270,7 @@ go_module(
         ":github.com__charmbracelet__x__term",
         ":github.com__muesli__ansi__compressor",
         ":github.com__muesli__cancelreader",
+        ":golang.org__x__sync__errgroup",
     ],
 )
 
@@ -1144,7 +1278,7 @@ go_mod_download(
     name = "github.com__charmbracelet__colorprofile",
     _tag = "download",
     module = "github.com/charmbracelet/colorprofile",
-    version = "v0.2.3-0.20250311203215-f60798e515dc",
+    version = "v0.4.2",
     visibility = ["PUBLIC"],
 )
 
@@ -1157,92 +1291,15 @@ go_module(
     deps = [
         ":github.com__charmbracelet__x__ansi",
         ":github.com__charmbracelet__x__term",
-        ":github.com__lucasb-eyer__go-colorful",
         ":github.com__xo__terminfo",
     ],
 )
 
 go_mod_download(
-    name = "github.com__charmbracelet__glamour",
-    _tag = "download",
-    module = "github.com/charmbracelet/glamour",
-    version = "v0.10.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__charmbracelet__glamour",
-    download = ":_github.com__charmbracelet__glamour#download",
-    install = ["."],
-    module = "github.com/charmbracelet/glamour",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__glamour__ansi",
-        ":github.com__charmbracelet__glamour__styles",
-        ":github.com__muesli__termenv",
-        ":github.com__yuin__goldmark",
-        ":github.com__yuin__goldmark-emoji",
-        ":github.com__yuin__goldmark__extension",
-        ":github.com__yuin__goldmark__parser",
-        ":github.com__yuin__goldmark__renderer",
-        ":github.com__yuin__goldmark__util",
-        ":golang.org__x__term",
-    ],
-)
-
-go_module(
-    name = "github.com__charmbracelet__glamour__ansi",
-    download = ":_github.com__charmbracelet__glamour#download",
-    install = ["ansi"],
-    module = "github.com/charmbracelet/glamour",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__glamour__internal__autolink",
-        ":github.com__charmbracelet__lipgloss",
-        ":github.com__charmbracelet__lipgloss__table",
-        ":github.com__charmbracelet__x__ansi",
-        ":github.com__charmbracelet__x__exp__slice",
-        ":github.com__microcosm-cc__bluemonday",
-        ":github.com__muesli__reflow__indent",
-        ":github.com__muesli__reflow__padding",
-        ":github.com__muesli__reflow__wordwrap",
-        ":github.com__muesli__termenv",
-        ":github.com__yuin__goldmark-emoji__ast",
-        ":github.com__yuin__goldmark__ast",
-        ":github.com__yuin__goldmark__extension__ast",
-        ":github.com__yuin__goldmark__renderer",
-        ":github.com__yuin__goldmark__util",
-        ":golang.org__x__text__cases",
-        ":golang.org__x__text__language",
-        "//third_party/go:github.com__alecthomas__chroma__v2",
-        "//third_party/go:github.com__alecthomas__chroma__v2__quick",
-        "//third_party/go:github.com__alecthomas__chroma__v2__styles",
-    ],
-)
-
-go_module(
-    name = "github.com__charmbracelet__glamour__internal__autolink",
-    download = ":_github.com__charmbracelet__glamour#download",
-    install = ["internal/autolink"],
-    module = "github.com/charmbracelet/glamour",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_module(
-    name = "github.com__charmbracelet__glamour__styles",
-    download = ":_github.com__charmbracelet__glamour#download",
-    install = ["styles"],
-    module = "github.com/charmbracelet/glamour",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__charmbracelet__glamour__ansi"],
-)
-
-go_mod_download(
     name = "github.com__charmbracelet__lipgloss",
     _tag = "download",
     module = "github.com/charmbracelet/lipgloss",
-    version = "v1.1.1-0.20250404203927-76690c660834",
+    version = "v0.13.0",
     visibility = ["PUBLIC"],
 )
 
@@ -1254,21 +1311,39 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__charmbracelet__x__ansi",
-        ":github.com__charmbracelet__x__cellbuf",
         ":github.com__muesli__termenv",
         ":github.com__rivo__uniseg",
     ],
 )
 
+go_mod_download(
+    name = "github.com__charmbracelet__ultraviolet",
+    _tag = "download",
+    module = "github.com/charmbracelet/ultraviolet",
+    version = "v0.0.0-20260205113103-524a6607adb8",
+    visibility = ["PUBLIC"],
+)
+
 go_module(
-    name = "github.com__charmbracelet__lipgloss__table",
-    download = ":_github.com__charmbracelet__lipgloss#download",
-    install = ["table"],
-    module = "github.com/charmbracelet/lipgloss",
+    name = "github.com__charmbracelet__ultraviolet",
+    download = ":_github.com__charmbracelet__ultraviolet#download",
+    install = ["."],
+    module = "github.com/charmbracelet/ultraviolet",
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__charmbracelet__x__ansi",
-        "//third_party/go:github.com__charmbracelet__lipgloss",
+        ":github.com__charmbracelet__x__ansi__kitty",
+        ":github.com__charmbracelet__x__ansi__parser",
+        ":github.com__charmbracelet__x__term",
+        ":github.com__charmbracelet__x__termios",
+        ":github.com__charmbracelet__x__windows",
+        ":github.com__lucasb-eyer__go-colorful",
+        ":github.com__muesli__cancelreader",
+        ":github.com__rivo__uniseg",
+        ":github.com__xo__terminfo",
+        ":golang.org__x__sync__errgroup",
+        ":golang.org__x__sys__unix",
+        "//third_party/go:github.com__charmbracelet__colorprofile",
     ],
 )
 
@@ -1276,7 +1351,7 @@ go_mod_download(
     name = "github.com__charmbracelet__x__ansi",
     _tag = "download",
     module = "github.com/charmbracelet/x/ansi",
-    version = "v0.10.1",
+    version = "v0.11.6",
     visibility = ["PUBLIC"],
 )
 
@@ -1288,10 +1363,20 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__charmbracelet__x__ansi__parser",
+        ":github.com__clipperhouse__displaywidth",
+        ":github.com__clipperhouse__uax29__v2__graphemes",
         ":github.com__lucasb-eyer__go-colorful",
         ":github.com__mattn__go-runewidth",
-        ":github.com__rivo__uniseg",
     ],
+)
+
+go_module(
+    name = "github.com__charmbracelet__x__ansi__kitty",
+    download = ":_github.com__charmbracelet__x__ansi#download",
+    install = ["kitty"],
+    module = "github.com/charmbracelet/x/ansi",
+    visibility = ["PUBLIC"],
+    deps = ["//third_party/go:github.com__charmbracelet__x__ansi"],
 )
 
 go_module(
@@ -1301,29 +1386,6 @@ go_module(
     module = "github.com/charmbracelet/x/ansi",
     visibility = ["PUBLIC"],
     deps = [],
-)
-
-go_mod_download(
-    name = "github.com__charmbracelet__x__cellbuf",
-    _tag = "download",
-    module = "github.com/charmbracelet/x/cellbuf",
-    version = "v0.0.13",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__charmbracelet__x__cellbuf",
-    download = ":_github.com__charmbracelet__x__cellbuf#download",
-    install = ["."],
-    module = "github.com/charmbracelet/x/cellbuf",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__x__term",
-        ":github.com__mattn__go-runewidth",
-        ":github.com__rivo__uniseg",
-        "//third_party/go:github.com__charmbracelet__colorprofile",
-        "//third_party/go:github.com__charmbracelet__x__ansi",
-    ],
 )
 
 go_mod_download(
@@ -1347,7 +1409,7 @@ go_mod_download(
     name = "github.com__charmbracelet__x__term",
     _tag = "download",
     module = "github.com/charmbracelet/x/term",
-    version = "v0.2.1",
+    version = "v0.2.2",
     visibility = ["PUBLIC"],
 )
 
@@ -1358,6 +1420,40 @@ go_module(
     module = "github.com/charmbracelet/x/term",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
+    name = "github.com__charmbracelet__x__termios",
+    _tag = "download",
+    module = "github.com/charmbracelet/x/termios",
+    version = "v0.1.1",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__charmbracelet__x__termios",
+    download = ":_github.com__charmbracelet__x__termios#download",
+    install = ["."],
+    module = "github.com/charmbracelet/x/termios",
+    visibility = ["PUBLIC"],
+    deps = [":golang.org__x__sys__unix"],
+)
+
+go_mod_download(
+    name = "github.com__charmbracelet__x__windows",
+    _tag = "download",
+    module = "github.com/charmbracelet/x/windows",
+    version = "v0.2.2",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__charmbracelet__x__windows",
+    download = ":_github.com__charmbracelet__x__windows#download",
+    install = ["."],
+    module = "github.com/charmbracelet/x/windows",
+    visibility = ["PUBLIC"],
+    deps = [],
 )
 
 go_mod_download(
@@ -1373,6 +1469,40 @@ go_module(
     download = ":_github.com__chzyer__readline#download",
     install = ["."],
     module = "github.com/chzyer/readline",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
+    name = "github.com__clipperhouse__displaywidth",
+    _tag = "download",
+    module = "github.com/clipperhouse/displaywidth",
+    version = "v0.11.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__clipperhouse__displaywidth",
+    download = ":_github.com__clipperhouse__displaywidth#download",
+    install = ["."],
+    module = "github.com/clipperhouse/displaywidth",
+    visibility = ["PUBLIC"],
+    deps = [":github.com__clipperhouse__uax29__v2__graphemes"],
+)
+
+go_mod_download(
+    name = "github.com__clipperhouse__uax29__v2",
+    _tag = "download",
+    module = "github.com/clipperhouse/uax29/v2",
+    version = "v2.7.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__clipperhouse__uax29__v2__graphemes",
+    download = ":_github.com__clipperhouse__uax29__v2#download",
+    install = ["graphemes"],
+    module = "github.com/clipperhouse/uax29/v2",
     visibility = ["PUBLIC"],
     deps = [],
 )
@@ -1453,7 +1583,7 @@ go_mod_download(
     name = "github.com__dlclark__regexp2",
     _tag = "download",
     module = "github.com/dlclark/regexp2",
-    version = "v1.11.0",
+    version = "v1.11.5",
     visibility = ["PUBLIC"],
 )
 
@@ -3097,7 +3227,7 @@ go_mod_download(
     name = "github.com__lucasb-eyer__go-colorful",
     _tag = "download",
     module = "github.com/lucasb-eyer/go-colorful",
-    version = "v1.2.0",
+    version = "v1.3.0",
     visibility = ["PUBLIC"],
 )
 
@@ -4007,7 +4137,7 @@ go_mod_download(
     name = "github.com__mattn__go-runewidth",
     _tag = "download",
     module = "github.com/mattn/go-runewidth",
-    version = "v0.0.16",
+    version = "v0.0.20",
     visibility = ["PUBLIC"],
 )
 
@@ -4017,7 +4147,7 @@ go_module(
     install = ["."],
     module = "github.com/mattn/go-runewidth",
     visibility = ["PUBLIC"],
-    deps = [":github.com__rivo__uniseg"],
+    deps = ["//third_party/go:github.com__clipperhouse__uax29__v2__graphemes"],
 )
 
 go_mod_download(
@@ -4179,36 +4309,6 @@ go_module(
     module = "github.com/muesli/reflow",
     visibility = ["PUBLIC"],
     deps = ["//third_party/go:github.com__mattn__go-runewidth"],
-)
-
-go_module(
-    name = "github.com__muesli__reflow__indent",
-    download = ":_github.com__muesli__reflow#download",
-    install = ["indent"],
-    module = "github.com/muesli/reflow",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__muesli__reflow__ansi"],
-)
-
-go_module(
-    name = "github.com__muesli__reflow__padding",
-    download = ":_github.com__muesli__reflow#download",
-    install = ["padding"],
-    module = "github.com/muesli/reflow",
-    visibility = ["PUBLIC"],
-    deps = [
-        "//third_party/go:github.com__mattn__go-runewidth",
-        "//third_party/go:github.com__muesli__reflow__ansi",
-    ],
-)
-
-go_module(
-    name = "github.com__muesli__reflow__wordwrap",
-    download = ":_github.com__muesli__reflow#download",
-    install = ["wordwrap"],
-    module = "github.com/muesli/reflow",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__muesli__reflow__ansi"],
 )
 
 go_mod_download(
@@ -4851,8 +4951,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -5200,7 +5300,7 @@ go_mod_download(
     name = "github.com__yuin__goldmark",
     _tag = "download",
     module = "github.com/yuin/goldmark",
-    version = "v1.7.8",
+    version = "v1.7.13",
     visibility = ["PUBLIC"],
 )
 
@@ -5318,7 +5418,7 @@ go_mod_download(
     name = "github.com__yuin__goldmark-emoji",
     _tag = "download",
     module = "github.com/yuin/goldmark-emoji",
-    version = "v1.0.5",
+    version = "v1.0.6",
     visibility = ["PUBLIC"],
 )
 
@@ -6091,7 +6191,7 @@ go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
-    version = "v0.38.0",
+    version = "v0.42.0",
     visibility = ["PUBLIC"],
 )
 
