@@ -1,4 +1,3 @@
-// cli/tui/screen/menu/view.go
 package menu
 
 import (
@@ -11,6 +10,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
+	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
@@ -21,57 +21,54 @@ func (m *Model) View() string {
 
 	var b strings.Builder
 
-	switch m.viewMode {
-	case ViewModeSearch:
-		header := styles.TitleStyle.Width(m.width).Render(" 🔍 Search Chats ")
-		b.WriteString(header)
-		b.WriteString("\n")
-		b.WriteString(styles.SearchInputStyle.Width(m.listWidth() - 2).Render(m.searchInput.View()))
-		b.WriteString("\n")
-	default:
-		header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (page %d) ", m.currentPage()))
-		b.WriteString(header)
-		b.WriteString("\n")
-		if m.filtering {
-			b.WriteString(styles.SearchInputStyle.Width(m.listWidth() - 2).Render(m.filterInput.View()))
-			b.WriteString("\n")
-		}
+	modeLabel := "List"
+	if m.searchQuery != "" {
+		modeLabel = "Search"
 	}
+	header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (%s, page %d) ", modeLabel, m.currentPage()))
+	b.WriteString(header)
+	b.WriteString("\n")
 
-	listPanel := m.listViewport.View()
+	var leftPanel strings.Builder
+	filterStyle := m.inputStyle(FocusFilter)
+	leftPanel.WriteString(filterStyle.Width(m.listWidth() - 2).Render(m.filterInput.View()))
+	leftPanel.WriteString("\n")
+	searchStyle := m.inputStyle(FocusSearch)
+	leftPanel.WriteString(searchStyle.Width(m.listWidth() - 2).Render(m.searchInput.View()))
+	leftPanel.WriteString("\n")
+	leftPanel.WriteString(m.listViewport.View())
+
 	detailPanel := m.detailViewport.View()
 	separator := lipgloss.NewStyle().Foreground(styles.BorderColor).Render(
-		strings.Repeat("│\n", m.listViewport.Height()),
+		strings.Repeat("│\n", m.height-3),
 	)
 
-	joined := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, separator, detailPanel)
+	joined := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel.String(), separator, detailPanel)
 	b.WriteString(joined)
 
 	b.WriteString("\n")
-	switch m.viewMode {
-	case ViewModeSearch:
-		b.WriteString(styles.HelpStyle.Render("Type to search │ C-p/C-n: navigate │ Enter: open │ Esc: clear/back"))
-	default:
-		var pagination strings.Builder
-		if m.hasPreviousPage() {
-			pagination.WriteString("◀ [ ")
-		}
-		pagination.WriteString(fmt.Sprintf("page %d", m.currentPage()))
-		if m.hasNextPage() {
-			pagination.WriteString(" ] ▶")
-		}
-		helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ d: delete │ /: filter │ C-/: search │ r: refresh │ %s", pagination.String())
-		b.WriteString(styles.HelpStyle.Render(helpText))
+	var pagination strings.Builder
+	if m.hasPreviousPage() {
+		pagination.WriteString("◀ [ ")
 	}
+	pagination.WriteString(fmt.Sprintf("page %d", m.currentPage()))
+	if m.hasNextPage() {
+		pagination.WriteString(" ] ▶")
+	}
+	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+r: refresh │ %s", pagination.String())
+	b.WriteString(styles.HelpStyle.Render(helpText))
 
 	return b.String()
 }
 
-func (m *Model) renderList() string {
-	if m.viewMode == ViewModeSearch {
-		return m.renderSearchResults()
+func (m *Model) inputStyle(target FocusTarget) lipgloss.Style {
+	if m.focusTarget == target {
+		return styles.SearchInputStyle.BorderForeground(styles.PrimaryColor)
 	}
+	return styles.SearchInputStyle.BorderForeground(styles.BorderColor)
+}
 
+func (m *Model) renderList() string {
 	if m.loading {
 		return styles.DimTextStyle.Render("Loading chats...")
 	}
@@ -79,8 +76,11 @@ func (m *Model) renderList() string {
 		return styles.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 	}
 
-	filtered := m.filteredChats()
-	if len(filtered) == 0 {
+	displayed := m.displayedChats()
+	if len(displayed) == 0 {
+		if m.searchQuery != "" {
+			return styles.DimTextStyle.Render("No search results")
+		}
 		if m.filterText != "" {
 			return styles.DimTextStyle.Render("No chats match filter")
 		}
@@ -88,85 +88,37 @@ func (m *Model) renderList() string {
 	}
 
 	listWidth := m.listWidth()
-	headerFormat := "  %-10s %-18s %-5s %-10s %s"
-	headerLine := fmt.Sprintf(headerFormat, "ID", "Title", "Msgs", "Created", "Updated")
+
+	headerFormat := "%-30s %-5s %-10s %s"
+	headerLine := fmt.Sprintf(headerFormat, "Title", "Msgs", "Updated", "Tags")
 	var b strings.Builder
 	b.WriteString(styles.MenuHeaderStyle.Width(listWidth).Render(headerLine))
 	b.WriteString("\n")
-
-	for i, chat := range filtered {
-		title := chat.GetMetadata().GetTitle()
-		title = styles.Truncate(title, 16)
-
-		messageCount := len(chat.GetMetadata().GetMessages())
-		created := chat.GetCreateTime().AsTime().Format(time.DateOnly)
-		updated := relativeTime(chat.GetUpdateTime().AsTime())
-
-		chatID := chat.Name
-		if strings.HasPrefix(chatID, "chats/") {
-			chatID = chatID[6:]
-		}
-		if len(chatID) > 8 {
-			chatID = chatID[:8]
-		}
-
-		line := fmt.Sprintf("  %-10s %-18s %-5d %-10s %s", chatID, title, messageCount, created, updated)
-
-		style := styles.MenuItemStyle
-		if i == m.cursor {
-			style = styles.MenuSelectedStyle
-		}
-		b.WriteString(style.Width(listWidth).Render(line))
-		if i < len(filtered)-1 {
-			b.WriteString("\n")
-		}
-	}
-
+	b.WriteString(m.renderChatRows(displayed, listWidth))
 	return b.String()
 }
 
-func (m *Model) renderSearchResults() string {
-	if m.searchLoading {
-		return styles.DimTextStyle.Render("Searching...")
-	}
-	if m.searchErr != nil {
-		return styles.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.searchErr))
-	}
-	if m.lastSearchQuery == "" {
-		return styles.DimTextStyle.Render("Type a query to search chat history")
-	}
-	if len(m.searchResults) == 0 {
-		return styles.DimTextStyle.Render("No results found")
-	}
-
-	listWidth := m.listWidth()
+func (m *Model) renderChatRows(chats []*chatpb.Chat, listWidth int) string {
 	var b strings.Builder
-	for i, chat := range m.searchResults {
+	for i, chat := range chats {
 		title := chat.GetMetadata().GetTitle()
-		if title == "" {
-			title = "(untitled)"
-		}
-		title = styles.Truncate(title, 16)
-
-		chatID := chat.Name
-		if strings.HasPrefix(chatID, "chats/") {
-			chatID = chatID[6:]
-		}
-		if len(chatID) > 8 {
-			chatID = chatID[:8]
-		}
+		title = styles.Truncate(title, 28)
 
 		messageCount := len(chat.GetMetadata().GetMessages())
-		created := chat.GetCreateTime().AsTime().Format(time.DateOnly)
+		updated := relativeTime(chat.GetUpdateTime().AsTime())
 
-		line := fmt.Sprintf("  %-10s %-18s %d msgs  %s", chatID, title, messageCount, created)
+		tags := strings.Join(chat.GetTags(), ",")
+		tags = styles.Truncate(tags, 15)
+
+		line := fmt.Sprintf("%-30s %-5d %-10s", title, messageCount, updated)
+		coloredTags := styles.MenuTagStyle.Render(tags)
 
 		style := styles.MenuItemStyle
-		if i == m.searchCursor {
+		if m.focusTarget == FocusChatList && i == m.chatCursor {
 			style = styles.MenuSelectedStyle
 		}
-		b.WriteString(style.Width(listWidth).Render(line))
-		if i < len(m.searchResults)-1 {
+		b.WriteString(style.Width(listWidth).Render(line + coloredTags))
+		if i < len(chats)-1 {
 			b.WriteString("\n")
 		}
 	}
@@ -193,6 +145,10 @@ func (m *Model) renderDetail() string {
 	model := chat.GetMetadata().GetCurrentModel()
 	if model != "" {
 		b.WriteString(styles.DimTextStyle.Render(fmt.Sprintf(" Model: %s", model)))
+		b.WriteString("\n")
+	}
+	if tags := chat.GetTags(); len(tags) > 0 {
+		b.WriteString(styles.MenuTagStyle.Render(fmt.Sprintf(" Tags: %s", strings.Join(tags, ", "))))
 		b.WriteString("\n")
 	}
 	b.WriteString(styles.DividerStyle.Render(strings.Repeat("─", detailWidth)))

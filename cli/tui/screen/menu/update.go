@@ -1,7 +1,7 @@
-// cli/tui/screen/menu/update.go
 package menu
 
 import (
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -13,15 +13,13 @@ import (
 var (
 	keyUp       = key.NewBinding(key.WithKeys("ctrl+p"))
 	keyDown     = key.NewBinding(key.WithKeys("ctrl+n"))
-	keyTop      = key.NewBinding(key.WithKeys("g"))
-	keyBottom   = key.NewBinding(key.WithKeys("G"))
 	keyOpen     = key.NewBinding(key.WithKeys("enter"))
-	keyDelete   = key.NewBinding(key.WithKeys("d"))
-	keyFilter   = key.NewBinding(key.WithKeys("/"))
-	keyRefresh  = key.NewBinding(key.WithKeys("r"))
+	keyDelete   = key.NewBinding(key.WithKeys("alt+d"))
+	keyRefresh  = key.NewBinding(key.WithKeys("alt+r"))
 	keyNextPage = key.NewBinding(key.WithKeys("alt+]"))
 	keyPrevPage = key.NewBinding(key.WithKeys("alt+["))
-	keySearch   = key.NewBinding(key.WithKeys("ctrl+_"))
+	keyToTop    = key.NewBinding(key.WithKeys("alt+<"))
+	keyToBottom = key.NewBinding(key.WithKeys("alt+>"))
 )
 
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
@@ -38,10 +36,14 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.err = msg.Err
 			return nil
 		}
+		if msg.SearchQuery != m.searchQuery {
+			return nil
+		}
 		m.chats = msg.Chats
 		m.currentPageToken = msg.PageToken
 		m.nextPageToken = msg.NextPageToken
-		m.cursor = 0
+		m.err = nil
+		m.chatCursor = 0
 		m.updateSelection()
 		m.listViewport.SetContent(m.renderList())
 		return nil
@@ -56,203 +58,168 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				break
 			}
 		}
-		if m.cursor >= len(m.filteredChats()) && m.cursor > 0 {
-			m.cursor--
-		}
 		m.updateSelection()
 		m.listViewport.SetContent(m.renderList())
 		return m.wrapCmd(screen.AlertMsg{Text: "Chat deleted"})
 
-	case searchResultsMsg:
-		m.searchLoading = false
-		if msg.Query != m.lastSearchQuery {
-			return nil
-		}
-		if msg.Err != nil {
-			m.searchErr = msg.Err
-			m.listViewport.SetContent(m.renderList())
-			return nil
-		}
-		m.searchResults = msg.Chats
-		m.searchErr = nil
-		m.searchCursor = 0
-		m.updateSelection()
-		m.listViewport.SetContent(m.renderList())
-		return nil
-
 	case searchDebounceTickMsg:
-		currentQuery := m.searchInput.Value()
-		if msg.Query == currentQuery && currentQuery != "" && currentQuery != m.lastSearchQuery {
-			m.lastSearchQuery = currentQuery
-			return m.executeSearch(currentQuery)
+		currentQuery := strings.TrimSpace(m.searchInput.Value())
+		if msg.Query != currentQuery {
+			return nil
 		}
-		return nil
+		if currentQuery == m.lastSearchQuery {
+			return nil
+		}
+		m.lastSearchQuery = currentQuery
+		m.searchQuery = currentQuery
+		m.resetPagination()
+		return m.fetchChats("")
 
 	case tea.KeyPressMsg:
-		switch m.viewMode {
-		case ViewModeSearch:
-			return m.handleSearchKey(msg)
-		default:
-			if m.filtering {
-				return m.handleFilterKey(msg)
-			}
-			return m.handleListKey(msg)
-		}
+		return m.handleKey(msg)
 	}
 
 	return nil
 }
 
-func (m *Model) handleListKey(msg tea.KeyPressMsg) tea.Cmd {
-	filtered := m.filteredChats()
-
+func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, keySearch):
-		return m.ActivateSearch()
+	case key.Matches(msg, keyToTop):
+		m.focusTarget = FocusFilter
+		m.listViewport.SetContent(m.renderList())
+		return m.applyFocus()
+
+	case key.Matches(msg, keyToBottom):
+		displayed := m.displayedChats()
+		if len(displayed) > 0 {
+			m.focusTarget = FocusChatList
+			m.chatCursor = len(displayed) - 1
+			m.updateSelection()
+			m.listViewport.SetContent(m.renderList())
+		}
+		return m.applyFocus()
+
+	case key.Matches(msg, keyUp):
+		return m.navigateUp()
+
+	case key.Matches(msg, keyDown):
+		return m.navigateDown()
+
+	case key.Matches(msg, keyOpen):
+		if m.focusTarget == FocusChatList {
+			if chat := m.selectedChat(); chat != nil {
+				return m.wrapCmd(screen.OpenChatMsg{Chat: chat})
+			}
+		}
+		return nil
+
+	case key.Matches(msg, keyDelete):
+		if m.focusTarget == FocusChatList {
+			if chat := m.selectedChat(); chat != nil {
+				return m.deleteChat(chat.Name)
+			}
+		}
+		return nil
+
+	case key.Matches(msg, keyRefresh):
+		m.resetPagination()
+		return m.fetchChats("")
 
 	case key.Matches(msg, keyNextPage):
 		return m.nextPage()
 
 	case key.Matches(msg, keyPrevPage):
 		return m.previousPage()
-
-	case key.Matches(msg, keyUp):
-		if m.cursor > 0 {
-			m.cursor--
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
-
-	case key.Matches(msg, keyDown):
-		if m.cursor < len(filtered)-1 {
-			m.cursor++
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
-
-	case key.Matches(msg, keyTop):
-		if m.cursor != 0 {
-			m.cursor = 0
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
-
-	case key.Matches(msg, keyBottom):
-		if len(filtered) > 0 && m.cursor != len(filtered)-1 {
-			m.cursor = len(filtered) - 1
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
-
-	case key.Matches(msg, keyOpen):
-		if m.cursor < len(filtered) {
-			return m.wrapCmd(screen.OpenChatMsg{Chat: filtered[m.cursor]})
-		}
-
-	case key.Matches(msg, keyDelete):
-		if m.cursor < len(filtered) {
-			return m.deleteChat(filtered[m.cursor].Name)
-		}
-
-	case key.Matches(msg, keyFilter):
-		m.filtering = true
-		m.filterInput.Focus()
-		m.recalculateLayout()
-		return nil
-
-	case key.Matches(msg, keyRefresh):
-		m.pageTokenStack = nil
-		return m.loadChats("")
 	}
 
-	switch msg.String() {
-	case "ctrl+c":
-		return m.wrapCmd(screen.CloseTabMsg{})
-	case "escape":
-		if m.filterText != "" {
-			m.filterText = ""
-			m.filterInput.SetValue("")
-			m.cursor = 0
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
+	switch m.focusTarget {
+	case FocusFilter:
+		return m.handleFilterInput(msg)
+	case FocusSearch:
+		return m.handleSearchInput(msg)
 	}
 
 	return nil
 }
 
-func (m *Model) handleFilterKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "enter", "escape":
-		m.filtering = false
-		m.filterText = m.filterInput.Value()
-		m.filterInput.Blur()
-		m.cursor = 0
-		m.recalculateLayout()
-		m.updateSelection()
+func (m *Model) navigateUp() tea.Cmd {
+	switch m.focusTarget {
+	case FocusFilter:
+		return nil
+	case FocusSearch:
+		m.focusTarget = FocusFilter
 		m.listViewport.SetContent(m.renderList())
-		return nil
-	}
-
-	var cmd tea.Cmd
-	m.filterInput, cmd = m.filterInput.Update(msg)
-	m.filterText = m.filterInput.Value()
-	m.cursor = 0
-	m.updateSelection()
-	m.listViewport.SetContent(m.renderList())
-	return cmd
-}
-
-func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case key.Matches(msg, keyUp):
-		if m.searchCursor > 0 {
-			m.searchCursor--
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
-		return nil
-
-	case key.Matches(msg, keyDown):
-		if m.searchCursor < len(m.searchResults)-1 {
-			m.searchCursor++
-			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
-		}
-		return nil
-
-	case key.Matches(msg, keyOpen):
-		if m.searchCursor < len(m.searchResults) {
-			return m.wrapCmd(screen.OpenChatMsg{Chat: m.searchResults[m.searchCursor]})
-		}
-		return nil
-	}
-
-	switch msg.String() {
-	case "ctrl+c":
-		return m.wrapCmd(screen.CloseTabMsg{})
-	case "escape":
-		if m.searchInput.Value() != "" {
-			m.searchInput.SetValue("")
-			m.lastSearchQuery = ""
-			m.searchResults = nil
+		return m.applyFocus()
+	case FocusChatList:
+		if m.chatCursor > 0 {
+			m.chatCursor--
 			m.updateSelection()
 			m.listViewport.SetContent(m.renderList())
 			return nil
 		}
-		m.viewMode = ViewModeList
-		m.searchInput.Blur()
-		m.recalculateLayout()
-		m.updateSelection()
+		m.focusTarget = FocusSearch
 		m.listViewport.SetContent(m.renderList())
+		return m.applyFocus()
+	}
+	return nil
+}
+
+func (m *Model) navigateDown() tea.Cmd {
+	switch m.focusTarget {
+	case FocusFilter:
+		m.focusTarget = FocusSearch
+		m.listViewport.SetContent(m.renderList())
+		return m.applyFocus()
+	case FocusSearch:
+		displayed := m.displayedChats()
+		if len(displayed) > 0 {
+			m.focusTarget = FocusChatList
+			m.chatCursor = 0
+			m.updateSelection()
+			m.listViewport.SetContent(m.renderList())
+			return m.applyFocus()
+		}
+		return nil
+	case FocusChatList:
+		displayed := m.displayedChats()
+		if m.chatCursor < len(displayed)-1 {
+			m.chatCursor++
+			m.updateSelection()
+			m.listViewport.SetContent(m.renderList())
+		}
 		return nil
 	}
+	return nil
+}
 
+func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
+	var cmd tea.Cmd
+	m.filterInput, cmd = m.filterInput.Update(msg)
+
+	newFilter := strings.TrimSpace(m.filterInput.Value())
+	if newFilter != m.filterText {
+		m.filterText = newFilter
+		m.chatCursor = 0
+		m.updateSelection()
+		m.listViewport.SetContent(m.renderList())
+	}
+	return cmd
+}
+
+func (m *Model) handleSearchInput(msg tea.KeyPressMsg) tea.Cmd {
 	var cmd tea.Cmd
 	m.searchInput, cmd = m.searchInput.Update(msg)
 
-	currentQuery := m.searchInput.Value()
-	if currentQuery != m.lastSearchQuery {
+	currentQuery := strings.TrimSpace(m.searchInput.Value())
+
+	if currentQuery == "" && m.searchQuery != "" {
+		m.searchQuery = ""
+		m.lastSearchQuery = ""
+		m.resetPagination()
+		return tea.Batch(cmd, m.fetchChats(""))
+	}
+
+	if currentQuery != "" && currentQuery != m.lastSearchQuery {
 		query := currentQuery
 		cmd = tea.Batch(cmd, tea.Tick(searchDebounceInterval, func(time.Time) tea.Msg {
 			return searchDebounceTickMsg{Query: query}

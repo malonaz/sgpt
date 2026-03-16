@@ -39,6 +39,9 @@ func (m *Model) saveChat() tea.Cmd {
 				return screen.AlertMsg{Text: fmt.Sprintf("Failed to create chat: %v", err)}
 			}
 			m.chat = chat
+			if err := GenerateChatSummary(m.ctx, m.config, m.aiClient, m.chatClient, m.chat); err != nil {
+				return screen.AlertMsg{Text: fmt.Sprintf("Failed to generate chat summary: %v", err)}
+			}
 		} else {
 			updateChatRequest := &chatservicepb.UpdateChatRequest{
 				Chat:       m.chat,
@@ -49,15 +52,6 @@ func (m *Model) saveChat() tea.Cmd {
 				return screen.AlertMsg{Text: fmt.Sprintf("Failed to update chat: %v", err)}
 			}
 			m.chat = chat
-		}
-		return chatSavedMsg{}
-	}
-}
-
-func (m *Model) generateSummary() tea.Cmd {
-	return func() tea.Msg {
-		if err := GenerateChatSummary(m.ctx, m.config, m.aiClient, m.chatClient, m.chat); err != nil {
-			m.log.Error("summary generation failed", "error", err)
 		}
 		return chatSavedMsg{}
 	}

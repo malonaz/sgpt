@@ -67,9 +67,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 		if msg.Err == nil {
 			cmds = append(cmds, m.saveChat())
-			if m.chat.Metadata.Title == "" && len(m.chat.Metadata.Messages) >= 2 {
-				cmds = append(cmds, m.generateSummary())
-			}
 		}
 		return tea.Batch(cmds...)
 
@@ -167,7 +164,7 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			m.historyNavigating = false
 		}
 
-	case "escape":
+	case "esc":
 		if m.awaitingConfirm {
 			m.cancelToolCall()
 			return nil
@@ -315,7 +312,7 @@ func (m *Model) handleViewportKey(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		return func() tea.Msg { return screen.CloseTabMsg{} }
-	case "escape":
+	case "esc":
 		if m.awaitingConfirm {
 			m.cancelToolCall()
 			return nil

@@ -272,12 +272,28 @@ func (m *Model) renderBlockWithIndicator(content string, messageIndex, blockInde
 }
 
 func (m *Model) getSelectedContent() (string, string) {
-	messages := m.chat.Metadata.Messages
-	if m.navigationMessageIndex < 0 || m.navigationMessageIndex >= len(messages) {
+	if m.navigationMessageIndex < 0 {
 		return "", ""
 	}
 
-	aiMessage := messages[m.navigationMessageIndex].Message
+	persistedCount := len(m.chat.Metadata.Messages)
+	var aiMessage *aipb.Message
+
+	if m.navigationMessageIndex < persistedCount {
+		aiMessage = m.chat.Metadata.Messages[m.navigationMessageIndex].Message
+	} else {
+		offset := persistedCount
+		if m.pendingUserMessage != nil {
+			if m.navigationMessageIndex == offset {
+				aiMessage = m.pendingUserMessage
+			}
+			offset++
+		}
+		if m.streamingMessage != nil && m.navigationMessageIndex == offset {
+			aiMessage = m.streamingMessage
+		}
+	}
+
 	if aiMessage == nil {
 		return "", ""
 	}

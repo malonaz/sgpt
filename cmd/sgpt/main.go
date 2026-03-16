@@ -122,6 +122,7 @@ func run() error {
 
 	rootCmd.AddCommand(webserver.NewServeCmd(chatClient))
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, chatClient))
+	rootCmd.AddCommand(chat.NewSummarizeCmd(config, aiClient, chatClient))
 	return rootCmd.Execute()
 }
 

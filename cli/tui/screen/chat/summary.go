@@ -8,7 +8,6 @@ import (
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
-	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
 	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
@@ -60,17 +59,6 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 	cleanSummary = strings.Trim(cleanSummary, `"'`)
 	cleanSummary = strings.ReplaceAll(cleanSummary, "\n", " ")
 
-	if cleanSummary == "" {
-		return nil
-	}
-
 	chat.Metadata.Title = cleanSummary
-	updateChatRequest := &chatservicepb.UpdateChatRequest{
-		Chat:       chat,
-		UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
-	}
-	if _, err := chatClient.UpdateChat(ctx, updateChatRequest); err != nil {
-		return fmt.Errorf("updating chat title: %w", err)
-	}
 	return nil
 }

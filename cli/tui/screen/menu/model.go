@@ -2,7 +2,6 @@ package menu
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"charm.land/bubbles/v2/textarea"
@@ -19,11 +18,12 @@ import (
 const pageSize = 50
 const searchDebounceInterval = 300 * time.Millisecond
 
-type ViewMode int
+type FocusTarget int
 
 const (
-	ViewModeList ViewMode = iota
-	ViewModeSearch
+	FocusFilter FocusTarget = iota
+	FocusSearch
+	FocusChatList
 )
 
 type chatsLoadedMsg struct {
@@ -31,17 +31,12 @@ type chatsLoadedMsg struct {
 	NextPageToken string
 	Err           error
 	PageToken     string
+	SearchQuery   string
 }
 
 type chatDeletedMsg struct {
 	Name string
 	Err  error
-}
-
-type searchResultsMsg struct {
-	Chats []*chatpb.Chat
-	Err   error
-	Query string
 }
 
 type searchDebounceTickMsg struct {
@@ -53,27 +48,22 @@ type Model struct {
 	chatClient chatservicepb.ChatServiceClient
 	wrap       screen.WrapFunc
 
-	viewMode ViewMode
+	chats            []*chatpb.Chat
+	chatCursor       int
+	loading          bool
+	err              error
+	nextPageToken    string
+	pageTokenStack   []string
+	currentPageToken string
 
-	chats             []*chatpb.Chat
-	cursor            int
-	loading           bool
-	err               error
-	filterInput       textarea.Model
-	filtering         bool
-	filterText        string
-	nextPageToken     string
-	previousPageToken string
-	pageTokenStack    []string
-	currentPageToken  string
+	filterInput textarea.Model
+	filterText  string
 
 	searchInput     textarea.Model
-	searchResults   []*chatpb.Chat
-	searchCursor    int
-	searchLoading   bool
-	searchErr       error
+	searchQuery     string
 	lastSearchQuery string
 
+	focusTarget      FocusTarget
 	selectedChatName string
 
 	renderer       *markdown.Renderer
@@ -109,24 +99,19 @@ func New(ctx context.Context, chatClient chatservicepb.ChatServiceClient, wrap s
 		filterInput: filterInput,
 		searchInput: searchInput,
 		renderer:    renderer,
+		focusTarget: FocusFilter,
 	}
 }
 
 func (m *Model) Init() tea.Cmd {
-	return m.loadChats("")
+	return m.fetchChats("")
 }
 
 func (m *Model) Title() string {
-	if m.viewMode == ViewModeSearch {
-		return "Search"
-	}
-	return fmt.Sprintf("Menu (%d chats)", len(m.chats))
+	return "Menu"
 }
 
 func (m *Model) ShortTitle() string {
-	if m.viewMode == ViewModeSearch {
-		return "Search"
-	}
 	return "Menu"
 }
 
@@ -138,15 +123,7 @@ func (m *Model) SetSize(width, height int) {
 
 func (m *Model) OnFocus() tea.Cmd {
 	m.focused = true
-	if m.viewMode == ViewModeSearch {
-		m.searchInput.Focus()
-		return textarea.Blink
-	}
-	if m.filtering {
-		m.filterInput.Focus()
-		return textarea.Blink
-	}
-	return nil
+	return m.applyFocus()
 }
 
 func (m *Model) OnBlur() {
@@ -156,20 +133,49 @@ func (m *Model) OnBlur() {
 }
 
 func (m *Model) ActivateSearch() tea.Cmd {
-	m.viewMode = ViewModeSearch
-	m.searchInput.Focus()
-	m.filterInput.Blur()
-	m.filtering = false
-	m.recalculateLayout()
-	return textarea.Blink
+	m.focusTarget = FocusSearch
+	return m.applyFocus()
 }
 
-func (m *Model) loadChats(pageToken string) tea.Cmd {
+func (m *Model) applyFocus() tea.Cmd {
+	m.filterInput.Blur()
+	m.searchInput.Blur()
+	switch m.focusTarget {
+	case FocusFilter:
+		m.filterInput.Focus()
+		return textarea.Blink
+	case FocusSearch:
+		m.searchInput.Focus()
+		return textarea.Blink
+	}
+	return nil
+}
+
+func (m *Model) fetchChats(pageToken string) tea.Cmd {
 	m.loading = true
 	wrap := m.wrap
+	searchQuery := m.searchQuery
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 		defer cancel()
+
+		if searchQuery != "" {
+			searchChatsRequest := &chatservicepb.SearchChatsRequest{
+				Query:     searchQuery,
+				PageSize:  pageSize,
+				PageToken: pageToken,
+			}
+			searchChatsResponse, err := m.chatClient.SearchChats(ctx, searchChatsRequest)
+			if err != nil {
+				return wrap(chatsLoadedMsg{Err: err, SearchQuery: searchQuery})
+			}
+			return wrap(chatsLoadedMsg{
+				Chats:         searchChatsResponse.Chats,
+				NextPageToken: searchChatsResponse.NextPageToken,
+				PageToken:     pageToken,
+				SearchQuery:   searchQuery,
+			})
+		}
 
 		listChatsRequest := &chatservicepb.ListChatsRequest{
 			PageSize:  pageSize,
@@ -189,25 +195,6 @@ func (m *Model) loadChats(pageToken string) tea.Cmd {
 	}
 }
 
-func (m *Model) executeSearch(query string) tea.Cmd {
-	m.searchLoading = true
-	wrap := m.wrap
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
-		defer cancel()
-
-		searchChatsRequest := &chatservicepb.SearchChatsRequest{
-			Query:    query,
-			PageSize: 50,
-		}
-		searchChatsResponse, err := m.chatClient.SearchChats(ctx, searchChatsRequest)
-		if err != nil {
-			return wrap(searchResultsMsg{Err: err, Query: query})
-		}
-		return wrap(searchResultsMsg{Chats: searchChatsResponse.Chats, Query: query})
-	}
-}
-
 func (m *Model) deleteChat(name string) tea.Cmd {
 	wrap := m.wrap
 	return func() tea.Msg {
@@ -217,30 +204,34 @@ func (m *Model) deleteChat(name string) tea.Cmd {
 	}
 }
 
+func (m *Model) resetPagination() {
+	m.pageTokenStack = nil
+	m.currentPageToken = ""
+	m.nextPageToken = ""
+}
+
+func (m *Model) displayedChats() []*chatpb.Chat {
+	return m.filteredChats()
+}
+
 func (m *Model) selectedChat() *chatpb.Chat {
-	if m.viewMode == ViewModeSearch {
-		if m.searchCursor >= 0 && m.searchCursor < len(m.searchResults) {
-			return m.searchResults[m.searchCursor]
-		}
-		return nil
-	}
-	for _, chat := range m.chats {
-		if chat.Name == m.selectedChatName {
-			return chat
-		}
+	displayed := m.displayedChats()
+	if m.chatCursor >= 0 && m.chatCursor < len(displayed) {
+		return displayed[m.chatCursor]
 	}
 	return nil
 }
 
 func (m *Model) updateSelection() {
-	if m.viewMode == ViewModeSearch {
-		m.detailViewport.SetContent(m.renderDetail())
-		m.detailViewport.GotoTop()
-		return
+	displayed := m.displayedChats()
+	if m.chatCursor >= len(displayed) {
+		m.chatCursor = len(displayed) - 1
 	}
-	filtered := m.filteredChats()
-	if m.cursor < len(filtered) {
-		m.selectedChatName = filtered[m.cursor].Name
+	if m.chatCursor < 0 {
+		m.chatCursor = 0
+	}
+	if m.chatCursor < len(displayed) {
+		m.selectedChatName = displayed[m.chatCursor].Name
 	} else {
 		m.selectedChatName = ""
 	}
@@ -275,12 +266,14 @@ func (m *Model) recalculateLayout() {
 		return
 	}
 
-	viewportHeight := m.height - 3
-	if m.viewMode == ViewModeSearch || m.filtering {
-		viewportHeight -= 2
+	inputHeight := 4
+	totalViewportHeight := m.height - 3
+	listViewportHeight := totalViewportHeight - inputHeight
+	if listViewportHeight < 1 {
+		listViewportHeight = 1
 	}
-	if viewportHeight < 1 {
-		viewportHeight = 1
+	if totalViewportHeight < 1 {
+		totalViewportHeight = 1
 	}
 
 	listWidth := m.listWidth()
@@ -289,18 +282,18 @@ func (m *Model) recalculateLayout() {
 	if !m.ready {
 		m.listViewport = viewport.New(
 			viewport.WithWidth(listWidth),
-			viewport.WithHeight(viewportHeight),
+			viewport.WithHeight(listViewportHeight),
 		)
 		m.detailViewport = viewport.New(
 			viewport.WithWidth(detailWidth),
-			viewport.WithHeight(viewportHeight),
+			viewport.WithHeight(totalViewportHeight),
 		)
 		m.ready = true
 	} else {
 		m.listViewport.SetWidth(listWidth)
-		m.listViewport.SetHeight(viewportHeight)
+		m.listViewport.SetHeight(listViewportHeight)
 		m.detailViewport.SetWidth(detailWidth)
-		m.detailViewport.SetHeight(viewportHeight)
+		m.detailViewport.SetHeight(totalViewportHeight)
 	}
 
 	rendererWidth := detailWidth - 4
@@ -309,8 +302,8 @@ func (m *Model) recalculateLayout() {
 	}
 	m.renderer.SetWidth(rendererWidth)
 
-	m.filterInput.SetWidth(listWidth - 4)
-	m.searchInput.SetWidth(listWidth - 4)
+	m.filterInput.SetWidth(listWidth - 6)
+	m.searchInput.SetWidth(listWidth - 6)
 }
 
 func (m *Model) hasNextPage() bool {
@@ -326,7 +319,7 @@ func (m *Model) nextPage() tea.Cmd {
 		return nil
 	}
 	m.pageTokenStack = append(m.pageTokenStack, m.currentPageToken)
-	return m.loadChats(m.nextPageToken)
+	return m.fetchChats(m.nextPageToken)
 }
 
 func (m *Model) previousPage() tea.Cmd {
@@ -335,7 +328,7 @@ func (m *Model) previousPage() tea.Cmd {
 	}
 	previousToken := m.pageTokenStack[len(m.pageTokenStack)-1]
 	m.pageTokenStack = m.pageTokenStack[:len(m.pageTokenStack)-1]
-	return m.loadChats(previousToken)
+	return m.fetchChats(previousToken)
 }
 
 func (m *Model) currentPage() int {
