@@ -15,7 +15,7 @@ import (
 var (
 	keySessionCycleFocus     = key.NewBinding(key.WithKeys("tab"))
 	keySessionCycleReasoning = key.NewBinding(key.WithKeys("alt+t"))
-	keySessionForkChat       = key.NewBinding(key.WithKeys("alt+f"))
+	keySessionForkChat       = key.NewBinding(key.WithKeys("alt+="))
 
 	keyViewportToTop       = key.NewBinding(key.WithKeys("alt+<"))
 	keyViewportToBottom    = key.NewBinding(key.WithKeys("alt+>"))
@@ -289,8 +289,12 @@ func (m *Model) handleViewportKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, keyViewportCopy):
 		if m.navigationMessageIndex != -1 {
 			content, _ := m.getSelectedContent()
-			clipboard.Write(clipboard.FmtText, []byte(content))
-			m.send(screen.AlertMsg{Text: "Copied to clipboard!"})
+			send := m.send
+			return func() tea.Msg {
+				clipboard.Write(clipboard.FmtText, []byte(content))
+				send(screen.AlertMsg{Text: "Copied to clipboard!"})
+				return nil
+			}
 		}
 		return nil
 

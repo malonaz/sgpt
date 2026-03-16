@@ -9,7 +9,6 @@ go_library(
         "//cli/tui/screen",
         "//cli/tui/screen/chat",
         "//cli/tui/screen/menu",
-        "//cli/tui/screen/search",
         "//cli/tui/styles",
         "//internal/configuration",
         "//third_party/go:charm.land__bubbles__v2__key",

@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
+	"github.com/malonaz/core/go/uuid"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/status"
 
@@ -27,15 +28,28 @@ func statusToProto(err error) *spb.Status {
 
 func (m *Model) saveChat() tea.Cmd {
 	return func() tea.Msg {
-		updateChatRequest := &chatservicepb.UpdateChatRequest{
-			Chat:       m.chat,
-			UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&chatpb.Chat{}).Proto(),
+		if m.chat.GetName() == "" {
+			createChatRequest := &chatservicepb.CreateChatRequest{
+				RequestId: uuid.MustNewV7().String(),
+				ChatId:    uuid.MustNewV7().String()[:8],
+				Chat:      m.chat,
+			}
+			chat, err := m.chatClient.CreateChat(m.ctx, createChatRequest)
+			if err != nil {
+				return screen.AlertMsg{Text: fmt.Sprintf("Failed to create chat: %v", err)}
+			}
+			m.chat = chat
+		} else {
+			updateChatRequest := &chatservicepb.UpdateChatRequest{
+				Chat:       m.chat,
+				UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&chatpb.Chat{}).Proto(),
+			}
+			chat, err := m.chatClient.UpdateChat(m.ctx, updateChatRequest)
+			if err != nil {
+				return screen.AlertMsg{Text: fmt.Sprintf("Failed to update chat: %v", err)}
+			}
+			m.chat = chat
 		}
-		chat, err := m.chatClient.UpdateChat(m.ctx, updateChatRequest)
-		if err != nil {
-			return screen.AlertMsg{Text: fmt.Sprintf("Save failed: %v", err)}
-		}
-		m.chat = chat
 		return chatSavedMsg{}
 	}
 }

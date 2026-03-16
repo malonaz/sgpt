@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textarea"
@@ -153,14 +154,15 @@ func (m *Model) Title() string {
 	if t := m.chat.GetMetadata().GetTitle(); t != "" {
 		return t
 	}
-	return m.opts.ChatID
+	name := m.chat.GetName()
+	if name == "" {
+		return "New Chat"
+	}
+	return strings.TrimPrefix(name, "chats/")
 }
 
 func (m *Model) ShortTitle() string {
-	if t := m.chat.GetMetadata().GetTitle(); t != "" {
-		return styles.Truncate(t, 20)
-	}
-	return m.opts.ChatID
+	return styles.Truncate(m.Title(), 20)
 }
 
 func (m *Model) SetSize(width, height int) {
@@ -238,8 +240,8 @@ func (m *Model) setTitle() {
 	modelStr := fmt.Sprintf("%s/%s", modelResourceName.Provider, modelResourceName.Model)
 
 	m.title = fmt.Sprintf(
-		" 🤖 %s │ 👤 %s │ 💬 %s │ 🧠 %s │ 📊 %s%s%s ",
-		modelStr, roleName, m.opts.ChatID, reasoningStr, tokenStr, contextStr, toolsStr,
+		" 🤖 %s │ 👤 %s │ 🧠 %s │ 📊 %s%s%s ",
+		modelStr, roleName, reasoningStr, tokenStr, contextStr, toolsStr,
 	)
 }
 

@@ -11,7 +11,6 @@ go_library(
         "//internal/file",
         "//internal/role",
         "//third_party/go:charm.land__bubbletea__v2",
-        "//third_party/go:github.com__google__uuid",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__aip",
         "//third_party/go:github.com__malonaz__core__go__grpc__middleware",

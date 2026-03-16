@@ -1,6 +1,9 @@
+// cli/tui/screen/menu/update.go
 package menu
 
 import (
+	"time"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
@@ -18,6 +21,7 @@ var (
 	keyRefresh  = key.NewBinding(key.WithKeys("r"))
 	keyNextPage = key.NewBinding(key.WithKeys("alt+]"))
 	keyPrevPage = key.NewBinding(key.WithKeys("alt+["))
+	keySearch   = key.NewBinding(key.WithKeys("ctrl+_"))
 )
 
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
@@ -59,11 +63,41 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.listViewport.SetContent(m.renderList())
 		return m.wrapCmd(screen.AlertMsg{Text: "Chat deleted"})
 
-	case tea.KeyPressMsg:
-		if m.filtering {
-			return m.handleFilterKey(msg)
+	case searchResultsMsg:
+		m.searchLoading = false
+		if msg.Query != m.lastSearchQuery {
+			return nil
 		}
-		return m.handleListKey(msg)
+		if msg.Err != nil {
+			m.searchErr = msg.Err
+			m.listViewport.SetContent(m.renderList())
+			return nil
+		}
+		m.searchResults = msg.Chats
+		m.searchErr = nil
+		m.searchCursor = 0
+		m.updateSelection()
+		m.listViewport.SetContent(m.renderList())
+		return nil
+
+	case searchDebounceTickMsg:
+		currentQuery := m.searchInput.Value()
+		if msg.Query == currentQuery && currentQuery != "" && currentQuery != m.lastSearchQuery {
+			m.lastSearchQuery = currentQuery
+			return m.executeSearch(currentQuery)
+		}
+		return nil
+
+	case tea.KeyPressMsg:
+		switch m.viewMode {
+		case ViewModeSearch:
+			return m.handleSearchKey(msg)
+		default:
+			if m.filtering {
+				return m.handleFilterKey(msg)
+			}
+			return m.handleListKey(msg)
+		}
 	}
 
 	return nil
@@ -73,6 +107,9 @@ func (m *Model) handleListKey(msg tea.KeyPressMsg) tea.Cmd {
 	filtered := m.filteredChats()
 
 	switch {
+	case key.Matches(msg, keySearch):
+		return m.ActivateSearch()
+
 	case key.Matches(msg, keyNextPage):
 		return m.nextPage()
 
@@ -163,6 +200,65 @@ func (m *Model) handleFilterKey(msg tea.KeyPressMsg) tea.Cmd {
 	m.cursor = 0
 	m.updateSelection()
 	m.listViewport.SetContent(m.renderList())
+	return cmd
+}
+
+func (m *Model) handleSearchKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch {
+	case key.Matches(msg, keyUp):
+		if m.searchCursor > 0 {
+			m.searchCursor--
+			m.updateSelection()
+			m.listViewport.SetContent(m.renderList())
+		}
+		return nil
+
+	case key.Matches(msg, keyDown):
+		if m.searchCursor < len(m.searchResults)-1 {
+			m.searchCursor++
+			m.updateSelection()
+			m.listViewport.SetContent(m.renderList())
+		}
+		return nil
+
+	case key.Matches(msg, keyOpen):
+		if m.searchCursor < len(m.searchResults) {
+			return m.wrapCmd(screen.OpenChatMsg{Chat: m.searchResults[m.searchCursor]})
+		}
+		return nil
+	}
+
+	switch msg.String() {
+	case "ctrl+c":
+		return m.wrapCmd(screen.CloseTabMsg{})
+	case "escape":
+		if m.searchInput.Value() != "" {
+			m.searchInput.SetValue("")
+			m.lastSearchQuery = ""
+			m.searchResults = nil
+			m.updateSelection()
+			m.listViewport.SetContent(m.renderList())
+			return nil
+		}
+		m.viewMode = ViewModeList
+		m.searchInput.Blur()
+		m.recalculateLayout()
+		m.updateSelection()
+		m.listViewport.SetContent(m.renderList())
+		return nil
+	}
+
+	var cmd tea.Cmd
+	m.searchInput, cmd = m.searchInput.Update(msg)
+
+	currentQuery := m.searchInput.Value()
+	if currentQuery != m.lastSearchQuery {
+		query := currentQuery
+		cmd = tea.Batch(cmd, tea.Tick(searchDebounceInterval, func(time.Time) tea.Msg {
+			return searchDebounceTickMsg{Query: query}
+		}))
+	}
+
 	return cmd
 }
 

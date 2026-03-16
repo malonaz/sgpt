@@ -1,3 +1,4 @@
+// cli/tui/app.go
 package tui
 
 import (
@@ -18,7 +19,6 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
-	searchscreen "github.com/malonaz/sgpt/cli/tui/screen/search"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
 	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
@@ -42,22 +42,22 @@ type tab struct {
 }
 
 var (
-	keyQuit       = key.NewBinding(key.WithKeys("ctrl+d"))
-	keyNewTab     = key.NewBinding(key.WithKeys("ctrl+t"))
-	keyCloseTab   = key.NewBinding(key.WithKeys("ctrl+w"))
-	keyNextTab    = key.NewBinding(key.WithKeys("alt+right", "alt+l"))
-	keyPrevTab    = key.NewBinding(key.WithKeys("alt+left", "alt+h"))
-	keyOpenMenu   = key.NewBinding(key.WithKeys("alt+m"))
-	keyOpenSearch = key.NewBinding(key.WithKeys("ctrl+_"))
-	keyTab1       = key.NewBinding(key.WithKeys("alt+f1"))
-	keyTab2       = key.NewBinding(key.WithKeys("alt+f2"))
-	keyTab3       = key.NewBinding(key.WithKeys("alt+f3"))
-	keyTab4       = key.NewBinding(key.WithKeys("alt+f4"))
-	keyTab5       = key.NewBinding(key.WithKeys("alt+f5"))
-	keyTab6       = key.NewBinding(key.WithKeys("alt+f6"))
-	keyTab7       = key.NewBinding(key.WithKeys("alt+f7"))
-	keyTab8       = key.NewBinding(key.WithKeys("alt+f8"))
-	keyTab9       = key.NewBinding(key.WithKeys("alt+f9"))
+	keyQuit     = key.NewBinding(key.WithKeys("ctrl+d"))
+	keyNewTab   = key.NewBinding(key.WithKeys("ctrl+t"))
+	keyCloseTab = key.NewBinding(key.WithKeys("ctrl+w"))
+	keyNextTab  = key.NewBinding(key.WithKeys("alt+right", "alt+l"))
+	keyPrevTab  = key.NewBinding(key.WithKeys("alt+left", "alt+h"))
+	keyOpenMenu = key.NewBinding(key.WithKeys("alt+m"))
+	keySearch   = key.NewBinding(key.WithKeys("ctrl+_"))
+	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
+	keyTab2     = key.NewBinding(key.WithKeys("alt+f2"))
+	keyTab3     = key.NewBinding(key.WithKeys("alt+f3"))
+	keyTab4     = key.NewBinding(key.WithKeys("alt+f4"))
+	keyTab5     = key.NewBinding(key.WithKeys("alt+f5"))
+	keyTab6     = key.NewBinding(key.WithKeys("alt+f6"))
+	keyTab7     = key.NewBinding(key.WithKeys("alt+f7"))
+	keyTab8     = key.NewBinding(key.WithKeys("alt+f8"))
+	keyTab9     = key.NewBinding(key.WithKeys("alt+f9"))
 )
 
 var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, keyTab6, keyTab7, keyTab8, keyTab9}
@@ -185,7 +185,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.focusMenu()
 
 	case screen.OpenSearchMsg:
-		return a, a.openSearch()
+		return a, a.focusMenuSearch()
 
 	case screen.CloseTabMsg:
 		return a, a.closeTab(msg.TabID)
@@ -250,8 +250,8 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return a.switchTab(a.activeTab - 1)
 	case key.Matches(msg, keyOpenMenu):
 		return a.focusMenu()
-	case key.Matches(msg, keyOpenSearch):
-		return a.openSearch()
+	case key.Matches(msg, keySearch):
+		return a.focusMenuSearch()
 	}
 	for i, k := range tabIndexKeys {
 		if key.Matches(msg, k) {
@@ -391,15 +391,18 @@ func (a *App) focusMenu() tea.Cmd {
 	return nil
 }
 
-func (a *App) openSearch() tea.Cmd {
+func (a *App) focusMenuSearch() tea.Cmd {
 	for i, t := range a.tabs {
-		if _, ok := t.screen.(*searchscreen.Model); ok {
-			return a.switchTab(i)
+		if t.id == menuTabID {
+			cmd := a.switchTab(i)
+			if menuModel, ok := t.screen.(*menuscreen.Model); ok {
+				searchCmd := menuModel.ActivateSearch()
+				return tea.Batch(cmd, searchCmd)
+			}
+			return cmd
 		}
 	}
-	tabID := "search"
-	s := searchscreen.New(a.ctx, a.chatClient, a.makeWrap(tabID))
-	return a.addTab(tabID, s)
+	return nil
 }
 
 func (a *App) showAlert(text string) tea.Cmd {

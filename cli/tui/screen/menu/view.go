@@ -1,3 +1,4 @@
+// cli/tui/screen/menu/view.go
 package menu
 
 import (
@@ -20,13 +21,21 @@ func (m *Model) View() string {
 
 	var b strings.Builder
 
-	header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (page %d) ", m.currentPage()))
-	b.WriteString(header)
-	b.WriteString("\n")
-
-	if m.filtering {
-		b.WriteString(styles.SearchInputStyle.Width(m.listWidth() - 2).Render(m.filterInput.View()))
+	switch m.viewMode {
+	case ViewModeSearch:
+		header := styles.TitleStyle.Width(m.width).Render(" 🔍 Search Chats ")
+		b.WriteString(header)
 		b.WriteString("\n")
+		b.WriteString(styles.SearchInputStyle.Width(m.listWidth() - 2).Render(m.searchInput.View()))
+		b.WriteString("\n")
+	default:
+		header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (page %d) ", m.currentPage()))
+		b.WriteString(header)
+		b.WriteString("\n")
+		if m.filtering {
+			b.WriteString(styles.SearchInputStyle.Width(m.listWidth() - 2).Render(m.filterInput.View()))
+			b.WriteString("\n")
+		}
 	}
 
 	listPanel := m.listViewport.View()
@@ -38,23 +47,31 @@ func (m *Model) View() string {
 	joined := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, separator, detailPanel)
 	b.WriteString(joined)
 
-	var pagination strings.Builder
-	if m.hasPreviousPage() {
-		pagination.WriteString("◀ [ ")
-	}
-	pagination.WriteString(fmt.Sprintf("page %d", m.currentPage()))
-	if m.hasNextPage() {
-		pagination.WriteString(" ] ▶")
-	}
-
-	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ d: delete │ /: filter │ r: refresh │ %s", pagination.String())
 	b.WriteString("\n")
-	b.WriteString(styles.HelpStyle.Render(helpText))
+	switch m.viewMode {
+	case ViewModeSearch:
+		b.WriteString(styles.HelpStyle.Render("Type to search │ C-p/C-n: navigate │ Enter: open │ Esc: clear/back"))
+	default:
+		var pagination strings.Builder
+		if m.hasPreviousPage() {
+			pagination.WriteString("◀ [ ")
+		}
+		pagination.WriteString(fmt.Sprintf("page %d", m.currentPage()))
+		if m.hasNextPage() {
+			pagination.WriteString(" ] ▶")
+		}
+		helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ d: delete │ /: filter │ C-/: search │ r: refresh │ %s", pagination.String())
+		b.WriteString(styles.HelpStyle.Render(helpText))
+	}
 
 	return b.String()
 }
 
 func (m *Model) renderList() string {
+	if m.viewMode == ViewModeSearch {
+		return m.renderSearchResults()
+	}
+
 	if m.loading {
 		return styles.DimTextStyle.Render("Loading chats...")
 	}
@@ -108,6 +125,54 @@ func (m *Model) renderList() string {
 	return b.String()
 }
 
+func (m *Model) renderSearchResults() string {
+	if m.searchLoading {
+		return styles.DimTextStyle.Render("Searching...")
+	}
+	if m.searchErr != nil {
+		return styles.ErrorStyle.Render(fmt.Sprintf("Error: %v", m.searchErr))
+	}
+	if m.lastSearchQuery == "" {
+		return styles.DimTextStyle.Render("Type a query to search chat history")
+	}
+	if len(m.searchResults) == 0 {
+		return styles.DimTextStyle.Render("No results found")
+	}
+
+	listWidth := m.listWidth()
+	var b strings.Builder
+	for i, chat := range m.searchResults {
+		title := chat.GetMetadata().GetTitle()
+		if title == "" {
+			title = "(untitled)"
+		}
+		title = styles.Truncate(title, 16)
+
+		chatID := chat.Name
+		if strings.HasPrefix(chatID, "chats/") {
+			chatID = chatID[6:]
+		}
+		if len(chatID) > 8 {
+			chatID = chatID[:8]
+		}
+
+		messageCount := len(chat.GetMetadata().GetMessages())
+		created := chat.GetCreateTime().AsTime().Format(time.DateOnly)
+
+		line := fmt.Sprintf("  %-10s %-18s %d msgs  %s", chatID, title, messageCount, created)
+
+		style := styles.MenuItemStyle
+		if i == m.searchCursor {
+			style = styles.MenuSelectedStyle
+		}
+		b.WriteString(style.Width(listWidth).Render(line))
+		if i < len(m.searchResults)-1 {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
+
 func (m *Model) renderDetail() string {
 	detailWidth := m.detailWidth()
 
@@ -122,11 +187,7 @@ func (m *Model) renderDetail() string {
 	}
 
 	var b strings.Builder
-	title := chat.GetMetadata().GetTitle()
-	if title == "" {
-		title = "(untitled)"
-	}
-	title = chat.GetName()
+	title := chat.GetName()
 	b.WriteString(styles.MenuTitleStyle.Render(fmt.Sprintf(" %s", styles.Truncate(title, detailWidth-2))))
 	b.WriteString("\n")
 	model := chat.GetMetadata().GetCurrentModel()
@@ -161,26 +222,22 @@ func (m *Model) renderDetail() string {
 		case aipb.Role_ROLE_ASSISTANT:
 			b.WriteString(styles.AILabelStyle.Render(" Assistant:"))
 			b.WriteString("\n")
-			blockIndex := 0
 			for _, block := range message.GetBlocks() {
 				if thought := block.GetThought(); thought != "" {
 					blocks := markdown.ParseBlocks(thought)
 					rendered := m.renderer.ToMarkdown(-1, false, blocks...)
 					b.WriteString(styles.ThoughtStyle.Render("  " + strings.ReplaceAll(rendered, "\n", "\n  ")))
 					b.WriteString("\n")
-					blockIndex++
 				}
 				if text := block.GetText(); text != "" {
 					blocks := markdown.ParseBlocks(text)
 					rendered := m.renderer.ToMarkdown(-1, false, blocks...)
 					b.WriteString("  " + strings.ReplaceAll(rendered, "\n", "\n  "))
 					b.WriteString("\n")
-					blockIndex++
 				}
 				if toolCall := block.GetToolCall(); toolCall != nil {
 					b.WriteString(styles.ToolLabelStyle.Render(fmt.Sprintf("  🔧 %s", toolCall.Name)))
 					b.WriteString("\n")
-					blockIndex++
 				}
 			}
 

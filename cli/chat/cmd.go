@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/google/uuid"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
@@ -122,20 +121,13 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				chat = listChatsResponse.Chats[0]
 				opts.ChatID = chat.Name
 			} else {
-				createChatRequest := &chatservicepb.CreateChatRequest{
-					RequestId: uuid.New().String(),
-					ChatId:    uuid.New().String()[:8],
-					Chat: &chatpb.Chat{
-						Files: filePaths,
-						Tags:  tags,
-						Metadata: &chatpb.ChatMetadata{
-							CurrentModel: opts.Model,
-						},
+				chat = &chatpb.Chat{
+					Files: filePaths,
+					Tags:  tags,
+					Metadata: &chatpb.ChatMetadata{
+						CurrentModel: opts.Model,
 					},
 				}
-				chat, err = chatClient.CreateChat(ctx, createChatRequest)
-				cobra.CheckErr(err)
-				opts.ChatID = chat.Name
 			}
 
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
