@@ -619,48 +619,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__AlecAivazis__survey__v2",
-    _tag = "download",
-    module = "github.com/AlecAivazis/survey/v2",
-    version = "v2.3.7",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__AlecAivazis__survey__v2",
-    download = ":_github.com__AlecAivazis__survey__v2#download",
-    install = ["."],
-    module = "github.com/AlecAivazis/survey/v2",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__AlecAivazis__survey__v2__core",
-        ":github.com__AlecAivazis__survey__v2__terminal",
-        ":github.com__kballard__go-shellquote",
-        ":golang.org__x__term",
-        ":golang.org__x__text__cases",
-        ":golang.org__x__text__language",
-    ],
-)
-
-go_module(
-    name = "github.com__AlecAivazis__survey__v2__core",
-    download = ":_github.com__AlecAivazis__survey__v2#download",
-    install = ["core"],
-    module = "github.com/AlecAivazis/survey/v2",
-    visibility = ["PUBLIC"],
-    deps = [":github.com__mgutz__ansi"],
-)
-
-go_module(
-    name = "github.com__AlecAivazis__survey__v2__terminal",
-    download = ":_github.com__AlecAivazis__survey__v2#download",
-    install = ["terminal"],
-    module = "github.com/AlecAivazis/survey/v2",
-    visibility = ["PUBLIC"],
-    deps = [":golang.org__x__text__width"],
-)
-
-go_mod_download(
     name = "github.com__AlexxIT__go2rtc",
     _tag = "download",
     module = "github.com/AlexxIT/go2rtc",
@@ -1116,23 +1074,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__aymanbagabas__go-osc52__v2",
-    _tag = "download",
-    module = "github.com/aymanbagabas/go-osc52/v2",
-    version = "v2.0.1",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__aymanbagabas__go-osc52__v2",
-    download = ":_github.com__aymanbagabas__go-osc52__v2#download",
-    install = ["."],
-    module = "github.com/aymanbagabas/go-osc52/v2",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_mod_download(
     name = "github.com__aymerick__douceur",
     _tag = "download",
     module = "github.com/aymerick/douceur",
@@ -1217,23 +1158,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__buger__goterm",
-    _tag = "download",
-    module = "github.com/buger/goterm",
-    version = "v1.0.4",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__buger__goterm",
-    download = ":_github.com__buger__goterm#download",
-    install = ["."],
-    module = "github.com/buger/goterm",
-    visibility = ["PUBLIC"],
-    deps = [":golang.org__x__sys__unix"],
-)
-
-go_mod_download(
     name = "github.com__cespare__xxhash__v2",
     _tag = "download",
     module = "github.com/cespare/xxhash/v2",
@@ -1248,30 +1172,6 @@ go_module(
     module = "github.com/cespare/xxhash/v2",
     visibility = ["PUBLIC"],
     deps = [],
-)
-
-go_mod_download(
-    name = "github.com__charmbracelet__bubbletea",
-    _tag = "download",
-    module = "github.com/charmbracelet/bubbletea",
-    version = "v1.1.1",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__charmbracelet__bubbletea",
-    download = ":_github.com__charmbracelet__bubbletea#download",
-    install = ["."],
-    module = "github.com/charmbracelet/bubbletea",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__lipgloss",
-        ":github.com__charmbracelet__x__ansi",
-        ":github.com__charmbracelet__x__term",
-        ":github.com__muesli__ansi__compressor",
-        ":github.com__muesli__cancelreader",
-        ":golang.org__x__sync__errgroup",
-    ],
 )
 
 go_mod_download(
@@ -1292,27 +1192,6 @@ go_module(
         ":github.com__charmbracelet__x__ansi",
         ":github.com__charmbracelet__x__term",
         ":github.com__xo__terminfo",
-    ],
-)
-
-go_mod_download(
-    name = "github.com__charmbracelet__lipgloss",
-    _tag = "download",
-    module = "github.com/charmbracelet/lipgloss",
-    version = "v0.13.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__charmbracelet__lipgloss",
-    download = ":_github.com__charmbracelet__lipgloss#download",
-    install = ["."],
-    module = "github.com/charmbracelet/lipgloss",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__charmbracelet__x__ansi",
-        ":github.com__muesli__termenv",
-        ":github.com__rivo__uniseg",
     ],
 )
 
@@ -1457,23 +1336,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__chzyer__readline",
-    _tag = "download",
-    module = "github.com/chzyer/readline",
-    version = "v0.0.0-20180603132655-2972be24d48e",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__chzyer__readline",
-    download = ":_github.com__chzyer__readline#download",
-    install = ["."],
-    module = "github.com/chzyer/readline",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_mod_download(
     name = "github.com__clipperhouse__displaywidth",
     _tag = "download",
     module = "github.com/clipperhouse/displaywidth",
@@ -1603,26 +1465,6 @@ go_module(
     module = "github.com/dlclark/regexp2",
     visibility = ["PUBLIC"],
     deps = [],
-)
-
-go_mod_download(
-    name = "github.com__fatih__color",
-    _tag = "download",
-    module = "github.com/fatih/color",
-    version = "v1.18.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__fatih__color",
-    download = ":_github.com__fatih__color#download",
-    install = ["."],
-    module = "github.com/fatih/color",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__mattn__go-colorable",
-        ":github.com__mattn__go-isatty",
-    ],
 )
 
 go_mod_download(
@@ -2912,40 +2754,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__hashicorp__errwrap",
-    _tag = "download",
-    module = "github.com/hashicorp/errwrap",
-    version = "v1.0.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__hashicorp__errwrap",
-    download = ":_github.com__hashicorp__errwrap#download",
-    install = ["."],
-    module = "github.com/hashicorp/errwrap",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_mod_download(
-    name = "github.com__hashicorp__go-multierror",
-    _tag = "download",
-    module = "github.com/hashicorp/go-multierror",
-    version = "v1.1.1",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__hashicorp__go-multierror",
-    download = ":_github.com__hashicorp__go-multierror#download",
-    install = ["."],
-    module = "github.com/hashicorp/go-multierror",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__hashicorp__errwrap"],
-)
-
-go_mod_download(
     name = "github.com__huandu__xstrings",
     _tag = "download",
     module = "github.com/huandu/xstrings",
@@ -3207,23 +3015,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__kballard__go-shellquote",
-    _tag = "download",
-    module = "github.com/kballard/go-shellquote",
-    version = "v0.0.0-20180428030007-95032a82bc51",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__kballard__go-shellquote",
-    download = ":_github.com__kballard__go-shellquote#download",
-    install = ["."],
-    module = "github.com/kballard/go-shellquote",
-    visibility = ["PUBLIC"],
-    deps = [],
-)
-
-go_mod_download(
     name = "github.com__lucasb-eyer__go-colorful",
     _tag = "download",
     module = "github.com/lucasb-eyer/go-colorful",
@@ -3244,7 +3035,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260305093913-b1510a635f04",
+    version = "v0.0.0-20260313195650-c866b1291f2d",
     visibility = ["PUBLIC"],
 )
 
@@ -3262,6 +3053,7 @@ go_module(
         ":go.einride.tech__aip__resourcename",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__metadata",
+        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
@@ -3338,6 +3130,21 @@ go_module(
         "//third_party/proto:malonaz__core__genproto__audio__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
         "//third_party/proto:malonaz__core__genproto__json__v1",
+        "//third_party/proto:validate",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__genproto__aip__v1",
+    download = ":_github.com__malonaz__core#download",
+    install = ["genproto/aip/v1"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__anypb",
+        ":google.golang.org__protobuf__types__known__fieldmaskpb",
         "//third_party/proto:validate",
     ],
 )
@@ -3681,14 +3488,14 @@ go_module(
         ":go.einride.tech__aip__ordering",
         ":go.einride.tech__aip__pagination",
         ":go.einride.tech__aip__resourcename",
-        ":golang.org__x__sync__errgroup",
         ":google.golang.org__grpc",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__reflect__protoregistry",
+        ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
         "//third_party/go:buf.build__go__protovalidate",
-        "//third_party/go:github.com__huandu__xstrings",
+        "//third_party/go:github.com__malonaz__core__genproto__aip__v1",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__api__expr__v1alpha1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
@@ -3756,7 +3563,7 @@ go_module(
     install = ["go/binary"],
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__hashicorp__go-multierror"],
+    deps = [],
 )
 
 go_module(
@@ -3797,6 +3604,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__grpc__middleware",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__health",
         ":github.com__malonaz__core__go__pbutil",
         ":github.com__malonaz__core__go__pbutil__pbreflection",
@@ -3902,11 +3710,13 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__pbutil",
+        ":github.com__prometheus__client_golang__prometheus",
+        ":github.com__prometheus__client_golang__prometheus__promauto",
         ":golang.org__x__sync__errgroup",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__health",
         ":google.golang.org__grpc__health__grpc_health_v1",
-        ":google.golang.org__grpc__status",
+        "//third_party/go:github.com__malonaz__core__go__grpc__status",
     ],
 )
 
@@ -4100,40 +3910,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__mattn__go-colorable",
-    _tag = "download",
-    module = "github.com/mattn/go-colorable",
-    version = "v0.1.14",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__mattn__go-colorable",
-    download = ":_github.com__mattn__go-colorable#download",
-    install = ["."],
-    module = "github.com/mattn/go-colorable",
-    visibility = ["PUBLIC"],
-    deps = [":github.com__mattn__go-isatty"],
-)
-
-go_mod_download(
-    name = "github.com__mattn__go-isatty",
-    _tag = "download",
-    module = "github.com/mattn/go-isatty",
-    version = "v0.0.20",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__mattn__go-isatty",
-    download = ":_github.com__mattn__go-isatty#download",
-    install = ["."],
-    module = "github.com/mattn/go-isatty",
-    visibility = ["PUBLIC"],
-    deps = [":golang.org__x__sys__unix"],
-)
-
-go_mod_download(
     name = "github.com__mattn__go-runewidth",
     _tag = "download",
     module = "github.com/mattn/go-runewidth",
@@ -4168,23 +3944,6 @@ go_module(
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
     ],
-)
-
-go_mod_download(
-    name = "github.com__mgutz__ansi",
-    _tag = "download",
-    module = "github.com/mgutz/ansi",
-    version = "v0.0.0-20170206155736-9520e82c474b",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__mgutz__ansi",
-    download = ":_github.com__mgutz__ansi#download",
-    install = ["."],
-    module = "github.com/mgutz/ansi",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__mattn__go-colorable"],
 )
 
 go_mod_download(
@@ -4252,32 +4011,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "github.com__muesli__ansi",
-    _tag = "download",
-    module = "github.com/muesli/ansi",
-    version = "v0.0.0-20230316100256-276c6243b2f6",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__muesli__ansi",
-    download = ":_github.com__muesli__ansi#download",
-    install = ["."],
-    module = "github.com/muesli/ansi",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__mattn__go-runewidth"],
-)
-
-go_module(
-    name = "github.com__muesli__ansi__compressor",
-    download = ":_github.com__muesli__ansi#download",
-    install = ["compressor"],
-    module = "github.com/muesli/ansi",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__muesli__ansi"],
-)
-
-go_mod_download(
     name = "github.com__muesli__cancelreader",
     _tag = "download",
     module = "github.com/muesli/cancelreader",
@@ -4292,46 +4025,6 @@ go_module(
     module = "github.com/muesli/cancelreader",
     visibility = ["PUBLIC"],
     deps = [":golang.org__x__sys__unix"],
-)
-
-go_mod_download(
-    name = "github.com__muesli__reflow",
-    _tag = "download",
-    module = "github.com/muesli/reflow",
-    version = "v0.3.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__muesli__reflow__ansi",
-    download = ":_github.com__muesli__reflow#download",
-    install = ["ansi"],
-    module = "github.com/muesli/reflow",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:github.com__mattn__go-runewidth"],
-)
-
-go_mod_download(
-    name = "github.com__muesli__termenv",
-    _tag = "download",
-    module = "github.com/muesli/termenv",
-    version = "v0.16.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "github.com__muesli__termenv",
-    download = ":_github.com__muesli__termenv#download",
-    install = ["."],
-    module = "github.com/muesli/termenv",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":github.com__rivo__uniseg",
-        ":golang.org__x__sys__unix",
-        "//third_party/go:github.com__aymanbagabas__go-osc52__v2",
-        "//third_party/go:github.com__lucasb-eyer__go-colorful",
-        "//third_party/go:github.com__mattn__go-isatty",
-    ],
 )
 
 go_mod_download(
@@ -4942,8 +4635,8 @@ go_mod_download(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -4951,8 +4644,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -4960,8 +4653,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -5463,29 +5156,6 @@ go_module(
 )
 
 go_mod_download(
-    name = "go.dalton.dog__bubbleup",
-    _tag = "download",
-    module = "go.dalton.dog/bubbleup",
-    version = "v1.1.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "go.dalton.dog__bubbleup",
-    download = ":_go.dalton.dog__bubbleup#download",
-    install = ["."],
-    module = "go.dalton.dog/bubbleup",
-    visibility = ["PUBLIC"],
-    deps = [
-        "//third_party/go:github.com__charmbracelet__bubbletea",
-        "//third_party/go:github.com__charmbracelet__lipgloss",
-        "//third_party/go:github.com__lucasb-eyer__go-colorful",
-        "//third_party/go:github.com__mattn__go-runewidth",
-        "//third_party/go:github.com__muesli__reflow__ansi",
-    ],
-)
-
-go_mod_download(
     name = "go.einride.tech__aip",
     _tag = "download",
     module = "go.einride.tech/aip",
@@ -5912,7 +5582,7 @@ go_mod_download(
     name = "golang.org__x__crypto",
     _tag = "download",
     module = "golang.org/x/crypto",
-    version = "v0.44.0",
+    version = "v0.47.0",
     visibility = ["PUBLIC"],
 )
 
@@ -6055,7 +5725,7 @@ go_mod_download(
     name = "golang.org__x__net",
     _tag = "download",
     module = "golang.org/x/net",
-    version = "v0.47.0",
+    version = "v0.48.0",
     visibility = ["PUBLIC"],
 )
 
@@ -6211,23 +5881,6 @@ go_module(
     module = "golang.org/x/sys",
     visibility = ["PUBLIC"],
     deps = [],
-)
-
-go_mod_download(
-    name = "golang.org__x__term",
-    _tag = "download",
-    module = "golang.org/x/term",
-    version = "v0.37.0",
-    visibility = ["PUBLIC"],
-)
-
-go_module(
-    name = "golang.org__x__term",
-    download = ":_golang.org__x__term#download",
-    install = ["."],
-    module = "golang.org/x/term",
-    visibility = ["PUBLIC"],
-    deps = ["//third_party/go:golang.org__x__sys__unix"],
 )
 
 go_mod_download(

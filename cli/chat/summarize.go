@@ -27,36 +27,31 @@ func NewSummarizeCmd(config *configuration.Config, aiClient aiservicepb.AiServic
 				Filter:   "-metadata.title:*",
 			}
 
-			summarized := 0
-
-			processChats := func(chats []*chatpb.Chat) (bool, error) {
-				for _, chat := range chats {
-					if chat.GetMetadata().GetTitle() != "" {
-						return false, fmt.Errorf("chat %s already has a title", chat.GetName())
-					}
-					if len(chat.GetMetadata().GetMessages()) < 1 {
-						return false, fmt.Errorf("chat %s has no messages", chat.GetName())
-					}
-
-					if err := chatscreen.GenerateChatSummary(ctx, config, aiClient, chatClient, chat); err != nil {
-						return false, fmt.Errorf("generating summary for %s: %w", chat.GetName(), err)
-					}
-
-					updateChatRequest := &chatservicepb.UpdateChatRequest{
-						Chat:       chat,
-						UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
-					}
-					if _, err := chatClient.UpdateChat(ctx, updateChatRequest); err != nil {
-						return false, fmt.Errorf("saving summary for %s: %w", chat.GetName(), err)
-					}
-
-					summarized++
+			var summarized int
+			for chat, err := range aip.Iterator[*chatpb.Chat](ctx, listChatsRequest, chatClient.ListChats) {
+				if err != nil {
+					return fmt.Errorf("paginating chats: %w", err)
 				}
-				return true, nil
-			}
+				if chat.GetMetadata().GetTitle() != "" {
+					return fmt.Errorf("chat %s already has a title", chat.GetName())
+				}
+				if len(chat.GetMetadata().GetMessages()) < 1 {
+					return fmt.Errorf("chat %s has no messages", chat.GetName())
+				}
 
-			if err := aip.PaginateFunc[*chatpb.Chat](ctx, listChatsRequest, chatClient.ListChats, processChats); err != nil {
-				return fmt.Errorf("paginating chats: %w", err)
+				if err := chatscreen.GenerateChatSummary(ctx, config, aiClient, chatClient, chat); err != nil {
+					return fmt.Errorf("generating summary for %s: %w", chat.GetName(), err)
+				}
+
+				updateChatRequest := &chatservicepb.UpdateChatRequest{
+					Chat:       chat,
+					UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
+				}
+				if _, err := chatClient.UpdateChat(ctx, updateChatRequest); err != nil {
+					return fmt.Errorf("saving summary for %s: %w", chat.GetName(), err)
+				}
+
+				summarized++
 			}
 
 			fmt.Printf("Summarized %d chats\n", summarized)

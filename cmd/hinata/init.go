@@ -53,10 +53,10 @@ func setup(ctx context.Context) error {
 				binaryLoggingArgs("postgres_migrator_job_%s", database)...,
 			).WithLogger(rawLogger).AsJob()
 		}
-		if err := initializer.RunAsJob(); err != nil {
+		if err := initializer.Run(); err != nil {
 			return fmt.Errorf("running %s db initializer: %w", database, err)
 		}
-		if err := migrator.RunAsJob(); err != nil {
+		if err := migrator.Run(); err != nil {
 			return fmt.Errorf("running %s db migrator: %w", database, err)
 		}
 	}
