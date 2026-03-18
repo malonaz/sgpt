@@ -41,7 +41,7 @@ type tab struct {
 }
 
 var (
-	keyQuit     = key.NewBinding(key.WithKeys("ctrl+d", "ctrl+c"))
+	keyQuit     = key.NewBinding(key.WithKeys("ctrl+c"))
 	keyNewTab   = key.NewBinding(key.WithKeys("ctrl+t"))
 	keyCloseTab = key.NewBinding(key.WithKeys("ctrl+w"))
 	keyPrevTab  = key.NewBinding(key.WithKeys("alt+j"))
