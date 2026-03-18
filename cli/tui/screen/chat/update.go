@@ -17,6 +17,8 @@ var (
 	keySessionCycleReasoning = key.NewBinding(key.WithKeys("alt+t"))
 	keySessionForkChat       = key.NewBinding(key.WithKeys("alt+="))
 
+	keyOpenEditor = key.NewBinding(key.WithKeys("ctrl+o"))
+
 	keyViewportToTop       = key.NewBinding(key.WithKeys("alt+<"))
 	keyViewportToBottom    = key.NewBinding(key.WithKeys("alt+>"))
 	keyViewportPrevMessage = key.NewBinding(key.WithKeys("alt+{"))
@@ -27,7 +29,6 @@ var (
 	keyViewportScrollUp    = key.NewBinding(key.WithKeys("ctrl+p"))
 	keyViewportScrollDown  = key.NewBinding(key.WithKeys("ctrl+n"))
 	keyViewportCopy        = key.NewBinding(key.WithKeys("alt+w"))
-	keyViewportOpenEditor  = key.NewBinding(key.WithKeys("ctrl+o"))
 
 	keyInputPrevHistory = key.NewBinding(key.WithKeys("alt+p"))
 	keyInputNextHistory = key.NewBinding(key.WithKeys("alt+n"))
@@ -81,6 +82,15 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return nil
 
 	case editorClosedMsg:
+		switch m.focusedComponent {
+		case FocusTextarea:
+			if msg.Modified {
+				m.textarea.SetValue(msg.Content)
+				m.adjustTextareaHeight()
+			}
+		case FocusViewport:
+			// Do nothing.
+		}
 		return nil
 
 	case spinner.TickMsg:
@@ -218,6 +228,9 @@ func (m *Model) handleTextareaKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.adjustTextareaHeight()
 		}
 		return nil
+
+	case key.Matches(msg, keyOpenEditor):
+		return m.openInEditor(m.textarea.Value(), "md")
 	}
 
 	return nil
@@ -295,7 +308,7 @@ func (m *Model) handleViewportKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
-	case key.Matches(msg, keyViewportOpenEditor):
+	case key.Matches(msg, keyOpenEditor):
 		if m.navigationMessageIndex != -1 {
 			content, ext := m.getSelectedContent()
 			return m.openInEditor(content, ext)

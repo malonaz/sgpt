@@ -17,7 +17,10 @@ import (
 	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
 )
 
-type editorClosedMsg struct{}
+type editorClosedMsg struct {
+	Modified bool
+	Content  string
+}
 
 func statusToProto(err error) *spb.Status {
 	if err == nil {
@@ -64,6 +67,7 @@ func (m *Model) forkChat() tea.Cmd {
 }
 
 func (m *Model) openInEditor(content, ext string) tea.Cmd {
+	// Find the editor.
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
@@ -71,8 +75,15 @@ func (m *Model) openInEditor(content, ext string) tea.Cmd {
 	if editor == "" {
 		editor = "vim"
 	}
+	editorArgs := strings.Fields(editor)
+	if len(editorArgs) == 0 {
+		return func() tea.Msg {
+			return screen.AlertMsg{Text: "Failed to find editor"}
+		}
+	}
 
-	tmpFile, err := os.CreateTemp("", "sgpt-message-*."+ext)
+	// Create the temporary file.
+	tmpFile, err := os.CreateTemp("", "sgpt-*."+ext)
 	if err != nil {
 		return func() tea.Msg {
 			return screen.AlertMsg{Text: fmt.Sprintf("Failed to create temp file: %v", err)}
@@ -80,28 +91,46 @@ func (m *Model) openInEditor(content, ext string) tea.Cmd {
 	}
 	tmpPath := tmpFile.Name()
 
-	if _, err := tmpFile.WriteString(content); err != nil {
+	// If content is set => write to it.
+	if content != "" {
+		if _, err := tmpFile.WriteString(content); err != nil {
+			tmpFile.Close()
+			os.Remove(tmpPath)
+			return func() tea.Msg {
+				return screen.AlertMsg{Text: fmt.Sprintf("Failed to write temp file: %v", err)}
+			}
+		}
 		tmpFile.Close()
+	}
+
+	// Capture the info, so we can check if was modified.
+	info, err := os.Stat(tmpPath)
+	if err != nil {
 		os.Remove(tmpPath)
 		return func() tea.Msg {
-			return screen.AlertMsg{Text: fmt.Sprintf("Failed to write temp file: %v", err)}
+			return screen.AlertMsg{Text: fmt.Sprintf("Failed to stat temp file: %v", err)}
 		}
 	}
-	tmpFile.Close()
+	modTimeBefore := info.ModTime()
 
-	parts := strings.Fields(editor)
-	if len(parts) == 0 {
-		os.Remove(tmpPath)
-		return nil
-	}
-
-	args := append(parts[1:], tmpPath)
-	cmd := exec.Command(parts[0], args...)
+	args := append(editorArgs[1:], tmpPath)
+	cmd := exec.Command(editorArgs[0], args...)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		info, err := os.Stat(tmpPath)
+		if err != nil {
+			return screen.AlertMsg{Text: fmt.Sprintf("Editor failed: %v", err)}
+		}
+		content, err := os.ReadFile(tmpPath)
+		if err != nil {
+			return screen.AlertMsg{Text: fmt.Sprintf("Failed to read file: %v", err)}
+		}
 		os.Remove(tmpPath)
 		if err != nil {
 			return screen.AlertMsg{Text: fmt.Sprintf("Editor failed: %v", err)}
 		}
-		return editorClosedMsg{}
+		return editorClosedMsg{
+			Modified: info.ModTime().After(modTimeBefore),
+			Content:  string(content),
+		}
 	})
 }
