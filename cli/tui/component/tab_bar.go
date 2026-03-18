@@ -1,7 +1,6 @@
 package component
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
@@ -15,7 +14,6 @@ type Tab struct {
 	Streaming bool
 }
 
-// RenderTabBar renders the horizontal tab bar.
 func RenderTabBar(tabs []Tab, width int) string {
 	var parts []string
 	for _, tab := range tabs {
@@ -25,15 +23,10 @@ func RenderTabBar(tabs []Tab, width int) string {
 		}
 		label := tab.Title
 		if tab.Streaming {
-			label = styles.TabStreamingIndicator.Render("⟳ ") + label
+			label = "● " + label
 		}
 		parts = append(parts, style.Render(label))
 	}
 	bar := strings.Join(parts, " ")
 	return styles.TabBarStyle.Width(width).Render(bar)
-}
-
-// RenderTabBarHelp renders shortcut hints below the tab bar.
-func RenderTabBarHelp() string {
-	return styles.DimTextStyle.Render(fmt.Sprintf("Alt+1-9: switch tab │ Ctrl+T: new │ Ctrl+W: close"))
 }

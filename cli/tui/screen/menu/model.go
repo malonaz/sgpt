@@ -15,8 +15,9 @@ import (
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
-const pageSize = 50
-const searchDebounceInterval = 300 * time.Millisecond
+const (
+	searchDebounceInterval = 300 * time.Millisecond
+)
 
 type FocusTarget int
 
@@ -107,6 +108,17 @@ func (m *Model) Init() tea.Cmd {
 	return m.fetchChats("")
 }
 
+func (m *Model) visibleRowCapacity() int {
+	inputHeight := 4
+	headerHeight := 1
+	helpBarHeight := 1
+	available := m.height - 4 - inputHeight - headerHeight - helpBarHeight
+	if available < 1 {
+		return 1
+	}
+	return available
+}
+
 func (m *Model) Title() string {
 	return "Menu"
 }
@@ -162,7 +174,7 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 		if searchQuery != "" {
 			searchChatsRequest := &chatservicepb.SearchChatsRequest{
 				Query:     searchQuery,
-				PageSize:  pageSize,
+				PageSize:  int32(m.visibleRowCapacity()),
 				PageToken: pageToken,
 			}
 			searchChatsResponse, err := m.chatClient.SearchChats(ctx, searchChatsRequest)
@@ -178,10 +190,9 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 		}
 
 		listChatsRequest := &chatservicepb.ListChatsRequest{
-			PageSize:  pageSize,
+			PageSize:  int32(m.visibleRowCapacity()),
 			OrderBy:   "create_time desc",
 			PageToken: pageToken,
-			Filter:    "metadata.messages:*",
 		}
 		listChatsResponse, err := m.chatClient.ListChats(ctx, listChatsRequest)
 		if err != nil {
@@ -267,7 +278,7 @@ func (m *Model) recalculateLayout() {
 	}
 
 	inputHeight := 4
-	totalViewportHeight := m.height - 3
+	totalViewportHeight := m.height - 4
 	listViewportHeight := totalViewportHeight - inputHeight
 	if listViewportHeight < 1 {
 		listViewportHeight = 1

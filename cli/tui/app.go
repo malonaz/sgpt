@@ -1,4 +1,3 @@
-// cli/tui/app.go
 package tui
 
 import (
@@ -42,11 +41,11 @@ type tab struct {
 }
 
 var (
-	keyQuit     = key.NewBinding(key.WithKeys("ctrl+d"))
+	keyQuit     = key.NewBinding(key.WithKeys("ctrl+d", "ctrl+c"))
 	keyNewTab   = key.NewBinding(key.WithKeys("ctrl+t"))
 	keyCloseTab = key.NewBinding(key.WithKeys("ctrl+w"))
-	keyNextTab  = key.NewBinding(key.WithKeys("alt+right", "alt+l"))
-	keyPrevTab  = key.NewBinding(key.WithKeys("alt+left", "alt+h"))
+	keyPrevTab  = key.NewBinding(key.WithKeys("alt+j"))
+	keyNextTab  = key.NewBinding(key.WithKeys("alt+;"))
 	keyOpenMenu = key.NewBinding(key.WithKeys("alt+m"))
 	keySearch   = key.NewBinding(key.WithKeys("ctrl+_"))
 	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
@@ -238,6 +237,11 @@ func (a *App) View() tea.View {
 func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyQuit):
+		if a.activeTab < len(a.tabs) {
+			if cs, ok := a.tabs[a.activeTab].screen.(*chatscreen.Model); ok && cs.IsStreaming() {
+				break
+			}
+		}
 		a.quitting = true
 		return tea.Quit
 	case key.Matches(msg, keyNewTab):
