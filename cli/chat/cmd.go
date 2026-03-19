@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
-	"github.com/malonaz/core/go/aip"
-	"github.com/malonaz/core/go/grpc/middleware"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/tui"
@@ -22,8 +19,6 @@ import (
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
 )
-
-var models []*aipb.Model
 
 func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
 	var opts struct {
@@ -56,20 +51,8 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 			opts.Model, err = config.ResolveModelAlias(opts.Model)
 			cobra.CheckErr(err)
 
-			if len(models) == 0 {
-				cobra.CheckErr(fetchModels(ctx, aiClient))
-			}
-
-			var selectedModel *aipb.Model
-			for _, model := range models {
-				if model.Name == opts.Model {
-					selectedModel = model
-					break
-				}
-			}
-			if selectedModel == nil {
-				return fmt.Errorf("model not found: %s", opts.Model)
-			}
+			selectedModel, err := resolveModel(ctx, aiClient, opts.Model)
+			cobra.CheckErr(err)
 
 			var reasoningEffort aipb.ReasoningEffort
 			switch strings.ToLower(opts.ReasoningEffort) {
@@ -169,18 +152,38 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if len(models) == 0 {
-			fetchModels(cmd.Context(), aiClient)
-		}
-		return filterModels(models, toComplete), cobra.ShellCompDirectiveNoFileComp
+		cachedModels, _ := fetchModelsWithCache(cmd.Context(), aiClient, false)
+		return filterModels(cachedModels, toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 
 	return cmd
 }
 
-func filterModels(models []*aipb.Model, prefix string) []string {
+func resolveModel(ctx context.Context, aiClient aiservicepb.AiServiceClient, modelName string) (*aipb.Model, error) {
+	cachedModels, err := fetchModelsWithCache(ctx, aiClient, false)
+	if err != nil {
+		return nil, err
+	}
+	for _, model := range cachedModels {
+		if model.Name == modelName {
+			return model, nil
+		}
+	}
+	cachedModels, err = fetchModelsWithCache(ctx, aiClient, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, model := range cachedModels {
+		if model.Name == modelName {
+			return model, nil
+		}
+	}
+	return nil, fmt.Errorf("model not found: %s", modelName)
+}
+
+func filterModels(cachedModels []*aipb.Model, prefix string) []string {
 	var names []string
-	for _, model := range models {
+	for _, model := range cachedModels {
 		names = append(names, model.Name)
 	}
 	if prefix == "" {
@@ -194,17 +197,4 @@ func filterModels(models []*aipb.Model, prefix string) []string {
 		}
 	}
 	return matches
-}
-
-func fetchModels(ctx context.Context, aiClient aiservicepb.AiServiceClient) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	ctx = middleware.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
-	listModelsRequest := &aiservicepb.ListModelsRequest{Parent: "providers/-"}
-	fetchedModels, err := aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
-	if err != nil {
-		return err
-	}
-	models = fetchedModels
-	return nil
 }
