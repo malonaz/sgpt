@@ -1,3 +1,4 @@
+// internal/tools/read_files.go
 package tools
 
 import (
@@ -60,7 +61,23 @@ func ExecuteReadFiles(args *ReadFilesArgs) (string, error) {
 
 type ReadFilesHandler struct{}
 
-func (h *ReadFilesHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+func (h *ReadFilesHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*HandleResult, error) {
+	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
+	if err != nil {
+		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
+	}
+	args, err := ParseReadFilesArgs(bytes)
+	if err != nil {
+		return nil, err
+	}
+	// Read files are safe to auto-execute.
+	return &HandleResult{
+		Display:     fmt.Sprintf("Reading %d file(s): %s", len(args.Paths), strings.Join(args.Paths, ", ")),
+		AutoExecute: true,
+	}, nil
+}
+
+func (h *ReadFilesHandler) ProcessToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
 	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
 	if err != nil {
 		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)

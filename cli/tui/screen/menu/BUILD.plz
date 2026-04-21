@@ -17,7 +17,6 @@ go_library(
         "//third_party/go:charm.land__bubbles__v2__viewport",
         "//third_party/go:charm.land__bubbletea__v2",
         "//third_party/go:charm.land__lipgloss__v2",
-        "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

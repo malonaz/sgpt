@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textarea"
@@ -52,6 +53,7 @@ type Model struct {
 	log        *slog.Logger
 
 	chat               *sgptpb.Chat
+	chatMutex          sync.Mutex
 	opts               Options
 	additionalMessages []*aipb.Message
 	injectedFiles      []string

@@ -1,3 +1,4 @@
+// internal/toolengine/toolengine.go
 package toolengine
 
 import (
@@ -139,12 +140,52 @@ func (m *Manager) MarkDiscovered(toolSetName string, toolNames []string) {
 	}
 }
 
-func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*tools.HandleResult, error) {
 	m.mu.Lock()
 	toolSets := make([]*aipb.ToolSet, len(m.toolSets))
 	copy(toolSets, m.toolSets)
 
-	// Find any engine connection for parsing.
+	var engine *engineConnection
+	for _, e := range m.toolSetNameToEngine {
+		engine = e
+		break
+	}
+	m.mu.Unlock()
+
+	if engine == nil {
+		return nil, fmt.Errorf("no engine client available")
+	}
+
+	parseToolCallRequest := &aienginepb.ParseToolCallRequest{
+		ToolCall: toolCall,
+		ToolSets: toolSets,
+	}
+	parseToolCallResponse, err := engine.client.ParseToolCall(ctx, parseToolCallRequest)
+	if err != nil {
+		return nil, fmt.Errorf("parsing tool call: %w", err)
+	}
+
+	switch result := parseToolCallResponse.Result.(type) {
+	case *aienginepb.ParseToolCallResponse_Discovery:
+		return &tools.HandleResult{
+			Display:     fmt.Sprintf("Discovering tools: %v", result.Discovery.ToolNames),
+			AutoExecute: true,
+		}, nil
+	case *aienginepb.ParseToolCallResponse_Rpc:
+		return &tools.HandleResult{
+			Display:     fmt.Sprintf("RPC: %s", result.Rpc.MethodFullName),
+			AutoExecute: false,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown parse result type: %T", result)
+	}
+}
+
+func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	m.mu.Lock()
+	toolSets := make([]*aipb.ToolSet, len(m.toolSets))
+	copy(toolSets, m.toolSets)
+
 	var engine *engineConnection
 	for _, e := range m.toolSetNameToEngine {
 		engine = e
@@ -171,7 +212,6 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 		return ai.NewToolResult(toolCall.Name, toolCall.Id, "ok"), nil
 
 	case *aienginepb.ParseToolCallResponse_Rpc:
-		// Look up method descriptor from the engine's resolved schema.
 		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))
 		if err != nil {
 			return nil, fmt.Errorf("method not found %q: %w", result.Rpc.MethodFullName, err)

@@ -157,6 +157,9 @@ func (m *Model) startStreaming() tea.Cmd {
 }
 
 func (m *Model) finalizeStream(done streamDoneMsg) {
+	m.chatMutex.Lock()
+	defer m.chatMutex.Unlock()
+
 	if m.pendingUserMessage != nil {
 		userChatMessage := &sgptpb.Message{Message: m.pendingUserMessage}
 		m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, userChatMessage)

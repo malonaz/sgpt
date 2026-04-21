@@ -106,6 +106,15 @@ var (
 			Inherit(AIMessageStyle).
 			BorderForeground(ThoughtColor)
 
+	ToolMessageStyle = lipgloss.NewStyle().
+				Inherit(messageStyle).
+				BorderForeground(AccentColor).
+				MarginRight(10)
+
+	ToolCallStyle = lipgloss.NewStyle()
+
+	ToolResultStyle = lipgloss.NewStyle()
+
 	UserLabelStyle = lipgloss.NewStyle().
 			Foreground(SuccessColor).
 			Bold(true)
@@ -149,16 +158,8 @@ var (
 
 var (
 	ToolLabelStyle = lipgloss.NewStyle().
-			Foreground(AccentColor).
-			Bold(true)
-
-	ToolCallStyle = lipgloss.NewStyle().
-			Foreground(AccentColor).
-			PaddingLeft(MessagePaddingLeft)
-
-	ToolResultStyle = lipgloss.NewStyle().
-			Foreground(SecondaryColor).
-			PaddingLeft(MessagePaddingLeft)
+		Foreground(AccentColor).
+		Bold(true)
 )
 
 var (

@@ -62,7 +62,23 @@ func ExecuteShellCommand(args *ShellCommandArgs) (string, error) {
 
 type ShellHandler struct{}
 
-func (h *ShellHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+func (h *ShellHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*HandleResult, error) {
+	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
+	if err != nil {
+		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
+	}
+	args, err := ParseShellCommandArgs(bytes)
+	if err != nil {
+		return nil, err
+	}
+	display := args.Command
+	if args.WorkingDirectory != "" {
+		display = fmt.Sprintf("cd %s && %s", args.WorkingDirectory, args.Command)
+	}
+	return &HandleResult{Display: display, AutoExecute: false}, nil
+}
+
+func (h *ShellHandler) ProcessToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
 	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
 	if err != nil {
 		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)

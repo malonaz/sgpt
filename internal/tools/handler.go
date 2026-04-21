@@ -14,6 +14,12 @@ const (
 	HandlerIDEngine    = "engine"
 )
 
+type HandleResult struct {
+	Display     string
+	AutoExecute bool
+}
+
 type Handler interface {
-	HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error)
+	HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*HandleResult, error)
+	ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error)
 }

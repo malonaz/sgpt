@@ -1,3 +1,4 @@
+// cli/tui/screen/chat/render.go
 package chat
 
 import (
@@ -13,6 +14,8 @@ import (
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
+
+const maxToolDisplayLines = 15
 
 func (m *Model) renderTitleBar() string {
 	rendered := styles.TitleStyle.Width(m.width).Render(m.title)
@@ -183,14 +186,22 @@ func (m *Model) renderAIMessage(b *strings.Builder, currentLine *int, displayInd
 
 	for _, block := range toolCallBlocks {
 		toolCall := block.GetToolCall()
-		b.WriteString("\n")
-		*currentLine++
+		if len(thoughtBlocks) > 0 || len(textBlocks) > 0 || mdBlockIndex > 0 {
+			b.WriteString("\n")
+			*currentLine++
+		}
 		blockOffsets = append(blockOffsets, *currentLine)
-		b.WriteString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool: %s", toolCall.Name)))
-		b.WriteString("\n")
-		*currentLine++
+
+		var content strings.Builder
+		labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool Call: %s", toolCall.Name))
+		content.WriteString(m.renderBlockWithIndicator(labelRendered, displayIndex, mdBlockIndex))
 		bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
-		rendered := styles.ToolCallStyle.Render(string(bytes))
+		body := truncateLines(string(bytes), maxToolDisplayLines)
+		content.WriteString("\n")
+		content.WriteString(m.renderBlockWithIndicator(styles.ToolCallStyle.Render(body), displayIndex, mdBlockIndex))
+
+		style := m.getMessageStyle(styles.ToolMessageStyle, displayIndex)
+		rendered := style.Render(content.String())
 		b.WriteString(rendered)
 		*currentLine += strings.Count(rendered, "\n")
 		mdBlockIndex++
@@ -199,6 +210,19 @@ func (m *Model) renderAIMessage(b *strings.Builder, currentLine *int, displayInd
 	return blockOffsets, mdBlockIndex
 }
 
+func (m *Model) renderToolCallBox(toolCall *aipb.ToolCall, displayIndex int) string {
+	var content strings.Builder
+	content.WriteString(styles.ToolLabelStyle.Render(fmt.Sprintf("🔧 Tool Call: %s", toolCall.Name)))
+	bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
+	body := truncateLines(string(bytes), maxToolDisplayLines)
+	content.WriteString("\n")
+	content.WriteString(styles.ToolCallStyle.Render(body))
+
+	style := m.getMessageStyle(styles.ToolMessageStyle, displayIndex)
+	return style.Render(content.String())
+}
+
+// In renderToolMessage, replace the inner loop body (around line 184-210) with:
 func (m *Model) renderToolMessage(b *strings.Builder, currentLine *int, displayIndex int, message *aipb.Message) ([]int, int) {
 	var blockOffsets []int
 	mdBlockIndex := 0
@@ -207,12 +231,31 @@ func (m *Model) renderToolMessage(b *strings.Builder, currentLine *int, displayI
 		if toolResult == nil {
 			continue
 		}
+		if mdBlockIndex > 0 {
+			b.WriteString("\n")
+			*currentLine++
+		}
 		blockOffsets = append(blockOffsets, *currentLine)
-		b.WriteString(styles.ToolLabelStyle.Render("⚡ Tool Result:"))
-		b.WriteString("\n")
-		*currentLine++
-		content, _ := ai.ParseToolResult(toolResult)
-		rendered := styles.ToolResultStyle.Render(content)
+
+		var content strings.Builder
+		labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("⚡ Tool Result: %s", toolResult.GetToolName()))
+		content.WriteString(m.renderBlockWithIndicator(labelRendered, displayIndex, mdBlockIndex))
+		content.WriteString("\n")
+
+		var body string
+		if toolResult.GetError() != nil {
+			body = fmt.Sprintf("Error: %s", toolResult.GetError().GetMessage())
+		} else if structured := toolResult.GetStructuredContent(); structured != nil {
+			bytes, _ := pbutil.JSONMarshalPretty(structured)
+			body = string(bytes)
+		} else {
+			body = toolResult.GetContent()
+		}
+		body = truncateLines(body, maxToolDisplayLines)
+		content.WriteString(m.renderBlockWithIndicator(styles.ToolResultStyle.Render(body), displayIndex, mdBlockIndex))
+
+		style := m.getMessageStyle(styles.ToolMessageStyle, displayIndex)
+		rendered := style.Render(content.String())
 		b.WriteString(rendered)
 		*currentLine += strings.Count(rendered, "\n")
 		mdBlockIndex++
@@ -298,6 +341,13 @@ func (m *Model) getSelectedContent() (string, string) {
 		return "", ""
 	}
 
+	switch aiMessage.Role {
+	case aipb.Role_ROLE_TOOL:
+		return m.getSelectedToolResultContent(aiMessage)
+	case aipb.Role_ROLE_ASSISTANT:
+		return m.getSelectedAssistantContent(aiMessage)
+	}
+
 	allMdBlocks := m.collectMarkdownBlocks(aiMessage)
 
 	if m.navigationBlockIndex == -1 {
@@ -313,6 +363,73 @@ func (m *Model) getSelectedContent() (string, string) {
 		return mdBlock.Content(), mdBlock.Extension()
 	}
 	return "", ""
+}
+
+func (m *Model) getSelectedAssistantContent(message *aipb.Message) (string, string) {
+	allMdBlocks := m.collectMarkdownBlocks(message)
+	toolCallBlocks := ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall)
+
+	mdBlockCount := len(allMdBlocks)
+
+	if m.navigationBlockIndex == -1 {
+		var content strings.Builder
+		for _, mdBlock := range allMdBlocks {
+			content.WriteString(mdBlock.Content())
+		}
+		for _, block := range toolCallBlocks {
+			toolCall := block.GetToolCall()
+			bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
+			content.WriteString(fmt.Sprintf("\n\nTool Call: %s\n%s", toolCall.Name, string(bytes)))
+		}
+		return content.String(), ""
+	}
+
+	if m.navigationBlockIndex >= 0 && m.navigationBlockIndex < mdBlockCount {
+		mdBlock := allMdBlocks[m.navigationBlockIndex]
+		return mdBlock.Content(), mdBlock.Extension()
+	}
+
+	toolCallIndex := m.navigationBlockIndex - mdBlockCount
+	if toolCallIndex >= 0 && toolCallIndex < len(toolCallBlocks) {
+		toolCall := toolCallBlocks[toolCallIndex].GetToolCall()
+		bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
+		return fmt.Sprintf("Tool Call: %s\n%s", toolCall.Name, string(bytes)), "json"
+	}
+
+	return "", ""
+}
+
+func (m *Model) getSelectedToolResultContent(message *aipb.Message) (string, string) {
+	var toolResults []*aipb.ToolResult
+	for _, block := range message.Blocks {
+		if toolResult := block.GetToolResult(); toolResult != nil {
+			toolResults = append(toolResults, toolResult)
+		}
+	}
+
+	if m.navigationBlockIndex == -1 {
+		var content strings.Builder
+		for _, toolResult := range toolResults {
+			content.WriteString(toolResultFullContent(toolResult))
+		}
+		return content.String(), ""
+	}
+
+	if m.navigationBlockIndex >= 0 && m.navigationBlockIndex < len(toolResults) {
+		return toolResultFullContent(toolResults[m.navigationBlockIndex]), ""
+	}
+	return "", ""
+}
+
+func toolResultFullContent(toolResult *aipb.ToolResult) string {
+	if toolResult.GetError() != nil {
+		return fmt.Sprintf("Error: %s", toolResult.GetError().GetMessage())
+	}
+	if structured := toolResult.GetStructuredContent(); structured != nil {
+		bytes, _ := pbutil.JSONMarshalPretty(structured)
+		return string(bytes)
+	}
+	return toolResult.GetContent()
 }
 
 func (m *Model) collectMarkdownBlocks(message *aipb.Message) []markdown.Block {
@@ -335,4 +452,14 @@ func (m *Model) collectMarkdownBlocks(message *aipb.Message) []markdown.Block {
 	}
 
 	return result
+}
+
+// truncateLines caps output at maxLines, appending an indicator if truncated.
+func truncateLines(s string, maxLines int) string {
+	lines := strings.Split(s, "\n")
+	if len(lines) <= maxLines {
+		return s
+	}
+	truncated := strings.Join(lines[:maxLines], "\n")
+	return truncated + fmt.Sprintf("\n... (%d more lines, ctrl+o to view full output)", len(lines)-maxLines)
 }

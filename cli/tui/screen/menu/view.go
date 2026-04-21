@@ -7,7 +7,6 @@ import (
 
 	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	"github.com/malonaz/core/go/ai"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
@@ -202,7 +201,15 @@ func (m *Model) renderDetail() string {
 			b.WriteString("\n")
 			for _, block := range message.GetBlocks() {
 				if toolResult := block.GetToolResult(); toolResult != nil {
-					content, _ := ai.ParseToolResult(toolResult)
+					var content string
+					if toolResult.GetError() != nil {
+						content = fmt.Sprintf("Error: %s", toolResult.GetError().GetMessage())
+					} else if structured := toolResult.GetStructuredContent(); structured != nil {
+						bytes, _ := structured.MarshalJSON()
+						content = string(bytes)
+					} else {
+						content = toolResult.GetContent()
+					}
 					if content != "" {
 						truncated := styles.Truncate(content, contentWidth*2)
 						b.WriteString(styles.DimTextStyle.Render("  " + strings.ReplaceAll(truncated, "\n", "\n  ")))

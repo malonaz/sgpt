@@ -1,3 +1,4 @@
+// cli/tui/screen/chat/update.go
 package chat
 
 import (
@@ -64,7 +65,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 		if len(toolCalls) > 0 && msg.Err == nil {
 			cmds = append(cmds, m.saveChat())
-			m.setPendingToolCalls(toolCalls)
+			cmds = append(cmds, m.handleToolCalls(toolCalls))
 			return tea.Batch(cmds...)
 		}
 
@@ -72,6 +73,14 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			cmds = append(cmds, m.saveChat())
 		}
 		return tea.Batch(cmds...)
+
+	case toolHandledMsg:
+		if msg.AutoExecuteAll {
+			m.pendingToolCalls = msg.ToolCalls
+			return m.acceptToolCalls()
+		}
+		m.setPendingToolCalls(msg.ToolCalls)
+		return nil
 
 	case chatSavedMsg:
 		return nil
@@ -162,7 +171,6 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		userInput := strings.TrimSpace(m.textarea.Value())
 
-		// Pending tool calls: empty input accepts, non-empty rejects.
 		if m.HasPendingToolCalls() {
 			if userInput == "" {
 				return m.acceptToolCalls()
@@ -170,7 +178,6 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			m.rejectToolCalls(userInput)
 			m.textarea.Reset()
 			m.adjustTextareaHeight()
-			// Continue with a new user message to the AI including the rejection context.
 			m.streaming = true
 			m.recalculateLayout()
 			return m.startStreaming()

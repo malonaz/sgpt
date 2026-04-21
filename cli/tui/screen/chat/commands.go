@@ -31,6 +31,8 @@ func statusToProto(err error) *spb.Status {
 
 func (m *Model) saveChat() tea.Cmd {
 	return func() tea.Msg {
+		m.chatMutex.Lock()
+		defer m.chatMutex.Unlock()
 		if m.chat.GetName() == "" {
 			createChatRequest := &sgptservicepb.CreateChatRequest{
 				RequestId: uuid.MustNewV7().String(),
