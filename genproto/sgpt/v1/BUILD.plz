@@ -3,6 +3,7 @@ go_library(
     srcs = [
         "chat.pb.go",
         "chat_aip.go",
+        "configuration.pb.go",
     ],
     visibility = ["//..."],
     deps = [

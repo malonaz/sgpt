@@ -20,8 +20,7 @@ import (
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/configuration"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 const alertDuration = 2 * time.Second
@@ -63,7 +62,7 @@ var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, ke
 
 type App struct {
 	ctx        context.Context
-	config     *configuration.Config
+	config     *sgptpb.Configuration
 	aiClient   aiservicepb.AiServiceClient
 	chatClient sgptservicepb.SgptServiceClient
 
@@ -86,10 +85,10 @@ type App struct {
 
 func NewApp(
 	ctx context.Context,
-	config *configuration.Config,
+	config *sgptpb.Configuration,
 	aiClient aiservicepb.AiServiceClient,
 	chatClient sgptservicepb.SgptServiceClient,
-	initialChat *chatpb.Chat,
+	initialChat *sgptpb.Chat,
 	chatOpts chatscreen.Options,
 	additionalMessages []*aipb.Message,
 	injectedFiles []string,
@@ -339,7 +338,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		var err error
 
 		if msg.Fork && chat != nil {
-			forked := proto.Clone(chat).(*chatpb.Chat)
+			forked := proto.Clone(chat).(*sgptpb.Chat)
 			forked.Name = ""
 			createChatRequest := &sgptservicepb.CreateChatRequest{
 				RequestId: uuid.New().String(),
@@ -356,8 +355,8 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 			createChatRequest := &sgptservicepb.CreateChatRequest{
 				RequestId: uuid.New().String(),
 				ChatId:    uuid.New().String()[:8],
-				Chat: &chatpb.Chat{
-					Metadata: &chatpb.ChatMetadata{
+				Chat: &sgptpb.Chat{
+					Metadata: &sgptpb.ChatMetadata{
 						CurrentModel: a.defaultChatOpts.Model.Name,
 					},
 				},

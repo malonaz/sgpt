@@ -9,11 +9,11 @@ import (
 	"google.golang.org/grpc/codes"
 
 	pb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
-func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.Chat) error {
-	chatRn := &chatpb.ChatResourceName{}
+func (s *Service) updateChatSearchableContent(ctx context.Context, chat *sgptpb.Chat) error {
+	chatRn := &sgptpb.ChatResourceName{}
 	if err := chatRn.UnmarshalString(chat.Name); err != nil {
 		return status.Errorf(codes.Internal, "unmarshaling chat resource name: %v", err).Err()
 	}
@@ -46,7 +46,7 @@ func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.
 	return nil
 }
 
-var searchChatsRequestParser = aip.MustNewSearchRequestParser[*pb.SearchChatsRequest, *chatpb.Chat]()
+var searchChatsRequestParser = aip.MustNewSearchRequestParser[*pb.SearchChatsRequest, *sgptpb.Chat]()
 
 func (s *Service) SearchChats(ctx context.Context, request *pb.SearchChatsRequest) (*pb.SearchChatsResponse, error) {
 	parsed, err := searchChatsRequestParser.Parse(request)
@@ -68,7 +68,7 @@ func (s *Service) SearchChats(ctx context.Context, request *pb.SearchChatsReques
 	}
 
 	// Convert back to proto.
-	chats := make([]*chatpb.Chat, 0, len(dbChats))
+	chats := make([]*sgptpb.Chat, 0, len(dbChats))
 	for _, dbChat := range dbChats {
 		chat, err := dbChat.ToPb()
 		if err != nil {

@@ -10,11 +10,10 @@ import (
 
 	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/configuration"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
-func NewSummarizeCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
+func NewSummarizeCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
 	return &cobra.Command{
 		Use:   "summarize",
 		Short: "Generate summaries for chats that have no title",
@@ -28,7 +27,7 @@ func NewSummarizeCmd(config *configuration.Config, aiClient aiservicepb.AiServic
 			}
 
 			var summarized int
-			for chat, err := range aip.Iterator[*chatpb.Chat](ctx, listChatsRequest, chatClient.ListChats) {
+			for chat, err := range aip.Iterator[*sgptpb.Chat](ctx, listChatsRequest, chatClient.ListChats) {
 				if err != nil {
 					return fmt.Errorf("paginating chats: %w", err)
 				}

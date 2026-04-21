@@ -10,7 +10,7 @@ import (
 	"github.com/malonaz/core/go/pbutil"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
@@ -86,7 +86,7 @@ func (m *Model) renderMessages() string {
 	return b.String()
 }
 
-func (m *Model) renderChatMessage(b *strings.Builder, currentLine *int, displayIndex int, chatMessage *chatpb.Message, finalized bool) ([]int, int) {
+func (m *Model) renderChatMessage(b *strings.Builder, currentLine *int, displayIndex int, chatMessage *sgptpb.Message, finalized bool) ([]int, int) {
 	aiMessage := chatMessage.Message
 	if aiMessage == nil {
 		return nil, 0

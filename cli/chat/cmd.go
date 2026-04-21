@@ -14,13 +14,13 @@ import (
 	"github.com/malonaz/sgpt/cli/tui"
 	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
 )
 
-func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
+func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
 	var opts struct {
 		FileInjection   *file.InjectionOpts
 		Role            *role.Opts
@@ -48,7 +48,7 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 					opts.Model = config.Chat.DefaultModel
 				}
 			}
-			opts.Model, err = config.ResolveModelAlias(opts.Model)
+			opts.Model, err = configuration.ResolveModelAlias(config, opts.Model)
 			cobra.CheckErr(err)
 
 			selectedModel, err := resolveModel(ctx, aiClient, opts.Model)
@@ -86,7 +86,7 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				tags = append(tags, githubRepo)
 			}
 
-			var chat *chatpb.Chat
+			var chat *sgptpb.Chat
 			if opts.ChatID != "" {
 				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.ChatID}
 				chat, err = chatClient.GetChat(ctx, getChatRequest)
@@ -104,10 +104,10 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 				chat = listChatsResponse.Chats[0]
 				opts.ChatID = chat.Name
 			} else {
-				chat = &chatpb.Chat{
+				chat = &sgptpb.Chat{
 					Files: filePaths,
 					Tags:  tags,
-					Metadata: &chatpb.ChatMetadata{
+					Metadata: &sgptpb.ChatMetadata{
 						CurrentModel: opts.Model,
 					},
 				}

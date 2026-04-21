@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/malonaz/sgpt/internal/configuration"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 //go:embed system_prompt.tmpl
@@ -36,12 +36,12 @@ type TemplateData struct {
 // Opts for a role.
 type Opts struct {
 	RoleName       string
-	roleNameToRole map[string]*configuration.Role
+	roleNameToRole map[string]*sgptpb.Role
 }
 
 // GetOpts on the given command.
-func GetOpts(cmd *cobra.Command, defaultRole string, roles []*configuration.Role) *Opts {
-	roleNameToRole := map[string]*configuration.Role{}
+func GetOpts(cmd *cobra.Command, defaultRole string, roles []*sgptpb.Role) *Opts {
+	roleNameToRole := map[string]*sgptpb.Role{}
 	for _, role := range roles {
 		if _, ok := roleNameToRole[role.Name]; ok {
 			panic(fmt.Sprintf("Duplicate role name (%s)", role.Name))
@@ -60,7 +60,7 @@ func GetOpts(cmd *cobra.Command, defaultRole string, roles []*configuration.Role
 }
 
 // Parse role. Returns a role with the system prompt wrapper applied.
-func (o *Opts) Parse() (*configuration.Role, error) {
+func (o *Opts) Parse() (*sgptpb.Role, error) {
 	// Gather template data.
 	u, err := user.Current()
 	if err != nil {
@@ -93,7 +93,7 @@ func (o *Opts) Parse() (*configuration.Role, error) {
 	}
 
 	// Build the result role.
-	result := &configuration.Role{}
+	result := &sgptpb.Role{}
 
 	// If a role is specified, inject its prompt and copy other fields.
 	if o.RoleName != "" {

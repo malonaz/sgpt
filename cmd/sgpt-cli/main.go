@@ -68,10 +68,10 @@ func run() error {
 	var aiClient aiservicepb.AiServiceClient
 	{
 		grpcConfig := config.AiService
-		ctx = authentication.WithAPIKey(ctx, "tsunade-api-key", grpcConfig.APIKey)
+		ctx = authentication.WithAPIKey(ctx, "tsunade-api-key", grpcConfig.ApiKey)
 		rootCmd.SetContext(ctx)
 
-		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseURL)
+		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseUrl)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
 		}
@@ -96,10 +96,10 @@ func run() error {
 	var chatClient sgptservicepb.SgptServiceClient
 	{
 		grpcConfig := config.ChatService
-		ctx = authentication.WithAPIKey(ctx, "hinata-api-key", grpcConfig.APIKey)
+		ctx = authentication.WithAPIKey(ctx, "hinata-api-key", grpcConfig.ApiKey)
 		rootCmd.SetContext(ctx)
 
-		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseURL)
+		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseUrl)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
 		}

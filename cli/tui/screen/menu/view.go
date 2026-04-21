@@ -10,7 +10,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
@@ -98,7 +98,7 @@ func (m *Model) renderList() string {
 	return b.String()
 }
 
-func (m *Model) renderChatRows(chats []*chatpb.Chat, listWidth int) string {
+func (m *Model) renderChatRows(chats []*sgptpb.Chat, listWidth int) string {
 	var b strings.Builder
 	for i, chat := range chats {
 		title := chat.GetMetadata().GetTitle()

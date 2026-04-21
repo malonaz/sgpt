@@ -8,7 +8,6 @@ go_library(
         "//cli/tui/screen/chat",
         "//cli/tui/screen/menu",
         "//cli/tui/styles",
-        "//internal/configuration",
         "//sgpt/sgpt_service/v1",
         "//sgpt/v1",
         "//third_party/go:charm.land__bubbles__v2__key",

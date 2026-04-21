@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 //go:embed templates
@@ -30,7 +30,7 @@ type PageData struct {
 }
 
 type ChatViewModel struct {
-	*chatpb.Chat
+	*sgptpb.Chat
 	ID            string
 	FormattedTime string
 }

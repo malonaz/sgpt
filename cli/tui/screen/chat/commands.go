@@ -14,7 +14,7 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 type editorClosedMsg struct {
@@ -48,7 +48,7 @@ func (m *Model) saveChat() tea.Cmd {
 		} else {
 			updateChatRequest := &sgptservicepb.UpdateChatRequest{
 				Chat:       m.chat,
-				UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&chatpb.Chat{}).Proto(),
+				UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&sgptpb.Chat{}).Proto(),
 			}
 			chat, err := m.chatClient.UpdateChat(m.ctx, updateChatRequest)
 			if err != nil {

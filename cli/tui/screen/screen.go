@@ -2,7 +2,7 @@ package screen
 
 import (
 	tea "charm.land/bubbletea/v2"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 // WrapFunc wraps a tea.Msg with the owning tab's ID so the app routes it correctly.
@@ -34,7 +34,7 @@ type TabMsg struct {
 
 // OpenChatMsg requests opening a chat in a new tab.
 type OpenChatMsg struct {
-	Chat *chatpb.Chat
+	Chat *sgptpb.Chat
 	Fork bool
 }
 

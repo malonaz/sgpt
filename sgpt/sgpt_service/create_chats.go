@@ -4,10 +4,10 @@ import (
 	"context"
 
 	pb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
-func (s *Service) CreateChat(ctx context.Context, request *pb.CreateChatRequest) (*chatpb.Chat, error) {
+func (s *Service) CreateChat(ctx context.Context, request *pb.CreateChatRequest) (*sgptpb.Chat, error) {
 	chat, err := s.SgptServiceServer.CreateChat(ctx, request)
 	if err != nil {
 		return nil, err

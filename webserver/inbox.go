@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
@@ -14,7 +14,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	tags := r.URL.Query()["tag"]
 	pageToken := r.URL.Query().Get("page_token")
 
-	var chats []*chatpb.Chat
+	var chats []*sgptpb.Chat
 	var nextPageToken string
 
 	if query != "" {

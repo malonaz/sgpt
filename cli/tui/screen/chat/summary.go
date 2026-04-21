@@ -10,11 +10,11 @@ import (
 	"github.com/malonaz/core/go/ai"
 
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient, chat *chatpb.Chat) error {
+func GenerateChatSummary(ctx context.Context, config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient, chat *sgptpb.Chat) error {
 	if config.Chat.SummaryModel == "" {
 		return nil
 	}
@@ -27,7 +27,7 @@ func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiCl
 		return fmt.Errorf("expected first message to be user role")
 	}
 
-	summaryModel, err := config.ResolveModelAlias(config.Chat.SummaryModel)
+	summaryModel, err := configuration.ResolveModelAlias(config, config.Chat.SummaryModel)
 	if err != nil {
 		return fmt.Errorf("resolving summary model alias: %w", err)
 	}

@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package sgpt.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/resource.proto";
+
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
+
+// Configuration for the sgpt tool.
+message Configuration {
+  // gRPC client configuration for the chat service.
+  GRPCClient chat_service = 1;
+
+  // gRPC client configuration for the AI service.
+  GRPCClient ai_service = 2;
+
+  // Available models.
+  repeated Model models = 3;
+
+  // Chat configuration.
+  ChatConfiguration chat = 4;
+}
+
+// gRPC client configuration.
+message GRPCClient {
+  // Base URL of the gRPC service.
+  string base_url = 1 [(buf.validate.field).required = true];
+
+  // API key for authentication.
+  string api_key = 2;
+}
+
+// A model with an optional alias for convenience.
+message Model {
+  // The resource name of the model.
+  // Format: providers/{provider}/models/{model}
+  string name = 1 [
+    (google.api.resource_reference).type = "ai.malonaz.com/Model",
+    (buf.validate.field).required = true
+  ];
+
+  // Short alias for the model.
+  string alias = 2;
+}
+
+// Chat-specific configuration.
+message ChatConfiguration {
+  // The resource name of the model used to generate summaries.
+  // Format: providers/{provider}/models/{model}
+  string summary_model = 1 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
+
+  // The resource name of the default model.
+  // Format: providers/{provider}/models/{model}
+  string default_model = 2 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
+
+  // The default role alias or name.
+  string default_role = 3;
+
+  // User-defined roles.
+  repeated Role roles = 4;
+}
+
+// A role defines a persona with a system prompt.
+message Role {
+  // Name of this role.
+  string name = 1 [(buf.validate.field).required = true];
+
+  // Short alias for this role.
+  string alias = 2;
+
+  // System prompt for this role.
+  string prompt = 3 [(buf.validate.field).required = true];
+
+  // The resource name of the model to use for this role.
+  // Format: providers/{provider}/models/{model}
+  string model = 4 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
+
+  // Files to include as context for this role.
+  repeated string files = 5;
+}

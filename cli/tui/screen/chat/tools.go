@@ -8,7 +8,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/pbutil"
 
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -92,7 +92,7 @@ func (m *Model) handleToolResult(msg toolResultMsg) tea.Cmd {
 	_ = content
 
 	toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(msg.ToolResult))
-	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, &chatpb.Message{Message: toolMessage})
+	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
 
 	m.pendingToolCall = nil
 	m.pendingToolArgs = nil
@@ -118,7 +118,7 @@ func (m *Model) cancelToolCall() {
 			ai.NewErrorToolResult("", "", fmt.Errorf("cancelled by user")),
 		),
 	)
-	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, &chatpb.Message{Message: cancelMessage})
+	m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, &sgptpb.Message{Message: cancelMessage})
 
 	m.viewport.SetContent(m.renderMessages())
 	m.viewport.GotoBottom()

@@ -11,7 +11,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
@@ -28,7 +28,7 @@ const (
 )
 
 type chatsLoadedMsg struct {
-	Chats         []*chatpb.Chat
+	Chats         []*sgptpb.Chat
 	NextPageToken string
 	Err           error
 	PageToken     string
@@ -49,7 +49,7 @@ type Model struct {
 	chatClient sgptservicepb.SgptServiceClient
 	wrap       screen.WrapFunc
 
-	chats            []*chatpb.Chat
+	chats            []*sgptpb.Chat
 	chatCursor       int
 	loading          bool
 	err              error
@@ -221,11 +221,11 @@ func (m *Model) resetPagination() {
 	m.nextPageToken = ""
 }
 
-func (m *Model) displayedChats() []*chatpb.Chat {
+func (m *Model) displayedChats() []*sgptpb.Chat {
 	return m.filteredChats()
 }
 
-func (m *Model) selectedChat() *chatpb.Chat {
+func (m *Model) selectedChat() *sgptpb.Chat {
 	displayed := m.displayedChats()
 	if m.chatCursor >= 0 && m.chatCursor < len(displayed) {
 		return displayed[m.chatCursor]
@@ -250,11 +250,11 @@ func (m *Model) updateSelection() {
 	m.detailViewport.GotoTop()
 }
 
-func (m *Model) filteredChats() []*chatpb.Chat {
+func (m *Model) filteredChats() []*sgptpb.Chat {
 	if m.filterText == "" {
 		return m.chats
 	}
-	var result []*chatpb.Chat
+	var result []*sgptpb.Chat
 	for _, chat := range m.chats {
 		title := chat.GetMetadata().GetTitle()
 		if containsIgnoreCase(title, m.filterText) || containsIgnoreCase(chat.Name, m.filterText) {

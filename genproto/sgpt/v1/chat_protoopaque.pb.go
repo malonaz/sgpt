@@ -45,7 +45,7 @@ type Chat struct {
 
 func (x *Chat) Reset() {
 	*x = Chat{}
-	mi := &file_chat_v1_chat_proto_msgTypes[0]
+	mi := &file_sgpt_v1_chat_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -57,7 +57,7 @@ func (x *Chat) String() string {
 func (*Chat) ProtoMessage() {}
 
 func (x *Chat) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_v1_chat_proto_msgTypes[0]
+	mi := &file_sgpt_v1_chat_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -236,7 +236,7 @@ type ChatMetadata struct {
 
 func (x *ChatMetadata) Reset() {
 	*x = ChatMetadata{}
-	mi := &file_chat_v1_chat_proto_msgTypes[1]
+	mi := &file_sgpt_v1_chat_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -248,7 +248,7 @@ func (x *ChatMetadata) String() string {
 func (*ChatMetadata) ProtoMessage() {}
 
 func (x *ChatMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_v1_chat_proto_msgTypes[1]
+	mi := &file_sgpt_v1_chat_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -358,7 +358,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_chat_v1_chat_proto_msgTypes[2]
+	mi := &file_sgpt_v1_chat_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +370,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_v1_chat_proto_msgTypes[2]
+	mi := &file_sgpt_v1_chat_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -459,11 +459,11 @@ func (b0 Message_builder) Build() *Message {
 	return m0
 }
 
-var File_chat_v1_chat_proto protoreflect.FileDescriptor
+var File_sgpt_v1_chat_proto protoreflect.FileDescriptor
 
-const file_chat_v1_chat_proto_rawDesc = "" +
+const file_sgpt_v1_chat_proto_rawDesc = "" +
 	"\n" +
-	"\x12sgpt/v1/chat.proto\x12\fsgpt.chat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\x8b\x03\n" +
+	"\x12sgpt/v1/chat.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\x81\x03\n" +
 	"\x04Chat\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
 	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -473,43 +473,43 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\vdelete_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xba\xea\x0f\x02 \x01R\n" +
 	"deleteTime\x12\x1a\n" +
 	"\x04tags\x18\x05 \x03(\tB\x06\xba\xea\x0f\x02 \x01R\x04tags\x12\x1c\n" +
-	"\x05files\x18\x06 \x03(\tB\x06\xba\xea\x0f\x02 \x01R\x05files\x12>\n" +
+	"\x05files\x18\x06 \x03(\tB\x06\xba\xea\x0f\x02 \x01R\x05files\x129\n" +
 	"\bmetadata\x18\n" +
-	" \x01(\v2\x1a.sgpt.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
-	"\x12sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xfa\x01\n" +
+	" \x01(\v2\x15.sgpt.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x10\x01R\bmetadata:1\xeaA*\n" +
+	"\rsgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xf5\x01\n" +
 	"\fChatMetadata\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12D\n" +
 	"\rcurrent_model\x18\x02 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\fcurrentModel\x12\x1d\n" +
 	"\n" +
-	"total_cost\x18\x03 \x01(\x01R\ttotalCost\x121\n" +
-	"\bmessages\x18\x04 \x03(\v2\x15.sgpt.chat.v1.MessageR\bmessages\x12<\n" +
+	"total_cost\x18\x03 \x01(\x01R\ttotalCost\x12,\n" +
+	"\bmessages\x18\x04 \x03(\v2\x10.sgpt.v1.MessageR\bmessages\x12<\n" +
 	"\fmodel_usages\x18\x05 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\"\xa3\x01\n" +
 	"\aMessage\x120\n" +
 	"\amessage\x18\x01 \x01(\v2\x16.malonaz.ai.v1.MessageR\amessage\x12<\n" +
 	"\fmodel_usages\x18\x02 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\x12(\n" +
 	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusR\x05errorB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_chat_v1_chat_proto_goTypes = []any{
-	(*Chat)(nil),                  // 0: sgpt.chat.v1.Chat
-	(*ChatMetadata)(nil),          // 1: sgpt.chat.v1.ChatMetadata
-	(*Message)(nil),               // 2: sgpt.chat.v1.Message
+var file_sgpt_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_sgpt_v1_chat_proto_goTypes = []any{
+	(*Chat)(nil),                  // 0: sgpt.v1.Chat
+	(*ChatMetadata)(nil),          // 1: sgpt.v1.ChatMetadata
+	(*Message)(nil),               // 2: sgpt.v1.Message
 	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 	(*v1.ModelUsage)(nil),         // 4: malonaz.ai.v1.ModelUsage
 	(*v1.Message)(nil),            // 5: malonaz.ai.v1.Message
 	(*status.Status)(nil),         // 6: google.rpc.Status
 }
-var file_chat_v1_chat_proto_depIdxs = []int32{
-	3, // 0: sgpt.chat.v1.Chat.create_time:type_name -> google.protobuf.Timestamp
-	3, // 1: sgpt.chat.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
-	3, // 2: sgpt.chat.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
-	1, // 3: sgpt.chat.v1.Chat.metadata:type_name -> sgpt.chat.v1.ChatMetadata
-	2, // 4: sgpt.chat.v1.ChatMetadata.messages:type_name -> sgpt.chat.v1.Message
-	4, // 5: sgpt.chat.v1.ChatMetadata.model_usages:type_name -> malonaz.ai.v1.ModelUsage
-	5, // 6: sgpt.chat.v1.Message.message:type_name -> malonaz.ai.v1.Message
-	4, // 7: sgpt.chat.v1.Message.model_usages:type_name -> malonaz.ai.v1.ModelUsage
-	6, // 8: sgpt.chat.v1.Message.error:type_name -> google.rpc.Status
+var file_sgpt_v1_chat_proto_depIdxs = []int32{
+	3, // 0: sgpt.v1.Chat.create_time:type_name -> google.protobuf.Timestamp
+	3, // 1: sgpt.v1.Chat.update_time:type_name -> google.protobuf.Timestamp
+	3, // 2: sgpt.v1.Chat.delete_time:type_name -> google.protobuf.Timestamp
+	1, // 3: sgpt.v1.Chat.metadata:type_name -> sgpt.v1.ChatMetadata
+	2, // 4: sgpt.v1.ChatMetadata.messages:type_name -> sgpt.v1.Message
+	4, // 5: sgpt.v1.ChatMetadata.model_usages:type_name -> malonaz.ai.v1.ModelUsage
+	5, // 6: sgpt.v1.Message.message:type_name -> malonaz.ai.v1.Message
+	4, // 7: sgpt.v1.Message.model_usages:type_name -> malonaz.ai.v1.ModelUsage
+	6, // 8: sgpt.v1.Message.error:type_name -> google.rpc.Status
 	9, // [9:9] is the sub-list for method output_type
 	9, // [9:9] is the sub-list for method input_type
 	9, // [9:9] is the sub-list for extension type_name
@@ -517,26 +517,26 @@ var file_chat_v1_chat_proto_depIdxs = []int32{
 	0, // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_chat_v1_chat_proto_init() }
-func file_chat_v1_chat_proto_init() {
-	if File_chat_v1_chat_proto != nil {
+func init() { file_sgpt_v1_chat_proto_init() }
+func file_sgpt_v1_chat_proto_init() {
+	if File_sgpt_v1_chat_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_v1_chat_proto_rawDesc), len(file_chat_v1_chat_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_chat_proto_rawDesc), len(file_sgpt_v1_chat_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_chat_v1_chat_proto_goTypes,
-		DependencyIndexes: file_chat_v1_chat_proto_depIdxs,
-		MessageInfos:      file_chat_v1_chat_proto_msgTypes,
+		GoTypes:           file_sgpt_v1_chat_proto_goTypes,
+		DependencyIndexes: file_sgpt_v1_chat_proto_depIdxs,
+		MessageInfos:      file_sgpt_v1_chat_proto_msgTypes,
 	}.Build()
-	File_chat_v1_chat_proto = out.File
-	file_chat_v1_chat_proto_goTypes = nil
-	file_chat_v1_chat_proto_depIdxs = nil
+	File_sgpt_v1_chat_proto = out.File
+	file_sgpt_v1_chat_proto_goTypes = nil
+	file_sgpt_v1_chat_proto_depIdxs = nil
 }

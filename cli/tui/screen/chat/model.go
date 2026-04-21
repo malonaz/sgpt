@@ -16,8 +16,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/configuration"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
 	"github.com/malonaz/sgpt/internal/markdown"
@@ -33,7 +32,7 @@ const (
 
 type Options struct {
 	Model           *aipb.Model
-	Role            *configuration.Role
+	Role            *sgptpb.Role
 	MaxTokens       int32
 	Temperature     float64
 	ReasoningEffort aipb.ReasoningEffort
@@ -43,14 +42,14 @@ type Options struct {
 
 type Model struct {
 	ctx        context.Context
-	config     *configuration.Config
+	config     *sgptpb.Configuration
 	aiClient   aiservicepb.AiServiceClient
 	chatClient sgptservicepb.SgptServiceClient
 	wrap       screen.WrapFunc
 	send       screen.SendFunc
 	log        *slog.Logger
 
-	chat               *chatpb.Chat
+	chat               *sgptpb.Chat
 	opts               Options
 	additionalMessages []*aipb.Message
 	injectedFiles      []string
@@ -95,12 +94,12 @@ type Model struct {
 
 func New(
 	ctx context.Context,
-	config *configuration.Config,
+	config *sgptpb.Configuration,
 	aiClient aiservicepb.AiServiceClient,
 	chatClient sgptservicepb.SgptServiceClient,
 	wrap screen.WrapFunc,
 	send screen.SendFunc,
-	chat *chatpb.Chat,
+	chat *sgptpb.Chat,
 	opts Options,
 	additionalMessages []*aipb.Message,
 	injectedFiles []string,
@@ -189,7 +188,7 @@ func (m *Model) IsStreaming() bool {
 	return m.streaming
 }
 
-func (m *Model) Chat() *chatpb.Chat {
+func (m *Model) Chat() *sgptpb.Chat {
 	return m.chat
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 	"google.golang.org/protobuf/proto"
 
-	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -154,13 +154,13 @@ func (m *Model) startStreaming() tea.Cmd {
 
 func (m *Model) finalizeStream(done streamDoneMsg) {
 	if m.pendingUserMessage != nil {
-		userChatMessage := &chatpb.Message{Message: m.pendingUserMessage}
+		userChatMessage := &sgptpb.Message{Message: m.pendingUserMessage}
 		m.chat.Metadata.Messages = append(m.chat.Metadata.Messages, userChatMessage)
 		m.pendingUserMessage = nil
 	}
 
 	if m.streamingMessage != nil {
-		assistantChatMessage := &chatpb.Message{
+		assistantChatMessage := &sgptpb.Message{
 			Message: ai.NewAssistantMessage(done.Blocks...),
 		}
 		if done.Err != nil {
