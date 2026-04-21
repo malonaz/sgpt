@@ -3035,7 +3035,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260421212516-258c09646f6c",
+    version = "v0.0.0-20260421221532-ef03f89d024b",
     visibility = ["PUBLIC"],
 )
 
@@ -4666,8 +4666,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
