@@ -13,7 +13,7 @@ grpc_library(
     additional_context = {
         GO_IMPORT_PATH: "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1",
     },
-    labels = ["copy_generated_code"],
+    labels = ["copy_generated_code::genproto"],
     deps = [
         "//sgpt/v1",
         "//third_party/proto:google__api__annotations",
