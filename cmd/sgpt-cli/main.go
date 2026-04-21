@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
-	"github.com/malonaz/core/go/authentication"
 	"github.com/malonaz/core/go/grpc"
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
@@ -68,23 +65,16 @@ func run() error {
 	var aiClient aiservicepb.AiServiceClient
 	{
 		grpcConfig := config.AiService
-		ctx = authentication.WithAPIKey(ctx, "tsunade-api-key", grpcConfig.ApiKey)
-		rootCmd.SetContext(ctx)
-
-		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseUrl)
+		opts, err := grpc.ParseOpts(grpcConfig.BaseUrl)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
-		}
-		opts := &grpc.Opts{
-			Host:       host,
-			Port:       port,
-			DisableTLS: disableTLS,
 		}
 		conn, err := grpc.NewConnection(opts, nil, nil)
 		if err != nil {
 			return fmt.Errorf("creating connection: %w", err)
 		}
 		conn.WithLogger(errorLogger)
+		conn.WithMetadata(grpcConfig.ApiKeyHeader, grpcConfig.ApiKey)
 		if err := conn.Connect(ctx); err != nil {
 			return fmt.Errorf("connecting: %w", err)
 		}
@@ -92,51 +82,29 @@ func run() error {
 		aiClient = aiservicepb.NewAiServiceClient(conn.Get())
 	}
 
-	// Instantiate CHAT Client.
-	var chatClient sgptservicepb.SgptServiceClient
+	// Instantiate SGPT Client.
+	var sgptClient sgptservicepb.SgptServiceClient
 	{
-		grpcConfig := config.ChatService
-		ctx = authentication.WithAPIKey(ctx, "hinata-api-key", grpcConfig.ApiKey)
-		rootCmd.SetContext(ctx)
-
-		host, port, disableTLS, err := parseBaseURL(grpcConfig.BaseUrl)
+		grpcConfig := config.SgptService
+		opts, err := grpc.ParseOpts(grpcConfig.BaseUrl)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
-		}
-		opts := &grpc.Opts{
-			Host:       host,
-			Port:       port,
-			DisableTLS: disableTLS,
 		}
 		conn, err := grpc.NewConnection(opts, nil, nil)
 		if err != nil {
 			return fmt.Errorf("creating connection: %w", err)
 		}
 		conn.WithLogger(errorLogger)
+		conn.WithMetadata(grpcConfig.ApiKeyHeader, grpcConfig.ApiKey)
 		if err := conn.Connect(ctx); err != nil {
 			return fmt.Errorf("connecting: %w", err)
 		}
 		defer conn.Close()
-		chatClient = sgptservicepb.NewSgptServiceClient(conn.Get())
+		sgptClient = sgptservicepb.NewSgptServiceClient(conn.Get())
 	}
 
-	rootCmd.AddCommand(webserver.NewServeCmd(chatClient))
-	rootCmd.AddCommand(chat.NewCmd(config, aiClient, chatClient))
-	rootCmd.AddCommand(chat.NewSummarizeCmd(config, aiClient, chatClient))
+	rootCmd.AddCommand(webserver.NewServeCmd(sgptClient))
+	rootCmd.AddCommand(chat.NewCmd(config, aiClient, sgptClient))
+	rootCmd.AddCommand(chat.NewSummarizeCmd(config, aiClient, sgptClient))
 	return rootCmd.Execute()
-}
-
-func parseBaseURL(baseURL string) (host string, port int, disableTLS bool, err error) {
-	if strings.Contains(baseURL, ":") {
-		parts := strings.Split(baseURL, ":")
-		if len(parts) != 2 {
-			return "", 0, false, fmt.Errorf("invalid format, expected host:port, got %s", baseURL)
-		}
-		port, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return "", 0, false, fmt.Errorf("invalid port: %w", err)
-		}
-		return parts[0], port, true, nil
-	}
-	return baseURL, 443, false, nil
 }

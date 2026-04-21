@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,7 +11,6 @@ import (
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
 )
 
-// ReadFilesTool defines the tool for reading file contents.
 var ReadFiles = &aipb.Tool{
 	Name:        "read_files",
 	Description: "Read the contents of one or more files. Use this to examine file contents before making changes or to understand code structure.",
@@ -25,14 +25,15 @@ var ReadFiles = &aipb.Tool{
 		},
 		Required: []string{"paths"},
 	},
+	Annotations: map[string]string{
+		ToolHandlerIDAnnotation: HandlerIDReadFiles,
+	},
 }
 
-// ReadFilesArgs represents the parsed arguments for reading files.
 type ReadFilesArgs struct {
 	Paths []string `json:"paths"`
 }
 
-// ParseReadFilesArgs parses the JSON arguments for reading files.
 func ParseReadFilesArgs(bytes []byte) (*ReadFilesArgs, error) {
 	var args ReadFilesArgs
 	if err := json.Unmarshal(bytes, &args); err != nil {
@@ -44,7 +45,6 @@ func ParseReadFilesArgs(bytes []byte) (*ReadFilesArgs, error) {
 	return &args, nil
 }
 
-// ExecuteReadFiles reads the specified files and returns their contents.
 func ExecuteReadFiles(args *ReadFilesArgs) (string, error) {
 	var results []string
 	for _, path := range args.Paths {
@@ -56,4 +56,26 @@ func ExecuteReadFiles(args *ReadFilesArgs) (string, error) {
 		}
 	}
 	return strings.Join(results, "\n\n"), nil
+}
+
+type ReadFilesHandler struct{}
+
+func (h *ReadFilesHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
+	if err != nil {
+		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
+	}
+	args, err := ParseReadFilesArgs(bytes)
+	if err != nil {
+		return nil, err
+	}
+	result, err := ExecuteReadFiles(args)
+	if err != nil {
+		return nil, err
+	}
+	return &aipb.ToolResult{
+		ToolName:   toolCall.Name,
+		ToolCallId: toolCall.Id,
+		Result:     &aipb.ToolResult_Content{Content: result},
+	}, nil
 }

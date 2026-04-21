@@ -20,6 +20,7 @@ import (
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
 	"github.com/malonaz/sgpt/internal/markdown"
+	"github.com/malonaz/sgpt/internal/toolengine"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -31,13 +32,14 @@ const (
 )
 
 type Options struct {
-	Model           *aipb.Model
-	Role            *sgptpb.Role
-	MaxTokens       int32
-	Temperature     float64
-	ReasoningEffort aipb.ReasoningEffort
-	EnableTools     bool
-	ChatID          string
+	Model             *aipb.Model
+	Role              *sgptpb.Role
+	MaxTokens         int32
+	Temperature       float64
+	ReasoningEffort   aipb.ReasoningEffort
+	EnableTools       bool
+	ChatID            string
+	ToolEngineManager *toolengine.Manager
 }
 
 type Model struct {
@@ -79,9 +81,11 @@ type Model struct {
 	focused          bool
 	focusedComponent FocusedComponent
 
-	pendingToolCall *aipb.ToolCall
-	pendingToolArgs *tools.ShellCommandArgs
-	awaitingConfirm bool
+	// Pending tool calls waiting for user accept/reject.
+	pendingToolCalls []*aipb.ToolCall
+
+	// Tool handler registry keyed by handler ID annotation.
+	toolHandlerIDToHandler map[string]tools.Handler
 
 	cancelStream context.CancelFunc
 
@@ -119,6 +123,14 @@ func New(
 
 	renderer, _ := markdown.NewRenderer(styles.DefaultTextareaWidth)
 
+	toolHandlerIDToHandler := map[string]tools.Handler{
+		tools.HandlerIDShell:     &tools.ShellHandler{},
+		tools.HandlerIDReadFiles: &tools.ReadFilesHandler{},
+	}
+	if opts.ToolEngineManager != nil {
+		toolHandlerIDToHandler[tools.HandlerIDEngine] = opts.ToolEngineManager
+	}
+
 	model := &Model{
 		ctx:                    ctx,
 		config:                 config,
@@ -140,6 +152,7 @@ func New(
 		navigationBlockIndex:   -1,
 		totalModelUsage:        &aipb.ModelUsage{},
 		lastModelUsage:         &aipb.ModelUsage{},
+		toolHandlerIDToHandler: toolHandlerIDToHandler,
 	}
 	model.setTitle()
 	return model
@@ -188,6 +201,10 @@ func (m *Model) IsStreaming() bool {
 	return m.streaming
 }
 
+func (m *Model) HasPendingToolCalls() bool {
+	return len(m.pendingToolCalls) > 0
+}
+
 func (m *Model) Chat() *sgptpb.Chat {
 	return m.chat
 }
@@ -215,6 +232,9 @@ func (m *Model) setTitle() {
 	toolsStr := ""
 	if m.opts.EnableTools {
 		toolsStr = " 🔧"
+		if m.opts.ToolEngineManager != nil && m.opts.ToolEngineManager.HasToolSets() {
+			toolsStr = " 🔧+🌐"
+		}
 	}
 
 	totalInputTokens := m.totalModelUsage.GetInputToken().GetQuantity() + m.totalModelUsage.GetInputTokenCacheRead().GetQuantity()

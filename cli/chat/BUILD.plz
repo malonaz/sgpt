@@ -12,6 +12,7 @@ go_library(
         "//internal/configuration",
         "//internal/file",
         "//internal/role",
+        "//internal/toolengine",
         "//sgpt/sgpt_service/v1",
         "//sgpt/v1",
         "//third_party/go:charm.land__bubbletea__v2",

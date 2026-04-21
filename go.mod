@@ -10,13 +10,12 @@ require (
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/glamour/v2 v2.0.0
 	charm.land/lipgloss/v2 v2.0.2
-	dario.cat/mergo v1.0.1
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/malonaz/core v0.0.0-20260421112927-540e79ceaabb
+	github.com/malonaz/core v0.0.0-20260421164314-f379aed066fa
 	github.com/pkg/errors v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.10.1
@@ -37,6 +36,7 @@ require (
 	cloud.google.com/go/auth v0.16.4 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/longrunning v0.6.7 // indirect
+	dario.cat/mergo v1.0.1 // indirect
 	github.com/AlexxIT/go2rtc v1.9.12 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.0 // indirect
@@ -133,7 +133,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
-	google.golang.org/genai v1.43.0 // indirect
+	google.golang.org/genai v1.53.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect

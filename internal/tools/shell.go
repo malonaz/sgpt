@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -9,7 +10,6 @@ import (
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
 )
 
-// ShellCommand defines the tool for executing shell commands.
 var ShellCommand = &aipb.Tool{
 	Name:        "exec_shell",
 	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
@@ -27,15 +27,16 @@ var ShellCommand = &aipb.Tool{
 		},
 		Required: []string{"command"},
 	},
+	Annotations: map[string]string{
+		ToolHandlerIDAnnotation: HandlerIDShell,
+	},
 }
 
-// ShellCommandArgs represents the parsed arguments for shell command execution.
 type ShellCommandArgs struct {
 	Command          string `json:"command"`
 	WorkingDirectory string `json:"working_directory"`
 }
 
-// ParseShellCommandArgs parses the JSON arguments for a shell command.
 func ParseShellCommandArgs(bytes []byte) (*ShellCommandArgs, error) {
 	var args ShellCommandArgs
 	if err := json.Unmarshal(bytes, &args); err != nil {
@@ -47,17 +48,36 @@ func ParseShellCommandArgs(bytes []byte) (*ShellCommandArgs, error) {
 	return &args, nil
 }
 
-// ExecuteShellCommand executes a shell command and returns the output.
 func ExecuteShellCommand(args *ShellCommandArgs) (string, error) {
 	cmd := exec.Command("sh", "-c", args.Command)
 	if args.WorkingDirectory != "" {
 		cmd.Dir = args.WorkingDirectory
 	}
-
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Sprintf("Command failed with error: %v\nOutput: %s", err, string(output)), nil
 	}
-
 	return string(output), nil
+}
+
+type ShellHandler struct{}
+
+func (h *ShellHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
+	if err != nil {
+		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
+	}
+	args, err := ParseShellCommandArgs(bytes)
+	if err != nil {
+		return nil, err
+	}
+	result, err := ExecuteShellCommand(args)
+	if err != nil {
+		return nil, err
+	}
+	return &aipb.ToolResult{
+		ToolName:   toolCall.Name,
+		ToolCallId: toolCall.Id,
+		Result:     &aipb.ToolResult_Content{Content: result},
+	}, nil
 }

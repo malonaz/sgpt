@@ -67,7 +67,6 @@ func (m *Model) forkChat() tea.Cmd {
 }
 
 func (m *Model) openInEditor(content, ext string) tea.Cmd {
-	// Find the editor.
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
@@ -82,7 +81,6 @@ func (m *Model) openInEditor(content, ext string) tea.Cmd {
 		}
 	}
 
-	// Create the temporary file.
 	tmpFile, err := os.CreateTemp("", "sgpt-*."+ext)
 	if err != nil {
 		return func() tea.Msg {
@@ -91,7 +89,6 @@ func (m *Model) openInEditor(content, ext string) tea.Cmd {
 	}
 	tmpPath := tmpFile.Name()
 
-	// If content is set => write to it.
 	if content != "" {
 		if _, err := tmpFile.WriteString(content); err != nil {
 			tmpFile.Close()
@@ -103,7 +100,6 @@ func (m *Model) openInEditor(content, ext string) tea.Cmd {
 		tmpFile.Close()
 	}
 
-	// Capture the info, so we can check if was modified.
 	info, err := os.Stat(tmpPath)
 	if err != nil {
 		os.Remove(tmpPath)

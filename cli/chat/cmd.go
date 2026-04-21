@@ -18,6 +18,7 @@ import (
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
+	"github.com/malonaz/sgpt/internal/toolengine"
 )
 
 func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
@@ -86,6 +87,15 @@ func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, 
 				tags = append(tags, githubRepo)
 			}
 
+			var toolEngineManager *toolengine.Manager
+			if opts.EnableTools && len(config.ToolEngines) > 0 {
+				toolEngineManager, err = toolengine.Initialize(ctx, config.ToolEngines)
+				if err != nil {
+					return fmt.Errorf("initializing tool engines: %w", err)
+				}
+				defer toolEngineManager.Close()
+			}
+
 			var chat *sgptpb.Chat
 			if opts.ChatID != "" {
 				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.ChatID}
@@ -120,13 +130,14 @@ func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, 
 			}
 
 			chatOpts := chatscreen.Options{
-				Model:           selectedModel,
-				Role:            parsedRole,
-				MaxTokens:       opts.MaxTokens,
-				Temperature:     opts.Temperature,
-				ReasoningEffort: reasoningEffort,
-				EnableTools:     opts.EnableTools,
-				ChatID:          opts.ChatID,
+				Model:             selectedModel,
+				Role:              parsedRole,
+				MaxTokens:         opts.MaxTokens,
+				Temperature:       opts.Temperature,
+				ReasoningEffort:   reasoningEffort,
+				EnableTools:       opts.EnableTools,
+				ChatID:            opts.ChatID,
+				ToolEngineManager: toolEngineManager,
 			}
 
 			app := tui.NewApp(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)

@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"strings"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textarea"
@@ -62,7 +64,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 		if len(toolCalls) > 0 && msg.Err == nil {
 			cmds = append(cmds, m.saveChat())
-			m.promptToolCalls(toolCalls)
+			m.setPendingToolCalls(toolCalls)
 			return tea.Batch(cmds...)
 		}
 
@@ -77,10 +79,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case toolResultMsg:
 		return m.handleToolResult(msg)
 
-	case toolCancelledMsg:
-		m.cancelToolCall()
-		return nil
-
 	case editorClosedMsg:
 		switch m.focusedComponent {
 		case FocusTextarea:
@@ -89,7 +87,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				m.adjustTextareaHeight()
 			}
 		case FocusViewport:
-			// Do nothing.
 		}
 		return nil
 
@@ -102,7 +99,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return m.handleKeyPress(msg)
 	}
 
-	if !m.streaming && !m.awaitingConfirm {
+	if !m.streaming {
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
 		cmds = append(cmds, cmd)
@@ -111,7 +108,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		if m.streaming || m.awaitingConfirm {
+		if m.streaming {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			cmds = append(cmds, cmd)
@@ -160,44 +157,43 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return func() tea.Msg { return screen.CloseTabMsg{} }
 
 	case "ctrl+j":
-		if !m.streaming && !m.awaitingConfirm && m.textarea.Value() != "" {
+		if m.streaming {
+			return nil
+		}
+		userInput := strings.TrimSpace(m.textarea.Value())
+
+		// Pending tool calls: empty input accepts, non-empty rejects.
+		if m.HasPendingToolCalls() {
+			if userInput == "" {
+				return m.acceptToolCalls()
+			}
+			m.rejectToolCalls(userInput)
+			m.textarea.Reset()
+			m.adjustTextareaHeight()
+			// Continue with a new user message to the AI including the rejection context.
+			m.streaming = true
+			m.recalculateLayout()
+			return m.startStreaming()
+		}
+
+		if userInput != "" {
 			m.navigationMessageIndex = -1
 			return m.sendUserMessage()
 		}
 
 	case "enter":
-		if m.awaitingConfirm {
-			return m.executeShellCommand()
-		}
 		if m.historyNavigating {
 			m.inputHistory.Reset()
 			m.historyNavigating = false
 		}
-
-	case "esc":
-		if m.awaitingConfirm {
-			m.cancelToolCall()
-			return nil
-		}
 	}
 
-	if m.awaitingConfirm {
-		switch msg.String() {
-		case "y", "Y":
-			return m.executeShellCommand()
-		case "n", "N":
-			m.cancelToolCall()
-			return nil
-		}
-		return nil
-	}
-
-	if !m.streaming && !m.awaitingConfirm && m.historyNavigating {
+	if !m.streaming && m.historyNavigating {
 		m.inputHistory.Reset()
 		m.historyNavigating = false
 	}
 
-	if !m.streaming && !m.awaitingConfirm {
+	if !m.streaming {
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
 		cmds = append(cmds, cmd)
@@ -208,7 +204,7 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *Model) handleTextareaKey(msg tea.KeyPressMsg) tea.Cmd {
-	if m.streaming || m.awaitingConfirm {
+	if m.streaming {
 		return nil
 	}
 
@@ -325,11 +321,6 @@ func (m *Model) handleViewportKey(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		return func() tea.Msg { return screen.CloseTabMsg{} }
-	case "esc":
-		if m.awaitingConfirm {
-			m.cancelToolCall()
-			return nil
-		}
 	}
 
 	return nil
@@ -368,5 +359,4 @@ func (m *Model) cycleReasoningEffort() {
 	m.setTitle()
 }
 
-// Compile-time interface check.
 var _ screen.Screen = (*Model)(nil)

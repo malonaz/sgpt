@@ -18,16 +18,13 @@ import (
 
 const renderThrottleInterval = 66 * time.Millisecond
 
-// streamRenderMsg triggers a throttled re-render.
 type streamRenderMsg struct{}
 
-// streamDoneMsg indicates the streaming goroutine has finished.
 type streamDoneMsg struct {
 	Err    error
 	Blocks []*aipb.Block
 }
 
-// chatSavedMsg confirms a successful save.
 type chatSavedMsg struct{}
 
 func (m *Model) sendUserMessage() tea.Cmd {
@@ -49,6 +46,18 @@ func (m *Model) sendUserMessage() tea.Cmd {
 	return m.startStreaming()
 }
 
+func (m *Model) allTools() []*aipb.Tool {
+	var toolsList []*aipb.Tool
+	if !m.opts.EnableTools {
+		return toolsList
+	}
+	toolsList = append(toolsList, tools.ShellCommand, tools.ReadFiles)
+	if m.opts.ToolEngineManager != nil {
+		toolsList = append(toolsList, m.opts.ToolEngineManager.GetTools()...)
+	}
+	return toolsList
+}
+
 func (m *Model) startStreaming() tea.Cmd {
 	streamCtx, cancel := context.WithCancel(m.ctx)
 	m.cancelStream = cancel
@@ -56,15 +65,10 @@ func (m *Model) startStreaming() tea.Cmd {
 	messages := m.messagesForAPI()
 	send := m.send
 
-	var toolsList []*aipb.Tool
-	if m.opts.EnableTools {
-		toolsList = append(toolsList, tools.ShellCommand, tools.ReadFiles)
-	}
-
 	request := &aiservicepb.TextToTextStreamRequest{
 		Model:    m.opts.Model.Name,
 		Messages: messages,
-		Tools:    toolsList,
+		Tools:    m.allTools(),
 		Configuration: &aiservicepb.TextToTextConfiguration{
 			MaxTokens:       m.opts.MaxTokens,
 			Temperature:     m.opts.Temperature,

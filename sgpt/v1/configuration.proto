@@ -4,13 +4,14 @@ package sgpt.v1;
 
 import "buf/validate/validate.proto";
 import "google/api/resource.proto";
+import "malonaz/ai/ai_engine/v1/ai_engine.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
 // Configuration for the sgpt tool.
 message Configuration {
   // gRPC client configuration for the chat service.
-  GRPCClient chat_service = 1;
+  GRPCClient sgpt_service = 1;
 
   // gRPC client configuration for the AI service.
   GRPCClient ai_service = 2;
@@ -20,6 +21,10 @@ message Configuration {
 
   // Chat configuration.
   ChatConfiguration chat = 4;
+
+  // Tool engine configurations. Each entry defines a remote gRPC service
+  // that provides tool sets for AI interactions.
+  repeated ToolEngineConfiguration tool_engines = 5;
 }
 
 // gRPC client configuration.
@@ -29,6 +34,9 @@ message GRPCClient {
 
   // API key for authentication.
   string api_key = 2;
+
+  // API key header for authentication.
+  string api_key_header = 3;
 }
 
 // A model with an optional alias for convenience.
@@ -78,4 +86,16 @@ message Role {
 
   // Files to include as context for this role.
   repeated string files = 5;
+}
+
+// Configuration for a remote tool engine that provides tool sets via gRPC.
+message ToolEngineConfiguration {
+  // Human-readable name for this tool engine (e.g. "onikisu").
+  string name = 1 [(buf.validate.field).required = true];
+
+  // gRPC client configuration for the engine service.
+  GRPCClient engine_service = 2 [(buf.validate.field).required = true];
+
+  // Tool set definitions to create from this engine.
+  repeated malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest tool_sets = 3;
 }

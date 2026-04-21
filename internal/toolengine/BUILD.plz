@@ -1,0 +1,20 @@
+go_library(
+    name = "toolengine",
+    srcs = ["toolengine.go"],
+    visibility = ["//..."],
+    deps = [
+        "//internal/tools",
+        "//sgpt/v1",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:github.com__malonaz__core__go__grpc",
+        "//third_party/go:github.com__malonaz__core__go__logging",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:github.com__malonaz__core__go__pbutil__pbreflection",
+        "//third_party/go:google.golang.org__grpc__reflection__grpc_reflection_v1",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__types__dynamicpb",
+        "//third_party/go:google.golang.org__protobuf__types__known__structpb",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)
