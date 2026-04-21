@@ -3,12 +3,12 @@ package webserver
 import (
 	"net/http"
 
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request, chatID, tagToRemove string) {
-	chat, err := s.client.GetChat(r.Context(), &chatservicepb.GetChatRequest{
+	chat, err := s.client.GetChat(r.Context(), &sgptservicepb.GetChatRequest{
 		Name: chatName(chatID),
 	})
 	if err != nil {
@@ -24,7 +24,7 @@ func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request, chatID,
 	}
 	chat.Tags = newTags
 
-	_, err = s.client.UpdateChat(r.Context(), &chatservicepb.UpdateChatRequest{
+	_, err = s.client.UpdateChat(r.Context(), &sgptservicepb.UpdateChatRequest{
 		Chat:       chat,
 		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"tags"}},
 	})

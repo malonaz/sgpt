@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -16,7 +16,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chatID := parts[2]
-	chat, err := s.client.GetChat(r.Context(), &chatservicepb.GetChatRequest{
+	chat, err := s.client.GetChat(r.Context(), &sgptservicepb.GetChatRequest{
 		Name: chatName(chatID),
 	})
 	if err != nil {
@@ -57,7 +57,7 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request, chatID str
 		return
 	}
 
-	chat, err := s.client.GetChat(r.Context(), &chatservicepb.GetChatRequest{
+	chat, err := s.client.GetChat(r.Context(), &sgptservicepb.GetChatRequest{
 		Name: chatName(chatID),
 	})
 	if err != nil {
@@ -67,7 +67,7 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request, chatID str
 
 	chat.Tags = append(chat.Tags, tag)
 
-	_, err = s.client.UpdateChat(r.Context(), &chatservicepb.UpdateChatRequest{
+	_, err = s.client.UpdateChat(r.Context(), &sgptservicepb.UpdateChatRequest{
 		Chat:       chat,
 		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"tags"}},
 	})
@@ -80,7 +80,7 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request, chatID str
 }
 
 func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request, chatID string) {
-	_, err := s.client.DeleteChat(r.Context(), &chatservicepb.DeleteChatRequest{
+	_, err := s.client.DeleteChat(r.Context(), &sgptservicepb.DeleteChatRequest{
 		Name: chatName(chatID),
 	})
 	if err != nil {

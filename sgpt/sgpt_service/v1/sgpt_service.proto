@@ -1,67 +1,67 @@
 syntax = "proto3";
 
-package sgpt.chat.chat_service.v1;
+package sgpt.sgpt_service.v1;
 
 import "buf/validate/validate.proto";
-import "chat/v1/chat.proto";
 import "google/api/annotations.proto";
 import "google/api/client.proto";
 import "google/api/resource.proto";
 import "google/protobuf/field_mask.proto";
 import "malonaz/codegen/aip/v1/aip.proto";
+import "sgpt/v1/chat.proto";
 
-option go_package = "github.com/malonaz/sgpt/genproto/chat/chat_service/v1";
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1";
 
-// This API represents a chat service.
+// This API represents the SGPT service.
 //
 // It defines the following resource model:
 //
 // - The API has a collection of Chat resources.
 // - Each Chat resource has a format of: chats/{chat}
-service ChatService {
-  option (google.api.default_host) = "chat.sgpt.com";
+service SgptService {
+  option (google.api.default_host) = "sgpt.com";
 
   // Create a chat.
   //
   // See: https://google.aip.dev/133 (Standard methods: Create).
-  rpc CreateChat(CreateChatRequest) returns (sgpt.chat.v1.Chat) {
+  rpc CreateChat(CreateChatRequest) returns (sgpt.v1.Chat) {
     option (google.api.http) = {
       post: "/v1/chats"
       body: "chat"
     };
     option (google.api.method_signature) = "chat";
-    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "sgpt.com/Chat";
   }
 
   // Update a chat.
   //
   // See: https://google.aip.dev/134 (Standard methods: Update).
-  rpc UpdateChat(UpdateChatRequest) returns (sgpt.chat.v1.Chat) {
+  rpc UpdateChat(UpdateChatRequest) returns (sgpt.v1.Chat) {
     option (google.api.http) = {
       patch: "/v1/{chat.name=chats/*}"
       body: "chat"
     };
     option (google.api.method_signature) = "chat,update_mask";
-    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "sgpt.com/Chat";
   }
 
   // Delete a chat.
   //
   // See: https://google.aip.dev/135 (Standard methods: Delete).
   // See: https://google.aip.dev/164 (Soft delete).
-  rpc DeleteChat(DeleteChatRequest) returns (sgpt.chat.v1.Chat) {
+  rpc DeleteChat(DeleteChatRequest) returns (sgpt.v1.Chat) {
     option (google.api.http) = {delete: "/v1/{name=chats/*}"};
     option (google.api.method_signature) = "name";
-    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "sgpt.com/Chat";
   }
 
   // Get a chat.
   //
   // See: https://google.aip.dev/131 (Standard methods: Get).
-  rpc GetChat(GetChatRequest) returns (sgpt.chat.v1.Chat) {
+  rpc GetChat(GetChatRequest) returns (sgpt.v1.Chat) {
     option (google.api.http) = {get: "/v1/{name=chats/*}"};
     option (google.api.method_signature) = "name";
-    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "sgpt.com/Chat";
   }
 
   // List chats.
@@ -69,7 +69,7 @@ service ChatService {
   // See: https://google.aip.dev/132 (Standard methods: List).
   rpc ListChats(ListChatsRequest) returns (ListChatsResponse) {
     option (google.api.http) = {get: "/v1/chats"};
-    option (malonaz.codegen.aip.v1.standard_method).resource = "chat.sgpt.com/Chat";
+    option (malonaz.codegen.aip.v1.standard_method).resource = "sgpt.com/Chat";
   }
 
   // Search chats.
@@ -82,7 +82,7 @@ service ChatService {
   }
 }
 
-// Request message for Chat.CreateChat.
+// Request message for SgptService.CreateChat.
 message CreateChatRequest {
   // The ID to use for the resource, which will become the final component of
   // the resource name.
@@ -98,7 +98,7 @@ message CreateChatRequest {
     }
   ];
   // The chat to create.
-  sgpt.chat.v1.Chat chat = 2 [(buf.validate.field).required = true];
+  sgpt.v1.Chat chat = 2 [(buf.validate.field).required = true];
 
   // A unique identifier for this request. Must be a UUID.
   // This request is only idempotent if a `request_id` is provided.
@@ -108,17 +108,17 @@ message CreateChatRequest {
   bool validate_only = 4;
 }
 
-// Request message for Chat.GetChat.
+// Request message for SgptService.GetChat.
 message GetChatRequest {
   // The resource name of the chat to retrieve.
   // Format: chats/{chat}
   string name = 1 [
     (buf.validate.field).required = true,
-    (google.api.resource_reference).type = "chat.sgpt.com/Chat"
+    (google.api.resource_reference).type = "sgpt.com/Chat"
   ];
 }
 
-// Request message for Chat.UpdateChat.
+// Request message for SgptService.UpdateChat.
 message UpdateChatRequest {
   option (malonaz.codegen.aip.v1.update) = {
     paths: [
@@ -137,25 +137,25 @@ message UpdateChatRequest {
   // The chat to update with. The name must match or be empty.
   // The chat's `name` field is used to identify the chat to be updated.
   // Format: chats/{chat}
-  sgpt.chat.v1.Chat chat = 1 [(buf.validate.field).required = true];
+  sgpt.v1.Chat chat = 1 [(buf.validate.field).required = true];
   // The list of fields to update.
   google.protobuf.FieldMask update_mask = 2 [(buf.validate.field).required = true];
 }
 
-// Request message for Chat.DeleteChat.
+// Request message for SgptService.DeleteChat.
 message DeleteChatRequest {
   // The resource name of the chat to delete.
   // Format: chats/{chat}
   string name = 1 [
     (buf.validate.field).required = true,
-    (google.api.resource_reference).type = "chat.sgpt.com/Chat"
+    (google.api.resource_reference).type = "sgpt.com/Chat"
   ];
   // If set to true, and the book is not found, the request will succeed
   // but no action will be taken on the server
   bool allow_missing = 2;
 }
 
-// Request message for Chat.ListChats.
+// Request message for SgptService.ListChats.
 message ListChatsRequest {
   option (malonaz.codegen.aip.v1.pagination) = {default_page_size: 200};
   option (malonaz.codegen.aip.v1.ordering) = {
@@ -192,10 +192,10 @@ message ListChatsRequest {
   bool show_deleted = 5;
 }
 
-// Response message for Chat.ListChats.
+// Response message for SgptService.ListChats.
 message ListChatsResponse {
   // The list of chats.
-  repeated sgpt.chat.v1.Chat chats = 1;
+  repeated sgpt.v1.Chat chats = 1;
   // A token to retrieve next page of results. Pass this value in the
   // [ListChatsRequest.page_token][chat.chat_service.v1.ListChatsRequest.page_token]
   // field in the subsequent call to `ListChats` method to retrieve the next
@@ -203,7 +203,7 @@ message ListChatsResponse {
   string next_page_token = 2;
 }
 
-// Request message for Chat.SearchChats.
+// Request message for SgptService.SearchChats.
 message SearchChatsRequest {
   option (malonaz.codegen.aip.v1.pagination) = {default_page_size: 200};
   option (malonaz.codegen.aip.v1.filtering) = {
@@ -246,10 +246,10 @@ message SearchChatsRequest {
   string page_token = 4;
 }
 
-// Response message for Chat.SearchChats.
+// Response message for SgptService.SearchChats.
 message SearchChatsResponse {
   // The list of chats matching the search query.
-  repeated sgpt.chat.v1.Chat chats = 1;
+  repeated sgpt.v1.Chat chats = 1;
 
   // A token to retrieve next page of results. Pass this value in the
   // [SearchChatsRequest.page_token][chat.chat_service.v1.SearchChatsRequest.page_token]

@@ -15,8 +15,8 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/history"
@@ -45,7 +45,7 @@ type Model struct {
 	ctx        context.Context
 	config     *configuration.Config
 	aiClient   aiservicepb.AiServiceClient
-	chatClient chatservicepb.ChatServiceClient
+	chatClient sgptservicepb.SgptServiceClient
 	wrap       screen.WrapFunc
 	send       screen.SendFunc
 	log        *slog.Logger
@@ -97,7 +97,7 @@ func New(
 	ctx context.Context,
 	config *configuration.Config,
 	aiClient aiservicepb.AiServiceClient,
-	chatClient chatservicepb.ChatServiceClient,
+	chatClient sgptservicepb.SgptServiceClient,
 	wrap screen.WrapFunc,
 	send screen.SendFunc,
 	chat *chatpb.Chat,

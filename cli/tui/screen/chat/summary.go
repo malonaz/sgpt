@@ -9,12 +9,12 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient, chat *chatpb.Chat) error {
+func GenerateChatSummary(ctx context.Context, config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient, chat *chatpb.Chat) error {
 	if config.Chat.SummaryModel == "" {
 		return nil
 	}

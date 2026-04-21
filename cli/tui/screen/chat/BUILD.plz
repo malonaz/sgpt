@@ -14,8 +14,6 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
-        "//chat/chat_service/v1",
-        "//chat/v1",
         "//cli/tui/component",
         "//cli/tui/screen",
         "//cli/tui/styles",
@@ -24,6 +22,8 @@ go_library(
         "//internal/history",
         "//internal/markdown",
         "//internal/tools",
+        "//sgpt/sgpt_service/v1",
+        "//sgpt/v1",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbles__v2__spinner",
         "//third_party/go:charm.land__bubbles__v2__textarea",

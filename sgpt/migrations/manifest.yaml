@@ -1,4 +1,4 @@
-name: chat
+name: sgpt
 directories:
   - name: extensions
     extension: true

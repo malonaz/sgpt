@@ -1,23 +1,23 @@
 go_proto_template_library(
     name = "codegen",
-    srcs = ["//chat/chat_service/v1:proto"],
+    srcs = ["//sgpt/sgpt_service/v1:proto"],
     additional_context = {
         GO_PROTO_TEMPLATES_GO_IMPORT_PATHS: {
-            "model": "//chat/model",
+            "model": "//sgpt/model",
         },
     },
     template = "///core//build_defs/codegen/go_proto_templates/templates:rpc",
-    deps = ["//chat/chat_service/v1"],
+    deps = ["//sgpt/sgpt_service/v1"],
 )
 
 go_library(
     name = "rpc",
     srcs = [":codegen"],
-    visibility = ["//chat/chat_service/..."],
+    visibility = ["//sgpt/sgpt_service/..."],
     deps = [
-        "//chat/chat_service/v1",
-        "//chat/model",
-        "//chat/v1",
+        "//sgpt/model",
+        "//sgpt/sgpt_service/v1",
+        "//sgpt/v1",
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/go:github.com__malonaz__core__go__aip",
         "//third_party/go:github.com__malonaz__core__go__grpc__status",

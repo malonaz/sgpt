@@ -12,7 +12,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 	"google.golang.org/protobuf/proto"
 
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 

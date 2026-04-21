@@ -8,18 +8,18 @@ local external_service_accounts = import 'external_service_accounts.json';
     {
       "id": "chat:reader",
       "permissions": [
-        "/sgpt.chat.chat_service.v1.ChatService/ListChats",
-        "/sgpt.chat.chat_service.v1.ChatService/SearchChats",
-        "/sgpt.chat.chat_service.v1.ChatService/GetChat",
+        "/sgpt.sgpt_service.v1.SgptService/ListChats",
+        "/sgpt.sgpt_service.v1.SgptService/SearchChats",
+        "/sgpt.sgpt_service.v1.SgptService/GetChat",
       ],
     },
     {
       "id": "chat:writer",
       "inherited_role_ids": ["chat:reader"],
       "permissions": [
-        "/sgpt.chat.chat_service.v1.ChatService/CreateChat",
-        "/sgpt.chat.chat_service.v1.ChatService/DeleteChat",
-        "/sgpt.chat.chat_service.v1.ChatService/UpdateChat",
+        "/sgpt.sgpt_service.v1.SgptService/CreateChat",
+        "/sgpt.sgpt_service.v1.SgptService/DeleteChat",
+        "/sgpt.sgpt_service.v1.SgptService/UpdateChat",
       ],
     },
   ],

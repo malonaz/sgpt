@@ -10,8 +10,8 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
@@ -46,7 +46,7 @@ type searchDebounceTickMsg struct {
 
 type Model struct {
 	ctx        context.Context
-	chatClient chatservicepb.ChatServiceClient
+	chatClient sgptservicepb.SgptServiceClient
 	wrap       screen.WrapFunc
 
 	chats            []*chatpb.Chat
@@ -76,7 +76,7 @@ type Model struct {
 	focused        bool
 }
 
-func New(ctx context.Context, chatClient chatservicepb.ChatServiceClient, wrap screen.WrapFunc) *Model {
+func New(ctx context.Context, chatClient sgptservicepb.SgptServiceClient, wrap screen.WrapFunc) *Model {
 	filterInput := textarea.New()
 	filterInput.Placeholder = "Filter chats..."
 	filterInput.CharLimit = 256
@@ -172,7 +172,7 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 		defer cancel()
 
 		if searchQuery != "" {
-			searchChatsRequest := &chatservicepb.SearchChatsRequest{
+			searchChatsRequest := &sgptservicepb.SearchChatsRequest{
 				Query:     searchQuery,
 				PageSize:  int32(m.visibleRowCapacity()),
 				PageToken: pageToken,
@@ -189,7 +189,7 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 			})
 		}
 
-		listChatsRequest := &chatservicepb.ListChatsRequest{
+		listChatsRequest := &sgptservicepb.ListChatsRequest{
 			PageSize:  int32(m.visibleRowCapacity()),
 			OrderBy:   "create_time desc",
 			PageToken: pageToken,
@@ -209,7 +209,7 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 func (m *Model) deleteChat(name string) tea.Cmd {
 	wrap := m.wrap
 	return func() tea.Msg {
-		deleteChatRequest := &chatservicepb.DeleteChatRequest{Name: name}
+		deleteChatRequest := &sgptservicepb.DeleteChatRequest{Name: name}
 		_, err := m.chatClient.DeleteChat(m.ctx, deleteChatRequest)
 		return wrap(chatDeletedMsg{Name: name, Err: err})
 	}

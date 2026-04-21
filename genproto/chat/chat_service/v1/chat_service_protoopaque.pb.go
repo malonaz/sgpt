@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.32.1
-// source: chat/chat_service/v1/chat_service.proto
+// source: sgpt/sgpt_service/v1/chat_service.proto
 
 //go:build protoopaque
 
@@ -11,7 +11,7 @@ package v1
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "github.com/malonaz/core/genproto/codegen/aip/v1"
-	v1 "github.com/malonaz/sgpt/genproto/chat/v1"
+	v1 "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -790,7 +790,7 @@ var File_chat_chat_service_v1_chat_service_proto protoreflect.FileDescriptor
 
 const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\n" +
-	"'chat/chat_service/v1/chat_service.proto\x12\x19sgpt.chat.chat_service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x12chat/v1/chat.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a malonaz/codegen/aip/v1/aip.proto\"\xd1\x01\n" +
+	"'sgpt/sgpt_service/v1/chat_service.proto\x12\x19sgpt.chat.chat_service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x12sgpt/v1/chat.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a malonaz/codegen/aip/v1/aip.proto\"\xd1\x01\n" +
 	"\x11CreateChatRequest\x12>\n" +
 	"\achat_id\x18\x01 \x01(\tB%\xbaH\"\xd8\x01\x01r\x1d\x10\x01\x18?2\x17^[a-z0-9](-?[a-z0-9])*$R\x06chatId\x12.\n" +
 	"\x04chat\x18\x02 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12'\n" +
@@ -799,7 +799,7 @@ const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\rvalidate_only\x18\x04 \x01(\bR\fvalidateOnly\"C\n" +
 	"\x0eGetChatRequest\x121\n" +
 	"\x04name\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\"\xea\x01\n" +
+	"\x12sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\"\xea\x01\n" +
 	"\x11UpdateChatRequest\x12.\n" +
 	"\x04chat\x18\x01 \x01(\v2\x12.sgpt.chat.v1.ChatB\x06\xbaH\x03\xc8\x01\x01R\x04chat\x12C\n" +
 	"\vupdate_mask\x18\x02 \x01(\v2\x1a.google.protobuf.FieldMaskB\x06\xbaH\x03\xc8\x01\x01R\n" +
@@ -811,7 +811,7 @@ const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\x0emetadata.title\"k\n" +
 	"\x11DeleteChatRequest\x121\n" +
 	"\x04name\x18\x01 \x01(\tB\x1d\xfaA\x14\n" +
-	"\x12chat.sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\x12#\n" +
+	"\x12sgpt.com/Chat\xbaH\x03\xc8\x01\x01R\x04name\x12#\n" +
 	"\rallow_missing\x18\x02 \x01(\bR\fallowMissing\"\xef\x01\n" +
 	"\x10ListChatsRequest\x12'\n" +
 	"\tpage_size\x18\x01 \x01(\x05B\n" +
@@ -841,18 +841,18 @@ const file_chat_chat_service_v1_chat_service_proto_rawDesc = "" +
 	"\vChatService\x12\x86\x01\n" +
 	"\n" +
 	"CreateChat\x12,.sgpt.chat.chat_service.v1.CreateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"6\xdaA\x04chat´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x11:\x04chat\"\t/v1/chats\x12\xa0\x01\n" +
+	"\x12sgpt.com/Chat\x82\xd3\xe4\x93\x02\x11:\x04chat\"\t/v1/chats\x12\xa0\x01\n" +
 	"\n" +
 	"UpdateChat\x12,.sgpt.chat.chat_service.v1.UpdateChatRequest\x1a\x12.sgpt.chat.v1.Chat\"P\xdaA\x10chat,update_mask´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x1f:\x04chat2\x17/v1/{chat.name=chats/*}\x12\x89\x01\n" +
+	"\x12sgpt.com/Chat\x82\xd3\xe4\x93\x02\x1f:\x04chat2\x17/v1/{chat.name=chats/*}\x12\x89\x01\n" +
 	"\n" +
 	"DeleteChat\x12,.sgpt.chat.chat_service.v1.DeleteChatRequest\x1a\x12.sgpt.chat.v1.Chat\"9\xdaA\x04name´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x14*\x12/v1/{name=chats/*}\x12\x83\x01\n" +
+	"\x12sgpt.com/Chat\x82\xd3\xe4\x93\x02\x14*\x12/v1/{name=chats/*}\x12\x83\x01\n" +
 	"\aGetChat\x12).sgpt.chat.chat_service.v1.GetChatRequest\x1a\x12.sgpt.chat.v1.Chat\"9\xdaA\x04name´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\x14\x12\x12/v1/{name=chats/*}\x12\x91\x01\n" +
+	"\x12sgpt.com/Chat\x82\xd3\xe4\x93\x02\x14\x12\x12/v1/{name=chats/*}\x12\x91\x01\n" +
 	"\tListChats\x12+.sgpt.chat.chat_service.v1.ListChatsRequest\x1a,.sgpt.chat.chat_service.v1.ListChatsResponse\")´-\x14\n" +
-	"\x12chat.sgpt.com/Chat\x82\xd3\xe4\x93\x02\v\x12\t/v1/chats\x12\x8e\x01\n" +
-	"\vSearchChats\x12-.sgpt.chat.chat_service.v1.SearchChatsRequest\x1a..sgpt.chat.chat_service.v1.SearchChatsResponse\" \xdaA\x05query\x82\xd3\xe4\x93\x02\x12\x12\x10/v1/chats:search\x1a\x10\xcaA\rchat.sgpt.comB7Z5github.com/malonaz/sgpt/genproto/chat/chat_service/v1b\x06proto3"
+	"\x12sgpt.com/Chat\x82\xd3\xe4\x93\x02\v\x12\t/v1/chats\x12\x8e\x01\n" +
+	"\vSearchChats\x12-.sgpt.chat.chat_service.v1.SearchChatsRequest\x1a..sgpt.chat.chat_service.v1.SearchChatsResponse\" \xdaA\x05query\x82\xd3\xe4\x93\x02\x12\x12\x10/v1/chats:search\x1a\x10\xcaA\rsgpt.comB7Z5github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1b\x06proto3"
 
 var file_chat_chat_service_v1_chat_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_chat_chat_service_v1_chat_service_proto_goTypes = []any{

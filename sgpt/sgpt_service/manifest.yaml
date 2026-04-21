@@ -1,0 +1,12 @@
+name: sgpt-service
+includeRuntime: true
+implementation: //sgpt/sgpt_service
+codegens:
+  - type: rpc
+    name: sgpt-service
+    store: sgpt
+    implementation: //sgpt/sgpt_service/rpc
+dependencies:
+  - type: postgres_db_client
+    name: sgpt
+    implementation: //sgpt/store

@@ -9,19 +9,19 @@ import (
 	"github.com/spf13/cobra"
 
 	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-func NewSummarizeCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
+func NewSummarizeCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
 	return &cobra.Command{
 		Use:   "summarize",
 		Short: "Generate summaries for chats that have no title",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			listChatsRequest := &chatservicepb.ListChatsRequest{
+			listChatsRequest := &sgptservicepb.ListChatsRequest{
 				PageSize: 100,
 				OrderBy:  "create_time desc",
 				Filter:   "-metadata.title:*",
@@ -43,7 +43,7 @@ func NewSummarizeCmd(config *configuration.Config, aiClient aiservicepb.AiServic
 					return fmt.Errorf("generating summary for %s: %w", chat.GetName(), err)
 				}
 
-				updateChatRequest := &chatservicepb.UpdateChatRequest{
+				updateChatRequest := &sgptservicepb.UpdateChatRequest{
 					Chat:       chat,
 					UpdateMask: pbfieldmask.FromPaths("metadata.title").Proto(),
 				}

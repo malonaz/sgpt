@@ -11,5 +11,5 @@ servers:
       - type: session_log_injector
       - type: session_outgoing_context_injector
     services:
-      - proto: //chat/chat_service/v1
-        manifest: //chat/chat_service:manifest
+      - proto: //sgpt/sgpt_service/v1
+        manifest: //sgpt/sgpt_service:manifest

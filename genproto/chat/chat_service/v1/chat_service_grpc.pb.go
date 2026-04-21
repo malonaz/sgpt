@@ -2,13 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v6.32.1
-// source: chat/chat_service/v1/chat_service.proto
+// source: sgpt/sgpt_service/v1/chat_service.proto
 
 package v1
 
 import (
 	context "context"
-	v1 "github.com/malonaz/sgpt/genproto/chat/v1"
+	v1 "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,10 +19,10 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// ChatServiceClient is the client API for ChatService service.
+// SgptServiceClient is the client API for ChatService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ChatServiceClient interface {
+type SgptServiceClient interface {
 	// Create a chat.
 	//
 	// See: https://google.aip.dev/133 (Standard methods: Create).
@@ -51,15 +51,15 @@ type ChatServiceClient interface {
 	SearchChats(ctx context.Context, in *SearchChatsRequest, opts ...grpc.CallOption) (*SearchChatsResponse, error)
 }
 
-type chatServiceClient struct {
+type sgptServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewChatServiceClient(cc grpc.ClientConnInterface) ChatServiceClient {
-	return &chatServiceClient{cc}
+func NewSgptServiceClient(cc grpc.ClientConnInterface) SgptServiceClient {
+	return &sgptServiceClient{cc}
 }
 
-func (c *chatServiceClient) CreateChat(ctx context.Context, in *CreateChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
+func (c *sgptServiceClient) CreateChat(ctx context.Context, in *CreateChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
 	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.ChatService/CreateChat", in, out, opts...)
 	if err != nil {
@@ -68,7 +68,7 @@ func (c *chatServiceClient) CreateChat(ctx context.Context, in *CreateChatReques
 	return out, nil
 }
 
-func (c *chatServiceClient) UpdateChat(ctx context.Context, in *UpdateChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
+func (c *sgptServiceClient) UpdateChat(ctx context.Context, in *UpdateChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
 	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.ChatService/UpdateChat", in, out, opts...)
 	if err != nil {
@@ -77,7 +77,7 @@ func (c *chatServiceClient) UpdateChat(ctx context.Context, in *UpdateChatReques
 	return out, nil
 }
 
-func (c *chatServiceClient) DeleteChat(ctx context.Context, in *DeleteChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
+func (c *sgptServiceClient) DeleteChat(ctx context.Context, in *DeleteChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
 	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.ChatService/DeleteChat", in, out, opts...)
 	if err != nil {
@@ -86,7 +86,7 @@ func (c *chatServiceClient) DeleteChat(ctx context.Context, in *DeleteChatReques
 	return out, nil
 }
 
-func (c *chatServiceClient) GetChat(ctx context.Context, in *GetChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
+func (c *sgptServiceClient) GetChat(ctx context.Context, in *GetChatRequest, opts ...grpc.CallOption) (*v1.Chat, error) {
 	out := new(v1.Chat)
 	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.ChatService/GetChat", in, out, opts...)
 	if err != nil {
@@ -95,7 +95,7 @@ func (c *chatServiceClient) GetChat(ctx context.Context, in *GetChatRequest, opt
 	return out, nil
 }
 
-func (c *chatServiceClient) ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error) {
+func (c *sgptServiceClient) ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error) {
 	out := new(ListChatsResponse)
 	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.ChatService/ListChats", in, out, opts...)
 	if err != nil {
@@ -104,7 +104,7 @@ func (c *chatServiceClient) ListChats(ctx context.Context, in *ListChatsRequest,
 	return out, nil
 }
 
-func (c *chatServiceClient) SearchChats(ctx context.Context, in *SearchChatsRequest, opts ...grpc.CallOption) (*SearchChatsResponse, error) {
+func (c *sgptServiceClient) SearchChats(ctx context.Context, in *SearchChatsRequest, opts ...grpc.CallOption) (*SearchChatsResponse, error) {
 	out := new(SearchChatsResponse)
 	err := c.cc.Invoke(ctx, "/sgpt.chat.chat_service.v1.ChatService/SearchChats", in, out, opts...)
 	if err != nil {
@@ -113,10 +113,10 @@ func (c *chatServiceClient) SearchChats(ctx context.Context, in *SearchChatsRequ
 	return out, nil
 }
 
-// ChatServiceServer is the server API for ChatService service.
-// All implementations should embed UnimplementedChatServiceServer
+// SgptServiceServer is the server API for ChatService service.
+// All implementations should embed UnimplementedSgptServiceServer
 // for forward compatibility
-type ChatServiceServer interface {
+type SgptServiceServer interface {
 	// Create a chat.
 	//
 	// See: https://google.aip.dev/133 (Standard methods: Create).
@@ -145,37 +145,37 @@ type ChatServiceServer interface {
 	SearchChats(context.Context, *SearchChatsRequest) (*SearchChatsResponse, error)
 }
 
-// UnimplementedChatServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedChatServiceServer struct {
+// UnimplementedSgptServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedSgptServiceServer struct {
 }
 
-func (UnimplementedChatServiceServer) CreateChat(context.Context, *CreateChatRequest) (*v1.Chat, error) {
+func (UnimplementedSgptServiceServer) CreateChat(context.Context, *CreateChatRequest) (*v1.Chat, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateChat not implemented")
 }
-func (UnimplementedChatServiceServer) UpdateChat(context.Context, *UpdateChatRequest) (*v1.Chat, error) {
+func (UnimplementedSgptServiceServer) UpdateChat(context.Context, *UpdateChatRequest) (*v1.Chat, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateChat not implemented")
 }
-func (UnimplementedChatServiceServer) DeleteChat(context.Context, *DeleteChatRequest) (*v1.Chat, error) {
+func (UnimplementedSgptServiceServer) DeleteChat(context.Context, *DeleteChatRequest) (*v1.Chat, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteChat not implemented")
 }
-func (UnimplementedChatServiceServer) GetChat(context.Context, *GetChatRequest) (*v1.Chat, error) {
+func (UnimplementedSgptServiceServer) GetChat(context.Context, *GetChatRequest) (*v1.Chat, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetChat not implemented")
 }
-func (UnimplementedChatServiceServer) ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error) {
+func (UnimplementedSgptServiceServer) ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListChats not implemented")
 }
-func (UnimplementedChatServiceServer) SearchChats(context.Context, *SearchChatsRequest) (*SearchChatsResponse, error) {
+func (UnimplementedSgptServiceServer) SearchChats(context.Context, *SearchChatsRequest) (*SearchChatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SearchChats not implemented")
 }
 
-// UnsafeChatServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ChatServiceServer will
+// UnsafeSgptServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SgptServiceServer will
 // result in compilation errors.
-type UnsafeChatServiceServer interface {
-	mustEmbedUnimplementedChatServiceServer()
+type UnsafeSgptServiceServer interface {
+	mustEmbedUnimplementedSgptServiceServer()
 }
 
-func RegisterChatServiceServer(s grpc.ServiceRegistrar, srv ChatServiceServer) {
+func RegisterSgptServiceServer(s grpc.ServiceRegistrar, srv SgptServiceServer) {
 	s.RegisterService(&ChatService_ServiceDesc, srv)
 }
 
@@ -185,14 +185,14 @@ func _ChatService_CreateChat_Handler(srv interface{}, ctx context.Context, dec f
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).CreateChat(ctx, in)
+		return srv.(SgptServiceServer).CreateChat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/sgpt.chat.chat_service.v1.ChatService/CreateChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).CreateChat(ctx, req.(*CreateChatRequest))
+		return srv.(SgptServiceServer).CreateChat(ctx, req.(*CreateChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -203,14 +203,14 @@ func _ChatService_UpdateChat_Handler(srv interface{}, ctx context.Context, dec f
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).UpdateChat(ctx, in)
+		return srv.(SgptServiceServer).UpdateChat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/sgpt.chat.chat_service.v1.ChatService/UpdateChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).UpdateChat(ctx, req.(*UpdateChatRequest))
+		return srv.(SgptServiceServer).UpdateChat(ctx, req.(*UpdateChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -221,14 +221,14 @@ func _ChatService_DeleteChat_Handler(srv interface{}, ctx context.Context, dec f
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).DeleteChat(ctx, in)
+		return srv.(SgptServiceServer).DeleteChat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/sgpt.chat.chat_service.v1.ChatService/DeleteChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).DeleteChat(ctx, req.(*DeleteChatRequest))
+		return srv.(SgptServiceServer).DeleteChat(ctx, req.(*DeleteChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -239,14 +239,14 @@ func _ChatService_GetChat_Handler(srv interface{}, ctx context.Context, dec func
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).GetChat(ctx, in)
+		return srv.(SgptServiceServer).GetChat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/sgpt.chat.chat_service.v1.ChatService/GetChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).GetChat(ctx, req.(*GetChatRequest))
+		return srv.(SgptServiceServer).GetChat(ctx, req.(*GetChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -257,14 +257,14 @@ func _ChatService_ListChats_Handler(srv interface{}, ctx context.Context, dec fu
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).ListChats(ctx, in)
+		return srv.(SgptServiceServer).ListChats(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/sgpt.chat.chat_service.v1.ChatService/ListChats",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).ListChats(ctx, req.(*ListChatsRequest))
+		return srv.(SgptServiceServer).ListChats(ctx, req.(*ListChatsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -275,14 +275,14 @@ func _ChatService_SearchChats_Handler(srv interface{}, ctx context.Context, dec 
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).SearchChats(ctx, in)
+		return srv.(SgptServiceServer).SearchChats(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/sgpt.chat.chat_service.v1.ChatService/SearchChats",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).SearchChats(ctx, req.(*SearchChatsRequest))
+		return srv.(SgptServiceServer).SearchChats(ctx, req.(*SearchChatsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -292,7 +292,7 @@ func _ChatService_SearchChats_Handler(srv interface{}, ctx context.Context, dec 
 // and not to be introspected or modified (even as a copy)
 var ChatService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "sgpt.chat.chat_service.v1.ChatService",
-	HandlerType: (*ChatServiceServer)(nil),
+	HandlerType: (*SgptServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CreateChat",
@@ -320,5 +320,5 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "chat/chat_service/v1/chat_service.proto",
+	Metadata: "sgpt/sgpt_service/v1/chat_service.proto",
 }

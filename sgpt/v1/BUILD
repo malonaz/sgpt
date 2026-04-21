@@ -11,7 +11,7 @@ proto_library(
     srcs = ["chat.proto"],
     additional_context = {
         GENERATE_GO_AIP: True,
-        GO_IMPORT_PATH: "github.com/malonaz/sgpt/genproto/chat/v1",
+        GO_IMPORT_PATH: "github.com/malonaz/sgpt/genproto/sgpt/v1",
     },
     labels = ["copy_generated_code"],
     visibility = ["PUBLIC"],

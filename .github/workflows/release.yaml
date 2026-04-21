@@ -22,7 +22,7 @@ jobs:
 
     - name: Build binary
       run: |
-        GO111MODULE=on GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o build/sgpt_${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/sgpt
+        GO111MODULE=on GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o build/sgpt_${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/sgpt-cli
 
     - name: Upload Artifact as Release Asset
       uses: actions/upload-artifact@v2

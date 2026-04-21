@@ -10,7 +10,7 @@ import (
 )
 
 var databases = []string{
-	"chat",
+	"sgpt",
 }
 
 func setup(ctx context.Context) error {

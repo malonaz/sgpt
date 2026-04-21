@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +18,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	var nextPageToken string
 
 	if query != "" {
-		resp, err := s.client.SearchChats(r.Context(), &chatservicepb.SearchChatsRequest{
+		resp, err := s.client.SearchChats(r.Context(), &sgptservicepb.SearchChatsRequest{
 			Query:     query,
 			PageSize:  s.pageSize,
 			PageToken: pageToken,
@@ -31,7 +31,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 		nextPageToken = resp.NextPageToken
 	} else {
 		filter := buildTagFilter(tags)
-		resp, err := s.client.ListChats(r.Context(), &chatservicepb.ListChatsRequest{
+		resp, err := s.client.ListChats(r.Context(), &sgptservicepb.ListChatsRequest{
 			PageSize:  s.pageSize,
 			PageToken: pageToken,
 			Filter:    filter,

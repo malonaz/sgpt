@@ -2,7 +2,7 @@ package screen
 
 import (
 	tea "charm.land/bubbletea/v2"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 // WrapFunc wraps a tea.Msg with the owning tab's ID so the app routes it correctly.

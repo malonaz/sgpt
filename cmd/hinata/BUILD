@@ -1,8 +1,8 @@
 go_main_manifest(
     name = "manifest",
     deps = [
-        "//chat/chat_service:manifest",
-        "//chat/chat_service/v1",
+        "//sgpt/sgpt_service:manifest",
+        "//sgpt/sgpt_service/v1",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
     ],
 )
@@ -19,9 +19,9 @@ go_binary(
         ":main.go",
     ],
     deps = [
-        "//chat/chat_service",
-        "//chat/chat_service/v1",
-        "//chat/store",
+        "//sgpt/sgpt_service",
+        "//sgpt/sgpt_service/v1",
+        "//sgpt/store",
         "//third_party/go:github.com__malonaz__core__go__authentication",
         "//third_party/go:github.com__malonaz__core__go__binary",
         "//third_party/go:github.com__malonaz__core__go__certs",
@@ -35,7 +35,7 @@ go_binary(
 )
 
 _databases = [
-    "chat",
+    "sgpt",
 ]
 
 _binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{db}/migrations:migrator" for db in _databases] + ["//cmd/hinata"]
@@ -43,10 +43,10 @@ _binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{d
 _env = {
     "POSTGRES_HOST": "localhost",
     "POSTGRES_PORT": "8989",
-    "CHAT_POSTGRES_HOST": "localhost",
-    "CHAT_POSTGRES_PORT": "8989",
-    "CHAT_POSTGRES_USER": "chat",
-    "CHAT_POSTGRES_DATABASE": "chat",
+    "SGPT_POSTGRES_HOST": "localhost",
+    "SGPT_POSTGRES_PORT": "8989",
+    "SGPT_POSTGRES_USER": "sgpt",
+    "SGPT_POSTGRES_DATABASE": "sgpt",
 }
 
 _env_str = " ".join([f"{k}={v}" for k, v in _env.items()])

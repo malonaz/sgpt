@@ -3,7 +3,7 @@
 // versions:
 // 	protoc-gen-go-aip development
 // 	protoc v6.32.1
-// source: chat/v1/chat.proto
+// source: sgpt/v1/chat.proto
 
 package v1
 
@@ -71,5 +71,5 @@ func (n *ChatResourceName) UnmarshalText(text []byte) error {
 }
 
 func (n ChatResourceName) Type() string {
-	return "chat.sgpt.com/Chat"
+	return "sgpt.com/Chat"
 }

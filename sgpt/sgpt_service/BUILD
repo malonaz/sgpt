@@ -9,7 +9,7 @@ go_service_src(
 )
 
 go_library(
-    name = "chat_service",
+    name = "sgpt_service",
     srcs = [
         "create_chats.go",
         "search_chats.go",
@@ -18,10 +18,10 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
-        "//chat/chat_service/rpc",
-        "//chat/chat_service/v1",
-        "//chat/store",
-        "//chat/v1",
+        "//sgpt/sgpt_service/rpc",
+        "//sgpt/sgpt_service/v1",
+        "//sgpt/store",
+        "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__aip",
         "//third_party/go:github.com__malonaz__core__go__grpc__status",
         "//third_party/go:google.golang.org__grpc__codes",

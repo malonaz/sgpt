@@ -2,17 +2,17 @@ package app
 
 import (
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 )
 
 type App struct {
 	AiServiceClient   aiservicepb.AiServiceClient
-	ChatServiceClient chatservicepb.ChatServiceClient
+	SgptServiceClient sgptservicepb.SgptServiceClient
 }
 
-func NewApp(aiServiceClient aiservicepb.AiServiceClient, chatServiceClient chatservicepb.ChatServiceClient) (*App, error) {
+func NewApp(aiServiceClient aiservicepb.AiServiceClient, sgptServiceClient sgptservicepb.SgptServiceClient) (*App, error) {
 	return &App{
 		AiServiceClient:   aiServiceClient,
-		ChatServiceClient: chatServiceClient,
+		SgptServiceClient: sgptServiceClient,
 	}, nil
 }

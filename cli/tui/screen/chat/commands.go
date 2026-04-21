@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 type editorClosedMsg struct {
@@ -32,7 +32,7 @@ func statusToProto(err error) *spb.Status {
 func (m *Model) saveChat() tea.Cmd {
 	return func() tea.Msg {
 		if m.chat.GetName() == "" {
-			createChatRequest := &chatservicepb.CreateChatRequest{
+			createChatRequest := &sgptservicepb.CreateChatRequest{
 				RequestId: uuid.MustNewV7().String(),
 				ChatId:    uuid.MustNewV7().String()[:8],
 				Chat:      m.chat,
@@ -46,7 +46,7 @@ func (m *Model) saveChat() tea.Cmd {
 				return screen.AlertMsg{Text: fmt.Sprintf("Failed to generate chat summary: %v", err)}
 			}
 		} else {
-			updateChatRequest := &chatservicepb.UpdateChatRequest{
+			updateChatRequest := &sgptservicepb.UpdateChatRequest{
 				Chat:       m.chat,
 				UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&chatpb.Chat{}).Proto(),
 			}

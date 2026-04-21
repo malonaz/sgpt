@@ -1,14 +1,14 @@
-package chat_service
+package sgpt_service
 
 import (
 	"context"
 
-	pb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	pb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 func (s *Service) UpdateChat(ctx context.Context, request *pb.UpdateChatRequest) (*chatpb.Chat, error) {
-	chat, err := s.ChatServiceServer.UpdateChat(ctx, request)
+	chat, err := s.SgptServiceServer.UpdateChat(ctx, request)
 	if err != nil {
 		return nil, err
 	}

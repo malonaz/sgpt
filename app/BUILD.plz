@@ -3,7 +3,7 @@ go_library(
     srcs = ["service.go"],
     visibility = ["//..."],
     deps = [
-        "//chat/chat_service/v1",
+        "//sgpt/sgpt_service/v1",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
     ],
 )

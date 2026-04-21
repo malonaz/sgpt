@@ -45,7 +45,7 @@ esac
 
 mkdir -p ~/.local/bin
 
-src="plz-out/bin/cmd/sgpt/sgpt"
+src="plz-out/bin/cmd/sgpt-cli/sgpt-cli"
 dst="$HOME/.local/bin/sgpt"
 
 if [ "$src" -ef "$dst" ]; then

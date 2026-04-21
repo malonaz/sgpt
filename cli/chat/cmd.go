@@ -13,14 +13,14 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui"
 	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
 )
 
-func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient chatservicepb.ChatServiceClient) *cobra.Command {
+func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
 	var opts struct {
 		FileInjection   *file.InjectionOpts
 		Role            *role.Opts
@@ -88,11 +88,11 @@ func NewCmd(config *configuration.Config, aiClient aiservicepb.AiServiceClient, 
 
 			var chat *chatpb.Chat
 			if opts.ChatID != "" {
-				getChatRequest := &chatservicepb.GetChatRequest{Name: opts.ChatID}
+				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.ChatID}
 				chat, err = chatClient.GetChat(ctx, getChatRequest)
 				cobra.CheckErr(err)
 			} else if opts.Continue {
-				listChatsRequest := &chatservicepb.ListChatsRequest{
+				listChatsRequest := &sgptservicepb.ListChatsRequest{
 					PageSize: 1,
 					OrderBy:  "create_time desc",
 				}

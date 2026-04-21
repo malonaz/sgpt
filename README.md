@@ -9,7 +9,7 @@ SGPT is a bespoke tool designed by developers, for developers. It acts as a copi
 To get started with SGPT, you'll need to have [Go](https://golang.org/dl/) installed on your machine. You can then fetch and install SGPT via the command line using the following command:
 
 ```bash
-go install github.com/malonaz/sgpt/cmd/sgpt
+go install github.com/malonaz/sgpt/cmd/sgpt-cli
 ```
 After installation, configure your OpenAI API Key and any other configuration parameters you wish to adjust, and you're good to go!
 

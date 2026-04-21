@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package sgpt.chat.v1;
+package sgpt.v1;
 
 import "buf/validate/validate.proto";
 import "google/api/resource.proto";
@@ -11,12 +11,12 @@ import "malonaz/ai/v1/message.proto";
 import "malonaz/ai/v1/metrics.proto";
 import "malonaz/codegen/model/v1/model.proto";
 
-option go_package = "github.com/malonaz/sgpt/genproto/chat/v1";
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
 // A chat represents a chat between a user and SGPT.
 message Chat {
   option (google.api.resource) = {
-    type: "chat.sgpt.com/Chat"
+    type: "sgpt.com/Chat"
     pattern: "chats/{chat}"
     singular: "chat"
     plural: "chats"

@@ -6,7 +6,7 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
-        "//chat/v1",
+        "//sgpt/v1",
         "//third_party/go:google.golang.org__grpc",
         "//third_party/go:google.golang.org__grpc__codes",
         "//third_party/go:google.golang.org__grpc__status",

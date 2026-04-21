@@ -1,4 +1,4 @@
-package chat_service
+package sgpt_service
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"github.com/malonaz/core/go/grpc/status"
 	"google.golang.org/grpc/codes"
 
-	pb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	pb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.Chat) error {
@@ -37,7 +37,7 @@ func (s *Service) updateChatSearchableContent(ctx context.Context, chat *chatpb.
 		return nil
 	}
 
-	if _, err := s.chatPostgresStore.UpdateChatSearchableContent(
+	if _, err := s.sgptPostgresStore.UpdateChatSearchableContent(
 		ctx, chatRn.Chat, searchableContent,
 	); err != nil {
 		return status.Errorf(codes.Internal, "updating searchable content: %v", err).Err()
@@ -56,7 +56,7 @@ func (s *Service) SearchChats(ctx context.Context, request *pb.SearchChatsReques
 	whereClause, whereParams := parsed.GetSQLWhereClause()
 	var dbColumns []string
 
-	dbChats, err := s.chatPostgresStore.SearchChats(
+	dbChats, err := s.sgptPostgresStore.SearchChats(
 		ctx, request.Query, whereClause, parsed.GetSQLPaginationClause(), dbColumns, whereParams...,
 	)
 	if err != nil {

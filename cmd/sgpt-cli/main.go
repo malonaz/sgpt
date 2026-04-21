@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/chat"
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/webserver"
 )
@@ -93,7 +93,7 @@ func run() error {
 	}
 
 	// Instantiate CHAT Client.
-	var chatClient chatservicepb.ChatServiceClient
+	var chatClient sgptservicepb.SgptServiceClient
 	{
 		grpcConfig := config.ChatService
 		ctx = authentication.WithAPIKey(ctx, "hinata-api-key", grpcConfig.APIKey)
@@ -117,7 +117,7 @@ func run() error {
 			return fmt.Errorf("connecting: %w", err)
 		}
 		defer conn.Close()
-		chatClient = chatservicepb.NewChatServiceClient(conn.Get())
+		chatClient = sgptservicepb.NewSgptServiceClient(conn.Get())
 	}
 
 	rootCmd.AddCommand(webserver.NewServeCmd(chatClient))

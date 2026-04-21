@@ -10,8 +10,8 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	"github.com/spf13/cobra"
 
-	chatservicepb "github.com/malonaz/sgpt/genproto/chat/chat_service/v1"
-	chatpb "github.com/malonaz/sgpt/genproto/chat/v1"
+	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
+	chatpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 //go:embed templates
@@ -35,7 +35,7 @@ type ChatViewModel struct {
 	FormattedTime string
 }
 
-func NewServeCmd(chatClient chatservicepb.ChatServiceClient) *cobra.Command {
+func NewServeCmd(chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
 	var opts struct {
 		Port     int
 		PageSize int
@@ -59,7 +59,7 @@ func NewServeCmd(chatClient chatservicepb.ChatServiceClient) *cobra.Command {
 }
 
 type Server struct {
-	client   chatservicepb.ChatServiceClient
+	client   sgptservicepb.SgptServiceClient
 	pageSize int32
 	tmpl     *template.Template
 }

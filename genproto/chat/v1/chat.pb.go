@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.32.1
-// source: chat/v1/chat.proto
+// source: sgpt/v1/chat.proto
 
 //go:build !protoopaque
 
@@ -473,7 +473,7 @@ var File_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
-	"\x12chat/v1/chat.proto\x12\fsgpt.chat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\x8b\x03\n" +
+	"\x12sgpt/v1/chat.proto\x12\fsgpt.chat.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/rpc/status.proto\x1a\x1bmalonaz/ai/v1/message.proto\x1a\x1bmalonaz/ai/v1/metrics.proto\x1a$malonaz/codegen/model/v1/model.proto\"\x8b\x03\n" +
 	"\x04Chat\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
 	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -486,7 +486,7 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\x05files\x18\x06 \x03(\tB\x06\xba\xea\x0f\x02 \x01R\x05files\x12>\n" +
 	"\bmetadata\x18\n" +
 	" \x01(\v2\x1a.sgpt.chat.v1.ChatMetadataB\x06\xba\xea\x0f\x02\x18\x01R\bmetadata:6\xeaA/\n" +
-	"\x12chat.sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xfa\x01\n" +
+	"\x12sgpt.com/Chat\x12\fchats/{chat}*\x05chats2\x04chatҦ\x04\x00\"\xfa\x01\n" +
 	"\fChatMetadata\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12D\n" +
 	"\rcurrent_model\x18\x02 \x01(\tB\x1f\xfaA\x16\n" +
@@ -498,7 +498,7 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\aMessage\x120\n" +
 	"\amessage\x18\x01 \x01(\v2\x16.malonaz.ai.v1.MessageR\amessage\x12<\n" +
 	"\fmodel_usages\x18\x02 \x03(\v2\x19.malonaz.ai.v1.ModelUsageR\vmodelUsages\x12(\n" +
-	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusR\x05errorB*Z(github.com/malonaz/sgpt/genproto/chat/v1b\x06proto3"
+	"\x05error\x18\x03 \x01(\v2\x12.google.rpc.StatusR\x05errorB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
 var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_chat_v1_chat_proto_goTypes = []any{

@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/malonaz/core/go/postgres"
 
-	"github.com/malonaz/sgpt/chat/model"
+	"github.com/malonaz/sgpt/sgpt/model"
 )
 
 func (s *Store) UpdateChatSearchableContent(ctx context.Context, chatId string, searchableContent string) (bool, error) {
