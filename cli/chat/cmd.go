@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
@@ -37,7 +38,8 @@ func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, 
 	cmd := &cobra.Command{
 		Use: "chat",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
+			ctx, cancel := context.WithTimeout(cmd.Context(), time.Hour)
+			defer cancel()
 
 			parsedRole, err := opts.Role.Parse()
 			cobra.CheckErr(err)
