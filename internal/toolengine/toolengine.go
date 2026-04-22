@@ -18,7 +18,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/cache"
 	"github.com/malonaz/sgpt/internal/tools"
+)
+
+const (
+	toolSetCacheKeyPrefix = "toolset_"
+	toolSetCacheMaxAge    = 24 * time.Hour
 )
 
 type engineConnection struct {
@@ -32,6 +38,10 @@ type Manager struct {
 	toolSets            []*aipb.ToolSet
 	toolSetNameToEngine map[string]*engineConnection
 	closers             []func()
+}
+
+func toolSetCacheKey(engineName string, index int) string {
+	return fmt.Sprintf("%s%s_%d.pb", toolSetCacheKeyPrefix, engineName, index)
 }
 
 func Initialize(
@@ -50,16 +60,26 @@ func Initialize(
 			methodInvoker:    pbreflection.NewMethodInvoker(conn.Get()),
 			reflectionClient: reflectionpb.NewServerReflectionClient(conn.Get()),
 		}
-		for _, request := range toolEngine.GetToolSets() {
+		for i, request := range toolEngine.GetToolSets() {
+			cacheKey := toolSetCacheKey(toolEngine.GetName(), i)
+
+			// Try loading from cache first.
+			cachedToolSet, ok := cache.Get(cacheKey, toolSetCacheMaxAge, &aipb.ToolSet{})
+			if ok && cachedToolSet.GetName() != "" {
+				manager.toolSetNameToEngine[cachedToolSet.GetName()] = engine
+				manager.toolSets = append(manager.toolSets, cachedToolSet)
+				continue
+			}
+
 			toolSet, err := engine.client.CreateServiceToolSet(ctx, request)
 			if err != nil {
 				return nil, err
 			}
+			cache.Store(cacheKey, toolSet)
 			manager.toolSetNameToEngine[toolSet.GetName()] = engine
 			manager.toolSets = append(manager.toolSets, toolSet)
 		}
 	}
-
 	return manager, nil
 }
 

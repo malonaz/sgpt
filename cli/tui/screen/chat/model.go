@@ -233,10 +233,13 @@ func (m *Model) setTitle() {
 
 	toolsStr := ""
 	if m.opts.EnableTools {
-		toolsStr = " 🔧"
-		if m.opts.ToolEngineManager != nil && m.opts.ToolEngineManager.HasToolSets() {
-			toolsStr = " 🔧+🌐"
+		toolsStr = "🔧"
+	}
+	if m.opts.ToolEngineManager != nil && m.opts.ToolEngineManager.HasToolSets() {
+		if toolsStr != "" {
+			toolsStr += "+"
 		}
+		toolsStr += "🌐"
 	}
 
 	totalInputTokens := m.totalModelUsage.GetInputToken().GetQuantity() + m.totalModelUsage.GetInputTokenCacheRead().GetQuantity()

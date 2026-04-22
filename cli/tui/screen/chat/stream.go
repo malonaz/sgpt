@@ -48,10 +48,9 @@ func (m *Model) sendUserMessage() tea.Cmd {
 
 func (m *Model) allTools() []*aipb.Tool {
 	var toolsList []*aipb.Tool
-	if !m.opts.EnableTools {
-		return toolsList
+	if m.opts.EnableTools {
+		toolsList = append(toolsList, tools.ShellCommand, tools.ReadFiles)
 	}
-	toolsList = append(toolsList, tools.ShellCommand, tools.ReadFiles)
 	if m.opts.ToolEngineManager != nil {
 		toolsList = append(toolsList, m.opts.ToolEngineManager.GetTools()...)
 	}

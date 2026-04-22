@@ -39,12 +39,13 @@ func NewCmd(
 		Continue        bool
 		ReasoningEffort string
 		EnableTools     bool
+		ToolEngines     []string
 	}
 
 	cmd := &cobra.Command{
 		Use: "chat",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, cancel := context.WithTimeout(cmd.Context(), time.Hour)
+			ctx, cancel := context.WithTimeout(cmd.Context(), 365*24*time.Hour)
 			defer cancel()
 
 			parsedRole, err := opts.Role.Parse()
@@ -96,8 +97,31 @@ func NewCmd(
 			}
 
 			var toolEngineManager *toolengine.Manager
-			if opts.EnableTools && len(config.ToolEngines) > 0 {
-				toolEngineManager, err = toolengine.Initialize(ctx, config, baseURLToGRPCConnection)
+			if len(opts.ToolEngines) > 0 {
+				toolEngineNameSet := map[string]struct{}{}
+				for _, name := range opts.ToolEngines {
+					toolEngineNameSet[name] = struct{}{}
+				}
+
+				configToolEngineNameSet := map[string]struct{}{}
+				for _, te := range config.ToolEngines {
+					configToolEngineNameSet[te.GetName()] = struct{}{}
+				}
+				for name := range toolEngineNameSet {
+					if _, ok := configToolEngineNameSet[name]; !ok {
+						return fmt.Errorf("unknown tool engine %q", name)
+					}
+				}
+
+				filteredConfig := *config
+				var filteredToolEngines []*sgptpb.ToolEngineConfiguration
+				for _, te := range config.ToolEngines {
+					if _, ok := toolEngineNameSet[te.GetName()]; ok {
+						filteredToolEngines = append(filteredToolEngines, te)
+					}
+				}
+				filteredConfig.ToolEngines = filteredToolEngines
+				toolEngineManager, err = toolengine.Initialize(ctx, &filteredConfig, baseURLToGRPCConnection)
 				if err != nil {
 					return fmt.Errorf("initializing tool engines: %w", err)
 				}
@@ -168,11 +192,23 @@ func NewCmd(
 	cmd.Flags().StringVar(&opts.ChatID, "id", "", "Chat ID to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Reasoning level (low, medium, high)")
-	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable tool usage")
+	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable built-in tools (shell, read_files)")
+	cmd.Flags().StringSliceVar(&opts.ToolEngines, "tool", nil, "Enable a specific tool engine by name (repeatable)")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cachedModels, _ := fetchModelsWithCache(cmd.Context(), aiClient, false)
 		return filterModels(cachedModels, toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+
+	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		var names []string
+		for _, te := range config.GetToolEngines() {
+			name := te.GetName()
+			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
+				names = append(names, name)
+			}
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
 	})
 
 	return cmd
