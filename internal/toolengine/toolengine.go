@@ -1,4 +1,3 @@
-// internal/toolengine/toolengine.go
 package toolengine
 
 import (
@@ -11,7 +10,6 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/grpc"
-	"github.com/malonaz/core/go/logging"
 	"github.com/malonaz/core/go/pbutil"
 	"github.com/malonaz/core/go/pbutil/pbreflection"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
@@ -24,9 +22,9 @@ import (
 )
 
 type engineConnection struct {
-	client        aienginepb.AiEngineClient
-	methodInvoker *pbreflection.MethodInvoker
-	schema        *pbreflection.Schema
+	client           aienginepb.AiEngineClient
+	methodInvoker    *pbreflection.MethodInvoker
+	reflectionClient reflectionpb.ServerReflectionClient
 }
 
 type Manager struct {
@@ -36,58 +34,23 @@ type Manager struct {
 	closers             []func()
 }
 
-func Initialize(ctx context.Context, configurations []*sgptpb.ToolEngineConfiguration) (*Manager, error) {
-	if len(configurations) == 0 {
-		return &Manager{toolSetNameToEngine: map[string]*engineConnection{}}, nil
-	}
-
-	errorLogger, err := logging.NewLogger(&logging.Opts{
-		Format: "pretty",
-		Level:  "error",
-	})
-	if err != nil {
-		return nil, err
-	}
-
+func Initialize(
+	ctx context.Context,
+	config *sgptpb.Configuration,
+	baseURLToGRPCConnection map[string]*grpc.Connection,
+) (*Manager, error) {
 	manager := &Manager{
 		toolSetNameToEngine: map[string]*engineConnection{},
 	}
 
-	for _, engineConfiguration := range configurations {
-		grpcConfig := engineConfiguration.EngineService
-		opts, err := grpc.ParseOpts(grpcConfig.BaseUrl)
-		if err != nil {
-			return nil, err
-		}
-		connection, err := grpc.NewConnection(opts, nil, nil)
-		if err != nil {
-			manager.Close()
-			return nil, fmt.Errorf("creating connection for engine %q: %w", engineConfiguration.Name, err)
-		}
-		connection.WithLogger(errorLogger)
-		connection.WithMetadata(grpcConfig.ApiKeyHeader, grpcConfig.ApiKey)
-
-		if err := connection.Connect(ctx); err != nil {
-			manager.Close()
-			return nil, fmt.Errorf("connecting to engine %q: %w", engineConfiguration.Name, err)
-		}
-
-		manager.closers = append(manager.closers, func() { connection.Close() })
-
-		reflectionClient := reflectionpb.NewServerReflectionClient(connection.Get())
-		schema, err := pbreflection.ResolveSchema(ctx, reflectionClient)
-		if err != nil {
-			manager.Close()
-			return nil, fmt.Errorf("resolving schema for engine %q: %w", engineConfiguration.Name, err)
-		}
-
+	for _, toolEngine := range config.GetToolEngines() {
+		conn := baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
 		engine := &engineConnection{
-			client:        aienginepb.NewAiEngineClient(connection.Get()),
-			methodInvoker: pbreflection.NewMethodInvoker(connection.Get()),
-			schema:        schema,
+			client:           aienginepb.NewAiEngineClient(conn.Get()),
+			methodInvoker:    pbreflection.NewMethodInvoker(conn.Get()),
+			reflectionClient: reflectionpb.NewServerReflectionClient(conn.Get()),
 		}
-
-		for _, request := range engineConfiguration.ToolSets {
+		for _, request := range toolEngine.GetToolSets() {
 			toolSet, err := engine.client.CreateServiceToolSet(ctx, request)
 			if err != nil {
 				return nil, err
@@ -212,13 +175,9 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 		return ai.NewToolResult(toolCall.Name, toolCall.Id, "ok"), nil
 
 	case *aienginepb.ParseToolCallResponse_Rpc:
-		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))
+		methodDescriptor, err := resolveMethodDescriptor(ctx, engine.reflectionClient, result.Rpc.MethodFullName)
 		if err != nil {
-			return nil, fmt.Errorf("method not found %q: %w", result.Rpc.MethodFullName, err)
-		}
-		methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
-		if !ok {
-			return nil, fmt.Errorf("expected method descriptor for %q, got %T", result.Rpc.MethodFullName, descriptor)
+			return nil, fmt.Errorf("resolving method %q: %w", result.Rpc.MethodFullName, err)
 		}
 
 		request := dynamicpb.NewMessage(methodDescriptor.Input())
@@ -248,6 +207,22 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 	default:
 		return nil, fmt.Errorf("unknown parse result type: %T", result)
 	}
+}
+
+func resolveMethodDescriptor(ctx context.Context, reflectionClient reflectionpb.ServerReflectionClient, methodFullName string) (protoreflect.MethodDescriptor, error) {
+	schema, err := pbreflection.ResolveSchema(ctx, reflectionClient)
+	if err != nil {
+		return nil, fmt.Errorf("resolving schema: %w", err)
+	}
+	descriptor, err := schema.FindDescriptorByName(protoreflect.FullName(methodFullName))
+	if err != nil {
+		return nil, fmt.Errorf("finding descriptor: %w", err)
+	}
+	methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("expected method descriptor for %q, got %T", methodFullName, descriptor)
+	}
+	return methodDescriptor, nil
 }
 
 func (m *Manager) HasToolSets() bool {

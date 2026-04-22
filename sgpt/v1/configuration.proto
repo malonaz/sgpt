@@ -11,12 +11,12 @@ option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 // Configuration for the sgpt tool.
 message Configuration {
   // gRPC client configuration for the chat service.
-  GRPCClient sgpt_service = 1;
+  GrpcClient sgpt_service = 1;
 
   // gRPC client configuration for the AI service.
-  GRPCClient ai_service = 2;
+  GrpcClient ai_service = 2;
 
-  // Available models.
+  // Model aliases.
   repeated Model models = 3;
 
   // Chat configuration.
@@ -28,7 +28,7 @@ message Configuration {
 }
 
 // gRPC client configuration.
-message GRPCClient {
+message GrpcClient {
   // Base URL of the gRPC service.
   string base_url = 1 [(buf.validate.field).required = true];
 
@@ -94,7 +94,7 @@ message ToolEngineConfiguration {
   string name = 1 [(buf.validate.field).required = true];
 
   // gRPC client configuration for the engine service.
-  GRPCClient engine_service = 2 [(buf.validate.field).required = true];
+  GrpcClient engine_service = 2 [(buf.validate.field).required = true];
 
   // Tool set definitions to create from this engine.
   repeated malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest tool_sets = 3;

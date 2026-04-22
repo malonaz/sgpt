@@ -1,0 +1,9 @@
+go_library(
+    name = "cache",
+    srcs = ["cache.go"],
+    visibility = ["//..."],
+    deps = [
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:google.golang.org__protobuf__proto",
+    ],
+)

@@ -10,6 +10,7 @@ import (
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	"github.com/malonaz/core/go/grpc"
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/tui"
@@ -22,7 +23,12 @@ import (
 	"github.com/malonaz/sgpt/internal/toolengine"
 )
 
-func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, chatClient sgptservicepb.SgptServiceClient) *cobra.Command {
+func NewCmd(
+	config *sgptpb.Configuration,
+	aiClient aiservicepb.AiServiceClient,
+	chatClient sgptservicepb.SgptServiceClient,
+	baseURLToGRPCConnection map[string]*grpc.Connection,
+) *cobra.Command {
 	var opts struct {
 		FileInjection   *file.InjectionOpts
 		Role            *role.Opts
@@ -91,7 +97,7 @@ func NewCmd(config *sgptpb.Configuration, aiClient aiservicepb.AiServiceClient, 
 
 			var toolEngineManager *toolengine.Manager
 			if opts.EnableTools && len(config.ToolEngines) > 0 {
-				toolEngineManager, err = toolengine.Initialize(ctx, config.ToolEngines)
+				toolEngineManager, err = toolengine.Initialize(ctx, config, baseURLToGRPCConnection)
 				if err != nil {
 					return fmt.Errorf("initializing tool engines: %w", err)
 				}

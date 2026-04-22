@@ -6,6 +6,7 @@ go_binary(
         "//cli/chat",
         "//internal/configuration",
         "//sgpt/sgpt_service/v1",
+        "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__grpc",
         "//third_party/go:github.com__malonaz__core__go__logging",
         "//third_party/go:github.com__spf13__cobra",
