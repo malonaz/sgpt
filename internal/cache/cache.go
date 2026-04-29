@@ -9,12 +9,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func path(key string) string {
+func Dir() string {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		cacheDir = os.TempDir()
 	}
-	return filepath.Join(cacheDir, "sgpt", key)
+	return filepath.Join(cacheDir, "sgpt")
+}
+
+func path(key string) string {
+	return filepath.Join(Dir(), "sgpt", key)
 }
 
 // Get loads a cached proto message. Returns nil, false if missing or expired.

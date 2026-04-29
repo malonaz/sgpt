@@ -1,3 +1,4 @@
+// internal/toolengine/toolengine.go
 package toolengine
 
 import (
@@ -25,12 +26,14 @@ import (
 const (
 	toolSetCacheKeyPrefix = "toolset_"
 	toolSetCacheMaxAge    = 24 * time.Hour
+	schemaCacheMaxAge     = 24 * time.Hour
 )
 
 type engineConnection struct {
 	client           aienginepb.AiEngineClient
 	methodInvoker    *pbreflection.MethodInvoker
 	reflectionClient reflectionpb.ServerReflectionClient
+	schema           *pbreflection.Schema
 }
 
 type Manager struct {
@@ -55,15 +58,27 @@ func Initialize(
 
 	for _, toolEngine := range config.GetToolEngines() {
 		conn := baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
+		reflectionClient := reflectionpb.NewServerReflectionClient(conn.Get())
+
+		// Resolve and cache schema per engine.
+		cacheKey := toolEngine.GetEngineService().GetBaseUrl()
+		cacheDir := cache.Dir()
+		schema, err := pbreflection.ResolveSchema(ctx, reflectionClient,
+			pbreflection.WithDiskCache(cacheKey, cacheDir, schemaCacheMaxAge),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("resolving schema for %s: %w", toolEngine.GetName(), err)
+		}
+
 		engine := &engineConnection{
 			client:           aienginepb.NewAiEngineClient(conn.Get()),
 			methodInvoker:    pbreflection.NewMethodInvoker(conn.Get()),
-			reflectionClient: reflectionpb.NewServerReflectionClient(conn.Get()),
+			reflectionClient: reflectionClient,
+			schema:           schema,
 		}
 		for i, request := range toolEngine.GetToolSets() {
 			cacheKey := toolSetCacheKey(toolEngine.GetName(), i)
 
-			// Try loading from cache first.
 			cachedToolSet, ok := cache.Get(cacheKey, toolSetCacheMaxAge, &aipb.ToolSet{})
 			if ok && cachedToolSet.GetName() != "" {
 				manager.toolSetNameToEngine[cachedToolSet.GetName()] = engine
@@ -195,9 +210,13 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 		return ai.NewToolResult(toolCall.Name, toolCall.Id, "ok"), nil
 
 	case *aienginepb.ParseToolCallResponse_Rpc:
-		methodDescriptor, err := resolveMethodDescriptor(ctx, engine.reflectionClient, result.Rpc.MethodFullName)
+		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))
 		if err != nil {
-			return nil, fmt.Errorf("resolving method %q: %w", result.Rpc.MethodFullName, err)
+			return nil, fmt.Errorf("finding method descriptor %q: %w", result.Rpc.MethodFullName, err)
+		}
+		methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
+		if !ok {
+			return nil, fmt.Errorf("expected method descriptor for %q, got %T", result.Rpc.MethodFullName, descriptor)
 		}
 
 		request := dynamicpb.NewMessage(methodDescriptor.Input())
@@ -227,22 +246,6 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 	default:
 		return nil, fmt.Errorf("unknown parse result type: %T", result)
 	}
-}
-
-func resolveMethodDescriptor(ctx context.Context, reflectionClient reflectionpb.ServerReflectionClient, methodFullName string) (protoreflect.MethodDescriptor, error) {
-	schema, err := pbreflection.ResolveSchema(ctx, reflectionClient)
-	if err != nil {
-		return nil, fmt.Errorf("resolving schema: %w", err)
-	}
-	descriptor, err := schema.FindDescriptorByName(protoreflect.FullName(methodFullName))
-	if err != nil {
-		return nil, fmt.Errorf("finding descriptor: %w", err)
-	}
-	methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
-	if !ok {
-		return nil, fmt.Errorf("expected method descriptor for %q, got %T", methodFullName, descriptor)
-	}
-	return methodDescriptor, nil
 }
 
 func (m *Manager) HasToolSets() bool {
