@@ -106,11 +106,6 @@ var (
 			Inherit(AIMessageStyle).
 			BorderForeground(ThoughtColor)
 
-	ToolMessageStyle = lipgloss.NewStyle().
-				Inherit(messageStyle).
-				BorderForeground(AccentColor).
-				MarginRight(10)
-
 	ToolCallStyle = lipgloss.NewStyle()
 
 	ToolResultStyle = lipgloss.NewStyle()
@@ -274,8 +269,16 @@ func Divider(width int) string {
 }
 
 func Truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	if lipgloss.Width(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen-TruncateSuffixLength] + TruncateSuffix
+	truncated := ""
+	for _, r := range s {
+		candidate := truncated + string(r)
+		if lipgloss.Width(candidate)+TruncateSuffixLength > maxLen {
+			break
+		}
+		truncated = candidate
+	}
+	return truncated + TruncateSuffix
 }

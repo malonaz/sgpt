@@ -4,6 +4,7 @@ go_library(
         "chat.pb.go",
         "chat_aip.go",
         "configuration.pb.go",
+        "tool.pb.go",
     ],
     visibility = ["//..."],
     deps = [

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package sgpt.v1;
+
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
+
+// Metadata attached to a tool call via annotations.
+message ToolCallMetadata {
+  // Display information for the tool call.
+  DisplayMessage display_message = 1;
+
+  // Whether this tool call should be automatically executed without user confirmation.
+  bool auto_execute = 2;
+}
+
+// Metadata attached to a tool call result via annotations.
+message ToolCallResultMetadata {
+  // Display information for the tool call.
+  DisplayMessage display_message = 1;
+}
+
+// Information about how to display  a tool call to the user.
+message DisplayMessage {
+  // The message to display to the user describing what the tool call does.
+  string content = 1;
+  // If set, we do not show this message.
+  bool hidden = 2;
+}

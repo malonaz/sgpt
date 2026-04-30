@@ -3,6 +3,7 @@ package toolengine
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/malonaz/core/go/pbutil/pbreflection"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -164,20 +166,43 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 		return nil, fmt.Errorf("parsing tool call: %w", err)
 	}
 
+	toolCallMetadata := &sgptpb.ToolCallMetadata{
+		DisplayMessage: &sgptpb.DisplayMessage{},
+	}
 	switch result := parseToolCallResponse.Result.(type) {
 	case *aienginepb.ParseToolCallResponse_Discovery:
-		return &tools.HandleResult{
-			Display:     fmt.Sprintf("Discovering tools: %v", result.Discovery.ToolNames),
-			AutoExecute: true,
-		}, nil
+		displayToolNames := make([]string, len(result.Discovery.ToolNames))
+		for i, toolName := range result.Discovery.ToolNames {
+			displayToolNames[i] = strings.ReplaceAll(toolName, "_", ".")
+		}
+		toolCallMetadata.DisplayMessage.Content = fmt.Sprintf("Discovered %s", strings.Join(displayToolNames, ", "))
+		toolCallMetadata.AutoExecute = true
+
 	case *aienginepb.ParseToolCallResponse_Rpc:
-		return &tools.HandleResult{
-			Display:     fmt.Sprintf("RPC: %s", result.Rpc.MethodFullName),
-			AutoExecute: false,
-		}, nil
+		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))
+		if err != nil {
+			return nil, fmt.Errorf("finding descriptor %q: %w", result.Rpc.MethodFullName, err)
+		}
+		methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
+		if !ok {
+			return nil, fmt.Errorf("expected method descriptor, got %T", descriptor)
+		}
+		methodOptions, ok := methodDescriptor.Options().(*descriptorpb.MethodOptions)
+		if !ok {
+			return nil, fmt.Errorf("expected method options for %q, got %T", result.Rpc.MethodFullName, methodDescriptor.Options())
+		}
+		toolCallMetadata.AutoExecute = methodOptions.GetIdempotencyLevel() == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 	default:
 		return nil, fmt.Errorf("unknown parse result type: %T", result)
 	}
+
+	if err := tools.SetToolCallMetadata(toolCall, toolCallMetadata); err != nil {
+		return nil, fmt.Errorf("annotating tool call: %w", err)
+	}
+	return &tools.HandleResult{
+		Display:     toolCallMetadata.DisplayMessage.Content,
+		AutoExecute: toolCallMetadata.AutoExecute,
+	}, nil
 }
 
 func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {

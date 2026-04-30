@@ -4,9 +4,12 @@ go_library(
         "handler.go",
         "read_files.go",
         "shell.go",
+        "tools.go",
     ],
     visibility = ["//..."],
     deps = [
+        "//sgpt/v1",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__json__v1",
     ],

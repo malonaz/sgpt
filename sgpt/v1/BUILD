@@ -3,6 +3,7 @@ filegroup(
     srcs = [
         "chat.proto",
         "configuration.proto",
+        "tool.proto",
     ],
     visibility = ["PUBLIC"],
 )
@@ -12,6 +13,7 @@ proto_library(
     srcs = [
         "chat.proto",
         "configuration.proto",
+        "tool.proto",
     ],
     additional_context = {
         GENERATE_GO_AIP: True,

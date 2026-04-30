@@ -29,9 +29,6 @@ func (m *Model) setPendingToolCalls(toolCalls []*aipb.ToolCall) {
 }
 
 func (m *Model) handleToolCalls(toolCalls []*aipb.ToolCall) tea.Cmd {
-	handlerIDToHandler := m.toolHandlerIDToHandler
-	ctx := m.ctx
-	send := m.send
 	allTools := m.allTools()
 
 	toolNameToTool := map[string]*aipb.Tool{}
@@ -39,46 +36,43 @@ func (m *Model) handleToolCalls(toolCalls []*aipb.ToolCall) tea.Cmd {
 		toolNameToTool[tool.Name] = tool
 	}
 
-	go func() {
-		handleResults := make([]*tools.HandleResult, len(toolCalls))
-		autoExecuteAll := true
+	handleResults := make([]*tools.HandleResult, len(toolCalls))
+	autoExecuteAll := true
 
-		for i, toolCall := range toolCalls {
-			tool, ok := toolNameToTool[toolCall.Name]
-			if !ok {
-				handleResults[i] = &tools.HandleResult{Display: fmt.Sprintf("Unknown tool: %s", toolCall.Name)}
-				autoExecuteAll = false
-				continue
-			}
-
-			handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
-			handler, ok := handlerIDToHandler[handlerID]
-			if !ok {
-				handleResults[i] = &tools.HandleResult{Display: fmt.Sprintf("No handler for tool %s", toolCall.Name)}
-				autoExecuteAll = false
-				continue
-			}
-
-			handleResult, err := handler.HandleToolCall(ctx, toolCall)
-			if err != nil {
-				handleResults[i] = &tools.HandleResult{Display: fmt.Sprintf("Error: %v", err)}
-				autoExecuteAll = false
-				continue
-			}
-
-			handleResults[i] = handleResult
-			if !handleResult.AutoExecute {
-				autoExecuteAll = false
-			}
+	for i, toolCall := range toolCalls {
+		tool, ok := toolNameToTool[toolCall.Name]
+		if !ok {
+			handleResults[i] = &tools.HandleResult{Display: fmt.Sprintf("Unknown tool: %s", toolCall.Name)}
+			autoExecuteAll = false
+			continue
 		}
 
-		send(toolHandledMsg{
-			ToolCalls:      toolCalls,
-			HandleResults:  handleResults,
-			AutoExecuteAll: autoExecuteAll,
-		})
-	}()
+		handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
+		handler, ok := m.toolHandlerIDToHandler[handlerID]
+		if !ok {
+			handleResults[i] = &tools.HandleResult{Display: fmt.Sprintf("No handler for tool %s", toolCall.Name)}
+			autoExecuteAll = false
+			continue
+		}
 
+		handleResult, err := handler.HandleToolCall(m.ctx, toolCall)
+		if err != nil {
+			handleResults[i] = &tools.HandleResult{Display: fmt.Sprintf("Error: %v", err)}
+			autoExecuteAll = false
+			continue
+		}
+
+		handleResults[i] = handleResult
+		if !handleResult.AutoExecute {
+			autoExecuteAll = false
+		}
+	}
+
+	if autoExecuteAll {
+		m.pendingToolCalls = toolCalls
+		return m.acceptToolCalls()
+	}
+	m.setPendingToolCalls(toolCalls)
 	return nil
 }
 
