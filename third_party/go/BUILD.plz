@@ -2771,6 +2771,23 @@ go_module(
 )
 
 go_mod_download(
+    name = "github.com__iancoleman__strcase",
+    _tag = "download",
+    module = "github.com/iancoleman/strcase",
+    version = "v0.3.0",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "github.com__iancoleman__strcase",
+    download = ":_github.com__iancoleman__strcase#download",
+    install = ["."],
+    module = "github.com/iancoleman/strcase",
+    visibility = ["PUBLIC"],
+    deps = [],
+)
+
+go_mod_download(
     name = "github.com__jackc__pgerrcode",
     _tag = "download",
     module = "github.com/jackc/pgerrcode",
@@ -3035,7 +3052,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260421221532-ef03f89d024b",
+    version = "v0.0.0-20260429231827-776435ef24dc",
     visibility = ["PUBLIC"],
 )
 
@@ -3164,6 +3181,7 @@ go_module(
     deps = [
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__descriptorpb",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
         "//third_party/proto:validate",
@@ -3425,7 +3443,6 @@ go_module(
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
-        "//third_party/go:github.com__coder__websocket",
         "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
@@ -3503,6 +3520,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__aip__transpiler__postgres",
+        ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__pbutil",
         ":github.com__malonaz__core__go__pbutil__pbfieldmask",
         ":github.com__malonaz__core__go__uuid",
@@ -3511,6 +3529,7 @@ go_module(
         ":go.einride.tech__aip__pagination",
         ":go.einride.tech__aip__resourcename",
         ":google.golang.org__grpc",
+        ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__types__dynamicpb",
@@ -3789,6 +3808,8 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__tidwall__pretty",
+        ":golang.org__x__text__cases",
+        ":golang.org__x__text__language",
         ":google.golang.org__grpc",
         ":google.golang.org__protobuf__encoding__protojson",
         ":google.golang.org__protobuf__proto",
@@ -3799,6 +3820,7 @@ go_module(
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__structpb",
         "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__iancoleman__strcase",
         "//third_party/proto:google__api__annotations",
     ],
 )
@@ -4657,8 +4679,8 @@ go_mod_download(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):

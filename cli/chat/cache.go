@@ -36,7 +36,7 @@ func fetchModelsWithCache(ctx context.Context, aiClient aiservicepb.AiServiceCli
 func fetchModelsFromAPI(ctx context.Context, aiClient aiservicepb.AiServiceClient) ([]*aipb.Model, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	ctx = middleware.WithFieldMask(ctx, "next_page_token,models.name,models.ttt")
+	ctx = middleware.WithReadMaskStrict(ctx, "name,ttt")
 	listModelsRequest := &aiservicepb.ListModelsRequest{Parent: "providers/-"}
 	return aip.Paginate[*aipb.Model](ctx, listModelsRequest, aiClient.ListModels)
 }

@@ -195,6 +195,7 @@
         "github.com/grpc-ecosystem/grpc-gateway/v2/runtime": "//third_party/go:github.com__grpc-ecosystem__grpc-gateway__v2__runtime",
         "github.com/grpc-ecosystem/grpc-gateway/v2/utilities": "//third_party/go:github.com__grpc-ecosystem__grpc-gateway__v2__utilities",
         "github.com/huandu/xstrings": "//third_party/go:github.com__huandu__xstrings",
+        "github.com/iancoleman/strcase": "//third_party/go:github.com__iancoleman__strcase",
         "github.com/jackc/pgerrcode": "//third_party/go:github.com__jackc__pgerrcode",
         "github.com/jackc/pgpassfile": "//third_party/go:github.com__jackc__pgpassfile",
         "github.com/jackc/pgservicefile": "//third_party/go:github.com__jackc__pgservicefile",

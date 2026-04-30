@@ -1,4 +1,3 @@
-// internal/toolengine/toolengine.go
 package toolengine
 
 import (
@@ -11,7 +10,9 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/grpc"
+	"github.com/malonaz/core/go/grpc/middleware"
 	"github.com/malonaz/core/go/pbutil"
+	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"github.com/malonaz/core/go/pbutil/pbreflection"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -228,7 +229,11 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 			return nil, fmt.Errorf("unmarshaling request: %w", err)
 		}
 
-		response, err := engine.methodInvoker.Invoke(ctx, methodDescriptor, request)
+		ctxInvoke := ctx
+		if result.Rpc.GetReadMask() != nil {
+			ctxInvoke = middleware.WithReadMaskStrict(ctxInvoke, pbfieldmask.New(result.Rpc.GetReadMask()).String())
+		}
+		response, err := engine.methodInvoker.Invoke(ctxInvoke, methodDescriptor, request)
 		if err != nil {
 			return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err), nil
 		}
