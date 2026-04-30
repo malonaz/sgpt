@@ -34,7 +34,6 @@ func (m *Model) sendUserMessage() tea.Cmd {
 	}
 
 	m.inputHistory.Add(userInput)
-	m.historyNavigating = false
 	m.textarea.Reset()
 
 	m.pendingUserMessage = ai.NewUserMessage(ai.NewTextBlock(userInput))

@@ -184,20 +184,10 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		}
 
 		if userInput != "" {
+			m.inputHistory.Reset()
 			m.navigationMessageIndex = -1
 			return m.sendUserMessage()
 		}
-
-	case "enter":
-		if m.historyNavigating {
-			m.inputHistory.Reset()
-			m.historyNavigating = false
-		}
-	}
-
-	if !m.streaming && m.historyNavigating {
-		m.inputHistory.Reset()
-		m.historyNavigating = false
 	}
 
 	if !m.streaming {
@@ -219,7 +209,6 @@ func (m *Model) handleTextareaKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, keyInputPrevHistory):
 		if entry, ok := m.inputHistory.Previous(m.textarea.Value()); ok {
 			m.textarea.SetValue(entry)
-			m.historyNavigating = true
 			m.adjustTextareaHeight()
 		}
 		return nil
@@ -227,7 +216,6 @@ func (m *Model) handleTextareaKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, keyInputNextHistory):
 		if entry, ok := m.inputHistory.Next(); ok {
 			m.textarea.SetValue(entry)
-			m.historyNavigating = true
 			m.adjustTextareaHeight()
 		}
 		return nil

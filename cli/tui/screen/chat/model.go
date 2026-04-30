@@ -91,8 +91,7 @@ type Model struct {
 
 	cancelStream context.CancelFunc
 
-	inputHistory      *history.History
-	historyNavigating bool
+	inputHistory *history.History
 
 	navigationMessageIndex int
 	navigationBlockIndex   int
