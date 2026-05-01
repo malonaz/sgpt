@@ -212,24 +212,22 @@ func (a *App) View() tea.View {
 	}
 
 	var b strings.Builder
-	b.WriteString(a.renderTabBar())
-	b.WriteString("\n")
-	if a.activeTab < len(a.tabs) {
-		b.WriteString(a.tabs[a.activeTab].screen.View())
-	}
-
-	content := b.String()
 	if a.alertVisible {
 		alertStyle := lipgloss.NewStyle().
 			Background(styles.SuccessColor).
 			Foreground(lipgloss.Color("#000000")).
 			Bold(true).
 			Padding(0, 1)
-		banner := alertStyle.Render(a.alert)
-		content = lipgloss.JoinVertical(lipgloss.Left, banner, content)
+		b.WriteString(alertStyle.Width(a.width).Render(a.alert))
+	} else {
+		b.WriteString(a.renderTabBar())
+	}
+	b.WriteString("\n")
+	if a.activeTab < len(a.tabs) {
+		b.WriteString(a.tabs[a.activeTab].screen.View())
 	}
 
-	view := tea.NewView(content)
+	view := tea.NewView(b.String())
 	view.AltScreen = true
 	view.ReportFocus = true
 	return view
