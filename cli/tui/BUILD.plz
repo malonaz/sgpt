@@ -14,6 +14,7 @@ go_library(
         "//third_party/go:charm.land__bubbletea__v2",
         "//third_party/go:charm.land__lipgloss__v2",
         "//third_party/go:github.com__google__uuid",
+        "//third_party/go:golang.design__x__clipboard",
         "//third_party/go:google.golang.org__protobuf__proto",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",

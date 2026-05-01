@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"golang.design/x/clipboard"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/malonaz/sgpt/cli/tui/component"
@@ -47,6 +48,7 @@ var (
 	keyNextTab  = key.NewBinding(key.WithKeys("alt+;"))
 	keyOpenMenu = key.NewBinding(key.WithKeys("alt+m"))
 	keySearch   = key.NewBinding(key.WithKeys("ctrl+_"))
+	keyCopyName = key.NewBinding(key.WithKeys("alt+c"))
 	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
 	keyTab2     = key.NewBinding(key.WithKeys("alt+f2"))
 	keyTab3     = key.NewBinding(key.WithKeys("alt+f3"))
@@ -255,6 +257,17 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return a.focusMenu()
 	case key.Matches(msg, keySearch):
 		return a.focusMenuSearch()
+	case key.Matches(msg, keyCopyName):
+		if a.activeTab < len(a.tabs) {
+			if cs, ok := a.tabs[a.activeTab].screen.(*chatscreen.Model); ok {
+				chatName := cs.Chat().GetName()
+				if chatName != "" {
+					clipboard.Write(clipboard.FmtText, []byte(chatName))
+					return a.showAlert("Copied chat name: " + chatName)
+				}
+			}
+		}
+		return nil
 	}
 	for i, k := range tabIndexKeys {
 		if key.Matches(msg, k) {
