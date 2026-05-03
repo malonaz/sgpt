@@ -11,6 +11,5 @@ go_binary(
         "//third_party/go:github.com__malonaz__core__go__logging",
         "//third_party/go:github.com__spf13__cobra",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
-        "//webserver",
     ],
 )

@@ -14,7 +14,6 @@ import (
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/webserver"
 )
 
 const defaultConfigFilepath = "~/.config/sgpt/config.json"
@@ -94,7 +93,6 @@ func run() error {
 	aiClient := aiservicepb.NewAiServiceClient(baseURLToGRPCConnection[config.GetAiService().GetBaseUrl()].Get())
 	sgptClient := sgptservicepb.NewSgptServiceClient(baseURLToGRPCConnection[config.GetSgptService().GetBaseUrl()].Get())
 
-	rootCmd.AddCommand(webserver.NewServeCmd(sgptClient))
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, sgptClient, baseURLToGRPCConnection))
 	return rootCmd.Execute()
 }
