@@ -1,9 +1,20 @@
 go_library(
     name = "screen",
-    srcs = ["screen.go"],
+    srcs = [
+        "chat.go",
+        "screen.go",
+    ],
     visibility = ["//..."],
     deps = [
+        "//cli/cli_service",
+        "//cli/cli_service/session",
+        "//cli/tui/styles",
+        "//cli/tui/widget",
         "//sgpt/v1",
+        "//third_party/go:charm.land__bubbles__v2__key",
+        "//third_party/go:charm.land__bubbles__v2__spinner",
+        "//third_party/go:charm.land__bubbles__v2__textarea",
         "//third_party/go:charm.land__bubbletea__v2",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

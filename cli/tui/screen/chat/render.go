@@ -494,54 +494,54 @@ func truncateLines(s string, maxLines int) string {
 }
 
 func (m *Model) fullConversationText() string {
-  var b strings.Builder
-  for _, chatMessage := range m.chat.Metadata.Messages {
-    message := chatMessage.GetMessage()
-    if message == nil {
-      continue
-    }
-    switch message.Role {
-    case aipb.Role_ROLE_USER:
-      b.WriteString("## User\n\n")
-      for _, block := range message.GetBlocks() {
-        if text := block.GetText(); text != "" {
-          b.WriteString(text)
-          b.WriteString("\n\n")
-        }
-      }
-    case aipb.Role_ROLE_ASSISTANT:
-      b.WriteString("## Assistant\n\n")
-      for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeThought) {
-        b.WriteString("*Thinking:* ")
-        b.WriteString(block.GetThought())
-        b.WriteString("\n\n")
-      }
-      for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
-        b.WriteString(block.GetText())
-        b.WriteString("\n\n")
-      }
-      for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
-        toolCall := block.GetToolCall()
-        bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
-        b.WriteString(fmt.Sprintf("🔧 Tool Call: %s\n```json\n%s\n```\n\n", toolCall.Name, string(bytes)))
-      }
-    case aipb.Role_ROLE_TOOL:
-      b.WriteString("## Tool Result\n\n")
-      for _, block := range message.GetBlocks() {
-        if toolResult := block.GetToolResult(); toolResult != nil {
-          b.WriteString(toolResultFullContent(toolResult))
-          b.WriteString("\n\n")
-        }
-      }
-    case aipb.Role_ROLE_SYSTEM:
-      b.WriteString("## System\n\n")
-      for _, block := range message.GetBlocks() {
-        if text := block.GetText(); text != "" {
-          b.WriteString(text)
-          b.WriteString("\n\n")
-        }
-      }
-    }
-  }
-  return b.String()
+	var b strings.Builder
+	for _, chatMessage := range m.chat.Metadata.Messages {
+		message := chatMessage.GetMessage()
+		if message == nil {
+			continue
+		}
+		switch message.Role {
+		case aipb.Role_ROLE_USER:
+			b.WriteString("## User\n\n")
+			for _, block := range message.GetBlocks() {
+				if text := block.GetText(); text != "" {
+					b.WriteString(text)
+					b.WriteString("\n\n")
+				}
+			}
+		case aipb.Role_ROLE_ASSISTANT:
+			b.WriteString("## Assistant\n\n")
+			for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeThought) {
+				b.WriteString("*Thinking:* ")
+				b.WriteString(block.GetThought())
+				b.WriteString("\n\n")
+			}
+			for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
+				b.WriteString(block.GetText())
+				b.WriteString("\n\n")
+			}
+			for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
+				toolCall := block.GetToolCall()
+				bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
+				b.WriteString(fmt.Sprintf("🔧 Tool Call: %s\n```json\n%s\n```\n\n", toolCall.Name, string(bytes)))
+			}
+		case aipb.Role_ROLE_TOOL:
+			b.WriteString("## Tool Result\n\n")
+			for _, block := range message.GetBlocks() {
+				if toolResult := block.GetToolResult(); toolResult != nil {
+					b.WriteString(toolResultFullContent(toolResult))
+					b.WriteString("\n\n")
+				}
+			}
+		case aipb.Role_ROLE_SYSTEM:
+			b.WriteString("## System\n\n")
+			for _, block := range message.GetBlocks() {
+				if text := block.GetText(); text != "" {
+					b.WriteString(text)
+					b.WriteString("\n\n")
+				}
+			}
+		}
+	}
+	return b.String()
 }

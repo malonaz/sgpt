@@ -13,8 +13,8 @@ import (
 	"github.com/malonaz/core/go/grpc"
 	"github.com/spf13/cobra"
 
+	cliservice "github.com/malonaz/sgpt/cli/cli_service"
 	"github.com/malonaz/sgpt/cli/tui"
-	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
@@ -161,18 +161,27 @@ func NewCmd(
 				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))))
 			}
 
-			chatOpts := chatscreen.Options{
-				Model:             selectedModel,
-				Role:              parsedRole,
-				MaxTokens:         opts.MaxTokens,
-				Temperature:       opts.Temperature,
-				ReasoningEffort:   reasoningEffort,
-				EnableTools:       opts.EnableTools,
-				ChatID:            opts.ChatID,
-				ToolEngineManager: toolEngineManager,
+			service := &cliservice.Service{
+				Config:                  config,
+				AIClient:                aiClient,
+				ChatClient:              chatClient,
+				BaseURLToGRPCConnection: baseURLToGRPCConnection,
 			}
 
-			app := tui.NewApp(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)
+			params := cliservice.SessionParams{
+				Model:              selectedModel,
+				Role:               parsedRole,
+				MaxTokens:          opts.MaxTokens,
+				Temperature:        opts.Temperature,
+				ReasoningEffort:    reasoningEffort,
+				EnableTools:        opts.EnableTools,
+				ChatID:             opts.ChatID,
+				ToolEngineManager:  toolEngineManager,
+				AdditionalMessages: additionalMessages,
+				InjectedFiles:      filePaths,
+			}
+
+			app := tui.NewApp(ctx, service, chat, params)
 
 			p := tea.NewProgram(app, tea.WithContext(ctx))
 			app.SetProgram(p)

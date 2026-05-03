@@ -91,12 +91,10 @@ func run() error {
 		baseURLToGRPCConnection[grpcClient.GetBaseUrl()] = conn
 	}
 
-	// Instantiate AI Client.
 	aiClient := aiservicepb.NewAiServiceClient(baseURLToGRPCConnection[config.GetAiService().GetBaseUrl()].Get())
 	sgptClient := sgptservicepb.NewSgptServiceClient(baseURLToGRPCConnection[config.GetSgptService().GetBaseUrl()].Get())
 
 	rootCmd.AddCommand(webserver.NewServeCmd(sgptClient))
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, sgptClient, baseURLToGRPCConnection))
-	rootCmd.AddCommand(chat.NewSummarizeCmd(config, aiClient, sgptClient))
 	return rootCmd.Execute()
 }

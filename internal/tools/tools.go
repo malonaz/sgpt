@@ -11,7 +11,24 @@ import (
 const (
 	ToolCallMetadataAnnotationKey   = "sgpt.com/tool-call-metadata"
 	ToolResultMetadataAnnotationKey = "sgpt.com/tool-result-metadata"
+
+	// Annotations-driven tool call lifecycle status.
+	ToolCallStatusAnnotation = "sgpt.com/tool-status"
+	ToolCallStatusPending    = "pending"
+	ToolCallStatusAccepted   = "accepted"
+	ToolCallStatusRejected   = "rejected"
 )
+
+func SetToolCallStatus(toolCall *aipb.ToolCall, status string) {
+	if toolCall.Annotations == nil {
+		toolCall.Annotations = map[string]string{}
+	}
+	toolCall.Annotations[ToolCallStatusAnnotation] = status
+}
+
+func GetToolCallStatus(toolCall *aipb.ToolCall) string {
+	return toolCall.GetAnnotations()[ToolCallStatusAnnotation]
+}
 
 func SetToolCallMetadata(toolCall *aipb.ToolCall, metadata *sgptpb.ToolCallMetadata) error {
 	bytes, err := pbutil.JSONMarshal(metadata)
