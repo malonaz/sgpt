@@ -1,4 +1,3 @@
-// cli/tui/screen/chat/update.go
 package chat
 
 import (
@@ -21,6 +20,7 @@ var (
 	keySessionForkChat       = key.NewBinding(key.WithKeys("alt+="))
 
 	keyOpenEditor = key.NewBinding(key.WithKeys("ctrl+o"))
+	keyViewportOpenAll = key.NewBinding(key.WithKeys("alt+shift+a"))
 
 	keyViewportToTop       = key.NewBinding(key.WithKeys("alt+<"))
 	keyViewportToBottom    = key.NewBinding(key.WithKeys("alt+>"))
@@ -229,6 +229,10 @@ func (m *Model) handleTextareaKey(msg tea.KeyPressMsg) tea.Cmd {
 
 func (m *Model) handleViewportKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
+  case key.Matches(msg, keyViewportOpenAll):
+    content := m.fullConversationText()
+    return m.openInEditor(content, "md")
+
 	case key.Matches(msg, keyViewportToTop):
 		if m.toTop() {
 			m.viewport.SetContent(m.renderMessages())
