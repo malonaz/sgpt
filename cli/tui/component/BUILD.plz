@@ -1,6 +1,0 @@
-go_library(
-    name = "component",
-    srcs = ["tab_bar.go"],
-    visibility = ["//..."],
-    deps = ["//cli/tui/styles"],
-)
