@@ -10,7 +10,6 @@ go_library(
     deps = [
         "//cli/cli_service",
         "//cli/tui/styles",
-        "//internal/debug",
         "//internal/history",
         "//internal/markdown",
         "//internal/toolengine",

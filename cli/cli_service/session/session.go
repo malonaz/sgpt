@@ -16,7 +16,6 @@ import (
 	cliservice "github.com/malonaz/sgpt/cli/cli_service"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -327,7 +326,6 @@ func (s *Session) saveChat() error {
 		if err != nil {
 			return fmt.Errorf("creating chat: %w", err)
 		}
-		debug.LogProto("chat_created", chat)
 		s.chat = chat
 		return nil
 	}
@@ -341,7 +339,6 @@ func (s *Session) saveChat() error {
 		return fmt.Errorf("updating chat: %w", err)
 	}
 	s.chat = chat
-	debug.LogProto("chat_updated", chat)
 	return nil
 }
 

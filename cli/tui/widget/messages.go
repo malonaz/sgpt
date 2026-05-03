@@ -15,7 +15,6 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/tools"
 )
@@ -540,11 +539,7 @@ func (m *Messages) renderAIMessage(b *strings.Builder, currentLine *int, display
 		blockOffsets = append(blockOffsets, *currentLine)
 
 		var content strings.Builder
-		metadata, err := tools.ParseToolCallMetadata(toolCall)
-		if err != nil {
-			debug.Log("parsing tool call metadata: %w", err)
-		}
-		debug.LogProto("tool_call_metadata", metadata)
+		metadata, _ := tools.ParseToolCallMetadata(toolCall)
 		displayMessage := ""
 		if metadata != nil && metadata.GetDisplayMessage().GetContent() != "" {
 			displayMessage = metadata.GetDisplayMessage().GetContent()
@@ -589,7 +584,6 @@ func (m *Messages) renderToolMessage(b *strings.Builder, currentLine *int, displ
 			continue
 		}
 		metadata, _ := tools.ParseToolResultMetadata(toolResult)
-		debug.LogProto("tool_call_result", metadata)
 		if metadata.GetDisplayMessage().GetHidden() {
 			continue
 		}
