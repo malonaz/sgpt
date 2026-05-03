@@ -34,7 +34,6 @@ var (
 )
 
 // ChatScreen is a thin compositor that wires a Session to view widgets.
-// It holds no business logic; all chat lifecycle is in the Session.
 type ChatScreen struct {
 	session *session.Session
 	wrap    WrapFunc
@@ -123,7 +122,6 @@ func (m *ChatScreen) Session() *session.Session {
 	return m.session
 }
 
-// listenForSessionEvents returns a tea.Cmd that blocks reading the next session event.
 func (m *ChatScreen) listenForSessionEvents() tea.Cmd {
 	eventCh := m.session.Events()
 	wrap := m.wrap
@@ -176,38 +174,17 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
-	switch event.(type) {
-	case session.StreamChunkEvent:
-		m.refreshMessages()
-		m.refreshTitle()
-		if m.messages.AtBottom() {
-			m.messages.GotoBottom()
-		}
-
-	case session.StreamDoneEvent:
+	switch e := event.(type) {
+	case session.RefreshEvent:
 		m.refreshMessages()
 		m.refreshTitle()
 		if m.messages.AtBottom() {
 			m.messages.GotoBottom()
 		}
 		m.recalculateLayout()
-
-	case session.ChatSavedEvent:
-		// No-op; chat is already updated in session.
-
-	case session.ToolCallsPendingEvent:
-		m.refreshMessages()
-		m.recalculateLayout()
-
-	case session.ToolResultEvent:
-		m.refreshMessages()
-		if m.messages.AtBottom() {
-			m.messages.GotoBottom()
-		}
 
 	case session.ErrorEvent:
-		e := event.(session.ErrorEvent)
-		return func() tea.Msg { return m.wrap(AlertMsg{Text: e.Text}) }
+		return func() tea.Msg { return m.wrap(AlertMsg{Text: e.Err.Error()}) }
 	}
 
 	return nil
@@ -230,7 +207,10 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			return cmd
 		}
 	case FocusViewport:
-		alertFn := func(text string) { m.send(m.wrap(AlertMsg{Text: text})) }
+		wrap := m.wrap
+		alertFn := func(text string) tea.Cmd {
+			return func() tea.Msg { return wrap(AlertMsg{Text: text}) }
+		}
 		if cmd := m.messages.HandleKey(msg, alertFn); cmd != nil {
 			return cmd
 		}
@@ -252,23 +232,39 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 
 		if len(m.session.PendingToolCalls()) > 0 {
 			if userInput == "" {
-				m.session.AcceptToolCalls()
-			} else {
-				m.input.Reset()
-				m.session.RejectAndResend(userInput)
+				// Accept tool calls — runs blocking in a tea.Cmd goroutine.
+				sess := m.session
+				wrap := m.wrap
+				m.recalculateLayout()
+				return tea.Batch(m.spinner.Tick, func() tea.Msg {
+					sess.AcceptToolCalls()
+					return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+				})
 			}
+			m.input.Reset()
+			sess := m.session
+			wrap := m.wrap
+			reason := userInput
 			m.recalculateLayout()
-			return m.spinner.Tick
+			return tea.Batch(m.spinner.Tick, func() tea.Msg {
+				sess.RejectAndResend(reason)
+				return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+			})
 		}
 
 		if userInput != "" {
 			text := m.input.Submit()
 			m.messages.ResetNavigation()
-			m.session.SendMessage(text)
 			m.refreshMessages()
 			m.messages.GotoBottom()
 			m.recalculateLayout()
-			return m.spinner.Tick
+			// SendMessage blocks — run in a tea.Cmd goroutine.
+			sess := m.session
+			wrap := m.wrap
+			return tea.Batch(m.spinner.Tick, func() tea.Msg {
+				sess.SendMessage(text)
+				return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+			})
 		}
 	}
 

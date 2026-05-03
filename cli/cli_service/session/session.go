@@ -16,11 +16,13 @@ import (
 	cliservice "github.com/malonaz/sgpt/cli/cli_service"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
 // Session owns the chat lifecycle: streaming, tool handling, persistence.
-// The TUI reads state via accessor methods; mutations happen through actions.
+// All methods that mutate state are blocking and sequential. The TUI
+// drives the session from tea.Cmd goroutines managed by bubbletea.
 type Session struct {
 	ctx     context.Context
 	params  cliservice.SessionParams
@@ -30,7 +32,7 @@ type Session struct {
 	chatClient sgptservicepb.SgptServiceClient
 	config     *sgptpb.Configuration
 
-	chatMu           sync.Mutex
+	mu               sync.Mutex
 	chat             *sgptpb.Chat
 	streamingMessage *aipb.Message
 	streamError      error
@@ -42,7 +44,6 @@ type Session struct {
 
 	toolHandlerIDToHandler map[string]tools.Handler
 
-	// Buffered channel so events aren't lost between reads.
 	eventCh chan Event
 }
 
@@ -87,22 +88,36 @@ func (s *Session) emit(event Event) {
 	}
 }
 
-// Chat returns the current chat proto (source of truth).
+func (s *Session) refresh() {
+	s.emit(RefreshEvent{})
+}
+
+func (s *Session) emitError(err error) {
+	s.emit(ErrorEvent{Err: err})
+}
+
+// Chat returns the current chat proto.
 func (s *Session) Chat() *sgptpb.Chat {
-	s.chatMu.Lock()
-	defer s.chatMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.chat
 }
 
 func (s *Session) StreamingMessage() *aipb.Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.streamingMessage
 }
 
 func (s *Session) StreamError() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.streamError
 }
 
 func (s *Session) IsStreaming() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.streaming
 }
 
@@ -111,10 +126,14 @@ func (s *Session) Params() cliservice.SessionParams {
 }
 
 func (s *Session) TotalModelUsage() *aipb.ModelUsage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.totalModelUsage
 }
 
 func (s *Session) LastModelUsage() *aipb.ModelUsage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.lastModelUsage
 }
 
@@ -124,13 +143,16 @@ func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
 
 // PendingToolCalls derives pending tool calls from proto annotations.
 func (s *Session) PendingToolCalls() []*aipb.ToolCall {
-	s.chatMu.Lock()
-	defer s.chatMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pendingToolCallsLocked()
+}
+
+func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
 	messages := s.chat.GetMetadata().GetMessages()
 	if len(messages) == 0 {
 		return nil
 	}
-	// Walk backwards to find the last assistant message with pending tool calls.
 	for i := len(messages) - 1; i >= 0; i-- {
 		message := messages[i].GetMessage()
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
@@ -147,64 +169,138 @@ func (s *Session) PendingToolCalls() []*aipb.ToolCall {
 	return nil
 }
 
-// SendMessage appends a user message and starts streaming.
 func (s *Session) SendMessage(text string) {
 	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
 
-	s.chatMu.Lock()
+	s.mu.Lock()
 	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: userMessage})
-	s.chatMu.Unlock()
-
 	s.streaming = true
 	s.streamError = nil
-	s.startStreaming()
+	s.mu.Unlock()
+
+	s.refresh()
+	s.runTurn()
+}
+
+// AcceptToolCalls marks pending tool calls as accepted and runs them.
+// Blocks until the full turn completes.
+func (s *Session) AcceptToolCalls() {
+	s.mu.Lock()
+	pending := s.pendingToolCallsLocked()
+	if len(pending) == 0 {
+		s.mu.Unlock()
+		return
+	}
+	for _, toolCall := range pending {
+		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+	}
+	s.mu.Unlock()
+
+	s.executeToolCalls(pending)
+}
+
+// RejectToolCalls marks pending tool calls as rejected and appends error results.
+func (s *Session) RejectToolCalls(reason string) {
+	s.mu.Lock()
+	pending := s.pendingToolCallsLocked()
+	for _, toolCall := range pending {
+		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusRejected)
+		errorMessage := fmt.Sprintf("rejected by user: %s", reason)
+		toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf(errorMessage))))
+		s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
+	}
+	s.mu.Unlock()
+	s.refresh()
+}
+
+// RejectAndResend rejects pending tool calls then starts a new turn.
+// Blocks until the turn completes.
+func (s *Session) RejectAndResend(reason string) {
+	s.RejectToolCalls(reason)
+
+	s.mu.Lock()
+	s.streaming = true
+	s.mu.Unlock()
+
+	s.runTurn()
 }
 
 // CancelStream cancels an active stream.
 func (s *Session) CancelStream() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.cancelStream != nil {
 		s.cancelStream()
 	}
 }
 
-// SaveChat persists the chat to the backend.
-func (s *Session) SaveChat() {
-	go func() {
-		s.chatMu.Lock()
-		defer s.chatMu.Unlock()
+// runTurn executes a complete turn: stream → handle tool calls → save.
+// Loops if tool calls are auto-executed. Blocks until complete.
+func (s *Session) runTurn() {
+	for {
+		blocks, err := s.stream()
 
-		if s.chat.GetName() == "" {
-			createChatRequest := &sgptservicepb.CreateChatRequest{
-				RequestId: uuid.MustNewV7().String(),
-				ChatId:    uuid.MustNewV7().String()[:8],
-				Chat:      s.chat,
-			}
-			chat, err := s.chatClient.CreateChat(s.ctx, createChatRequest)
-			if err != nil {
-				s.emit(ErrorEvent{Text: fmt.Sprintf("Failed to create chat: %v", err)})
-				return
-			}
-			s.chat = chat
-		} else {
-			updateChatRequest := &sgptservicepb.UpdateChatRequest{
-				Chat:       s.chat,
-				UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&sgptpb.Chat{}).Proto(),
-			}
-			chat, err := s.chatClient.UpdateChat(s.ctx, updateChatRequest)
-			if err != nil {
-				s.emit(ErrorEvent{Text: fmt.Sprintf("Failed to update chat: %v", err)})
-				return
-			}
-			s.chat = chat
+		s.mu.Lock()
+		ai.AggregateModelUsage(s.totalModelUsage, s.lastModelUsage)
+		*s.lastModelUsage = aipb.ModelUsage{}
+		s.mu.Unlock()
+
+		if err != nil {
+			s.refresh()
+			return
 		}
-		s.emit(ChatSavedEvent{Chat: s.chat})
-	}()
+
+		var toolCalls []*aipb.ToolCall
+		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
+			toolCalls = append(toolCalls, block.GetToolCall())
+		}
+
+		if len(toolCalls) == 0 {
+			if err := s.saveChat(); err != nil {
+				s.emitError(fmt.Errorf("saving chat: %w", err))
+			}
+			s.refresh()
+			return
+		}
+
+		autoExecuteAll, err := s.handleToolCalls(toolCalls)
+		if err != nil {
+			s.emitError(fmt.Errorf("handling tool calls: %w", err))
+			s.refresh()
+			return
+		}
+
+		if !autoExecuteAll {
+			// TUI will show pending tool calls; user must accept/reject.
+			s.refresh()
+			return
+		}
+
+		// Auto-accepted: execute tools and loop for next stream.
+		s.mu.Lock()
+		pending := s.pendingToolCallsLocked()
+		for _, toolCall := range pending {
+			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+		}
+		s.mu.Unlock()
+
+		if err := s.executeToolCallsBlocking(pending); err != nil {
+			s.emitError(fmt.Errorf("executing tool calls: %w", err))
+			s.refresh()
+			return
+		}
+
+		s.mu.Lock()
+		s.streaming = true
+		s.mu.Unlock()
+		// Loop to stream again with tool results.
+	}
 }
 
 // messagesForAPI builds the message list to send to the AI provider.
 func (s *Session) messagesForAPI() []*aipb.Message {
-	s.chatMu.Lock()
-	defer s.chatMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.chat.Metadata.Messages))
 	messages = append(messages, s.params.AdditionalMessages...)
@@ -214,6 +310,39 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 		}
 	}
 	return messages
+}
+
+// saveChat persists the chat to the backend. Blocks until complete.
+func (s *Session) saveChat() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.chat.GetName() == "" {
+		createChatRequest := &sgptservicepb.CreateChatRequest{
+			RequestId: uuid.MustNewV7().String(),
+			ChatId:    uuid.MustNewV7().String()[:8],
+			Chat:      s.chat,
+		}
+		chat, err := s.chatClient.CreateChat(s.ctx, createChatRequest)
+		if err != nil {
+			return fmt.Errorf("creating chat: %w", err)
+		}
+		debug.LogProto("chat_created", chat)
+		s.chat = chat
+		return nil
+	}
+
+	updateChatRequest := &sgptservicepb.UpdateChatRequest{
+		Chat:       s.chat,
+		UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&sgptpb.Chat{}).Proto(),
+	}
+	chat, err := s.chatClient.UpdateChat(s.ctx, updateChatRequest)
+	if err != nil {
+		return fmt.Errorf("updating chat: %w", err)
+	}
+	s.chat = chat
+	debug.LogProto("chat_updated", chat)
+	return nil
 }
 
 func statusToProto(err error) *spb.Status {

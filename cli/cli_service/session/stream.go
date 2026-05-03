@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -16,9 +17,15 @@ import (
 
 const renderThrottleInterval = 66 * time.Millisecond
 
-func (s *Session) startStreaming() {
+// stream runs a single streaming request to the AI provider. Blocks until the
+// stream completes or errors. Returns the finalized blocks.
+func (s *Session) stream() ([]*aipb.Block, error) {
 	streamCtx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+
+	s.mu.Lock()
 	s.cancelStream = cancel
+	s.mu.Unlock()
 
 	messages := s.messagesForAPI()
 
@@ -33,84 +40,83 @@ func (s *Session) startStreaming() {
 		},
 	}
 
-	go func() {
-		defer func() {
-			ai.AggregateModelUsage(s.totalModelUsage, s.lastModelUsage)
-			*s.lastModelUsage = aipb.ModelUsage{}
-			s.emit(StreamChunkEvent{})
-		}()
+	stream, err := s.aiClient.TextToTextStream(streamCtx, textToTextStreamRequest)
+	if err != nil {
+		s.finalizeStream(nil, err)
+		return nil, fmt.Errorf("opening stream: %w", err)
+	}
 
-		stream, err := s.aiClient.TextToTextStream(streamCtx, textToTextStreamRequest)
-		if err != nil {
-			s.finalizeStream(nil, err)
-			cancel()
-			return
+	accumulator := ai.NewTextToTextAccumulator()
+	lastRender := time.Now()
+	pendingRender := false
+
+	checkRender := func() {
+		if time.Since(lastRender) >= renderThrottleInterval {
+			s.refresh()
+			lastRender = time.Now()
+			pendingRender = false
+		} else {
+			pendingRender = true
 		}
+	}
 
-		accumulator := ai.NewTextToTextAccumulator()
-		lastRender := time.Now()
-		pendingRender := false
-
-		checkRender := func() {
-			if time.Since(lastRender) >= renderThrottleInterval {
-				s.emit(StreamChunkEvent{})
-				lastRender = time.Now()
-				pendingRender = false
-			} else {
-				pendingRender = true
-			}
-		}
-
-		finalize := func(err error) {
+	for {
+		select {
+		case <-streamCtx.Done():
 			if pendingRender {
-				s.emit(StreamChunkEvent{})
+				s.refresh()
+			}
+			s.finalizeStream(accumulator.Message.GetBlocks(), streamCtx.Err())
+			return nil, fmt.Errorf("stream cancelled: %w", streamCtx.Err())
+		default:
+		}
+
+		response, err := stream.Recv()
+		if err != nil {
+			if pendingRender {
+				s.refresh()
+			}
+			if err == io.EOF {
+				blocks := accumulator.Message.GetBlocks()
+				s.finalizeStream(blocks, nil)
+				return blocks, nil
 			}
 			s.finalizeStream(accumulator.Message.GetBlocks(), err)
-			cancel()
+			return nil, fmt.Errorf("receiving stream: %w", err)
 		}
 
-		for {
-			select {
-			case <-streamCtx.Done():
-				finalize(streamCtx.Err())
-				return
-			default:
+		if err := accumulator.Add(response); err != nil {
+			if pendingRender {
+				s.refresh()
 			}
-
-			response, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF {
-					finalize(nil)
-				} else {
-					finalize(err)
-				}
-				return
-			}
-			if err := accumulator.Add(response); err != nil {
-				finalize(err)
-				return
-			}
-
-			s.streamingMessage = accumulator.Message
-
-			switch content := response.Content.(type) {
-			case *aiservicepb.TextToTextStreamResponse_ModelUsage:
-				proto.Merge(s.lastModelUsage, content.ModelUsage)
-			default:
-			}
-
-			checkRender()
+			s.finalizeStream(accumulator.Message.GetBlocks(), err)
+			return nil, fmt.Errorf("accumulating stream response: %w", err)
 		}
-	}()
+
+		s.mu.Lock()
+		s.streamingMessage = accumulator.Message
+		s.mu.Unlock()
+
+		switch content := response.Content.(type) {
+		case *aiservicepb.TextToTextStreamResponse_ModelUsage:
+			s.mu.Lock()
+			proto.Merge(s.lastModelUsage, content.ModelUsage)
+			s.mu.Unlock()
+		default:
+		}
+
+		checkRender()
+	}
 }
 
+// finalizeStream commits the streamed message to the chat and resets stream state.
 func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
-	s.chatMu.Lock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if s.streamingMessage != nil {
 		assistantMessage := ai.NewAssistantMessage(blocks...)
 
-		// Annotate tool calls with pending status.
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
 			tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusPending)
 		}
@@ -128,22 +134,4 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 	s.streaming = false
 	s.cancelStream = nil
 	s.streamError = err
-	s.chatMu.Unlock()
-
-	// Extract tool calls from the finalized blocks.
-	var toolCalls []*aipb.ToolCall
-	for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
-		toolCalls = append(toolCalls, block.GetToolCall())
-	}
-
-	s.emit(StreamDoneEvent{Err: err, Blocks: blocks})
-
-	if len(toolCalls) > 0 && err == nil {
-		s.handleToolCalls(toolCalls)
-		s.SaveChat()
-		return
-	}
-	if err == nil {
-		s.SaveChat()
-	}
 }

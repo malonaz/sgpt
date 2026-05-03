@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,7 +12,9 @@ import (
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
-func (s *Session) handleToolCalls(toolCalls []*aipb.ToolCall) {
+// handleToolCalls inspects tool calls and determines if all can be auto-executed.
+// Returns true if all tool calls should be auto-executed.
+func (s *Session) handleToolCalls(toolCalls []*aipb.ToolCall) (bool, error) {
 	allToolDefs := s.allTools()
 	toolNameToTool := map[string]*aipb.Tool{}
 	for _, tool := range allToolDefs {
@@ -32,93 +35,87 @@ func (s *Session) handleToolCalls(toolCalls []*aipb.ToolCall) {
 			continue
 		}
 		handleResult, err := handler.HandleToolCall(s.ctx, toolCall)
-		if err != nil || !handleResult.AutoExecute {
+		if err != nil {
+			return false, fmt.Errorf("handling tool call %q: %w", toolCall.Name, err)
+		}
+		if !handleResult.AutoExecute {
 			autoExecuteAll = false
 		}
 	}
 
-	if autoExecuteAll {
-		s.AcceptToolCalls()
-		return
-	}
-
-	s.emit(ToolCallsPendingEvent{ToolCalls: toolCalls})
+	return autoExecuteAll, nil
 }
 
-// AcceptToolCalls marks pending tool calls as accepted and executes them.
-func (s *Session) AcceptToolCalls() {
-	pending := s.PendingToolCalls()
-	if len(pending) == 0 {
+// executeToolCalls marks pending tool calls as accepted and executes them.
+// Blocks until all tool calls complete, then starts a new turn.
+func (s *Session) executeToolCalls(pending []*aipb.ToolCall) {
+	if err := s.executeToolCallsBlocking(pending); err != nil {
+		s.emitError(fmt.Errorf("executing tool calls: %w", err))
+		s.refresh()
 		return
 	}
 
-	// Mark accepted in annotations.
-	for _, toolCall := range pending {
-		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
-	}
+	s.mu.Lock()
+	s.streaming = true
+	s.mu.Unlock()
 
+	s.runTurn()
+}
+
+// executeToolCallsBlocking processes each tool call sequentially. Blocks until complete.
+func (s *Session) executeToolCallsBlocking(pending []*aipb.ToolCall) error {
 	allToolDefs := s.allTools()
 	toolNameToTool := map[string]*aipb.Tool{}
 	for _, tool := range allToolDefs {
 		toolNameToTool[tool.Name] = tool
 	}
 
-	go func() {
-		for _, toolCall := range pending {
-			tool, ok := toolNameToTool[toolCall.Name]
-			if !ok {
-				s.appendToolResult(ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("unknown tool: %s", toolCall.Name)))
-				continue
-			}
-			handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
-			handler, ok := s.toolHandlerIDToHandler[handlerID]
-			if !ok {
-				s.appendToolResult(ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("no handler for tool %s", toolCall.Name)))
-				continue
-			}
-			toolResult, err := handler.ProcessToolCall(s.ctx, toolCall)
-			if err != nil {
-				s.appendToolResult(ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err))
-				continue
-			}
-			s.appendToolResult(toolResult)
+	for _, toolCall := range pending {
+		toolResult, err := s.executeSingleToolCall(s.ctx, toolCall, toolNameToTool)
+		if err != nil {
+			toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
 		}
-	}()
+
+		s.mu.Lock()
+		toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(toolResult))
+		s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
+		s.mu.Unlock()
+
+		s.refresh()
+
+		if toolResult.GetError() != nil {
+			return fmt.Errorf("tool %q returned error: %s", toolCall.Name, toolResult.GetError().GetMessage())
+		}
+	}
+	return nil
 }
 
-// RejectToolCalls marks pending tool calls as rejected and appends error results.
-func (s *Session) RejectToolCalls(reason string) {
-	pending := s.PendingToolCalls()
-	s.chatMu.Lock()
+// executeSingleToolCall dispatches a single tool call to its handler.
+func (s *Session) executeSingleToolCall(ctx context.Context, toolCall *aipb.ToolCall, toolNameToTool map[string]*aipb.Tool) (*aipb.ToolResult, error) {
+	tool, ok := toolNameToTool[toolCall.Name]
+	if !ok {
+		return nil, fmt.Errorf("unknown tool: %s", toolCall.Name)
+	}
+	handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
+	handler, ok := s.toolHandlerIDToHandler[handlerID]
+	if !ok {
+		return nil, fmt.Errorf("no handler for tool %s (handler_id=%s)", toolCall.Name, handlerID)
+	}
+	toolResult, err := handler.ProcessToolCall(ctx, toolCall)
+	if err != nil {
+		return nil, fmt.Errorf("processing tool call %q: %w", toolCall.Name, err)
+	}
+	return toolResult, nil
+}
+
+// RejectToolCalls exported version for use when user explicitly accepts
+// after being prompted (non-auto-execute path).
+func (s *Session) rejectToolCallsLocked(reason string) {
+	pending := s.pendingToolCallsLocked()
 	for _, toolCall := range pending {
 		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusRejected)
 		errorMessage := fmt.Sprintf("rejected by user: %s", strings.TrimSpace(reason))
 		toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf(errorMessage))))
 		s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
-	}
-	s.chatMu.Unlock()
-
-	s.emit(StreamChunkEvent{})
-}
-
-// RejectAndResend rejects pending tool calls then starts a new stream.
-func (s *Session) RejectAndResend(reason string) {
-	s.RejectToolCalls(reason)
-	s.streaming = true
-	s.startStreaming()
-}
-
-func (s *Session) appendToolResult(toolResult *aipb.ToolResult) {
-	s.chatMu.Lock()
-	toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(toolResult))
-	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
-	s.chatMu.Unlock()
-
-	s.emit(ToolResultEvent{ToolResult: toolResult})
-
-	// If not an error result, auto-continue streaming.
-	if toolResult.GetError() == nil {
-		s.streaming = true
-		s.startStreaming()
 	}
 }

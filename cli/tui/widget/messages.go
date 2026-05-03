@@ -121,7 +121,7 @@ func (m *Messages) View() string {
 	return styles.ViewportStyle.Render(m.viewport.View())
 }
 
-func (m *Messages) HandleKey(msg tea.KeyPressMsg, alertFn func(string)) tea.Cmd {
+func (m *Messages) HandleKey(msg tea.KeyPressMsg, alertFn func(string) tea.Cmd) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyViewportToTop):
 		if m.toTop() {
@@ -167,7 +167,7 @@ func (m *Messages) HandleKey(msg tea.KeyPressMsg, alertFn func(string)) tea.Cmd 
 		if m.navMessageIndex != -1 {
 			content, _ := m.getSelectedContent()
 			clipboard.Write(clipboard.FmtText, []byte(content))
-			alertFn("Copied to clipboard!")
+			return alertFn("Copied to clipboard!")
 		}
 	case key.Matches(msg, keyViewportOpenAll):
 		content := m.fullConversationText()
@@ -589,6 +589,7 @@ func (m *Messages) renderToolMessage(b *strings.Builder, currentLine *int, displ
 			continue
 		}
 		metadata, _ := tools.ParseToolResultMetadata(toolResult)
+		debug.LogProto("tool_call_result", metadata)
 		if metadata.GetDisplayMessage().GetHidden() {
 			continue
 		}
