@@ -34,7 +34,6 @@ func run() error {
 	}
 
 	var configFilepath string
-	var local bool
 
 	rootCmd := &cobra.Command{
 		Use:     "sgpt",
@@ -49,7 +48,6 @@ func run() error {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&configFilepath, "config", defaultConfigFilepath, "Path to configuration file")
-	rootCmd.PersistentFlags().BoolVar(&local, "local", false, "Use local server")
 
 	if err := rootCmd.ParseFlags(os.Args); err != nil {
 		return fmt.Errorf("parsing flags: %v", err)

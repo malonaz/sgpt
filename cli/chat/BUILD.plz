@@ -10,6 +10,7 @@ go_library(
         "//cli/tui",
         "//internal/cache",
         "//internal/configuration",
+        "//internal/debug",
         "//internal/file",
         "//internal/role",
         "//internal/toolengine",

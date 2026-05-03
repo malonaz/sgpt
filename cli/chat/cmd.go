@@ -18,6 +18,7 @@ import (
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/toolengine"
@@ -40,6 +41,7 @@ func NewCmd(
 		ReasoningEffort string
 		EnableTools     bool
 		ToolEngines     []string
+		Debug           bool
 	}
 
 	cmd := &cobra.Command{
@@ -168,6 +170,15 @@ func NewCmd(
 				BaseURLToGRPCConnection: baseURLToGRPCConnection,
 			}
 
+			if opts.Debug {
+				debugAddr, err := debug.Init(ctx)
+				if err != nil {
+					return fmt.Errorf("starting debug server: %w", err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Debug server: http://%s\nPress Enter to continue...\n", debugAddr)
+				fmt.Fscanln(cmd.InOrStdin())
+			}
+
 			params := cliservice.SessionParams{
 				Model:              selectedModel,
 				Role:               parsedRole,
@@ -203,6 +214,7 @@ func NewCmd(
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Reasoning level (low, medium, high)")
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable built-in tools (shell, read_files)")
 	cmd.Flags().StringSliceVar(&opts.ToolEngines, "tool", nil, "Enable a specific tool engine by name (repeatable)")
+	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cachedModels, _ := fetchModelsWithCache(cmd.Context(), aiClient, false)

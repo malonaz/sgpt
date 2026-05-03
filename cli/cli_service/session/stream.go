@@ -139,8 +139,8 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 	s.emit(StreamDoneEvent{Err: err, Blocks: blocks})
 
 	if len(toolCalls) > 0 && err == nil {
-		s.SaveChat()
 		s.handleToolCalls(toolCalls)
+		s.SaveChat()
 		return
 	}
 	if err == nil {

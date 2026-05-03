@@ -22,8 +22,9 @@ import (
 // Session owns the chat lifecycle: streaming, tool handling, persistence.
 // The TUI reads state via accessor methods; mutations happen through actions.
 type Session struct {
-	ctx    context.Context
-	params cliservice.SessionParams
+	ctx     context.Context
+	params  cliservice.SessionParams
+	service *cliservice.Service
 
 	aiClient   aiservicepb.AiServiceClient
 	chatClient sgptservicepb.SgptServiceClient
@@ -62,6 +63,7 @@ func New(
 	return &Session{
 		ctx:                    ctx,
 		params:                 params,
+		service:                service,
 		aiClient:               service.AIClient,
 		chatClient:             service.ChatClient,
 		config:                 service.Config,

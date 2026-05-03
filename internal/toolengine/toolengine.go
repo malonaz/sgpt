@@ -233,7 +233,14 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 	switch result := parseToolCallResponse.Result.(type) {
 	case *aienginepb.ParseToolCallResponse_Discovery:
 		m.MarkDiscovered(result.Discovery.ToolSetName, result.Discovery.ToolNames)
-		return ai.NewToolResult(toolCall.Name, toolCall.Id, "ok"), nil
+		toolResult := ai.NewToolResult(toolCall.Name, toolCall.Id, "ok")
+		toolCallResultMetadata := &sgptpb.ToolCallResultMetadata{
+			DisplayMessage: &sgptpb.DisplayMessage{Hidden: true},
+		}
+		if err := tools.SetToolResultMetadata(toolResult, toolCallResultMetadata); err != nil {
+			return nil, fmt.Errorf("setting tool result metadata: %w", err)
+		}
+		return toolResult, nil
 
 	case *aienginepb.ParseToolCallResponse_Rpc:
 		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))

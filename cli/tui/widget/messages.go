@@ -15,6 +15,7 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/tools"
 )
@@ -539,7 +540,11 @@ func (m *Messages) renderAIMessage(b *strings.Builder, currentLine *int, display
 		blockOffsets = append(blockOffsets, *currentLine)
 
 		var content strings.Builder
-		metadata, _ := tools.ParseToolCallMetadata(toolCall)
+		metadata, err := tools.ParseToolCallMetadata(toolCall)
+		if err != nil {
+			debug.Log("parsing tool call metadata: %w", err)
+		}
+		debug.LogProto("tool_call_metadata", metadata)
 		displayMessage := ""
 		if metadata != nil && metadata.GetDisplayMessage().GetContent() != "" {
 			displayMessage = metadata.GetDisplayMessage().GetContent()
@@ -583,14 +588,18 @@ func (m *Messages) renderToolMessage(b *strings.Builder, currentLine *int, displ
 		if toolResult == nil {
 			continue
 		}
+		metadata, _ := tools.ParseToolResultMetadata(toolResult)
+		if metadata.GetDisplayMessage().GetHidden() {
+			continue
+		}
+
 		if mdBlockIndex > 0 {
 			b.WriteString("\n")
 			*currentLine++
 		}
 		blockOffsets = append(blockOffsets, *currentLine)
-
 		var content strings.Builder
-		metadata, _ := tools.ParseToolResultMetadata(toolResult)
+
 		if metadata != nil && metadata.GetDisplayMessage().GetContent() != "" {
 			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, markdown.ParseBlocks(fmt.Sprintf("result: %s", metadata.GetDisplayMessage().GetContent()))[0])
 			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
