@@ -540,24 +540,16 @@ func (m *Messages) renderAIMessage(b *strings.Builder, currentLine *int, display
 
 		var content strings.Builder
 		metadata, _ := tools.ParseToolCallMetadata(toolCall)
-		displayMessage := ""
-		if metadata != nil && metadata.GetDisplayMessage().GetContent() != "" {
-			displayMessage = metadata.GetDisplayMessage().GetContent()
-		}
-
-		statusSuffix := ""
-		switch tools.GetToolCallStatus(toolCall) {
-		case tools.ToolCallStatusPending:
-			statusSuffix = " [PENDING]"
-		case tools.ToolCallStatusRejected:
-			statusSuffix = " [REJECTED]"
-		}
+		displayMessage := metadata.GetDisplayMessage().GetContent()
+		statusIndicator := toolCallStatusIndicator(toolCall)
 
 		if displayMessage != "" {
-			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, finalized, markdown.ParseBlocks(fmt.Sprintf("tool: %s%s", displayMessage, statusSuffix))[0])
+			displayText := fmt.Sprintf(metadata.GetDisplayMessage().GetContent())
+			mdBlocks := markdown.ParseBlocks(displayText)
+			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, mdBlocks...)
 			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
 		} else {
-			labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("tool: %s%s", toolCall.Name, statusSuffix))
+			labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("tool: %s %s", statusIndicator, toolCall.Name))
 			content.WriteString(m.blockWithIndicator(labelRendered, displayIndex, mdBlockIndex))
 			bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
 			body, overflow := truncateLinesWithOverflow(string(bytes), maxToolDisplayLines)
@@ -605,7 +597,7 @@ func (m *Messages) renderToolMessage(b *strings.Builder, currentLine *int, displ
 		var content strings.Builder
 
 		if metadata != nil && metadata.GetDisplayMessage().GetContent() != "" {
-			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, markdown.ParseBlocks(fmt.Sprintf("result: %s", metadata.GetDisplayMessage().GetContent()))[0])
+			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, markdown.ParseBlocks(metadata.GetDisplayMessage().GetContent())[0])
 			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
 		} else {
 			labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("result: %s", toolResult.GetToolName()))
@@ -872,4 +864,15 @@ func truncateLinesWithOverflow(s string, maxLines int) (string, string) {
 func truncateLines(s string, maxLines int) string {
 	truncated, overflow := truncateLinesWithOverflow(s, maxLines)
 	return truncated + overflow
+}
+
+func toolCallStatusIndicator(toolCall *aipb.ToolCall) string {
+	switch tools.GetToolCallStatus(toolCall) {
+	case tools.ToolCallStatusAccepted:
+		return lipgloss.NewStyle().Foreground(styles.SuccessColor).Render("●")
+	case tools.ToolCallStatusRejected:
+		return lipgloss.NewStyle().Foreground(styles.ErrorColor).Render("●")
+	default:
+		return lipgloss.NewStyle().Foreground(styles.MutedColor).Render("●")
+	}
 }

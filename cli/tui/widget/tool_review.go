@@ -156,15 +156,17 @@ func (t *ToolReview) View() string {
 	for i, toolCall := range t.toolCalls {
 		name := toolCall.GetName()
 		status := tools.GetToolCallStatus(toolCall)
-		marker := "○"
+		var marker string
 		switch status {
 		case tools.ToolCallStatusAccepted:
-			marker = "✓"
+			marker = lipgloss.NewStyle().Foreground(styles.SuccessColor).Render("●")
 		case tools.ToolCallStatusRejected:
-			marker = "✗"
+			marker = lipgloss.NewStyle().Foreground(styles.ErrorColor).Render("●")
 		default:
 			if i == t.cursor {
 				marker = "▶"
+			} else {
+				marker = lipgloss.NewStyle().Foreground(styles.MutedColor).Render("●")
 			}
 		}
 		statusParts = append(statusParts, fmt.Sprintf("%s %s", marker, name))
