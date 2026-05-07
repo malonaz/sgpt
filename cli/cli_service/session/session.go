@@ -1,3 +1,4 @@
+// session/session.go — updated runTurn() and removed old handleToolCalls/executeToolCallsBlocking
 package session
 
 import (
@@ -75,7 +76,6 @@ func New(
 	}
 }
 
-// Events returns the channel the TUI reads session events from.
 func (s *Session) Events() <-chan Event {
 	return s.eventCh
 }
@@ -95,7 +95,6 @@ func (s *Session) emitError(err error) {
 	s.emit(ErrorEvent{Err: err})
 }
 
-// Chat returns the current chat proto.
 func (s *Session) Chat() *sgptpb.Chat {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -140,7 +139,6 @@ func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
 	s.params.ReasoningEffort = effort
 }
 
-// PendingToolCalls derives pending tool calls from proto annotations.
 func (s *Session) PendingToolCalls() []*aipb.ToolCall {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -181,50 +179,6 @@ func (s *Session) SendMessage(text string) {
 	s.runTurn()
 }
 
-// AcceptToolCalls marks pending tool calls as accepted and runs them.
-// Blocks until the full turn completes.
-func (s *Session) AcceptToolCalls() {
-	s.mu.Lock()
-	pending := s.pendingToolCallsLocked()
-	if len(pending) == 0 {
-		s.mu.Unlock()
-		return
-	}
-	for _, toolCall := range pending {
-		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
-	}
-	s.mu.Unlock()
-
-	s.executeToolCalls(pending)
-}
-
-// RejectToolCalls marks pending tool calls as rejected and appends error results.
-func (s *Session) RejectToolCalls(reason string) {
-	s.mu.Lock()
-	pending := s.pendingToolCallsLocked()
-	for _, toolCall := range pending {
-		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusRejected)
-		errorMessage := fmt.Sprintf("rejected by user: %s", reason)
-		toolMessage := ai.NewToolMessage(ai.NewToolResultBlock(ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf(errorMessage))))
-		s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
-	}
-	s.mu.Unlock()
-	s.refresh()
-}
-
-// RejectAndResend rejects pending tool calls then starts a new turn.
-// Blocks until the turn completes.
-func (s *Session) RejectAndResend(reason string) {
-	s.RejectToolCalls(reason)
-
-	s.mu.Lock()
-	s.streaming = true
-	s.mu.Unlock()
-
-	s.runTurn()
-}
-
-// CancelStream cancels an active stream.
 func (s *Session) CancelStream() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -233,8 +187,9 @@ func (s *Session) CancelStream() {
 	}
 }
 
-// runTurn executes a complete turn: stream → handle tool calls → save.
-// Loops if tool calls are auto-executed. Blocks until complete.
+// runTurn executes a complete turn: stream → process tool calls → save.
+// Auto-execute tool calls are handled immediately. Non-auto ones pause for user.
+// Loops if all tool calls in a turn were auto-executed.
 func (s *Session) runTurn() {
 	for {
 		blocks, err := s.stream()
@@ -262,41 +217,26 @@ func (s *Session) runTurn() {
 			return
 		}
 
-		autoExecuteAll, err := s.handleToolCalls(toolCalls)
+		allAutoExecuted, err := s.processToolCallsAfterStream(toolCalls)
 		if err != nil {
-			s.emitError(fmt.Errorf("handling tool calls: %w", err))
+			s.emitError(fmt.Errorf("processing tool calls: %w", err))
 			s.refresh()
 			return
 		}
 
-		if !autoExecuteAll {
-			// TUI will show pending tool calls; user must accept/reject.
+		if !allAutoExecuted {
+			// Manual tool calls remain pending for user accept/reject.
 			s.refresh()
 			return
 		}
 
-		// Auto-accepted: execute tools and loop for next stream.
-		s.mu.Lock()
-		pending := s.pendingToolCallsLocked()
-		for _, toolCall := range pending {
-			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
-		}
-		s.mu.Unlock()
-
-		if err := s.executeToolCallsBlocking(pending); err != nil {
-			s.emitError(fmt.Errorf("executing tool calls: %w", err))
-			s.refresh()
-			return
-		}
-
+		// All auto-executed — loop to stream again with tool results.
 		s.mu.Lock()
 		s.streaming = true
 		s.mu.Unlock()
-		// Loop to stream again with tool results.
 	}
 }
 
-// messagesForAPI builds the message list to send to the AI provider.
 func (s *Session) messagesForAPI() []*aipb.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -311,7 +251,6 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 	return messages
 }
 
-// saveChat persists the chat to the backend. Blocks until complete.
 func (s *Session) saveChat() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -49,6 +49,7 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 	accumulator := ai.NewTextToTextAccumulator()
 	lastRender := time.Now()
 	pendingRender := false
+	handledToolCallCount := 0
 
 	checkRender := func() {
 		if time.Since(lastRender) >= renderThrottleInterval {
@@ -105,7 +106,38 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 		default:
 		}
 
+		// Handle new tool calls eagerly as they arrive during streaming.
+		toolCallBlocks := ai.FilterBlocks(accumulator.Message.GetBlocks(), ai.BlockTypeToolCall)
+		for len(toolCallBlocks) > handledToolCallCount {
+			toolCall := toolCallBlocks[handledToolCallCount].GetToolCall()
+			s.handleToolCallEagerly(toolCall)
+			handledToolCallCount++
+		}
+
 		checkRender()
+	}
+}
+
+// handleToolCallEagerly labels a tool call with metadata/annotations as soon as
+// it appears in the stream, without waiting for the stream to complete.
+func (s *Session) handleToolCallEagerly(toolCall *aipb.ToolCall) {
+	allToolDefs := s.allTools()
+	toolNameToTool := map[string]*aipb.Tool{}
+	for _, tool := range allToolDefs {
+		toolNameToTool[tool.Name] = tool
+	}
+
+	tool, ok := toolNameToTool[toolCall.Name]
+	if !ok {
+		return
+	}
+	handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
+	handler, ok := s.toolHandlerIDToHandler[handlerID]
+	if !ok {
+		return
+	}
+	if _, err := handler.HandleToolCall(s.ctx, toolCall); err != nil {
+		s.emitError(fmt.Errorf("eagerly handling tool call %q: %w", toolCall.Name, err))
 	}
 }
 
