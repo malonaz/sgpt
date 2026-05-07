@@ -10,10 +10,13 @@ import (
 	aienginepb "github.com/malonaz/core/genproto/ai/ai_engine/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	aitool "github.com/malonaz/core/go/ai/tool"
+	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/grpc"
 	"github.com/malonaz/core/go/grpc/middleware"
 	"github.com/malonaz/core/go/pbutil"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
+	"github.com/malonaz/core/go/pbutil/pbjson"
 	"github.com/malonaz/core/go/pbutil/pbreflection"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -37,6 +40,7 @@ type engineConnection struct {
 	methodInvoker    *pbreflection.MethodInvoker
 	reflectionClient reflectionpb.ServerReflectionClient
 	schema           *pbreflection.Schema
+	schemaBuilder    *pbjson.SchemaBuilder
 }
 
 type Manager struct {
@@ -78,6 +82,7 @@ func Initialize(
 			methodInvoker:    pbreflection.NewMethodInvoker(conn.Get()),
 			reflectionClient: reflectionClient,
 			schema:           schema,
+			schemaBuilder:    pbjson.NewSchemaBuilder(schema),
 		}
 		for i, request := range toolEngine.GetToolSets() {
 			cacheKey := toolSetCacheKey(toolEngine.GetName(), i)
@@ -142,28 +147,18 @@ func (m *Manager) MarkDiscovered(toolSetName string, toolNames []string) {
 }
 
 func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*tools.HandleResult, error) {
-	m.mu.Lock()
-	toolSets := make([]*aipb.ToolSet, len(m.toolSets))
-	copy(toolSets, m.toolSets)
-
-	var engine *engineConnection
-	for _, e := range m.toolSetNameToEngine {
-		engine = e
-		break
+	toolSetName, ok := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolSetName)
+	if !ok {
+		return nil, fmt.Errorf("no tool set annotation found on tool call")
 	}
-	m.mu.Unlock()
-
-	if engine == nil {
-		return nil, fmt.Errorf("no engine client available")
+	engine, ok := m.toolSetNameToEngine[toolSetName]
+	if !ok {
+		return nil, fmt.Errorf("no engine found for tool set %q", toolSetName)
 	}
 
-	parseToolCallRequest := &aienginepb.ParseToolCallRequest{
-		ToolCall: toolCall,
-		ToolSets: toolSets,
-	}
-	parseToolCallResponse, err := engine.client.ParseToolCall(ctx, parseToolCallRequest)
+	parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
 	if err != nil {
-		return nil, fmt.Errorf("parsing tool call: %w", err)
+		return nil, err
 	}
 
 	toolCallMetadata := &sgptpb.ToolCallMetadata{
@@ -206,28 +201,18 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 }
 
 func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	m.mu.Lock()
-	toolSets := make([]*aipb.ToolSet, len(m.toolSets))
-	copy(toolSets, m.toolSets)
-
-	var engine *engineConnection
-	for _, e := range m.toolSetNameToEngine {
-		engine = e
-		break
+	toolSetName, ok := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolSetName)
+	if !ok {
+		return nil, fmt.Errorf("no tool set annotation found on tool call")
 	}
-	m.mu.Unlock()
-
-	if engine == nil {
-		return nil, fmt.Errorf("no engine client available")
+	engine, ok := m.toolSetNameToEngine[toolSetName]
+	if !ok {
+		return nil, fmt.Errorf("no engine found for tool set %q", toolSetName)
 	}
 
-	parseToolCallRequest := &aienginepb.ParseToolCallRequest{
-		ToolCall: toolCall,
-		ToolSets: toolSets,
-	}
-	parseToolCallResponse, err := engine.client.ParseToolCall(ctx, parseToolCallRequest)
+	parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
 	if err != nil {
-		return nil, fmt.Errorf("parsing tool call: %w", err)
+		return nil, err
 	}
 
 	switch result := parseToolCallResponse.Result.(type) {

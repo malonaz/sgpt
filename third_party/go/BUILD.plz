@@ -3052,7 +3052,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260430230958-de8e9491bc5d",
+    version = "v0.0.0-20260507050615-5e4da13428f7",
     visibility = ["PUBLIC"],
 )
 
@@ -3513,6 +3513,28 @@ go_module(
 )
 
 go_module(
+    name = "github.com__malonaz__core__go__ai__tool",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/tool"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__go__aip",
+        ":github.com__malonaz__core__go__grpc__status",
+        ":github.com__malonaz__core__go__pbutil",
+        ":github.com__malonaz__core__go__pbutil__pbfieldmask",
+        ":github.com__malonaz__core__go__pbutil__pbjson",
+        ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__types__known__structpb",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+        "//third_party/proto:malonaz__core__genproto__json__v1",
+    ],
+)
+
+go_module(
     name = "github.com__malonaz__core__go__aip",
     download = ":_github.com__malonaz__core#download",
     install = ["go/aip"],
@@ -3859,6 +3881,29 @@ go_module(
         ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
+    ],
+)
+
+go_module(
+    name = "github.com__malonaz__core__go__pbutil__pbjson",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/pbutil/pbjson"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__go__pbutil__pbreflection",
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__types__dynamicpb",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__fieldmaskpb",
+        ":google.golang.org__protobuf__types__known__structpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:github.com__malonaz__core__go__pbutil__pbfieldmask",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__type__date",
+        "//third_party/proto:google__type__timeofday",
+        "//third_party/proto:malonaz__core__genproto__json__v1",
     ],
 )
 
@@ -6207,6 +6252,30 @@ go_module(
     deps = [
         ":google.golang.org__grpc",
         "//third_party/go:cloud.google.com__go__longrunning__autogen__longrunningpb",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__type__date",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/type/date"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__type__timeofday",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/type/timeofday"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
     ],
 )
 

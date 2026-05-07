@@ -165,23 +165,25 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return m.handleKeyPress(msg)
 	}
 
-	if !m.session.IsStreaming() {
-		cmd := m.input.Update(msg)
-		cmds = append(cmds, cmd)
-	}
+  if !m.session.IsStreaming() {
+    cmd := m.input.Update(msg)
+    m.recalculateLayout()
+    cmds = append(cmds, cmd)
+  }
 
-	return tea.Batch(cmds...)
+  return tea.Batch(cmds...)
 }
 
 func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
 	switch e := event.(type) {
 	case session.RefreshEvent:
+		wasAtBottom := m.messages.AtBottom()
 		m.refreshMessages()
 		m.refreshTitle()
-		if m.messages.AtBottom() {
+		m.recalculateLayout()
+		if wasAtBottom {
 			m.messages.GotoBottom()
 		}
-		m.recalculateLayout()
 
 	case session.ErrorEvent:
 		return func() tea.Msg { return m.wrap(AlertMsg{Text: e.Err.Error()}) }
@@ -268,10 +270,12 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 
-	if !m.session.IsStreaming() {
-		return m.input.Update(msg)
-	}
-	return nil
+  if !m.session.IsStreaming() {
+    cmd := m.input.Update(msg)
+    m.recalculateLayout()
+    return cmd
+  }
+  return nil
 }
 
 func (m *ChatScreen) cycleFocus() tea.Cmd {

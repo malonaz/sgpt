@@ -34,7 +34,6 @@ func run() error {
 	}
 
 	var configFilepath string
-
 	rootCmd := &cobra.Command{
 		Use:     "sgpt",
 		Short:   "A CLI for GPT operations",

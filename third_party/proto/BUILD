@@ -218,3 +218,21 @@ github_proto_library(
     revision = CONFIG.CORE_REVISION,
     deps = [":validate"],
 )
+
+github_proto_library(
+    name = "google__type__date",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/type/date"},
+    dir = "google/type",
+    files = ["date.proto"],
+    repo = "googleapis/googleapis",
+    revision = GOOGLEAPI_REVISION,
+)
+
+github_proto_library(
+    name = "google__type__timeofday",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/type/timeofday"},
+    dir = "google/type",
+    files = ["timeofday.proto"],
+    repo = "googleapis/googleapis",
+    revision = GOOGLEAPI_REVISION,
+)

@@ -6,7 +6,8 @@ plugin_repo(
 
 plugin_repo(
     name = "python",
-    revision = "v1.6.0",
+    owner = "malonaz",
+    revision = "09732975210e748d953c40e2e67b7716ef51805c",
 )
 
 plugin_repo(

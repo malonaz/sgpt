@@ -48,13 +48,16 @@ func (t *TitleBar) Refresh(params cliservice.SessionParams, totalUsage, lastUsag
 
 	toolsStr := ""
 	if params.EnableTools {
-		toolsStr = "T"
+		toolsStr = "🔧"
 	}
 	if params.ToolEngineManager != nil && params.ToolEngineManager.HasToolSets() {
 		if toolsStr != "" {
 			toolsStr += "+"
 		}
-		toolsStr += "E"
+		toolsStr += "🌐"
+	}
+	if toolsStr != "" {
+		toolsStr = " | " + toolsStr
 	}
 
 	totalInputTokens := totalUsage.GetInputToken().GetQuantity() + totalUsage.GetInputTokenCacheRead().GetQuantity()
@@ -65,13 +68,13 @@ func (t *TitleBar) Refresh(params cliservice.SessionParams, totalUsage, lastUsag
 		totalUsage.GetInputTokenCacheRead().GetPrice() +
 		totalUsage.GetInputTokenCacheWrite().GetPrice()
 
-	tokenStr := fmt.Sprintf("^%s v%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), totalPrice)
+	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), totalPrice)
 
 	contextStr := ""
 	if contextLimit := params.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
 		lastInputTokens := lastUsage.GetInputToken().GetQuantity() + lastUsage.GetInputTokenCacheRead().GetQuantity()
 		usagePercent := float64(lastInputTokens) / float64(contextLimit) * 100
-		contextStr = fmt.Sprintf(" | ctx %.0f%%", usagePercent)
+		contextStr = fmt.Sprintf(" │ 📦 %.0f%% (%s/%s)", usagePercent, formatTokenCount(lastInputTokens), formatTokenCount(contextLimit))
 	}
 
 	modelResourceName := &aipb.ModelResourceName{}
@@ -79,7 +82,7 @@ func (t *TitleBar) Refresh(params cliservice.SessionParams, totalUsage, lastUsag
 	modelStr := fmt.Sprintf("%s/%s", modelResourceName.Provider, modelResourceName.Model)
 
 	t.title = fmt.Sprintf(
-		" %s | %s | %s | %s%s%s ",
+		" 🤖 %s │ 👤 %s │ 🧠 %s │ 📊 %s%s%s ",
 		modelStr, roleName, reasoningStr, tokenStr, contextStr, toolsStr,
 	)
 }
