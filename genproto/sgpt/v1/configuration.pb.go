@@ -600,7 +600,10 @@ type ToolEngineConfiguration struct {
 	// gRPC client configuration for the engine service.
 	EngineService *GrpcClient `protobuf:"bytes,2,opt,name=engine_service,json=engineService,proto3" json:"engine_service,omitempty"`
 	// Tool set definitions to create from this engine.
-	ToolSets      []*v1.CreateServiceToolSetRequest `protobuf:"bytes,3,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
+	ToolSets []*v1.CreateServiceToolSetRequest `protobuf:"bytes,3,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
+	// Instructions on how to use this tool engine.
+	// Note that this is injected into the system prompt when enabled.
+	Instructions  string `protobuf:"bytes,4,opt,name=instructions,proto3" json:"instructions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -651,6 +654,13 @@ func (x *ToolEngineConfiguration) GetToolSets() []*v1.CreateServiceToolSetReques
 	return nil
 }
 
+func (x *ToolEngineConfiguration) GetInstructions() string {
+	if x != nil {
+		return x.Instructions
+	}
+	return ""
+}
+
 func (x *ToolEngineConfiguration) SetName(v string) {
 	x.Name = v
 }
@@ -661,6 +671,10 @@ func (x *ToolEngineConfiguration) SetEngineService(v *GrpcClient) {
 
 func (x *ToolEngineConfiguration) SetToolSets(v []*v1.CreateServiceToolSetRequest) {
 	x.ToolSets = v
+}
+
+func (x *ToolEngineConfiguration) SetInstructions(v string) {
+	x.Instructions = v
 }
 
 func (x *ToolEngineConfiguration) HasEngineService() bool {
@@ -683,6 +697,9 @@ type ToolEngineConfiguration_builder struct {
 	EngineService *GrpcClient
 	// Tool set definitions to create from this engine.
 	ToolSets []*v1.CreateServiceToolSetRequest
+	// Instructions on how to use this tool engine.
+	// Note that this is injected into the system prompt when enabled.
+	Instructions string
 }
 
 func (b0 ToolEngineConfiguration_builder) Build() *ToolEngineConfiguration {
@@ -692,6 +709,7 @@ func (b0 ToolEngineConfiguration_builder) Build() *ToolEngineConfiguration {
 	x.Name = b.Name
 	x.EngineService = b.EngineService
 	x.ToolSets = b.ToolSets
+	x.Instructions = b.Instructions
 	return m0
 }
 
@@ -729,11 +747,12 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x06prompt\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x06prompt\x12/\n" +
 	"\x05model\x18\x04 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
-	"\x05files\x18\x05 \x03(\tR\x05files\"\xcc\x01\n" +
+	"\x05files\x18\x05 \x03(\tR\x05files\"\xf8\x01\n" +
 	"\x17ToolEngineConfiguration\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12B\n" +
 	"\x0eengine_service\x18\x02 \x01(\v2\x13.sgpt.v1.GrpcClientB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +
-	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSetsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
+	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSets\x12*\n" +
+	"\finstructions\x18\x04 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\finstructionsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
 var file_sgpt_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_sgpt_v1_configuration_proto_goTypes = []any{

@@ -98,4 +98,8 @@ message ToolEngineConfiguration {
 
   // Tool set definitions to create from this engine.
   repeated malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest tool_sets = 3;
+
+  // Instructions on how to use this tool engine.
+  // Note that this is injected into the system prompt when enabled.
+  string instructions = 4 [(buf.validate.field).required = true];
 }

@@ -31,17 +31,16 @@ func NewCmd(
 	baseURLToGRPCConnection map[string]*grpc.Connection,
 ) *cobra.Command {
 	var opts struct {
-		FileInjection   *file.InjectionOpts
-		Role            *role.Opts
-		Model           string
-		MaxTokens       int32
-		Temperature     float64
-		Chat            string
-		Continue        bool
-		ReasoningEffort string
-		EnableTools     bool
-		ToolEngines     []string
-		Debug           bool
+		FileInjection *file.InjectionOpts
+		Role          *role.Opts
+		Model         string
+		MaxTokens     int32
+		Temperature   float64
+		Chat          string
+		Continue      bool
+		EnableTools   bool
+		ToolEngines   []string
+		Debug         bool
 	}
 
 	cmd := &cobra.Command{
@@ -66,19 +65,6 @@ func NewCmd(
 			selectedModel, err := resolveModel(ctx, aiClient, opts.Model)
 			cobra.CheckErr(err)
 
-			var reasoningEffort aipb.ReasoningEffort
-			switch strings.ToLower(opts.ReasoningEffort) {
-			case "":
-			case "low", "l":
-				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_LOW
-			case "medium", "m":
-				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM
-			case "high", "h":
-				reasoningEffort = aipb.ReasoningEffort_REASONING_EFFORT_HIGH
-			default:
-				return fmt.Errorf("unknown reasoning effort %s", opts.ReasoningEffort)
-			}
-
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
@@ -99,6 +85,7 @@ func NewCmd(
 			}
 
 			var toolEngineManager *toolengine.Manager
+			var toolEngineConfigurations []*sgptpb.ToolEngineConfiguration
 			if len(opts.ToolEngines) > 0 {
 				toolEngineNameSet := map[string]struct{}{}
 				for _, name := range opts.ToolEngines {
@@ -116,13 +103,12 @@ func NewCmd(
 				}
 
 				filteredConfig := *config
-				var filteredToolEngines []*sgptpb.ToolEngineConfiguration
 				for _, te := range config.ToolEngines {
 					if _, ok := toolEngineNameSet[te.GetName()]; ok {
-						filteredToolEngines = append(filteredToolEngines, te)
+						toolEngineConfigurations = append(toolEngineConfigurations, te)
 					}
 				}
-				filteredConfig.ToolEngines = filteredToolEngines
+				filteredConfig.ToolEngines = toolEngineConfigurations
 				toolEngineManager, err = toolengine.Initialize(ctx, &filteredConfig, baseURLToGRPCConnection)
 				if err != nil {
 					return fmt.Errorf("initializing tool engines: %w", err)
@@ -159,6 +145,9 @@ func NewCmd(
 
 			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
 			additionalMessages = append(additionalMessages, ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt)))
+			for _, c := range toolEngineConfigurations {
+				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(c.Instructions)))
+			}
 			for _, f := range files {
 				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))))
 			}
@@ -182,7 +171,6 @@ func NewCmd(
 				Role:               parsedRole,
 				MaxTokens:          opts.MaxTokens,
 				Temperature:        opts.Temperature,
-				ReasoningEffort:    reasoningEffort,
 				EnableTools:        opts.EnableTools,
 				Chat:               opts.Chat,
 				ToolEngineManager:  toolEngineManager,
@@ -209,7 +197,6 @@ func NewCmd(
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
 	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
-	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Reasoning level (low, medium, high)")
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable built-in tools (shell, read_files)")
 	cmd.Flags().StringSliceVar(&opts.ToolEngines, "tool", nil, "Enable a specific tool engine by name (repeatable)")
 	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
