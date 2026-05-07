@@ -36,7 +36,7 @@ func NewCmd(
 		Model           string
 		MaxTokens       int32
 		Temperature     float64
-		ChatID          string
+		Chat            string
 		Continue        bool
 		ReasoningEffort string
 		EnableTools     bool
@@ -131,8 +131,8 @@ func NewCmd(
 			}
 
 			var chat *sgptpb.Chat
-			if opts.ChatID != "" {
-				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.ChatID}
+			if opts.Chat != "" {
+				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.Chat}
 				chat, err = chatClient.GetChat(ctx, getChatRequest)
 				cobra.CheckErr(err)
 			} else if opts.Continue {
@@ -146,7 +146,7 @@ func NewCmd(
 					cobra.CheckErr(fmt.Errorf("no chat to continue"))
 				}
 				chat = listChatsResponse.Chats[0]
-				opts.ChatID = chat.Name
+				opts.Chat = chat.Name
 			} else {
 				chat = &sgptpb.Chat{
 					Files: filePaths,
@@ -171,12 +171,10 @@ func NewCmd(
 			}
 
 			if opts.Debug {
-				debugAddr, err := debug.Init(ctx)
+				_, err := debug.Init(ctx)
 				if err != nil {
 					return fmt.Errorf("starting debug server: %w", err)
 				}
-				fmt.Fprintf(cmd.ErrOrStderr(), "Debug server: http://%s\nPress Enter to continue...\n", debugAddr)
-				fmt.Fscanln(cmd.InOrStdin())
 			}
 
 			params := cliservice.SessionParams{
@@ -186,7 +184,7 @@ func NewCmd(
 				Temperature:        opts.Temperature,
 				ReasoningEffort:    reasoningEffort,
 				EnableTools:        opts.EnableTools,
-				ChatID:             opts.ChatID,
+				Chat:               opts.Chat,
 				ToolEngineManager:  toolEngineManager,
 				AdditionalMessages: additionalMessages,
 				InjectedFiles:      filePaths,
@@ -209,7 +207,7 @@ func NewCmd(
 	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias")
 	cmd.Flags().Int32Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
-	cmd.Flags().StringVar(&opts.ChatID, "id", "", "Chat ID to resume")
+	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Reasoning level (low, medium, high)")
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable built-in tools (shell, read_files)")

@@ -95,7 +95,7 @@ func NewApp(
 
 	menuScrn := menuscreen.New(ctx, service.ChatClient, app.makeWrap(menuTabID))
 
-	tabID := params.ChatID
+	tabID := params.Chat
 	sess := session.New(ctx, service, initialChat, params)
 	chatScrn := screen.NewChatScreen(service, app.makeWrap(tabID), app.makeSend(tabID), sess, params.InjectedFiles)
 
@@ -361,7 +361,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		}
 
 		params := a.defaultParams
-		params.ChatID = chat.Name
+		params.Chat = chat.Name
 		tabID := chat.Name
 
 		sess := session.New(a.ctx, a.service, chat, params)

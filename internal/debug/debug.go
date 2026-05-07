@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +26,7 @@ type entry struct {
 	message   string
 }
 
-// Init starts the debug HTTP server on a random port. Returns the address.
+// Init starts the debug HTTP server on a random port and opens it in the default browser.
 func Init(ctx context.Context) (string, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -45,7 +46,13 @@ func Init(ctx context.Context) (string, error) {
 		server.Close()
 	}()
 
-	return listener.Addr().String(), nil
+	address := listener.Addr().String()
+	url := "http://" + address
+
+	// Best-effort open in browser.
+	exec.Command("xdg-open", url).Start()
+
+	return address, nil
 }
 
 // Log records a debug message. No-op if Init has not been called.

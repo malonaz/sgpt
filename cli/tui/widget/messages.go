@@ -22,18 +22,18 @@ import (
 const maxToolDisplayLines = 15
 
 var (
-	keyViewportToTop       = key.NewBinding(key.WithKeys("alt+<"))
-	keyViewportToBottom    = key.NewBinding(key.WithKeys("alt+>"))
-	keyViewportPrevMessage = key.NewBinding(key.WithKeys("alt+{"))
-	keyViewportNextMessage = key.NewBinding(key.WithKeys("alt+}"))
-	keyViewportPrevBlock   = key.NewBinding(key.WithKeys("alt+["))
-	keyViewportNextBlock   = key.NewBinding(key.WithKeys("alt+]"))
-	keyViewportSelectAll   = key.NewBinding(key.WithKeys("alt+a"))
-	keyViewportOpenAll     = key.NewBinding(key.WithKeys("alt+shift+a"))
-	keyViewportScrollUp    = key.NewBinding(key.WithKeys("ctrl+p"))
-	keyViewportScrollDown  = key.NewBinding(key.WithKeys("ctrl+n"))
-	keyViewportCopy        = key.NewBinding(key.WithKeys("alt+w"))
-	keyViewportOpenEditor  = key.NewBinding(key.WithKeys("ctrl+o"))
+	keyViewportToTop         = key.NewBinding(key.WithKeys("alt+<"))
+	keyViewportToBottom      = key.NewBinding(key.WithKeys("alt+>"))
+	keyViewportPrevMessage   = key.NewBinding(key.WithKeys("alt+{"))
+	keyViewportNextMessage   = key.NewBinding(key.WithKeys("alt+}"))
+	keyViewportPrevBlock     = key.NewBinding(key.WithKeys("alt+["))
+	keyViewportNextBlock     = key.NewBinding(key.WithKeys("alt+]"))
+	keyViewportSelectAll     = key.NewBinding(key.WithKeys("alt+a"))
+	keyViewportScrollUp      = key.NewBinding(key.WithKeys("ctrl+p"))
+	keyViewportScrollDown    = key.NewBinding(key.WithKeys("ctrl+n"))
+	keyViewportCopy          = key.NewBinding(key.WithKeys("alt+w"))
+	keyViewportOpenEditor    = key.NewBinding(key.WithKeys("alt+o"))
+	keyViewportOpenAllEditor = key.NewBinding(key.WithKeys("alt+shift+o"))
 )
 
 // MessagesData is the data the Messages widget renders from.
@@ -168,13 +168,13 @@ func (m *Messages) HandleKey(msg tea.KeyPressMsg, alertFn func(string) tea.Cmd) 
 			clipboard.Write(clipboard.FmtText, []byte(content))
 			return alertFn("Copied to clipboard!")
 		}
-	case key.Matches(msg, keyViewportOpenAll):
+	case key.Matches(msg, keyViewportOpenAllEditor):
 		content := m.fullConversationText()
-		return openInEditor(content, "md")
+		return OpenEditor(content, "md")
 	case key.Matches(msg, keyViewportOpenEditor):
 		if m.navMessageIndex != -1 {
 			content, ext := m.getSelectedContent()
-			return openInEditor(content, ext)
+			return OpenEditor(content, ext)
 		}
 	}
 	return nil
@@ -849,9 +849,4 @@ func truncateLines(s string, maxLines int) string {
 	}
 	truncated := strings.Join(lines[:maxLines], "\n")
 	return truncated + fmt.Sprintf("\n... (%d more lines)", len(lines)-maxLines)
-}
-
-func openInEditor(content, ext string) tea.Cmd {
-	input := NewInput()
-	return input.openEditor(content, ext)
 }

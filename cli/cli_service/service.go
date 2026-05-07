@@ -26,7 +26,7 @@ type SessionParams struct {
 	Temperature        float64
 	ReasoningEffort    aipb.ReasoningEffort
 	EnableTools        bool
-	ChatID             string
+	Chat               string
 	ToolEngineManager  *toolengine.Manager
 	AdditionalMessages []*aipb.Message
 	InjectedFiles      []string

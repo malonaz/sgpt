@@ -1,8 +1,6 @@
 package widget
 
 import (
-	"os"
-	"os/exec"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -16,16 +14,9 @@ import (
 var (
 	keyInputPrevHistory = key.NewBinding(key.WithKeys("alt+p"))
 	keyInputNextHistory = key.NewBinding(key.WithKeys("alt+n"))
-	keyInputOpenEditor  = key.NewBinding(key.WithKeys("ctrl+o"))
+	keyInputOpenEditor  = key.NewBinding(key.WithKeys("alt+o"))
 )
 
-// EditorClosedMsg is sent when the external editor process exits.
-type EditorClosedMsg struct {
-	Modified bool
-	Content  string
-}
-
-// Input wraps a textarea with history and editor support.
 type Input struct {
 	Textarea textarea.Model
 	history  *history.History
@@ -71,7 +62,6 @@ func (i *Input) Reset() {
 	i.AdjustHeight()
 }
 
-// Submit returns the trimmed value and records it in history.
 func (i *Input) Submit() string {
 	value := i.Value()
 	if value == "" {
@@ -100,7 +90,6 @@ func (i *Input) AdjustHeight() {
 	i.Textarea.SetHeight(newHeight)
 }
 
-// HandleKey processes input-specific keys. Returns a cmd if handled, nil otherwise.
 func (i *Input) HandleKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyInputPrevHistory):
@@ -116,12 +105,11 @@ func (i *Input) HandleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	case key.Matches(msg, keyInputOpenEditor):
-		return i.openEditor(i.Textarea.Value(), "md")
+		return OpenEditor(i.Textarea.Value(), "md")
 	}
 	return nil
 }
 
-// Update delegates to the underlying textarea.
 func (i *Input) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	i.Textarea, cmd = i.Textarea.Update(msg)
@@ -131,50 +119,4 @@ func (i *Input) Update(msg tea.Msg) tea.Cmd {
 
 func (i *Input) View() string {
 	return styles.TextAreaStyle.Render(i.Textarea.View())
-}
-
-func (i *Input) openEditor(content, ext string) tea.Cmd {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = os.Getenv("VISUAL")
-	}
-	if editor == "" {
-		editor = "vim"
-	}
-	editorArgs := strings.Fields(editor)
-	if len(editorArgs) == 0 {
-		return nil
-	}
-
-	tmpFile, err := os.CreateTemp("", "sgpt-*."+ext)
-	if err != nil {
-		return nil
-	}
-	tmpPath := tmpFile.Name()
-
-	if content != "" {
-		tmpFile.WriteString(content)
-	}
-	tmpFile.Close()
-
-	info, _ := os.Stat(tmpPath)
-	modTimeBefore := info.ModTime()
-
-	args := append(editorArgs[1:], tmpPath)
-	cmd := exec.Command(editorArgs[0], args...)
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
-		info, statErr := os.Stat(tmpPath)
-		if statErr != nil {
-			return EditorClosedMsg{}
-		}
-		bytes, readErr := os.ReadFile(tmpPath)
-		os.Remove(tmpPath)
-		if readErr != nil {
-			return EditorClosedMsg{}
-		}
-		return EditorClosedMsg{
-			Modified: info.ModTime().After(modTimeBefore),
-			Content:  string(bytes),
-		}
-	})
 }

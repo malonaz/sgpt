@@ -44,6 +44,8 @@ type ChatScreen struct {
 	input    *widget.Input
 	spinner  spinner.Model
 
+	lastInputHeight int
+
 	injectedFiles []string
 
 	width            int
@@ -76,6 +78,7 @@ func NewChatScreen(
 		focusedComponent: FocusTextarea,
 	}
 	cs.refreshTitle()
+	cs.lastInputHeight = cs.input.Height()
 	return cs
 }
 
@@ -150,9 +153,15 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return tea.Batch(cmds...)
 
 	case widget.EditorClosedMsg:
-		if m.focusedComponent == FocusTextarea && msg.Modified {
-			m.input.Textarea.SetValue(msg.Content)
-			m.input.AdjustHeight()
+		switch m.focusedComponent {
+		case FocusTextarea:
+			if msg.Modified {
+				m.input.Textarea.SetValue(msg.Content)
+				m.input.AdjustHeight()
+			}
+			return m.input.Focus()
+		case FocusViewport:
+			return nil
 		}
 		return nil
 
@@ -165,13 +174,15 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return m.handleKeyPress(msg)
 	}
 
-  if !m.session.IsStreaming() {
-    cmd := m.input.Update(msg)
-    m.recalculateLayout()
-    cmds = append(cmds, cmd)
-  }
-
-  return tea.Batch(cmds...)
+	if !m.session.IsStreaming() {
+		cmd := m.input.Update(msg)
+		if m.input.Height() != m.lastInputHeight {
+			m.lastInputHeight = m.input.Height()
+			m.recalculateLayout()
+		}
+		cmds = append(cmds, cmd)
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
@@ -260,6 +271,7 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			m.refreshMessages()
 			m.messages.GotoBottom()
 			m.recalculateLayout()
+
 			// SendMessage blocks — run in a tea.Cmd goroutine.
 			sess := m.session
 			wrap := m.wrap
@@ -270,12 +282,15 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 
-  if !m.session.IsStreaming() {
-    cmd := m.input.Update(msg)
-    m.recalculateLayout()
-    return cmd
-  }
-  return nil
+	if !m.session.IsStreaming() {
+		cmd := m.input.Update(msg)
+		if m.input.Height() != m.lastInputHeight {
+			m.lastInputHeight = m.input.Height()
+			m.recalculateLayout()
+		}
+		return cmd
+	}
+	return nil
 }
 
 func (m *ChatScreen) cycleFocus() tea.Cmd {

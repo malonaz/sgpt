@@ -129,7 +129,7 @@ go_mod_download(
     name = "charm.land__bubbles__v2",
     _tag = "download",
     module = "charm.land/bubbles/v2",
-    version = "v2.0.0",
+    version = "v2.1.0",
     visibility = ["PUBLIC"],
 )
 
@@ -224,7 +224,7 @@ go_mod_download(
     name = "charm.land__bubbletea__v2",
     _tag = "download",
     module = "charm.land/bubbletea/v2",
-    version = "v2.0.2",
+    version = "v2.0.6",
     visibility = ["PUBLIC"],
 )
 
@@ -319,7 +319,7 @@ go_mod_download(
     name = "charm.land__lipgloss__v2",
     _tag = "download",
     module = "charm.land/lipgloss/v2",
-    version = "v2.0.2",
+    version = "v2.0.3",
     visibility = ["PUBLIC"],
 )
 
@@ -1178,7 +1178,7 @@ go_mod_download(
     name = "github.com__charmbracelet__colorprofile",
     _tag = "download",
     module = "github.com/charmbracelet/colorprofile",
-    version = "v0.4.2",
+    version = "v0.4.3",
     visibility = ["PUBLIC"],
 )
 
@@ -1199,7 +1199,7 @@ go_mod_download(
     name = "github.com__charmbracelet__ultraviolet",
     _tag = "download",
     module = "github.com/charmbracelet/ultraviolet",
-    version = "v0.0.0-20260205113103-524a6607adb8",
+    version = "v0.0.0-20260416155717-489999b90468",
     visibility = ["PUBLIC"],
 )
 
@@ -1230,7 +1230,7 @@ go_mod_download(
     name = "github.com__charmbracelet__x__ansi",
     _tag = "download",
     module = "github.com/charmbracelet/x/ansi",
-    version = "v0.11.6",
+    version = "v0.11.7",
     visibility = ["PUBLIC"],
 )
 
@@ -3035,7 +3035,7 @@ go_mod_download(
     name = "github.com__lucasb-eyer__go-colorful",
     _tag = "download",
     module = "github.com/lucasb-eyer/go-colorful",
-    version = "v1.3.0",
+    version = "v1.4.0",
     visibility = ["PUBLIC"],
 )
 
@@ -4002,7 +4002,7 @@ go_mod_download(
     name = "github.com__mattn__go-runewidth",
     _tag = "download",
     module = "github.com/mattn/go-runewidth",
-    version = "v0.0.20",
+    version = "v0.0.23",
     visibility = ["PUBLIC"],
 )
 
@@ -5924,7 +5924,7 @@ go_mod_download(
     name = "golang.org__x__sync",
     _tag = "download",
     module = "golang.org/x/sync",
-    version = "v0.19.0",
+    version = "v0.20.0",
     visibility = ["PUBLIC"],
 )
 
@@ -5950,7 +5950,7 @@ go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
-    version = "v0.42.0",
+    version = "v0.43.0",
     visibility = ["PUBLIC"],
 )
 

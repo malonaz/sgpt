@@ -1,6 +1,7 @@
 go_library(
     name = "widget",
     srcs = [
+        "editor.go",
         "input.go",
         "messages.go",
         "tab_bar.go",
