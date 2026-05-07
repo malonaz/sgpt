@@ -560,9 +560,18 @@ func (m *Messages) renderAIMessage(b *strings.Builder, currentLine *int, display
 			labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("tool: %s%s", toolCall.Name, statusSuffix))
 			content.WriteString(m.blockWithIndicator(labelRendered, displayIndex, mdBlockIndex))
 			bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
-			body := truncateLines(string(bytes), maxToolDisplayLines)
+			body, overflow := truncateLinesWithOverflow(string(bytes), maxToolDisplayLines)
+			fenced := fmt.Sprintf("```json\n%s\n```", body)
+			mdBlocks := markdown.ParseBlocks(fenced)
+			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, finalized, mdBlocks...)
 			content.WriteString("\n")
-			content.WriteString(m.blockWithIndicator(styles.ToolCallStyle.Render(body), displayIndex, mdBlockIndex))
+			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
+			if overflow != "" {
+				content.WriteString("\n")
+				content.WriteString(m.blockWithIndicator("", displayIndex, mdBlockIndex))
+				content.WriteString("\n")
+				content.WriteString(m.blockWithIndicator(styles.DimTextStyle.Render(overflow), displayIndex, mdBlockIndex))
+			}
 		}
 
 		style := m.messageStyle(styles.AIMessageStyle, displayIndex)
@@ -611,8 +620,17 @@ func (m *Messages) renderToolMessage(b *strings.Builder, currentLine *int, displ
 			} else {
 				body = toolResult.GetContent()
 			}
-			body = truncateLines(body, maxToolDisplayLines)
-			content.WriteString(m.blockWithIndicator(styles.ToolResultStyle.Render(body), displayIndex, mdBlockIndex))
+			truncated, overflow := truncateLinesWithOverflow(body, maxToolDisplayLines)
+			fenced := fmt.Sprintf("```json\n%s\n```", truncated)
+			mdBlocks := markdown.ParseBlocks(fenced)
+			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, mdBlocks...)
+			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
+			if overflow != "" {
+				content.WriteString("\n")
+				content.WriteString(m.blockWithIndicator("", displayIndex, mdBlockIndex))
+				content.WriteString("\n")
+				content.WriteString(m.blockWithIndicator(styles.DimTextStyle.Render(overflow), displayIndex, mdBlockIndex))
+			}
 		}
 
 		style := m.messageStyle(styles.AIMessageStyle, displayIndex)
@@ -842,11 +860,16 @@ func (m *Messages) fullConversationText() string {
 	return b.String()
 }
 
-func truncateLines(s string, maxLines int) string {
+func truncateLinesWithOverflow(s string, maxLines int) (string, string) {
 	lines := strings.Split(s, "\n")
 	if len(lines) <= maxLines {
-		return s
+		return s, ""
 	}
 	truncated := strings.Join(lines[:maxLines], "\n")
-	return truncated + fmt.Sprintf("\n... (%d more lines)", len(lines)-maxLines)
+	return truncated, fmt.Sprintf("... (%d more lines)", len(lines)-maxLines)
+}
+
+func truncateLines(s string, maxLines int) string {
+	truncated, overflow := truncateLinesWithOverflow(s, maxLines)
+	return truncated + overflow
 }

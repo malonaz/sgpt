@@ -206,7 +206,7 @@ func (m *Model) renderDetail() string {
 						content = fmt.Sprintf("Error: %s", toolResult.GetError().GetMessage())
 					} else if structured := toolResult.GetStructuredContent(); structured != nil {
 						bytes, _ := structured.MarshalJSON()
-						content = string(bytes)
+						content = fmt.Sprintf("```json\n%s\n```", string(bytes))
 					} else {
 						content = toolResult.GetContent()
 					}
