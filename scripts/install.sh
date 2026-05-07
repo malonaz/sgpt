@@ -58,18 +58,18 @@ fi
 case "$SHELL_TYPE" in
     bash)
         mkdir -p ~/.local/share/bash-completion/completions
-        ~/.local/bin/sgpt --local completion bash > ~/.local/share/bash-completion/completions/sgpt
+        ~/.local/bin/sgpt completion bash > ~/.local/share/bash-completion/completions/sgpt
         echo -e "${GREEN}✓${NC} Installed completions to ~/.local/share/bash-completion/completions/sgpt"
         ;;
     zsh)
         mkdir -p ~/.zfunc
-        ~/.local/bin/sgpt --local completion zsh > ~/.zfunc/_sgpt
+        ~/.local/bin/sgpt completion zsh > ~/.zfunc/_sgpt
         echo -e "${GREEN}✓${NC} Installed completions to ~/.zfunc/_sgpt"
         echo -e "${GREEN}Note:${NC} Add to ~/.zshrc: fpath=(~/.zfunc \$fpath); autoload -Uz compinit && compinit"
         ;;
     fish)
         mkdir -p ~/.config/fish/completions
-        ~/.local/bin/sgpt --local completion fish > ~/.config/fish/completions/sgpt.fish
+        ~/.local/bin/sgpt completion fish > ~/.config/fish/completions/sgpt.fish
         echo -e "${GREEN}✓${NC} Installed completions to ~/.config/fish/completions/sgpt.fish"
         ;;
 esac

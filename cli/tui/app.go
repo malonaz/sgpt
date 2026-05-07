@@ -10,22 +10,20 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/google/uuid"
-	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
-	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"golang.design/x/clipboard"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/malonaz/sgpt/cli/tui/component"
+	cliservice "github.com/malonaz/sgpt/cli/cli_service"
+	"github.com/malonaz/sgpt/cli/cli_service/session"
 	"github.com/malonaz/sgpt/cli/tui/screen"
-	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
 	"github.com/malonaz/sgpt/cli/tui/styles"
+	"github.com/malonaz/sgpt/cli/tui/widget"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 const alertDuration = 2 * time.Second
-
 const menuTabID = "menu"
 
 type alertDismissMsg struct{}
@@ -63,14 +61,11 @@ var (
 var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, keyTab6, keyTab7, keyTab8, keyTab9}
 
 type App struct {
-	ctx        context.Context
-	config     *sgptpb.Configuration
-	aiClient   aiservicepb.AiServiceClient
-	chatClient sgptservicepb.SgptServiceClient
+	ctx     context.Context
+	service *cliservice.Service
 
-	defaultChatOpts       chatscreen.Options
-	defaultAdditionalMsgs []*aipb.Message
-	defaultInjectedFiles  []string
+	defaultParams cliservice.SessionParams
+	initialChat   *sgptpb.Chat
 
 	tabs      []*tab
 	activeTab int
@@ -87,36 +82,26 @@ type App struct {
 
 func NewApp(
 	ctx context.Context,
-	config *sgptpb.Configuration,
-	aiClient aiservicepb.AiServiceClient,
-	chatClient sgptservicepb.SgptServiceClient,
+	service *cliservice.Service,
 	initialChat *sgptpb.Chat,
-	chatOpts chatscreen.Options,
-	additionalMessages []*aipb.Message,
-	injectedFiles []string,
+	params cliservice.SessionParams,
 ) *App {
 	app := &App{
-		ctx:                   ctx,
-		config:                config,
-		aiClient:              aiClient,
-		chatClient:            chatClient,
-		defaultChatOpts:       chatOpts,
-		defaultAdditionalMsgs: additionalMessages,
-		defaultInjectedFiles:  injectedFiles,
+		ctx:           ctx,
+		service:       service,
+		defaultParams: params,
+		initialChat:   initialChat,
 	}
 
-	menuScreen := menuscreen.New(ctx, chatClient, app.makeWrap(menuTabID))
+	menuScrn := menuscreen.New(ctx, service.ChatClient, app.makeWrap(menuTabID))
 
-	tabID := chatOpts.ChatID
-	chatScreen := chatscreen.New(
-		ctx, config, aiClient, chatClient,
-		app.makeWrap(tabID), app.makeSend(tabID),
-		initialChat, chatOpts, additionalMessages, injectedFiles,
-	)
+	tabID := params.Chat
+	sess := session.New(ctx, service, initialChat, params)
+	chatScrn := screen.NewChatScreen(service, app.makeWrap(tabID), app.makeSend(tabID), sess, params.InjectedFiles)
 
 	app.tabs = []*tab{
-		{id: menuTabID, screen: menuScreen},
-		{id: tabID, screen: chatScreen},
+		{id: menuTabID, screen: menuScrn},
+		{id: tabID, screen: chatScrn},
 	}
 	app.activeTab = 1
 	return app
@@ -237,7 +222,7 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyQuit):
 		if a.activeTab < len(a.tabs) {
-			if cs, ok := a.tabs[a.activeTab].screen.(*chatscreen.Model); ok && cs.IsStreaming() {
+			if cs, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok && cs.IsStreaming() {
 				break
 			}
 		}
@@ -257,8 +242,8 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return a.focusMenuSearch()
 	case key.Matches(msg, keyCopyName):
 		if a.activeTab < len(a.tabs) {
-			if cs, ok := a.tabs[a.activeTab].screen.(*chatscreen.Model); ok {
-				chatName := cs.Chat().GetName()
+			if cs, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok {
+				chatName := cs.Session().Chat().GetName()
 				if chatName != "" {
 					clipboard.Write(clipboard.FmtText, []byte(chatName))
 					return a.showAlert("Copied chat name: " + chatName)
@@ -298,11 +283,9 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 			}
 		}
 	}
-
 	if a.isMenuTab(removeIndex) {
 		return nil
 	}
-
 	nonMenuTabs := 0
 	for _, t := range a.tabs {
 		if t.id != menuTabID {
@@ -313,7 +296,6 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 		a.quitting = true
 		return tea.Quit
 	}
-
 	a.tabs[removeIndex].screen.OnBlur()
 	a.tabs = append(a.tabs[:removeIndex], a.tabs[removeIndex+1:]...)
 	if a.activeTab >= len(a.tabs) {
@@ -356,7 +338,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 				ChatId:    uuid.New().String()[:8],
 				Chat:      forked,
 			}
-			chat, err = a.chatClient.CreateChat(a.ctx, createChatRequest)
+			chat, err = a.service.ChatClient.CreateChat(a.ctx, createChatRequest)
 			if err != nil {
 				return screen.AlertMsg{Text: fmt.Sprintf("Fork failed: %v", err)}
 			}
@@ -368,26 +350,22 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 				ChatId:    uuid.New().String()[:8],
 				Chat: &sgptpb.Chat{
 					Metadata: &sgptpb.ChatMetadata{
-						CurrentModel: a.defaultChatOpts.Model.Name,
+						CurrentModel: a.defaultParams.Model.Name,
 					},
 				},
 			}
-			chat, err = a.chatClient.CreateChat(a.ctx, createChatRequest)
+			chat, err = a.service.ChatClient.CreateChat(a.ctx, createChatRequest)
 			if err != nil {
 				return screen.AlertMsg{Text: fmt.Sprintf("Create failed: %v", err)}
 			}
 		}
 
-		opts := a.defaultChatOpts
-		opts.ChatID = chat.Name
+		params := a.defaultParams
+		params.Chat = chat.Name
 		tabID := chat.Name
 
-		s := chatscreen.New(
-			a.ctx, a.config, a.aiClient, a.chatClient,
-			a.makeWrap(tabID), a.makeSend(tabID),
-			chat, opts,
-			a.defaultAdditionalMsgs, a.defaultInjectedFiles,
-		)
+		sess := session.New(a.ctx, a.service, chat, params)
+		s := screen.NewChatScreen(a.service, a.makeWrap(tabID), a.makeSend(tabID), sess, params.InjectedFiles)
 		return openTabMsg{id: tabID, screen: s}
 	}
 }
@@ -447,18 +425,18 @@ func (a *App) contentHeight() int {
 }
 
 func (a *App) renderTabBar() string {
-	var tabs []component.Tab
+	var tabs []widget.Tab
 	for i, t := range a.tabs {
 		streaming := false
-		if cs, ok := t.screen.(*chatscreen.Model); ok {
+		if cs, ok := t.screen.(*screen.ChatScreen); ok {
 			streaming = cs.IsStreaming()
 		}
-		tabs = append(tabs, component.Tab{
+		tabs = append(tabs, widget.Tab{
 			ID:        t.id,
 			Title:     t.screen.ShortTitle(),
 			Active:    i == a.activeTab,
 			Streaming: streaming,
 		})
 	}
-	return component.RenderTabBar(tabs, a.width)
+	return widget.RenderTabBar(tabs, a.width)
 }

@@ -13,11 +13,12 @@ import (
 	"github.com/malonaz/core/go/grpc"
 	"github.com/spf13/cobra"
 
+	cliservice "github.com/malonaz/sgpt/cli/cli_service"
 	"github.com/malonaz/sgpt/cli/tui"
-	chatscreen "github.com/malonaz/sgpt/cli/tui/screen/chat"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/toolengine"
@@ -35,11 +36,12 @@ func NewCmd(
 		Model           string
 		MaxTokens       int32
 		Temperature     float64
-		ChatID          string
+		Chat            string
 		Continue        bool
 		ReasoningEffort string
 		EnableTools     bool
 		ToolEngines     []string
+		Debug           bool
 	}
 
 	cmd := &cobra.Command{
@@ -129,8 +131,8 @@ func NewCmd(
 			}
 
 			var chat *sgptpb.Chat
-			if opts.ChatID != "" {
-				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.ChatID}
+			if opts.Chat != "" {
+				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.Chat}
 				chat, err = chatClient.GetChat(ctx, getChatRequest)
 				cobra.CheckErr(err)
 			} else if opts.Continue {
@@ -144,7 +146,7 @@ func NewCmd(
 					cobra.CheckErr(fmt.Errorf("no chat to continue"))
 				}
 				chat = listChatsResponse.Chats[0]
-				opts.ChatID = chat.Name
+				opts.Chat = chat.Name
 			} else {
 				chat = &sgptpb.Chat{
 					Files: filePaths,
@@ -161,18 +163,34 @@ func NewCmd(
 				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))))
 			}
 
-			chatOpts := chatscreen.Options{
-				Model:             selectedModel,
-				Role:              parsedRole,
-				MaxTokens:         opts.MaxTokens,
-				Temperature:       opts.Temperature,
-				ReasoningEffort:   reasoningEffort,
-				EnableTools:       opts.EnableTools,
-				ChatID:            opts.ChatID,
-				ToolEngineManager: toolEngineManager,
+			service := &cliservice.Service{
+				Config:                  config,
+				AIClient:                aiClient,
+				ChatClient:              chatClient,
+				BaseURLToGRPCConnection: baseURLToGRPCConnection,
 			}
 
-			app := tui.NewApp(ctx, config, aiClient, chatClient, chat, chatOpts, additionalMessages, filePaths)
+			if opts.Debug {
+				_, err := debug.Init(ctx)
+				if err != nil {
+					return fmt.Errorf("starting debug server: %w", err)
+				}
+			}
+
+			params := cliservice.SessionParams{
+				Model:              selectedModel,
+				Role:               parsedRole,
+				MaxTokens:          opts.MaxTokens,
+				Temperature:        opts.Temperature,
+				ReasoningEffort:    reasoningEffort,
+				EnableTools:        opts.EnableTools,
+				Chat:               opts.Chat,
+				ToolEngineManager:  toolEngineManager,
+				AdditionalMessages: additionalMessages,
+				InjectedFiles:      filePaths,
+			}
+
+			app := tui.NewApp(ctx, service, chat, params)
 
 			p := tea.NewProgram(app, tea.WithContext(ctx))
 			app.SetProgram(p)
@@ -189,11 +207,12 @@ func NewCmd(
 	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias")
 	cmd.Flags().Int32Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
-	cmd.Flags().StringVar(&opts.ChatID, "id", "", "Chat ID to resume")
+	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringVarP(&opts.ReasoningEffort, "think", "t", "", "Reasoning level (low, medium, high)")
 	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable built-in tools (shell, read_files)")
 	cmd.Flags().StringSliceVar(&opts.ToolEngines, "tool", nil, "Enable a specific tool engine by name (repeatable)")
+	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cachedModels, _ := fetchModelsWithCache(cmd.Context(), aiClient, false)

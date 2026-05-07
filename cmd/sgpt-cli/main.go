@@ -14,7 +14,6 @@ import (
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
-	"github.com/malonaz/sgpt/webserver"
 )
 
 const defaultConfigFilepath = "~/.config/sgpt/config.json"
@@ -35,8 +34,6 @@ func run() error {
 	}
 
 	var configFilepath string
-	var local bool
-
 	rootCmd := &cobra.Command{
 		Use:     "sgpt",
 		Short:   "A CLI for GPT operations",
@@ -50,7 +47,6 @@ func run() error {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&configFilepath, "config", defaultConfigFilepath, "Path to configuration file")
-	rootCmd.PersistentFlags().BoolVar(&local, "local", false, "Use local server")
 
 	if err := rootCmd.ParseFlags(os.Args); err != nil {
 		return fmt.Errorf("parsing flags: %v", err)
@@ -91,12 +87,9 @@ func run() error {
 		baseURLToGRPCConnection[grpcClient.GetBaseUrl()] = conn
 	}
 
-	// Instantiate AI Client.
 	aiClient := aiservicepb.NewAiServiceClient(baseURLToGRPCConnection[config.GetAiService().GetBaseUrl()].Get())
 	sgptClient := sgptservicepb.NewSgptServiceClient(baseURLToGRPCConnection[config.GetSgptService().GetBaseUrl()].Get())
 
-	rootCmd.AddCommand(webserver.NewServeCmd(sgptClient))
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, sgptClient, baseURLToGRPCConnection))
-	rootCmd.AddCommand(chat.NewSummarizeCmd(config, aiClient, sgptClient))
 	return rootCmd.Execute()
 }

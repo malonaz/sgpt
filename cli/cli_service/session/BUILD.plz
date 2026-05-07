@@ -1,0 +1,24 @@
+go_library(
+    name = "session",
+    srcs = [
+        "events.go",
+        "session.go",
+        "stream.go",
+        "tools.go",
+    ],
+    visibility = ["//..."],
+    deps = [
+        "//cli/cli_service",
+        "//internal/tools",
+        "//sgpt/sgpt_service/v1",
+        "//sgpt/v1",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:github.com__malonaz__core__go__pbutil__pbfieldmask",
+        "//third_party/go:github.com__malonaz__core__go__uuid",
+        "//third_party/go:google.golang.org__grpc__status",
+        "//third_party/go:google.golang.org__protobuf__proto",
+        "//third_party/proto:google__rpc__status",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)

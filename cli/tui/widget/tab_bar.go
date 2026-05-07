@@ -1,4 +1,4 @@
-package component
+package widget
 
 import (
 	"strings"
@@ -6,7 +6,6 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 )
 
-// Tab holds the display info for a single tab in the bar.
 type Tab struct {
 	ID        string
 	Title     string

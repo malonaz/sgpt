@@ -1,15 +1,13 @@
-go_binary(
-    name = "sgpt-cli",
-    srcs = ["main.go"],
+go_library(
+    name = "cli_service",
+    srcs = ["service.go"],
     visibility = ["//..."],
     deps = [
-        "//cli/chat",
-        "//internal/configuration",
+        "//internal/toolengine",
         "//sgpt/sgpt_service/v1",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__grpc",
-        "//third_party/go:github.com__malonaz__core__go__logging",
-        "//third_party/go:github.com__spf13__cobra",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
