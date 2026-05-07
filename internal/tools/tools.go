@@ -12,11 +12,12 @@ const (
 	ToolCallMetadataAnnotationKey   = "sgpt.com/tool-call-metadata"
 	ToolResultMetadataAnnotationKey = "sgpt.com/tool-result-metadata"
 
-	// Annotations-driven tool call lifecycle status.
 	ToolCallStatusAnnotation = "sgpt.com/tool-status"
 	ToolCallStatusPending    = "pending"
 	ToolCallStatusAccepted   = "accepted"
 	ToolCallStatusRejected   = "rejected"
+
+	ToolCallRejectionReasonAnnotation = "sgpt.com/tool-rejection-reason"
 )
 
 func SetToolCallStatus(toolCall *aipb.ToolCall, status string) {
@@ -28,6 +29,17 @@ func SetToolCallStatus(toolCall *aipb.ToolCall, status string) {
 
 func GetToolCallStatus(toolCall *aipb.ToolCall) string {
 	return toolCall.GetAnnotations()[ToolCallStatusAnnotation]
+}
+
+func SetToolCallRejectionReason(toolCall *aipb.ToolCall, reason string) {
+	if toolCall.Annotations == nil {
+		toolCall.Annotations = map[string]string{}
+	}
+	toolCall.Annotations[ToolCallRejectionReasonAnnotation] = reason
+}
+
+func GetToolCallRejectionReason(toolCall *aipb.ToolCall) string {
+	return toolCall.GetAnnotations()[ToolCallRejectionReasonAnnotation]
 }
 
 func SetToolCallMetadata(toolCall *aipb.ToolCall, metadata *sgptpb.ToolCallMetadata) error {

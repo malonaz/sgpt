@@ -22,7 +22,6 @@ const (
 	FocusViewport
 )
 
-// sessionEventMsg wraps a session.Event as a tea.Msg.
 type sessionEventMsg struct {
 	event session.Event
 }
@@ -33,16 +32,16 @@ var (
 	keyForkChat       = key.NewBinding(key.WithKeys("alt+="))
 )
 
-// ChatScreen is a thin compositor that wires a Session to view widgets.
 type ChatScreen struct {
 	session *session.Session
 	wrap    WrapFunc
 	send    SendFunc
 
-	titlebar *widget.TitleBar
-	messages *widget.Messages
-	input    *widget.Input
-	spinner  spinner.Model
+	titlebar   *widget.TitleBar
+	messages   *widget.Messages
+	input      *widget.Input
+	toolReview *widget.ToolReview
+	spinner    spinner.Model
 
 	lastInputHeight int
 
@@ -73,6 +72,7 @@ func NewChatScreen(
 		titlebar:         widget.NewTitleBar(),
 		messages:         widget.NewMessages(),
 		input:            widget.NewInput(),
+		toolReview:       widget.NewToolReview(),
 		spinner:          sp,
 		injectedFiles:    injectedFiles,
 		focusedComponent: FocusTextarea,
@@ -106,7 +106,7 @@ func (m *ChatScreen) SetSize(width, height int) {
 
 func (m *ChatScreen) OnFocus() tea.Cmd {
 	m.focused = true
-	if m.focusedComponent == FocusTextarea && !m.session.IsStreaming() {
+	if m.focusedComponent == FocusTextarea && !m.session.IsStreaming() && !m.inToolReview() {
 		return m.input.Focus()
 	}
 	return nil
@@ -174,7 +174,7 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return m.handleKeyPress(msg)
 	}
 
-	if !m.session.IsStreaming() {
+	if !m.session.IsStreaming() && !m.inToolReview() {
 		cmd := m.input.Update(msg)
 		if m.input.Height() != m.lastInputHeight {
 			m.lastInputHeight = m.input.Height()
@@ -191,6 +191,7 @@ func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
 		wasAtBottom := m.messages.AtBottom()
 		m.refreshMessages()
 		m.refreshTitle()
+		m.refreshToolReview()
 		m.recalculateLayout()
 		if wasAtBottom {
 			m.messages.GotoBottom()
@@ -203,15 +204,30 @@ func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
 	return nil
 }
 
+func (m *ChatScreen) inToolReview() bool {
+	return m.toolReview.Active()
+}
+
+func (m *ChatScreen) refreshToolReview() {
+	pending := m.session.PendingToolCalls()
+	m.toolReview.SetToolCalls(pending)
+}
+
 func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyCycleFocus):
-		return m.cycleFocus()
+		if !m.inToolReview() {
+			return m.cycleFocus()
+		}
 	case key.Matches(msg, keyCycleReasoning):
 		m.cycleReasoningEffort()
 		return nil
 	case key.Matches(msg, keyForkChat):
 		return func() tea.Msg { return m.wrap(OpenChatMsg{Chat: m.session.Chat(), Fork: true}) }
+	}
+
+	if m.inToolReview() {
+		return m.handleToolReviewKey(msg)
 	}
 
 	switch m.focusedComponent {
@@ -242,29 +258,6 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		userInput := m.input.Value()
-
-		if len(m.session.PendingToolCalls()) > 0 {
-			if userInput == "" {
-				// Accept tool calls — runs blocking in a tea.Cmd goroutine.
-				sess := m.session
-				wrap := m.wrap
-				m.recalculateLayout()
-				return tea.Batch(m.spinner.Tick, func() tea.Msg {
-					sess.AcceptToolCalls()
-					return wrap(sessionEventMsg{event: session.RefreshEvent{}})
-				})
-			}
-			m.input.Reset()
-			sess := m.session
-			wrap := m.wrap
-			reason := userInput
-			m.recalculateLayout()
-			return tea.Batch(m.spinner.Tick, func() tea.Msg {
-				sess.RejectAndResend(reason)
-				return wrap(sessionEventMsg{event: session.RefreshEvent{}})
-			})
-		}
-
 		if userInput != "" {
 			text := m.input.Submit()
 			m.messages.ResetNavigation()
@@ -272,7 +265,6 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			m.messages.GotoBottom()
 			m.recalculateLayout()
 
-			// SendMessage blocks — run in a tea.Cmd goroutine.
 			sess := m.session
 			wrap := m.wrap
 			return tea.Batch(m.spinner.Tick, func() tea.Msg {
@@ -291,6 +283,44 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 	return nil
+}
+
+func (m *ChatScreen) handleToolReviewKey(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+c":
+		return func() tea.Msg { return CloseTabMsg{} }
+
+	case "ctrl+n":
+		m.toolReview.NextToolCall()
+		return nil
+
+	case "ctrl+p":
+		m.toolReview.PrevToolCall()
+		return nil
+
+	case "ctrl+j":
+		reason := m.toolReview.InputValue()
+		if reason == "" {
+			m.toolReview.AcceptCurrent()
+		} else {
+			m.toolReview.RejectCurrent(reason)
+		}
+		m.toolReview.ResetInput()
+
+		if m.toolReview.AllResolved() {
+			sess := m.session
+			wrap := m.wrap
+			m.recalculateLayout()
+			return tea.Batch(m.spinner.Tick, func() tea.Msg {
+				sess.ResolveToolCalls()
+				return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+			})
+		}
+		return nil
+	}
+
+	cmd := m.toolReview.UpdateInput(msg)
+	return cmd
 }
 
 func (m *ChatScreen) cycleFocus() tea.Cmd {
@@ -350,7 +380,11 @@ func (m *ChatScreen) recalculateLayout() {
 
 	viewportHeight := m.height - m.titlebar.Height()
 	if !m.session.IsStreaming() {
-		viewportHeight -= m.input.Height()
+		if m.inToolReview() {
+			viewportHeight -= m.toolReview.Height()
+		} else {
+			viewportHeight -= m.input.Height()
+		}
 	}
 	if viewportHeight < styles.MinViewportHeight {
 		viewportHeight = styles.MinViewportHeight
@@ -358,6 +392,7 @@ func (m *ChatScreen) recalculateLayout() {
 
 	m.messages.SetSize(m.width, viewportHeight)
 	m.input.SetWidth(m.width)
+	m.toolReview.SetWidth(m.width)
 
 	if !m.ready {
 		m.ready = true
@@ -380,10 +415,10 @@ func (m *ChatScreen) View() string {
 
 	if !m.session.IsStreaming() {
 		b.WriteString("\n")
-		b.WriteString(m.input.View())
-		if len(m.session.PendingToolCalls()) > 0 {
-			b.WriteString("\n")
-			b.WriteString(styles.HelpStyle.Render("Tool call pending: Ctrl+J to accept, type + Ctrl+J to reject"))
+		if m.inToolReview() {
+			b.WriteString(m.toolReview.View())
+		} else {
+			b.WriteString(m.input.View())
 		}
 	}
 

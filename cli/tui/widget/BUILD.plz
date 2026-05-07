@@ -6,6 +6,7 @@ go_library(
         "messages.go",
         "tab_bar.go",
         "titlebar.go",
+        "tool_review.go",
     ],
     visibility = ["//..."],
     deps = [
