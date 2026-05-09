@@ -3052,7 +3052,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260507050615-5e4da13428f7",
+    version = "v0.0.0-20260508185203-c41f52ad95eb",
     visibility = ["PUBLIC"],
 )
 

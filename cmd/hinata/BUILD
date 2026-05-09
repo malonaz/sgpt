@@ -34,12 +34,6 @@ go_binary(
     ],
 )
 
-_databases = [
-    "sgpt",
-]
-
-_binary_deps = [f"//{db}/migrations:initializer" for db in _databases] + [f"//{db}/migrations:migrator" for db in _databases] + ["//cmd/hinata"]
-
 _env = {
     "POSTGRES_HOST": "localhost",
     "POSTGRES_PORT": "8989",
@@ -64,6 +58,9 @@ sh_cmd(
         "--internal-service-authentication.config=cmd/hinata/authentication/internal_service_accounts.json",
         "--permission-authentication.config=cmd/hinata/authentication/roles.json",
     ]),
-    data = _binary_deps,
+    data = [
+        "///core//cmd/postgres-migrator",
+        "//sgpt/migrations",
+    ],
     expand_env_vars = False,
 )

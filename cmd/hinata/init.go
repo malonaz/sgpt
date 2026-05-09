@@ -22,37 +22,34 @@ func setup(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("instantiating raw logger: %w", err)
 	}
-	binaryLoggingArgs := func(name string, args ...any) []string {
-		return []string{
-			fmt.Sprintf("--logging.format=%s", opts.Logging.Format),
-			fmt.Sprintf("--logging.field=binary:%s", fmt.Sprintf(name, args...)),
-		}
-	}
 
 	env := os.Getenv("ENV")
+	binPath := "postgres-migrator"
+	if env == "" {
+		binPath = "plz-out/bin/core/cmd/postgres-migrator/postgres-migrator"
+	}
 	for _, database := range databases {
-		var initializer *binary.Binary
-		var migrator *binary.Binary
+		dir := "/etc/hinata/migrations"
 		if env == "" {
-			// Run the initializer binaries.
-			initializer = binary.MustNew(
-				fmt.Sprintf("plz-out/bin/%s/migrations/initializer", database),
-				binaryLoggingArgs("postgres_initializer_job_%s", database)...,
-			).WithLogger(rawLogger).AsJob()
-			migrator = binary.MustNew(
-				fmt.Sprintf("plz-out/bin/%s/migrations/migrator", database),
-				binaryLoggingArgs("postgres_migrator_job_%s", database)...,
-			).WithLogger(rawLogger).AsJob()
-		} else {
-			initializer = binary.MustNew(
-				fmt.Sprintf("hinata-%s-postgres-initializer", database),
-				binaryLoggingArgs("postgres_initializer_job_%s", database)...,
-			).WithLogger(rawLogger).AsJob()
-			migrator = binary.MustNew(
-				fmt.Sprintf("hinata-%s-postgres-migrator", database),
-				binaryLoggingArgs("postgres_migrator_job_%s", database)...,
-			).WithLogger(rawLogger).AsJob()
+			dir = "plz-out/gen/sgpt/migrations"
 		}
+		initializer := binary.MustNew(
+			binPath,
+			fmt.Sprintf("--logging.format=%s", opts.Logging.Format),
+			fmt.Sprintf("--logging.field=binary:%s", database),
+			"--mode", "init",
+			"--target-namespace", database,
+			"--dir", dir,
+		).WithLogger(rawLogger).AsJob()
+		migrator := binary.MustNew(
+			binPath,
+			fmt.Sprintf("--logging.format=%s", opts.Logging.Format),
+			fmt.Sprintf("--logging.field=binary:%s", database),
+			"--mode", "migrate",
+			"--target-namespace", database,
+			"--dir", dir,
+		).WithLogger(rawLogger).AsJob()
+
 		if err := initializer.Run(); err != nil {
 			return fmt.Errorf("running %s db initializer: %w", database, err)
 		}

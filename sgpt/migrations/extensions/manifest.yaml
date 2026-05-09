@@ -1,0 +1,3 @@
+migrations:
+  - filename: 001_add_pg_trgm.sql
+    hash: 106a59094d5cd047cb07f39e68db563a
