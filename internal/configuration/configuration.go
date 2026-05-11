@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/malonaz/core/go/jsonnet"
 	"github.com/malonaz/core/go/pbutil"
@@ -43,15 +44,22 @@ func Parse(path string) (*sgptpb.Configuration, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing config %s: %w", path, err)
 	}
-
-	overrideConfigPath, err := findOverrideConfigPath()
-	if err != nil {
-		return nil, fmt.Errorf("finding override config path: %w", err)
+	if err := resolveRoleFilePaths(configuration, filepath.Dir(path)); err != nil {
+		return nil, fmt.Errorf("resolving role file paths in %s: %w", path, err)
 	}
-	if overrideConfigPath != "" {
-		overrideConfiguration, err := parseConfig(overrideConfigPath)
+
+	overrideConfigPaths, err := findOverrideConfigPaths()
+	if err != nil {
+		return nil, fmt.Errorf("finding override config paths: %w", err)
+	}
+	// Apply overrides from root-most to cwd-most so closer overrides win.
+	for i := len(overrideConfigPaths) - 1; i >= 0; i-- {
+		overrideConfiguration, err := parseConfig(overrideConfigPaths[i])
 		if err != nil {
-			return nil, fmt.Errorf("parsing override config %s: %w", overrideConfigPath, err)
+			return nil, fmt.Errorf("parsing override config %s: %w", overrideConfigPaths[i], err)
+		}
+		if err := resolveRoleFilePaths(overrideConfiguration, filepath.Dir(overrideConfigPaths[i])); err != nil {
+			return nil, fmt.Errorf("resolving role file paths in %s: %w", overrideConfigPaths[i], err)
 		}
 		proto.Merge(configuration, overrideConfiguration)
 	}
@@ -77,6 +85,24 @@ func ResolveModelAlias(configuration *sgptpb.Configuration, nameOrAlias string) 
 	}
 
 	return "", fmt.Errorf("unknown model alias or name: %s", nameOrAlias)
+}
+
+// resolveRoleFilePaths converts relative paths in role files to absolute paths
+// relative to the config directory that defined them. Returns an error if any
+// path does not exist.
+func resolveRoleFilePaths(configuration *sgptpb.Configuration, configDir string) error {
+	for _, r := range configuration.GetChat().GetRoles() {
+		for i, f := range r.GetFiles() {
+			if !filepath.IsAbs(f) {
+				r.Files[i] = filepath.Join(configDir, f)
+			}
+			checkPath := strings.TrimSuffix(r.Files[i], "/...")
+			if _, err := os.Stat(checkPath); err != nil {
+				return fmt.Errorf("role %q references non-existent path %q: %w", r.GetName(), r.Files[i], err)
+			}
+		}
+	}
+	return nil
 }
 
 func save(configuration *sgptpb.Configuration, path string) error {
@@ -106,20 +132,23 @@ func initializeIfNotPresent(path string) error {
 	return nil
 }
 
-func findOverrideConfigPath() (string, error) {
+// findOverrideConfigPaths walks up from cwd collecting all sgpt.json files.
+// Returns them ordered from cwd-most to root-most.
+func findOverrideConfigPaths() ([]string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return "", fmt.Errorf("getting working directory: %w", err)
+		return nil, fmt.Errorf("getting working directory: %w", err)
 	}
 
+	var paths []string
 	for {
-		overrideConfigPath := filepath.Join(currentDir, ".sgpt.json")
+		overrideConfigPath := filepath.Join(currentDir, "sgpt.json")
 		ok, err := file.Exists(overrideConfigPath)
 		if err != nil {
-			return "", fmt.Errorf("checking override config existence: %w", err)
+			return nil, fmt.Errorf("checking override config existence: %w", err)
 		}
 		if ok {
-			return overrideConfigPath, nil
+			paths = append(paths, overrideConfigPath)
 		}
 		if currentDir == filepath.Dir(currentDir) {
 			break
@@ -127,7 +156,7 @@ func findOverrideConfigPath() (string, error) {
 		currentDir = filepath.Dir(currentDir)
 	}
 
-	return "", nil
+	return paths, nil
 }
 
 func parseConfig(path string) (*sgptpb.Configuration, error) {

@@ -10,6 +10,7 @@ import (
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
 
+	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
@@ -91,5 +92,6 @@ func run() error {
 	sgptClient := sgptservicepb.NewSgptServiceClient(baseURLToGRPCConnection[config.GetSgptService().GetBaseUrl()].Get())
 
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, sgptClient, baseURLToGRPCConnection))
+	rootCmd.AddCommand(cache.NewCmd())
 	return rootCmd.Execute()
 }

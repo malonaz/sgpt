@@ -66,6 +66,10 @@ func NewCmd(
 			cobra.CheckErr(err)
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
+
+			// Append role-defined files.
+			opts.FileInjection.Files = append(opts.FileInjection.Files, parsedRole.GetFiles()...)
+
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
 			filePaths := make([]string, len(files))
@@ -212,6 +216,22 @@ func NewCmd(
 			name := te.GetName()
 			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
 				names = append(names, name)
+			}
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	})
+
+	cmd.RegisterFlagCompletionFunc("role", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		var names []string
+		for _, r := range config.Chat.GetRoles() {
+			name := r.GetName()
+			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
+				names = append(names, name)
+			}
+			if alias := r.GetAlias(); alias != "" {
+				if toComplete == "" || strings.Contains(strings.ToLower(alias), strings.ToLower(toComplete)) {
+					names = append(names, alias)
+				}
 			}
 		}
 		return names, cobra.ShellCompDirectiveNoFileComp
