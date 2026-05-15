@@ -180,6 +180,7 @@ func NewCmd(
 				ToolEngineManager:  toolEngineManager,
 				AdditionalMessages: additionalMessages,
 				InjectedFiles:      filePaths,
+				Tools:              tools,
 			}
 
 			app := tui.NewApp(ctx, service, chat, params)

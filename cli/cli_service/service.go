@@ -25,7 +25,7 @@ type SessionParams struct {
 	MaxTokens          int32
 	Temperature        float64
 	ReasoningEffort    aipb.ReasoningEffort
-	EnableTools        bool
+	Tools              []string
 	Chat               string
 	ToolEngineManager  *toolengine.Manager
 	AdditionalMessages []*aipb.Message

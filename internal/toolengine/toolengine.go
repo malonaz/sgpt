@@ -270,10 +270,6 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 	}
 }
 
-func (m *Manager) HasToolSets() bool {
-	return len(m.toolSets) > 0
-}
-
 func (m *Manager) Close() {
 	for _, closer := range m.closers {
 		closer()

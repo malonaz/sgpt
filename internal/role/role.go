@@ -105,6 +105,7 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 		result.Alias = role.Alias
 		result.Model = role.Model
 		result.Files = role.Files
+		result.Tools = role.Tools
 		data.RolePrompt = role.Prompt
 	}
 

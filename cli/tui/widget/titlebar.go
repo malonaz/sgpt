@@ -2,6 +2,7 @@ package widget
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -46,18 +47,9 @@ func (t *TitleBar) Refresh(params cliservice.SessionParams, totalUsage, lastUsag
 		reasoningStr = "high"
 	}
 
-	toolsStr := ""
-	if params.EnableTools {
-		toolsStr = "🔧"
-	}
-	if params.ToolEngineManager != nil && params.ToolEngineManager.HasToolSets() {
-		if toolsStr != "" {
-			toolsStr += "+"
-		}
-		toolsStr += "🌐"
-	}
+	toolsStr := strings.Join(params.Tools, " + ")
 	if toolsStr != "" {
-		toolsStr = " | " + toolsStr
+		toolsStr = " | 🔧 " + toolsStr
 	}
 
 	totalInputTokens := totalUsage.GetInputToken().GetQuantity() + totalUsage.GetInputTokenCacheRead().GetQuantity()
