@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
@@ -17,6 +18,8 @@ import (
 
 const (
 	searchDebounceInterval = 300 * time.Millisecond
+	favoriteTag            = "favorite"
+	favoriteFilter         = `tags:"favorite"`
 )
 
 type FocusTarget int
@@ -28,7 +31,8 @@ const (
 )
 
 type chatsLoadedMsg struct {
-	Chats         []*sgptpb.Chat
+	Favorites     []*sgptpb.Chat
+	Others        []*sgptpb.Chat
 	NextPageToken string
 	Err           error
 	PageToken     string
@@ -40,6 +44,12 @@ type chatDeletedMsg struct {
 	Err  error
 }
 
+type chatFavoriteToggledMsg struct {
+	Name      string
+	Favorited bool
+	Err       error
+}
+
 type searchDebounceTickMsg struct {
 	Query string
 }
@@ -49,7 +59,9 @@ type Model struct {
 	chatClient sgptservicepb.SgptServiceClient
 	wrap       screen.WrapFunc
 
-	chats            []*sgptpb.Chat
+	favorites []*sgptpb.Chat
+	others    []*sgptpb.Chat
+
 	chatCursor       int
 	loading          bool
 	err              error
@@ -167,6 +179,7 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 	m.loading = true
 	wrap := m.wrap
 	searchQuery := m.searchQuery
+	pageSize := int32(m.visibleRowCapacity())
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 		defer cancel()
@@ -174,33 +187,49 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 		if searchQuery != "" {
 			searchChatsRequest := &sgptservicepb.SearchChatsRequest{
 				Query:     searchQuery,
-				PageSize:  int32(m.visibleRowCapacity()),
+				PageSize:  pageSize,
 				PageToken: pageToken,
 			}
 			searchChatsResponse, err := m.chatClient.SearchChats(ctx, searchChatsRequest)
 			if err != nil {
 				return wrap(chatsLoadedMsg{Err: err, SearchQuery: searchQuery})
 			}
+			favorites, others := partitionByTag(searchChatsResponse.Chats, favoriteTag)
 			return wrap(chatsLoadedMsg{
-				Chats:         searchChatsResponse.Chats,
+				Favorites:     favorites,
+				Others:        others,
 				NextPageToken: searchChatsResponse.NextPageToken,
 				PageToken:     pageToken,
 				SearchQuery:   searchQuery,
 			})
 		}
 
-		listChatsRequest := &sgptservicepb.ListChatsRequest{
-			PageSize:  int32(m.visibleRowCapacity()),
-			OrderBy:   "create_time desc",
-			PageToken: pageToken,
+		// Fetch favorites.
+		listFavoritesRequest := &sgptservicepb.ListChatsRequest{
+			PageSize: pageSize,
+			OrderBy:  "create_time desc",
+			Filter:   favoriteFilter,
 		}
-		listChatsResponse, err := m.chatClient.ListChats(ctx, listChatsRequest)
+		listFavoritesResponse, err := m.chatClient.ListChats(ctx, listFavoritesRequest)
 		if err != nil {
 			return wrap(chatsLoadedMsg{Err: err})
 		}
+
+		// Fetch others (paginated).
+		listOthersRequest := &sgptservicepb.ListChatsRequest{
+			PageSize:  pageSize,
+			OrderBy:   "create_time desc",
+			PageToken: pageToken,
+		}
+		listOthersResponse, err := m.chatClient.ListChats(ctx, listOthersRequest)
+		if err != nil {
+			return wrap(chatsLoadedMsg{Err: err})
+		}
+
 		return wrap(chatsLoadedMsg{
-			Chats:         listChatsResponse.Chats,
-			NextPageToken: listChatsResponse.NextPageToken,
+			Favorites:     listFavoritesResponse.Chats,
+			Others:        listOthersResponse.Chats,
+			NextPageToken: listOthersResponse.NextPageToken,
 			PageToken:     pageToken,
 		})
 	}
@@ -215,14 +244,65 @@ func (m *Model) deleteChat(name string) tea.Cmd {
 	}
 }
 
+func (m *Model) toggleFavorite(chat *sgptpb.Chat) tea.Cmd {
+	wrap := m.wrap
+	wasFavorite := chatHasTag(chat, favoriteTag)
+
+	if wasFavorite {
+		filtered := make([]string, 0, len(chat.Tags)-1)
+		for _, tag := range chat.Tags {
+			if tag != favoriteTag {
+				filtered = append(filtered, tag)
+			}
+		}
+		chat.Tags = filtered
+	} else {
+		chat.Tags = append(chat.Tags, favoriteTag)
+	}
+
+	return func() tea.Msg {
+		updateChatRequest := &sgptservicepb.UpdateChatRequest{
+			Chat:       chat,
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"tags"}},
+		}
+		_, err := m.chatClient.UpdateChat(m.ctx, updateChatRequest)
+		return wrap(chatFavoriteToggledMsg{
+			Name:      chat.GetName(),
+			Favorited: !wasFavorite,
+			Err:       err,
+		})
+	}
+}
+
 func (m *Model) resetPagination() {
 	m.pageTokenStack = nil
 	m.currentPageToken = ""
 	m.nextPageToken = ""
 }
 
+// displayedChats returns favorites then others, with client-side filter applied.
 func (m *Model) displayedChats() []*sgptpb.Chat {
-	return m.filteredChats()
+	favorites := m.applyFilter(m.favorites)
+	others := m.applyFilter(m.others)
+	return append(favorites, others...)
+}
+
+func (m *Model) displayedFavoriteCount() int {
+	return len(m.applyFilter(m.favorites))
+}
+
+func (m *Model) applyFilter(chats []*sgptpb.Chat) []*sgptpb.Chat {
+	if m.filterText == "" {
+		return chats
+	}
+	var result []*sgptpb.Chat
+	for _, chat := range chats {
+		title := chat.GetMetadata().GetTitle()
+		if containsIgnoreCase(title, m.filterText) || containsIgnoreCase(chat.Name, m.filterText) {
+			result = append(result, chat)
+		}
+	}
+	return result
 }
 
 func (m *Model) selectedChat() *sgptpb.Chat {
@@ -248,20 +328,6 @@ func (m *Model) updateSelection() {
 	}
 	m.detailViewport.SetContent(m.renderDetail())
 	m.detailViewport.GotoTop()
-}
-
-func (m *Model) filteredChats() []*sgptpb.Chat {
-	if m.filterText == "" {
-		return m.chats
-	}
-	var result []*sgptpb.Chat
-	for _, chat := range m.chats {
-		title := chat.GetMetadata().GetTitle()
-		if containsIgnoreCase(title, m.filterText) || containsIgnoreCase(chat.Name, m.filterText) {
-			result = append(result, chat)
-		}
-	}
-	return result
 }
 
 func (m *Model) listWidth() int {
@@ -344,6 +410,26 @@ func (m *Model) previousPage() tea.Cmd {
 
 func (m *Model) currentPage() int {
 	return len(m.pageTokenStack) + 1
+}
+
+func chatHasTag(chat *sgptpb.Chat, tag string) bool {
+	for _, t := range chat.GetTags() {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
+func partitionByTag(chats []*sgptpb.Chat, tag string) (withTag []*sgptpb.Chat, withoutTag []*sgptpb.Chat) {
+	for _, chat := range chats {
+		if chatHasTag(chat, tag) {
+			withTag = append(withTag, chat)
+		} else {
+			withoutTag = append(withoutTag, chat)
+		}
+	}
+	return withTag, withoutTag
 }
 
 func containsIgnoreCase(s, substr string) bool {

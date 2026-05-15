@@ -479,7 +479,9 @@ type Role struct {
 	// Format: providers/{provider}/models/{model}
 	Model string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
 	// Files to include as context for this role.
-	Files         []string `protobuf:"bytes,5,rep,name=files,proto3" json:"files,omitempty"`
+	Files []string `protobuf:"bytes,5,rep,name=files,proto3" json:"files,omitempty"`
+	// Tools to include as part of this role.
+	Tools         []string `protobuf:"bytes,6,rep,name=tools,proto3" json:"tools,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -544,6 +546,13 @@ func (x *Role) GetFiles() []string {
 	return nil
 }
 
+func (x *Role) GetTools() []string {
+	if x != nil {
+		return x.Tools
+	}
+	return nil
+}
+
 func (x *Role) SetName(v string) {
 	x.Name = v
 }
@@ -564,6 +573,10 @@ func (x *Role) SetFiles(v []string) {
 	x.Files = v
 }
 
+func (x *Role) SetTools(v []string) {
+	x.Tools = v
+}
+
 type Role_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -578,6 +591,8 @@ type Role_builder struct {
 	Model string
 	// Files to include as context for this role.
 	Files []string
+	// Tools to include as part of this role.
+	Tools []string
 }
 
 func (b0 Role_builder) Build() *Role {
@@ -589,6 +604,7 @@ func (b0 Role_builder) Build() *Role {
 	x.Prompt = b.Prompt
 	x.Model = b.Model
 	x.Files = b.Files
+	x.Tools = b.Tools
 	return m0
 }
 
@@ -740,14 +756,15 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\rdefault_model\x18\x02 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
 	"\fdefault_role\x18\x03 \x01(\tR\vdefaultRole\x12#\n" +
-	"\x05roles\x18\x04 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\x9f\x01\n" +
+	"\x05roles\x18\x04 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xb5\x01\n" +
 	"\x04Role\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1e\n" +
 	"\x06prompt\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x06prompt\x12/\n" +
 	"\x05model\x18\x04 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
-	"\x05files\x18\x05 \x03(\tR\x05files\"\xf8\x01\n" +
+	"\x05files\x18\x05 \x03(\tR\x05files\x12\x14\n" +
+	"\x05tools\x18\x06 \x03(\tR\x05tools\"\xf8\x01\n" +
 	"\x17ToolEngineConfiguration\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12B\n" +
 	"\x0eengine_service\x18\x02 \x01(\v2\x13.sgpt.v1.GrpcClientB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +

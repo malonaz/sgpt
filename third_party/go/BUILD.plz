@@ -249,6 +249,7 @@ go_mod_download(
     name = "charm.land__glamour__v2",
     _tag = "download",
     module = "charm.land/glamour/v2",
+    patch = ["glamour.patch"],
     version = "v2.0.0",
     visibility = ["PUBLIC"],
 )
@@ -728,7 +729,7 @@ go_mod_download(
     name = "github.com__alecthomas__chroma__v2",
     _tag = "download",
     module = "github.com/alecthomas/chroma/v2",
-    version = "v2.20.0",
+    version = "v2.24.1",
     visibility = ["PUBLIC"],
 )
 
@@ -1199,7 +1200,7 @@ go_mod_download(
     name = "github.com__charmbracelet__ultraviolet",
     _tag = "download",
     module = "github.com/charmbracelet/ultraviolet",
-    version = "v0.0.0-20260416155717-489999b90468",
+    version = "v0.0.0-20260511121909-c840852527f3",
     visibility = ["PUBLIC"],
 )
 
@@ -1271,7 +1272,7 @@ go_mod_download(
     name = "github.com__charmbracelet__x__exp__slice",
     _tag = "download",
     module = "github.com/charmbracelet/x/exp/slice",
-    version = "v0.0.0-20250327172914-2fdc97757edf",
+    version = "v0.0.0-20260511125431-fe5d686e0c99",
     visibility = ["PUBLIC"],
 )
 
@@ -1445,7 +1446,7 @@ go_mod_download(
     name = "github.com__dlclark__regexp2",
     _tag = "download",
     module = "github.com/dlclark/regexp2",
-    version = "v1.11.5",
+    version = "v1.12.0",
     visibility = ["PUBLIC"],
 )
 
@@ -4733,8 +4734,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -5082,7 +5083,7 @@ go_mod_download(
     name = "github.com__yuin__goldmark",
     _tag = "download",
     module = "github.com/yuin/goldmark",
-    version = "v1.7.13",
+    version = "v1.8.2",
     visibility = ["PUBLIC"],
 )
 
@@ -5671,7 +5672,7 @@ go_mod_download(
     name = "golang.org__x__crypto",
     _tag = "download",
     module = "golang.org/x/crypto",
-    version = "v0.47.0",
+    version = "v0.51.0",
     visibility = ["PUBLIC"],
 )
 
@@ -5814,7 +5815,7 @@ go_mod_download(
     name = "golang.org__x__net",
     _tag = "download",
     module = "golang.org/x/net",
-    version = "v0.48.0",
+    version = "v0.54.0",
     visibility = ["PUBLIC"],
 )
 
@@ -5864,6 +5865,7 @@ go_module(
         ":golang.org__x__net__http2__hpack",
         ":golang.org__x__net__idna",
         ":golang.org__x__net__internal__httpcommon",
+        ":golang.org__x__net__internal__httpsfv",
         "//third_party/go:golang.org__x__net__http__httpguts",
     ],
 )
@@ -5900,6 +5902,15 @@ go_module(
         "//third_party/go:golang.org__x__net__http2__hpack",
         "//third_party/go:golang.org__x__net__http__httpguts",
     ],
+)
+
+go_module(
+    name = "golang.org__x__net__internal__httpsfv",
+    download = ":_golang.org__x__net#download",
+    install = ["internal/httpsfv"],
+    module = "golang.org/x/net",
+    visibility = ["PUBLIC"],
+    deps = [],
 )
 
 go_module(
@@ -5950,7 +5961,7 @@ go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
-    version = "v0.43.0",
+    version = "v0.44.0",
     visibility = ["PUBLIC"],
 )
 
@@ -5976,7 +5987,7 @@ go_mod_download(
     name = "golang.org__x__text",
     _tag = "download",
     module = "golang.org/x/text",
-    version = "v0.33.0",
+    version = "v0.37.0",
     visibility = ["PUBLIC"],
 )
 

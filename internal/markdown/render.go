@@ -25,6 +25,8 @@ func NewRenderer(width int) (*Renderer, error) {
 	gr, err := glamour.NewTermRenderer(
 		glamour.WithStyles(customStyle()),
 		glamour.WithWordWrap(width),
+		glamour.WithInlineTableLinks(true),
+		glamour.WithHiddenLinks(),
 	)
 	if err != nil {
 		return nil, err

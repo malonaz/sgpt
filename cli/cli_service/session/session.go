@@ -1,4 +1,3 @@
-// session/session.go — updated runTurn() and removed old handleToolCalls/executeToolCallsBlocking
 package session
 
 import (
@@ -279,6 +278,39 @@ func (s *Session) saveChat() error {
 	}
 	s.chat = chat
 	return nil
+}
+
+// ToggleFavorite adds or removes the "favorite" tag from the chat and persists.
+// Returns true if the chat is now a favorite.
+func (s *Session) ToggleFavorite() bool {
+	s.mu.Lock()
+	tags := s.chat.GetTags()
+	isFavorite := false
+	for _, tag := range tags {
+		if tag == "favorite" {
+			isFavorite = true
+			break
+		}
+	}
+
+	if isFavorite {
+		filtered := make([]string, 0, len(tags)-1)
+		for _, tag := range tags {
+			if tag != "favorite" {
+				filtered = append(filtered, tag)
+			}
+		}
+		s.chat.Tags = filtered
+	} else {
+		s.chat.Tags = append(s.chat.Tags, "favorite")
+	}
+	nowFavorite := !isFavorite
+	s.mu.Unlock()
+
+	if err := s.saveChat(); err != nil {
+		s.emitError(fmt.Errorf("saving favorite: %w", err))
+	}
+	return nowFavorite
 }
 
 func statusToProto(err error) *spb.Status {

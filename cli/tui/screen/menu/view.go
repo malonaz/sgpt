@@ -54,7 +54,7 @@ func (m *Model) View() string {
 	if m.hasNextPage() {
 		pagination.WriteString(" ] ▶")
 	}
-	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+r: refresh │ %s", pagination.String())
+	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+f: favorite │ Alt+r: refresh │ %s", pagination.String())
 	b.WriteString(styles.HelpStyle.Render(helpText))
 
 	return b.String()
@@ -87,17 +87,31 @@ func (m *Model) renderList() string {
 	}
 
 	listWidth := m.listWidth()
+	favCount := m.displayedFavoriteCount()
 
-	headerFormat := "%-30s %-5s %-10s %s"
-	headerLine := fmt.Sprintf(headerFormat, "Title", "Msgs", "Updated", "Tags")
 	var b strings.Builder
-	b.WriteString(styles.MenuHeaderStyle.Width(listWidth).Render(headerLine))
-	b.WriteString("\n")
-	b.WriteString(m.renderChatRows(displayed, listWidth))
+
+	if favCount > 0 {
+		sectionHeader := styles.MenuHeaderStyle.Width(listWidth).Render("⭐ Favorites")
+		b.WriteString(sectionHeader)
+		b.WriteString("\n")
+		b.WriteString(m.renderChatRows(displayed[:favCount], listWidth, 0))
+		if favCount < len(displayed) {
+			b.WriteString("\n\n")
+		}
+	}
+
+	if favCount < len(displayed) {
+		sectionHeader := styles.MenuHeaderStyle.Width(listWidth).Render("📋 Chats")
+		b.WriteString(sectionHeader)
+		b.WriteString("\n")
+		b.WriteString(m.renderChatRows(displayed[favCount:], listWidth, favCount))
+	}
+
 	return b.String()
 }
 
-func (m *Model) renderChatRows(chats []*sgptpb.Chat, listWidth int) string {
+func (m *Model) renderChatRows(chats []*sgptpb.Chat, listWidth int, globalIndexOffset int) string {
 	var b strings.Builder
 	for i, chat := range chats {
 		title := chat.GetMetadata().GetTitle()
@@ -112,8 +126,9 @@ func (m *Model) renderChatRows(chats []*sgptpb.Chat, listWidth int) string {
 		line := fmt.Sprintf("%-30s %-5d %-10s", title, messageCount, updated)
 		coloredTags := styles.MenuTagStyle.Render(tags)
 
+		globalIndex := globalIndexOffset + i
 		style := styles.MenuItemStyle
-		if m.focusTarget == FocusChatList && i == m.chatCursor {
+		if m.focusTarget == FocusChatList && globalIndex == m.chatCursor {
 			style = styles.MenuSelectedStyle
 		}
 		b.WriteString(style.Width(listWidth).Render(line + coloredTags))
@@ -139,6 +154,9 @@ func (m *Model) renderDetail() string {
 
 	var b strings.Builder
 	title := chat.GetName()
+	if chatHasTag(chat, favoriteTag) {
+		title = "⭐ " + title
+	}
 	b.WriteString(styles.MenuTitleStyle.Render(fmt.Sprintf(" %s", styles.Truncate(title, detailWidth-2))))
 	b.WriteString("\n")
 	model := chat.GetMetadata().GetCurrentModel()

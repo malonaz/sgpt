@@ -1,0 +1,46 @@
+diff --git a/ansi/elements.go b/ansi/elements.go
+index 004a644..3866ea2 100644
+--- a/ansi/elements.go
++++ b/ansi/elements.go
+@@ -249,7 +249,7 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
+ 				BaseURL:  ctx.options.BaseURL,
+ 				URL:      string(n.Destination),
+ 				Children: children,
+-				SkipHref: isFooterLinks,
++				SkipHref: isFooterLinks || ctx.options.HideLinks,
+ 			},
+ 		}
+ 	case ast.KindAutoLink:
+diff --git a/ansi/renderer.go b/ansi/renderer.go
+index 092872a..cd546c4 100644
+--- a/ansi/renderer.go
++++ b/ansi/renderer.go
+@@ -20,6 +20,7 @@ type Options struct {
+ 	TableWrap        *bool
+ 	InlineTableLinks bool
+ 	PreserveNewLines bool
++	HideLinks        bool
+ 	Styles           StyleConfig
+ 	ChromaFormatter  string
+ }
+diff --git a/glamour.go b/glamour.go
+index 169abb4..90175c9 100644
+--- a/glamour.go
++++ b/glamour.go
+@@ -196,6 +196,16 @@ func WithInlineTableLinks(inlineTableLinks bool) TermRendererOption {
+ 	}
+ }
+ 
++// WithHiddenLinks hides the URL portion of links, showing only the link text.
++// This is useful when the terminal supports OSC 8 hyperlinks (clickable links)
++// and displaying the raw URL is redundant.
++func WithHiddenLinks() TermRendererOption {
++	return func(tr *TermRenderer) error {
++		tr.ansiOptions.HideLinks = true
++		return nil
++	}
++}
++
+ // WithPreservedNewLines preserves newlines from being replaced.
+ func WithPreservedNewLines() TermRendererOption {
+ 	return func(tr *TermRenderer) error {

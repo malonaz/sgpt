@@ -403,6 +403,7 @@
         "golang.org/x/net/http2/hpack": "//third_party/go:golang.org__x__net__http2__hpack",
         "golang.org/x/net/idna": "//third_party/go:golang.org__x__net__idna",
         "golang.org/x/net/internal/httpcommon": "//third_party/go:golang.org__x__net__internal__httpcommon",
+        "golang.org/x/net/internal/httpsfv": "//third_party/go:golang.org__x__net__internal__httpsfv",
         "golang.org/x/net/internal/timeseries": "//third_party/go:golang.org__x__net__internal__timeseries",
         "golang.org/x/net/trace": "//third_party/go:golang.org__x__net__trace",
         "golang.org/x/sync/errgroup": "//third_party/go:golang.org__x__sync__errgroup",

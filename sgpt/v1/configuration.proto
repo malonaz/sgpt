@@ -86,6 +86,9 @@ message Role {
 
   // Files to include as context for this role.
   repeated string files = 5;
+
+  // Tools to include as part of this role.
+  repeated string tools = 6;
 }
 
 // Configuration for a remote tool engine that provides tool sets via gRPC.

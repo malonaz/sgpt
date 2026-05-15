@@ -38,8 +38,7 @@ func NewCmd(
 		Temperature   float64
 		Chat          string
 		Continue      bool
-		EnableTools   bool
-		ToolEngines   []string
+		Tools         []string
 		Debug         bool
 	}
 
@@ -88,11 +87,13 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
+			tools := append(opts.Tools, parsedRole.GetTools()...)
+
 			var toolEngineManager *toolengine.Manager
 			var toolEngineConfigurations []*sgptpb.ToolEngineConfiguration
-			if len(opts.ToolEngines) > 0 {
+			if len(tools) > 0 {
 				toolEngineNameSet := map[string]struct{}{}
-				for _, name := range opts.ToolEngines {
+				for _, name := range tools {
 					toolEngineNameSet[name] = struct{}{}
 				}
 
@@ -175,7 +176,6 @@ func NewCmd(
 				Role:               parsedRole,
 				MaxTokens:          opts.MaxTokens,
 				Temperature:        opts.Temperature,
-				EnableTools:        opts.EnableTools,
 				Chat:               opts.Chat,
 				ToolEngineManager:  toolEngineManager,
 				AdditionalMessages: additionalMessages,
@@ -201,8 +201,7 @@ func NewCmd(
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
 	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
-	cmd.Flags().BoolVar(&opts.EnableTools, "tools", false, "Enable built-in tools (shell, read_files)")
-	cmd.Flags().StringSliceVar(&opts.ToolEngines, "tool", nil, "Enable a specific tool engine by name (repeatable)")
+	cmd.Flags().StringSliceVar(&opts.Tools, "tool", nil, "Enable a specific tool engine by name (repeatable)")
 	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

@@ -11,15 +11,16 @@ import (
 )
 
 var (
-	keyUp       = key.NewBinding(key.WithKeys("ctrl+p"))
-	keyDown     = key.NewBinding(key.WithKeys("ctrl+n"))
-	keyOpen     = key.NewBinding(key.WithKeys("enter"))
-	keyDelete   = key.NewBinding(key.WithKeys("alt+d"))
-	keyRefresh  = key.NewBinding(key.WithKeys("alt+r"))
-	keyNextPage = key.NewBinding(key.WithKeys("alt+]"))
-	keyPrevPage = key.NewBinding(key.WithKeys("alt+["))
-	keyToTop    = key.NewBinding(key.WithKeys("alt+<"))
-	keyToBottom = key.NewBinding(key.WithKeys("alt+>"))
+	keyUp           = key.NewBinding(key.WithKeys("ctrl+p"))
+	keyDown         = key.NewBinding(key.WithKeys("ctrl+n"))
+	keyOpen         = key.NewBinding(key.WithKeys("enter"))
+	keyDelete       = key.NewBinding(key.WithKeys("alt+d"))
+	keyRefresh      = key.NewBinding(key.WithKeys("alt+r"))
+	keyNextPage     = key.NewBinding(key.WithKeys("alt+]"))
+	keyPrevPage     = key.NewBinding(key.WithKeys("alt+["))
+	keyToTop        = key.NewBinding(key.WithKeys("alt+<"))
+	keyToBottom     = key.NewBinding(key.WithKeys("alt+>"))
+	keyMenuFavorite = key.NewBinding(key.WithKeys("alt+shift+f"))
 )
 
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
@@ -39,7 +40,8 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		if msg.SearchQuery != m.searchQuery {
 			return nil
 		}
-		m.chats = msg.Chats
+		m.favorites = msg.Favorites
+		m.others = msg.Others
 		m.currentPageToken = msg.PageToken
 		m.nextPageToken = msg.NextPageToken
 		m.err = nil
@@ -52,15 +54,21 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		if msg.Err != nil {
 			return m.wrapCmd(screen.AlertMsg{Text: "Delete failed: " + msg.Err.Error()})
 		}
-		for i, chat := range m.chats {
-			if chat.Name == msg.Name {
-				m.chats = append(m.chats[:i], m.chats[i+1:]...)
-				break
-			}
-		}
+		m.removeChatByName(msg.Name)
 		m.updateSelection()
 		m.listViewport.SetContent(m.renderList())
 		return m.wrapCmd(screen.AlertMsg{Text: "Chat deleted"})
+
+	case chatFavoriteToggledMsg:
+		if msg.Err != nil {
+			return m.wrapCmd(screen.AlertMsg{Text: "Favorite toggle failed: " + msg.Err.Error()})
+		}
+		// Re-fetch to get correct server-side ordering.
+		label := "added to"
+		if !msg.Favorited {
+			label = "removed from"
+		}
+		return tea.Batch(m.fetchChats(m.currentPageToken), m.wrapCmd(screen.AlertMsg{Text: "Chat " + label + " favorites"}))
 
 	case searchDebounceTickMsg:
 		currentQuery := strings.TrimSpace(m.searchInput.Value())
@@ -80,6 +88,21 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	}
 
 	return nil
+}
+
+func (m *Model) removeChatByName(name string) {
+	for i, chat := range m.favorites {
+		if chat.Name == name {
+			m.favorites = append(m.favorites[:i], m.favorites[i+1:]...)
+			return
+		}
+	}
+	for i, chat := range m.others {
+		if chat.Name == name {
+			m.others = append(m.others[:i], m.others[i+1:]...)
+			return
+		}
+	}
 }
 
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
@@ -117,6 +140,14 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		if m.focusTarget == FocusChatList {
 			if chat := m.selectedChat(); chat != nil {
 				return m.deleteChat(chat.Name)
+			}
+		}
+		return nil
+
+	case key.Matches(msg, keyMenuFavorite):
+		if m.focusTarget == FocusChatList {
+			if chat := m.selectedChat(); chat != nil {
+				return m.toggleFavorite(chat)
 			}
 		}
 		return nil

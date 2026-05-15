@@ -1,3 +1,5 @@
 {
-  "go.einride.tech__spanner-aip": ["///core//third_party/go/patches:spanner-aip.patch"]
+  "go.einride.tech__spanner-aip": ["///core//third_party/go/patches:spanner-aip.patch"],
+  "charm.land__glamour__v2": ["glamour.patch"]
+
 }

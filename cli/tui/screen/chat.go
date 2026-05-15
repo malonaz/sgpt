@@ -1,6 +1,7 @@
 package screen
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -22,6 +23,8 @@ const (
 	FocusViewport
 )
 
+const favoriteTag = "favorite"
+
 type sessionEventMsg struct {
 	event session.Event
 }
@@ -30,6 +33,7 @@ var (
 	keyCycleFocus     = key.NewBinding(key.WithKeys("tab"))
 	keyCycleReasoning = key.NewBinding(key.WithKeys("alt+t"))
 	keyForkChat       = key.NewBinding(key.WithKeys("alt+="))
+	keyToggleFavorite = key.NewBinding(key.WithKeys("alt+shift+f"))
 )
 
 type ChatScreen struct {
@@ -224,6 +228,8 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case key.Matches(msg, keyForkChat):
 		return func() tea.Msg { return m.wrap(OpenChatMsg{Chat: m.session.Chat(), Fork: true}) }
+	case key.Matches(msg, keyToggleFavorite):
+		return m.toggleFavorite()
 	}
 
 	if m.inToolReview() {
@@ -321,6 +327,19 @@ func (m *ChatScreen) handleToolReviewKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	cmd := m.toolReview.UpdateInput(msg)
 	return cmd
+}
+
+func (m *ChatScreen) toggleFavorite() tea.Cmd {
+	sess := m.session
+	wrap := m.wrap
+	return func() tea.Msg {
+		isFavorite := sess.ToggleFavorite()
+		label := "added to"
+		if !isFavorite {
+			label = "removed from"
+		}
+		return wrap(AlertMsg{Text: fmt.Sprintf("Chat %s favorites", label)})
+	}
 }
 
 func (m *ChatScreen) cycleFocus() tea.Cmd {
