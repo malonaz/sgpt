@@ -89,13 +89,35 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	mu.Unlock()
 
 	fmt.Fprintf(w, `<!DOCTYPE html><html><head><title>SGPT Debug</title>
-<meta http-equiv="refresh" content="2">
 <style>
 body { background: #1a1a2e; color: #e0e0e0; font-family: monospace; padding: 20px; }
 .entry { border-bottom: 1px solid #333; padding: 4px 0; }
 .ts { color: #7C3AED; }
 pre { white-space: pre-wrap; word-wrap: break-word; margin: 2px 0; }
-</style></head><body><h2>SGPT Debug Log (%d entries)</h2>`, len(snapshot))
+#controls { margin-bottom: 10px; }
+button { background: #7C3AED; color: white; border: none; padding: 6px 14px; cursor: pointer; font-family: monospace; margin-right: 8px; }
+button:hover { background: #6D28D9; }
+</style>
+<script>
+let refreshInterval = null;
+let paused = false;
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+  if (paused && refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+  if (!paused) { startRefresh(); }
+}
+function startRefresh() {
+  refreshInterval = setInterval(function(){ location.reload(); }, 2000);
+}
+window.onload = function() { startRefresh(); };
+</script>
+</head><body>
+<div id="controls">
+  <button id="pauseBtn" onclick="togglePause()">Pause</button>
+  <button onclick="fetch('/clear').then(function(){if(!paused) location.reload();})">Clear</button>
+</div>
+<h2>SGPT Debug Log (%d entries)</h2>`, len(snapshot))
 	for i := len(snapshot) - 1; i >= 0; i-- {
 		e := snapshot[i]
 		fmt.Fprintf(w, `<div class="entry"><span class="ts">%s</span><pre>%s</pre></div>`,
