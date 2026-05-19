@@ -93,8 +93,13 @@ func ResolveModelAlias(configuration *sgptpb.Configuration, nameOrAlias string) 
 func resolveRoleFilePaths(configuration *sgptpb.Configuration, configDir string) error {
 	for _, r := range configuration.GetChat().GetRoles() {
 		for i, f := range r.GetFiles() {
-			if !filepath.IsAbs(f) {
-				r.Files[i] = filepath.Join(configDir, f)
+			expanded, err := file.ExpandPath(f)
+			if err != nil {
+				return fmt.Errorf("role %q: expanding path %q: %w", r.GetName(), f, err)
+			}
+			r.Files[i] = expanded
+			if !filepath.IsAbs(r.Files[i]) {
+				r.Files[i] = filepath.Join(configDir, r.Files[i])
 			}
 			checkPath := strings.TrimSuffix(r.Files[i], "/...")
 			if _, err := os.Stat(checkPath); err != nil {
