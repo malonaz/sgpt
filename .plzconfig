@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = aba505aeb2bf2c851f3d64f3a6058309624817df
+core-revision = 85f04e30f1ae99b62e2c6b404b9f2004924bc152
 
 [sandbox ]
 test = false
