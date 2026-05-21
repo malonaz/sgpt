@@ -15,12 +15,12 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/malonaz/core v0.0.0-20260508185203-c41f52ad95eb
+	github.com/malonaz/core v0.0.0-20260521111635-aba505aeb2bf
 	github.com/pkg/errors v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
-	go.einride.tech/aip v0.80.0
+	go.einride.tech/aip v0.86.2
 	golang.design/x/clipboard v0.7.1
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409

@@ -184,6 +184,7 @@ github_grpc_library(
     revision = CONFIG.CORE_REVISION,
     deps = [
         ":google__api__annotations",
+        ":malonaz__core__genproto__ai__ai_service__v1",
         ":malonaz__core__genproto__ai__v1",
         ":validate",
     ],

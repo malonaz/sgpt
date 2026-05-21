@@ -73,3 +73,8 @@ func (n *ChatResourceName) UnmarshalText(text []byte) error {
 func (n ChatResourceName) Type() string {
 	return "sgpt.com/Chat"
 }
+
+// Pattern returns the resource name pattern for ChatResourceName as a string.
+func (n ChatResourceName) Pattern() string {
+	return "chats/{chat}"
+}

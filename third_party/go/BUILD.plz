@@ -3053,7 +3053,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260508185203-c41f52ad95eb",
+    version = "v0.0.0-20260521111635-aba505aeb2bf",
     visibility = ["PUBLIC"],
 )
 
@@ -3121,6 +3121,7 @@ go_module(
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
         ":google.golang.org__protobuf__types__known__structpb",
         "//third_party/proto:google__api__annotations",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:validate",
     ],
@@ -3336,6 +3337,8 @@ go_module(
         ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__pbutil",
         ":github.com__malonaz__core__go__pbutil__pbfieldmask",
+        ":github.com__prometheus__client_golang__prometheus",
+        ":github.com__prometheus__client_golang__prometheus__promauto",
         ":golang.org__x__sync__errgroup",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__protobuf__proto",
@@ -4725,8 +4728,8 @@ go_mod_download(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -4734,8 +4737,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -5249,7 +5252,7 @@ go_mod_download(
     name = "go.einride.tech__aip",
     _tag = "download",
     module = "go.einride.tech/aip",
-    version = "v0.80.0",
+    version = "v0.86.2",
     visibility = ["PUBLIC"],
 )
 
