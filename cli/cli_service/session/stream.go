@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -33,13 +34,14 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 		Model:    s.params.Model.Name,
 		Messages: messages,
 		Tools:    s.allTools(),
+		ToolSets: s.allToolSets(),
 		Configuration: &aiservicepb.TextToTextConfiguration{
 			MaxTokens:       s.params.MaxTokens,
 			Temperature:     s.params.Temperature,
 			ReasoningEffort: s.params.ReasoningEffort,
 		},
 	}
-
+	debug.LogProto("request", textToTextStreamRequest, "messages", "tools")
 	stream, err := s.aiClient.TextToTextStream(streamCtx, textToTextStreamRequest)
 	if err != nil {
 		s.finalizeStream(nil, err)
@@ -85,6 +87,7 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 			s.finalizeStream(accumulator.Message.GetBlocks(), err)
 			return nil, fmt.Errorf("receiving stream: %w", err)
 		}
+		debug.LogProto("response", response)
 
 		if err := accumulator.Add(response); err != nil {
 			if pendingRender {
@@ -121,17 +124,8 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 // handleToolCallEagerly labels a tool call with metadata/annotations as soon as
 // it appears in the stream, without waiting for the stream to complete.
 func (s *Session) handleToolCallEagerly(toolCall *aipb.ToolCall) {
-	allToolDefs := s.allTools()
-	toolNameToTool := map[string]*aipb.Tool{}
-	for _, tool := range allToolDefs {
-		toolNameToTool[tool.Name] = tool
-	}
-
-	tool, ok := toolNameToTool[toolCall.Name]
-	if !ok {
-		return
-	}
-	handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
+	debug.LogProto("eager", toolCall)
+	handlerID := toolCall.GetAnnotations()[tools.ToolHandlerIDAnnotation]
 	handler, ok := s.toolHandlerIDToHandler[handlerID]
 	if !ok {
 		return

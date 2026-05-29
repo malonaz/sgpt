@@ -54,7 +54,7 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 	}
 	s.mu.Unlock()
 
-	if err := s.executeToolCallsIntoResults(autoToolCalls, toolNameToTool); err != nil {
+	if err := s.executeToolCallsIntoResults(autoToolCalls); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -64,12 +64,6 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 // on their annotation status. Accepted ones are executed, rejected ones get error
 // results. Produces a single tool message with results for ALL tool calls.
 func (s *Session) ResolveToolCalls() {
-	allToolDefs := s.allTools()
-	toolNameToTool := map[string]*aipb.Tool{}
-	for _, tool := range allToolDefs {
-		toolNameToTool[tool.Name] = tool
-	}
-
 	// Collect ALL tool calls from the last assistant message.
 	s.mu.Lock()
 	messages := s.chat.GetMetadata().GetMessages()
@@ -88,6 +82,10 @@ func (s *Session) ResolveToolCalls() {
 
 	var resultBlocks []*aipb.Block
 	for _, toolCall := range allToolCalls {
+		if toolCall.GetResult() != nil {
+			// Do nothing as this is a server-side tool call.
+			continue
+		}
 		toolCallStatus := tools.GetToolCallStatus(toolCall)
 		switch toolCallStatus {
 		case tools.ToolCallStatusRejected:
@@ -97,7 +95,7 @@ func (s *Session) ResolveToolCalls() {
 			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
 
 		case tools.ToolCallStatusAccepted:
-			toolResult, err := s.executeSingleToolCall(s.ctx, toolCall, toolNameToTool)
+			toolResult, err := s.executeSingleToolCall(s.ctx, toolCall)
 			if err != nil {
 				toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
 			}
@@ -125,10 +123,14 @@ func (s *Session) ResolveToolCalls() {
 
 // executeToolCallsIntoResults executes tool calls and appends a single tool message
 // with all results. Used for fully-auto turns only.
-func (s *Session) executeToolCallsIntoResults(toolCalls []*aipb.ToolCall, toolNameToTool map[string]*aipb.Tool) error {
+func (s *Session) executeToolCallsIntoResults(toolCalls []*aipb.ToolCall) error {
 	var resultBlocks []*aipb.Block
 	for _, toolCall := range toolCalls {
-		toolResult, err := s.executeSingleToolCall(s.ctx, toolCall, toolNameToTool)
+		if toolCall.GetResult() != nil {
+			// Do nothing as this is a server-side tool call.
+			continue
+		}
+		toolResult, err := s.executeSingleToolCall(s.ctx, toolCall)
 		if err != nil {
 			toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
 		}
@@ -181,12 +183,8 @@ func (s *Session) RejectAndResend(reason string) {
 }
 
 // executeSingleToolCall dispatches a single tool call to its handler.
-func (s *Session) executeSingleToolCall(ctx context.Context, toolCall *aipb.ToolCall, toolNameToTool map[string]*aipb.Tool) (*aipb.ToolResult, error) {
-	tool, ok := toolNameToTool[toolCall.Name]
-	if !ok {
-		return nil, fmt.Errorf("unknown tool: %s", toolCall.Name)
-	}
-	handlerID := tool.GetAnnotations()[tools.ToolHandlerIDAnnotation]
+func (s *Session) executeSingleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	handlerID := toolCall.GetAnnotations()[tools.ToolHandlerIDAnnotation]
 	handler, ok := s.toolHandlerIDToHandler[handlerID]
 	if !ok {
 		return nil, fmt.Errorf("no handler for tool %s (handler_id=%s)", toolCall.Name, handlerID)

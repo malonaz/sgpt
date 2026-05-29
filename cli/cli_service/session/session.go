@@ -321,9 +321,14 @@ func statusToProto(err error) *spb.Status {
 }
 
 func (s *Session) allTools() []*aipb.Tool {
-	var toolsList []*aipb.Tool
+	var tools []*aipb.Tool
+	return tools
+}
+
+func (s *Session) allToolSets() []*aipb.ToolSet {
+	var toolSets []*aipb.ToolSet
 	if s.params.ToolEngineManager != nil {
-		toolsList = append(toolsList, s.params.ToolEngineManager.GetTools()...)
+		toolSets = append(toolSets, s.params.ToolEngineManager.GetToolSets()...)
 	}
-	return toolsList
+	return toolSets
 }

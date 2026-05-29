@@ -47,6 +47,11 @@ func NewCmd(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 365*24*time.Hour)
 			defer cancel()
+			if opts.Debug {
+				if _, err := debug.Init(ctx); err != nil {
+					return fmt.Errorf("starting debug server: %w", err)
+				}
+			}
 
 			parsedRole, err := opts.Role.Parse()
 			cobra.CheckErr(err)
@@ -162,13 +167,6 @@ func NewCmd(
 				AIClient:                aiClient,
 				ChatClient:              chatClient,
 				BaseURLToGRPCConnection: baseURLToGRPCConnection,
-			}
-
-			if opts.Debug {
-				_, err := debug.Init(ctx)
-				if err != nil {
-					return fmt.Errorf("starting debug server: %w", err)
-				}
 			}
 
 			params := cliservice.SessionParams{

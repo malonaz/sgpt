@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/malonaz/core/go/pbutil"
+	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -69,9 +70,14 @@ func Log(format string, args ...any) {
 }
 
 // LogProto logs a pretty-printed proto message. No-op if Init has not been called.
-func LogProto(label string, message proto.Message) {
+func LogProto(label string, message proto.Message, readMaskPaths ...string) {
 	if !enabled {
 		return
+	}
+	if len(readMaskPaths) > 0 {
+		message = proto.Clone(message)
+		readMask := pbfieldmask.FromPaths(readMaskPaths...)
+		readMask.Apply(message)
 	}
 	bytes, err := pbutil.JSONMarshalPretty(message)
 	if err != nil {

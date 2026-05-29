@@ -26,6 +26,7 @@ import (
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/cache"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -98,52 +99,24 @@ func Initialize(
 			if err != nil {
 				return nil, err
 			}
+			aip.SetAnnotation(toolSet.DiscoveryTool, tools.ToolHandlerIDAnnotation, tools.HandlerIDEngine)
+			for _, tool := range toolSet.GetTools() {
+				aip.SetAnnotation(tool, tools.ToolHandlerIDAnnotation, tools.HandlerIDEngine)
+			}
 			cache.Store(cacheKey, toolSet)
 			manager.toolSetNameToEngine[toolSet.GetName()] = engine
+			debug.Log(toolSet.GetName())
 			manager.toolSets = append(manager.toolSets, toolSet)
 		}
 	}
 	return manager, nil
 }
 
-func (m *Manager) GetTools() []*aipb.Tool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var allTools []*aipb.Tool
-	for _, toolSet := range m.toolSets {
-		discoveryTool := toolSet.DiscoveryTool
-		if discoveryTool.Annotations == nil {
-			discoveryTool.Annotations = map[string]string{}
-		}
-		discoveryTool.Annotations[tools.ToolHandlerIDAnnotation] = tools.HandlerIDEngine
-		allTools = append(allTools, discoveryTool)
-		for _, tool := range toolSet.Tools {
-			if toolSet.ToolNameToDiscoverTimestamp[tool.GetName()] > 0 {
-				if tool.Annotations == nil {
-					tool.Annotations = map[string]string{}
-				}
-				tool.Annotations[tools.ToolHandlerIDAnnotation] = tools.HandlerIDEngine
-				allTools = append(allTools, tool)
-			}
-		}
+func (m *Manager) GetToolSets() []*aipb.ToolSet {
+	if m == nil {
+		return nil
 	}
-	return allTools
-}
-
-func (m *Manager) MarkDiscovered(toolSetName string, toolNames []string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, toolSet := range m.toolSets {
-		if toolSet.Name != toolSetName {
-			continue
-		}
-		for _, toolName := range toolNames {
-			toolSet.ToolNameToDiscoverTimestamp[toolName] = time.Now().UnixMicro()
-		}
-		return
-	}
+	return m.toolSets
 }
 
 func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*tools.HandleResult, error) {
@@ -156,27 +129,44 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 		return nil, fmt.Errorf("no engine found for tool set %q", toolSetName)
 	}
 
-	parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
-	if err != nil {
-		return nil, err
-	}
-
 	toolCallMetadata := &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
-	switch result := parseToolCallResponse.Result.(type) {
-	case *aienginepb.ParseToolCallResponse_Discovery:
-		displayToolNames := make([]string, len(result.Discovery.ToolNames))
-		for i, toolName := range result.Discovery.ToolNames {
-			displayToolNames[i] = strings.ReplaceAll(toolName, "_", ".")
+
+	toolType, _ := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolType)
+	switch toolType {
+	case aitool.AnnotationValueToolTypeDiscovery:
+		toolResult := toolCall.GetResult()
+		if toolResult == nil {
+			return nil, fmt.Errorf("discovery tool call %q has no result", toolCall.GetName())
 		}
-		toolCallMetadata.DisplayMessage.Content = fmt.Sprintf("Discovered %s", strings.Join(displayToolNames, ", "))
+		var displayToolNames []string
+		if discovered, ok := aip.GetAnnotation(toolResult, aitool.AnnotationKeyDiscoveredTools); ok && discovered != "" {
+			displayToolNames = strings.Split(discovered, ",")
+		}
+		displayContent := "Discovered tools"
+		if len(displayToolNames) > 0 {
+			displayContent = fmt.Sprintf("Discovered %s", strings.Join(displayToolNames, ", "))
+		}
+		parsedResult, err := ai.ParseToolResult(toolResult)
+		if err != nil {
+			return nil, fmt.Errorf("parsing discovery tool result: %w", err)
+		}
+		if toolResult.GetError() != nil {
+			displayContent += fmt.Sprintf(" (errors: %s)", parsedResult)
+		}
+		toolCallMetadata.DisplayMessage.Content = displayContent
 		toolCallMetadata.AutoExecute = true
 
-	case *aienginepb.ParseToolCallResponse_Rpc:
-		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))
+	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
+		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
 		if err != nil {
-			return nil, fmt.Errorf("finding descriptor %q: %w", result.Rpc.MethodFullName, err)
+			return nil, err
+		}
+		rpc := parseToolCallResponse.GetRpc()
+		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(rpc.MethodFullName))
+		if err != nil {
+			return nil, fmt.Errorf("finding descriptor %q: %w", rpc.MethodFullName, err)
 		}
 		methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
 		if !ok {
@@ -184,16 +174,17 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 		}
 		methodOptions, ok := methodDescriptor.Options().(*descriptorpb.MethodOptions)
 		if !ok {
-			return nil, fmt.Errorf("expected method options for %q, got %T", result.Rpc.MethodFullName, methodDescriptor.Options())
+			return nil, fmt.Errorf("expected method options for %q, got %T", rpc.MethodFullName, methodDescriptor.Options())
 		}
 		toolCallMetadata.AutoExecute = methodOptions.GetIdempotencyLevel() == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 	default:
-		return nil, fmt.Errorf("unknown parse result type: %T", result)
+		return nil, fmt.Errorf("unknown tool type: %s", toolType)
 	}
 
 	if err := tools.SetToolCallMetadata(toolCall, toolCallMetadata); err != nil {
 		return nil, fmt.Errorf("annotating tool call: %w", err)
 	}
+	debug.LogProto("toolcallmetadsata", toolCallMetadata)
 	return &tools.HandleResult{
 		Display:     toolCallMetadata.DisplayMessage.Content,
 		AutoExecute: toolCallMetadata.AutoExecute,
@@ -215,59 +206,47 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 		return nil, err
 	}
 
-	switch result := parseToolCallResponse.Result.(type) {
-	case *aienginepb.ParseToolCallResponse_Discovery:
-		m.MarkDiscovered(result.Discovery.ToolSetName, result.Discovery.ToolNames)
-		toolResult := ai.NewToolResult(toolCall.Name, toolCall.Id, "ok")
-		toolCallResultMetadata := &sgptpb.ToolCallResultMetadata{
-			DisplayMessage: &sgptpb.DisplayMessage{Hidden: true},
-		}
-		if err := tools.SetToolResultMetadata(toolResult, toolCallResultMetadata); err != nil {
-			return nil, fmt.Errorf("setting tool result metadata: %w", err)
-		}
-		return toolResult, nil
-
-	case *aienginepb.ParseToolCallResponse_Rpc:
-		descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(result.Rpc.MethodFullName))
-		if err != nil {
-			return nil, fmt.Errorf("finding method descriptor %q: %w", result.Rpc.MethodFullName, err)
-		}
-		methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
-		if !ok {
-			return nil, fmt.Errorf("expected method descriptor for %q, got %T", result.Rpc.MethodFullName, descriptor)
-		}
-
-		request := dynamicpb.NewMessage(methodDescriptor.Input())
-		requestBytes, err := result.Rpc.Request.MarshalJSON()
-		if err != nil {
-			return nil, fmt.Errorf("marshaling request: %w", err)
-		}
-		if err := pbutil.JSONUnmarshal(requestBytes, request); err != nil {
-			return nil, fmt.Errorf("unmarshaling request: %w", err)
-		}
-
-		ctxInvoke := ctx
-		if result.Rpc.GetReadMask() != nil {
-			ctxInvoke = middleware.WithReadMaskStrict(ctxInvoke, pbfieldmask.New(result.Rpc.GetReadMask()).String())
-		}
-		response, err := engine.methodInvoker.Invoke(ctxInvoke, methodDescriptor, request)
-		if err != nil {
-			return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err), nil
-		}
-
-		responseBytes, err := pbutil.JSONMarshal(response)
-		if err != nil {
-			return nil, fmt.Errorf("marshaling response: %w", err)
-		}
-		value := &structpb.Value{}
-		if err := value.UnmarshalJSON(responseBytes); err != nil {
-			return nil, fmt.Errorf("unmarshaling response into structpb.Value: %w", err)
-		}
-		return ai.NewStructuredToolResult(toolCall.Name, toolCall.Id, value), nil
-
-	default:
-		return nil, fmt.Errorf("unknown parse result type: %T", result)
+	rpc := parseToolCallResponse.GetRpc()
+	if rpc == nil {
+		return nil, fmt.Errorf("expected RPC parse result, got %T", parseToolCallResponse.Result)
 	}
+
+	descriptor, err := engine.schema.FindDescriptorByName(protoreflect.FullName(rpc.MethodFullName))
+	if err != nil {
+		return nil, fmt.Errorf("finding method descriptor %q: %w", rpc.MethodFullName, err)
+	}
+	methodDescriptor, ok := descriptor.(protoreflect.MethodDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("expected method descriptor for %q, got %T", rpc.MethodFullName, descriptor)
+	}
+
+	request := dynamicpb.NewMessage(methodDescriptor.Input())
+	requestBytes, err := rpc.Request.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+	if err := pbutil.JSONUnmarshal(requestBytes, request); err != nil {
+		return nil, fmt.Errorf("unmarshaling request: %w", err)
+	}
+
+	ctxInvoke := ctx
+	if rpc.GetReadMask() != nil {
+		ctxInvoke = middleware.WithReadMaskStrict(ctxInvoke, pbfieldmask.New(rpc.GetReadMask()).String())
+	}
+	response, err := engine.methodInvoker.Invoke(ctxInvoke, methodDescriptor, request)
+	if err != nil {
+		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err), nil
+	}
+
+	responseBytes, err := pbutil.JSONMarshal(response)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling response: %w", err)
+	}
+	value := &structpb.Value{}
+	if err := value.UnmarshalJSON(responseBytes); err != nil {
+		return nil, fmt.Errorf("unmarshaling response into structpb.Value: %w", err)
+	}
+	return ai.NewStructuredToolResult(toolCall.Name, toolCall.Id, value), nil
 }
 
 func (m *Manager) Close() {
