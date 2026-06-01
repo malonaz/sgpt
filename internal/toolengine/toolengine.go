@@ -144,9 +144,9 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 		if discovered, ok := aip.GetAnnotation(toolResult, aitool.AnnotationKeyDiscoveredTools); ok && discovered != "" {
 			displayToolNames = strings.Split(discovered, ",")
 		}
-		displayContent := "Discovered tools"
+		displayContent := "`●` Discovered tools"
 		if len(displayToolNames) > 0 {
-			displayContent = fmt.Sprintf("Discovered %s", strings.Join(displayToolNames, ", "))
+			displayContent = fmt.Sprintf("`●` Discovered %s", strings.Join(displayToolNames, ", "))
 		}
 		parsedResult, err := ai.ParseToolResult(toolResult)
 		if err != nil {
