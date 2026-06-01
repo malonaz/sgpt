@@ -482,95 +482,113 @@ func (m *Messages) renderAIMessage(b *strings.Builder, currentLine *int, display
 	var blockOffsets []int
 	mdBlockIndex := 0
 
-	thoughtBlocks := ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeThought)
-	textBlocks := ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText)
-	toolCallBlocks := ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall)
+	type renderedSection struct {
+		content string
+		style   lipgloss.Style
+	}
+	var sections []renderedSection
+	var currentContent strings.Builder
+	currentStyle := styles.AIMessageStyle
+	isThought := false
 
-	if len(thoughtBlocks) > 0 {
-		var thoughtContent strings.Builder
-		for bi, block := range thoughtBlocks {
-			mdBlocks := markdown.ParseBlocks(block.GetThought())
+	flushSection := func() {
+		if currentContent.Len() > 0 {
+			sections = append(sections, renderedSection{
+				content: currentContent.String(),
+				style:   currentStyle,
+			})
+			currentContent.Reset()
+		}
+	}
+
+	for bi, block := range message.GetBlocks() {
+		if thought := block.GetThought(); thought != "" {
+			if !isThought && currentContent.Len() > 0 {
+				flushSection()
+			}
+			isThought = true
+			currentStyle = styles.AIThoughtStyle
+
+			mdBlocks := markdown.ParseBlocks(thought)
 			for mbi, mdBlock := range mdBlocks {
 				if mdBlockIndex > 0 {
-					thoughtContent.WriteString("\n")
+					currentContent.WriteString("\n")
 				}
-				blockOffsets = append(blockOffsets, *currentLine+strings.Count(thoughtContent.String(), "\n"))
+				blockOffsets = append(blockOffsets, *currentLine+strings.Count(currentContent.String(), "\n"))
 				rendered := m.renderer.ToMarkdown(displayIndex*1000+bi*100+mbi, finalized, mdBlock)
-				thoughtContent.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
+				currentContent.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
 				mdBlockIndex++
 			}
-		}
-		style := m.messageStyle(styles.AIThoughtStyle, displayIndex)
-		rendered := style.Render(thoughtContent.String())
-		b.WriteString(rendered)
-		*currentLine += strings.Count(rendered, "\n")
-	}
+		} else if text := block.GetText(); text != "" {
+			if isThought && currentContent.Len() > 0 {
+				flushSection()
+			}
+			isThought = false
+			currentStyle = styles.AIMessageStyle
 
-	if len(textBlocks) > 0 {
-		if len(thoughtBlocks) > 0 {
-			b.WriteString("\n")
-			*currentLine++
-		}
-		var textContent strings.Builder
-		for bi, block := range textBlocks {
-			mdBlocks := markdown.ParseBlocks(block.GetText())
+			mdBlocks := markdown.ParseBlocks(text)
 			for mbi, mdBlock := range mdBlocks {
 				if mdBlockIndex > 0 {
-					textContent.WriteString("\n")
+					currentContent.WriteString("\n")
 				}
-				blockOffsets = append(blockOffsets, *currentLine+strings.Count(textContent.String(), "\n"))
+				blockOffsets = append(blockOffsets, *currentLine+strings.Count(currentContent.String(), "\n"))
 				rendered := m.renderer.ToMarkdown(displayIndex*1000+500+bi*100+mbi, finalized, mdBlock)
-				textContent.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
+				currentContent.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
 				mdBlockIndex++
 			}
-		}
-		style := m.messageStyle(styles.AIMessageStyle, displayIndex)
-		rendered := style.Render(textContent.String())
-		b.WriteString(rendered)
-		*currentLine += strings.Count(rendered, "\n")
-	}
+		} else if toolCall := block.GetToolCall(); toolCall != nil {
+			flushSection()
+			isThought = false
+			currentStyle = styles.AIMessageStyle
 
-	for _, block := range toolCallBlocks {
-		toolCall := block.GetToolCall()
-		if len(thoughtBlocks) > 0 || len(textBlocks) > 0 || mdBlockIndex > 0 {
+			blockOffsets = append(blockOffsets, *currentLine)
+
+			var content strings.Builder
+			metadata, _ := tools.ParseToolCallMetadata(toolCall)
+			displayMessage := metadata.GetDisplayMessage().GetContent()
+			statusIndicator := toolCallStatusIndicator(toolCall)
+
+			if displayMessage != "" {
+				displayText := metadata.GetDisplayMessage().GetContent()
+				mdBlocks := markdown.ParseBlocks(displayText)
+				rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, mdBlocks...)
+				content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
+			} else {
+				labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("tool: %s %s", statusIndicator, toolCall.Name))
+				content.WriteString(m.blockWithIndicator(labelRendered, displayIndex, mdBlockIndex))
+				bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
+				body, overflow := truncateLinesWithOverflow(string(bytes), maxToolDisplayLines)
+				fenced := fmt.Sprintf("```json\n%s\n```", body)
+				mdBlocks := markdown.ParseBlocks(fenced)
+				rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, finalized, mdBlocks...)
+				content.WriteString("\n")
+				content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
+				if overflow != "" {
+					content.WriteString("\n")
+					content.WriteString(m.blockWithIndicator("", displayIndex, mdBlockIndex))
+					content.WriteString("\n")
+					content.WriteString(m.blockWithIndicator(styles.DimTextStyle.Render(overflow), displayIndex, mdBlockIndex))
+				}
+			}
+
+			sections = append(sections, renderedSection{
+				content: content.String(),
+				style:   styles.AIMessageStyle,
+			})
+			mdBlockIndex++
+		}
+	}
+	flushSection()
+
+	for i, section := range sections {
+		if i > 0 {
 			b.WriteString("\n")
 			*currentLine++
 		}
-		blockOffsets = append(blockOffsets, *currentLine)
-
-		var content strings.Builder
-		metadata, _ := tools.ParseToolCallMetadata(toolCall)
-		displayMessage := metadata.GetDisplayMessage().GetContent()
-		statusIndicator := toolCallStatusIndicator(toolCall)
-
-		if displayMessage != "" {
-			displayText := fmt.Sprintf(metadata.GetDisplayMessage().GetContent())
-			mdBlocks := markdown.ParseBlocks(displayText)
-			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, true, mdBlocks...)
-			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
-		} else {
-			labelRendered := styles.ToolLabelStyle.Render(fmt.Sprintf("tool: %s %s", statusIndicator, toolCall.Name))
-			content.WriteString(m.blockWithIndicator(labelRendered, displayIndex, mdBlockIndex))
-			bytes, _ := pbutil.JSONMarshalPretty(toolCall.Arguments)
-			body, overflow := truncateLinesWithOverflow(string(bytes), maxToolDisplayLines)
-			fenced := fmt.Sprintf("```json\n%s\n```", body)
-			mdBlocks := markdown.ParseBlocks(fenced)
-			rendered := m.renderer.ToMarkdown(displayIndex*1000+900+mdBlockIndex, finalized, mdBlocks...)
-			content.WriteString("\n")
-			content.WriteString(m.blockWithIndicator(rendered, displayIndex, mdBlockIndex))
-			if overflow != "" {
-				content.WriteString("\n")
-				content.WriteString(m.blockWithIndicator("", displayIndex, mdBlockIndex))
-				content.WriteString("\n")
-				content.WriteString(m.blockWithIndicator(styles.DimTextStyle.Render(overflow), displayIndex, mdBlockIndex))
-			}
-		}
-
-		style := m.messageStyle(styles.AIMessageStyle, displayIndex)
-		rendered := style.Render(content.String())
+		style := m.messageStyle(section.style, displayIndex)
+		rendered := style.Render(section.content)
 		b.WriteString(rendered)
 		*currentLine += strings.Count(rendered, "\n")
-		mdBlockIndex++
 	}
 
 	return blockOffsets, mdBlockIndex

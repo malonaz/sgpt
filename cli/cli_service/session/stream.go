@@ -144,7 +144,11 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 		assistantMessage := ai.NewAssistantMessage(blocks...)
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
-			tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusPending)
+			if block.GetToolCall().GetResult() != nil {
+				tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusAccepted)
+			} else {
+				tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusPending)
+			}
 		}
 
 		chatMessage := &sgptpb.Message{

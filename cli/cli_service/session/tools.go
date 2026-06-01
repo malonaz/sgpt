@@ -8,6 +8,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
@@ -24,11 +25,15 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 	var autoToolCalls []*aipb.ToolCall
 	hasManual := false
 	for _, toolCall := range toolCalls {
-		metadata, err := tools.ParseToolCallMetadata(toolCall)
-		if err != nil {
-			hasManual = true
+		debug.LogProto(toolCall.GetName(), toolCall)
+		if toolCall.GetResult() != nil {
 			continue
 		}
+		metadata, err := tools.ParseToolCallMetadata(toolCall)
+		if err != nil {
+			return false, fmt.Errorf("parsing tool call metadata: %v", err)
+		}
+		debug.LogProto("metadata", metadata)
 		if metadata.GetAutoExecute() {
 			autoToolCalls = append(autoToolCalls, toolCall)
 		} else {
