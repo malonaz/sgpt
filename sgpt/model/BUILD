@@ -1,7 +1,7 @@
-go_proto_template_library(
+go_protoc_gen_core(
     name = "codegen",
     srcs = ["//sgpt/v1:proto"],
-    template = "///core//build_defs/codegen/go_proto_templates/templates:model",
+    plugin = "model",
     deps = ["//sgpt/v1"],
 )
 

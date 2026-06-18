@@ -1,12 +1,12 @@
-go_proto_template_library(
+go_protoc_gen_core(
     name = "codegen",
     srcs = ["//sgpt/v1:proto"],
     additional_context = {
-        GO_PROTO_TEMPLATES_GO_IMPORT_PATHS: {
+        GO_PROTOC_GEN_CORE_GO_IMPORT_PATHS: {
             "model": "//sgpt/model",
         },
     },
-    template = "///core//build_defs/codegen/go_proto_templates/templates:postgres",
+    plugin = "postgres",
     deps = ["//sgpt/v1"],
 )
 

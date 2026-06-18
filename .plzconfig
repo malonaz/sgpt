@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = 03f33dd7f8e85340d0e3f63d006ed64ce4102f08
+core-revision = eb33b3debe6ad7e50ab93cd0badc35fb4f92f09f
 
 [sandbox ]
 test = false
@@ -36,7 +36,7 @@ preloadsubincludes = ///core//build_defs/proto:utils
 preloadsubincludes = ///core//build_defs:template
 preloadsubincludes = ///core//build_defs/proto:go
 preloadsubincludes = ///core//build_defs/codegen/go_service:build_defs
-preloadsubincludes = ///core//build_defs/codegen/go_proto_templates:build_defs
+preloadsubincludes = ///core//build_defs/codegen/protoc_gen_core:build_defs
 preloadsubincludes = ///core//build_defs/codegen/postgres:build_defs
 
 [Plugin "shell"]
