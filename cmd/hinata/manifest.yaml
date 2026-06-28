@@ -12,4 +12,5 @@ servers:
       - type: session_outgoing_context_injector
     services:
       - proto: //sgpt/sgpt_service/v1
+        service: sgpt-service
         manifest: //sgpt/sgpt_service:manifest

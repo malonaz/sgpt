@@ -3546,7 +3546,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260618080520-eb33b3debe6a",
+    version = "v0.0.0-20260628165235-da76226d2fbd",
     visibility = ["PUBLIC"],
 )
 
@@ -3766,6 +3766,7 @@ go_module(
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
         ":google.golang.org__protobuf__types__descriptorpb",
+        "//third_party/proto:google__api__annotations",
     ],
 )
 
@@ -4051,11 +4052,13 @@ go_module(
         ":google.golang.org__grpc",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__reflect__protoregistry",
         ":google.golang.org__protobuf__types__dynamicpb",
         ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:buf.build__go__protovalidate",
+        "//third_party/go:github.com__huandu__xstrings",
         "//third_party/go:github.com__malonaz__core__genproto__aip__v1",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__api__expr__v1alpha1",
@@ -5269,8 +5272,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):

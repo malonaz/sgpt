@@ -15,6 +15,7 @@ import (
 // processToolCallsAfterStream handles tool calls after the stream completes.
 // Auto-execute tool calls are run immediately. Non-auto ones are left pending
 // for user accept/reject. Returns true if all tool calls were auto-executed.
+// processToolCallsAfterStream — replace the full function
 func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool, error) {
 	allToolDefs := s.allTools()
 	toolNameToTool := map[string]*aipb.Tool{}
@@ -23,10 +24,12 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 	}
 
 	var autoToolCalls []*aipb.ToolCall
+	var prePopulatedToolCalls []*aipb.ToolCall
 	hasManual := false
 	for _, toolCall := range toolCalls {
 		debug.LogProto(toolCall.GetName(), toolCall)
 		if toolCall.GetResult() != nil {
+			prePopulatedToolCalls = append(prePopulatedToolCalls, toolCall)
 			continue
 		}
 		metadata, err := tools.ParseToolCallMetadata(toolCall)
@@ -42,8 +45,6 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 	}
 
 	if hasManual {
-		// Mark auto ones as accepted but don't execute yet — we need all results
-		// in one message, so we wait for user to resolve manual ones.
 		s.mu.Lock()
 		for _, toolCall := range autoToolCalls {
 			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
@@ -52,14 +53,14 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 		return false, nil
 	}
 
-	// All auto-execute: run them all and produce a single tool message.
 	s.mu.Lock()
 	for _, toolCall := range autoToolCalls {
 		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
 	}
 	s.mu.Unlock()
 
-	if err := s.executeToolCallsIntoResults(autoToolCalls); err != nil {
+	allToExecute := append(prePopulatedToolCalls, autoToolCalls...)
+	if err := s.executeToolCallsIntoResults(allToExecute); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -68,8 +69,8 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 // ResolveToolCalls executes all tool calls from the last assistant message based
 // on their annotation status. Accepted ones are executed, rejected ones get error
 // results. Produces a single tool message with results for ALL tool calls.
+// ResolveToolCalls — replace the full function
 func (s *Session) ResolveToolCalls() {
-	// Collect ALL tool calls from the last assistant message.
 	s.mu.Lock()
 	messages := s.chat.GetMetadata().GetMessages()
 	var allToolCalls []*aipb.ToolCall
@@ -88,7 +89,7 @@ func (s *Session) ResolveToolCalls() {
 	var resultBlocks []*aipb.Block
 	for _, toolCall := range allToolCalls {
 		if toolCall.GetResult() != nil {
-			// Do nothing as this is a server-side tool call.
+			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolCall.GetResult()))
 			continue
 		}
 		toolCallStatus := tools.GetToolCallStatus(toolCall)
@@ -98,14 +99,12 @@ func (s *Session) ResolveToolCalls() {
 			errorMessage := fmt.Sprintf("rejected by user: %s", reason)
 			toolResult := ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf(errorMessage))
 			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
-
 		case tools.ToolCallStatusAccepted:
 			toolResult, err := s.executeSingleToolCall(s.ctx, toolCall)
 			if err != nil {
 				toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
 			}
 			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
-
 		default:
 			toolResult := ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("unresolved tool call"))
 			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
@@ -132,7 +131,7 @@ func (s *Session) executeToolCallsIntoResults(toolCalls []*aipb.ToolCall) error 
 	var resultBlocks []*aipb.Block
 	for _, toolCall := range toolCalls {
 		if toolCall.GetResult() != nil {
-			// Do nothing as this is a server-side tool call.
+			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolCall.GetResult()))
 			continue
 		}
 		toolResult, err := s.executeSingleToolCall(s.ctx, toolCall)

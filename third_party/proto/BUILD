@@ -197,7 +197,10 @@ github_proto_library(
     files = ["model.proto"],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
-    deps = [":validate"],
+    deps = [
+        ":google__api__annotations",
+        ":validate",
+    ],
 )
 
 github_proto_library(
