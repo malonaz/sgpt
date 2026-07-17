@@ -44,6 +44,19 @@ type MessagesData struct {
 	InjectedFiles    []string
 }
 
+// renderedMessage is a cached, fully-styled message with offsets relative to its own first line.
+type renderedMessage struct {
+	content      string
+	lineCount    int
+	blockOffsets []int
+	mdBlockCount int
+
+	// Cache-validity keys: selection changes borders/indicators, so a stale
+	// entry is detected by key mismatch rather than explicit invalidation.
+	selected      bool
+	navBlockIndex int
+}
+
 // Messages renders a scrollable message history with block-level navigation.
 type Messages struct {
 	data     MessagesData
@@ -60,6 +73,8 @@ type Messages struct {
 	messageOffsets      []int
 	blockOffsets        [][]int
 	markdownBlockCounts []int
+
+	renderCache map[int]*renderedMessage
 }
 
 func NewMessages() *Messages {
@@ -68,6 +83,7 @@ func NewMessages() *Messages {
 		renderer:        renderer,
 		navMessageIndex: -1,
 		navBlockIndex:   -1,
+		renderCache:     map[int]*renderedMessage{},
 	}
 }
 
@@ -80,6 +96,10 @@ func (m *Messages) IsFocused() bool {
 }
 
 func (m *Messages) SetSize(width, height int) {
+	// Only width affects wrapping; height-only changes keep the cache warm.
+	if width != m.width {
+		m.renderCache = map[int]*renderedMessage{}
+	}
 	m.width = width
 	m.height = height
 
@@ -100,6 +120,17 @@ func (m *Messages) SetSize(width, height int) {
 }
 
 func (m *Messages) SetData(data MessagesData) {
+	// Protos are mutated in place (tool statuses, errors), so invalidate the
+	// last persisted message and beyond; earlier messages are immutable.
+	invalidateFrom := len(data.ChatMessages) - 1
+	if len(data.ChatMessages) < len(m.data.ChatMessages) {
+		invalidateFrom = 0
+	}
+	for index := range m.renderCache {
+		if index >= invalidateFrom {
+			delete(m.renderCache, index)
+		}
+	}
 	m.data = data
 	m.rerender()
 }
@@ -395,38 +426,36 @@ func (m *Messages) renderAll() string {
 		write("\n")
 	}
 
-	allMessages := m.data.ChatMessages
-	m.messageOffsets = make([]int, 0, len(allMessages)+2)
-	m.blockOffsets = make([][]int, 0, len(allMessages)+2)
-	m.markdownBlockCounts = make([]int, 0, len(allMessages)+2)
+	total := m.totalMessageCount()
+	persisted := len(m.data.ChatMessages)
+	m.messageOffsets = make([]int, 0, total)
+	m.blockOffsets = make([][]int, 0, total)
+	m.markdownBlockCounts = make([]int, 0, total)
 
-	for i, chatMessage := range allMessages {
+	for i := 0; i < total; i++ {
 		if i > 0 {
-			write("\n")
-			if allMessages[i-1].GetMessage().GetRole() == aipb.Role_ROLE_USER {
+			if i == persisted { // streaming message separator
+				write("\n\n")
+			} else {
 				write("\n")
+				if m.data.ChatMessages[i-1].GetMessage().GetRole() == aipb.Role_ROLE_USER {
+					write("\n")
+				}
 			}
 		}
+
+		rendered := m.cachedRender(i, i < persisted)
 		m.messageOffsets = append(m.messageOffsets, currentLine)
-		blockOff, mdCount := m.renderChatMessage(&b, &currentLine, i, chatMessage, true)
-		m.blockOffsets = append(m.blockOffsets, blockOff)
-		m.markdownBlockCounts = append(m.markdownBlockCounts, mdCount)
-
-		if chatMessage.Error != nil {
-			write(styles.MessageErrorStyle.Render("\nError: " + chatMessage.Error.GetMessage()))
+		// Translate message-relative offsets to absolute viewport lines.
+		absoluteOffsets := make([]int, len(rendered.blockOffsets))
+		for j, offset := range rendered.blockOffsets {
+			absoluteOffsets[j] = offset + currentLine
 		}
-	}
+		m.blockOffsets = append(m.blockOffsets, absoluteOffsets)
+		m.markdownBlockCounts = append(m.markdownBlockCounts, rendered.mdBlockCount)
 
-	displayIndex := len(allMessages)
-
-	if m.data.StreamingMessage != nil {
-		if displayIndex > 0 {
-			write("\n\n")
-		}
-		m.messageOffsets = append(m.messageOffsets, currentLine)
-		blockOff, mdCount := m.renderAIMessage(&b, &currentLine, displayIndex, m.data.StreamingMessage, false)
-		m.blockOffsets = append(m.blockOffsets, blockOff)
-		m.markdownBlockCounts = append(m.markdownBlockCounts, mdCount)
+		b.WriteString(rendered.content)
+		currentLine += rendered.lineCount
 	}
 
 	if m.data.StreamError != nil {
@@ -434,6 +463,57 @@ func (m *Messages) renderAll() string {
 	}
 
 	return b.String()
+}
+
+// cachedRender returns a cached render if its selection keys still match,
+// otherwise re-renders just this message. Streaming messages are never cached.
+func (m *Messages) cachedRender(displayIndex int, finalized bool) *renderedMessage {
+	selected := m.focused && displayIndex == m.navMessageIndex
+	navBlockIndex := -2 // sentinel: block index is irrelevant when unselected
+	if selected {
+		navBlockIndex = m.navBlockIndex
+	}
+	if rendered, ok := m.renderCache[displayIndex]; ok &&
+		rendered.selected == selected &&
+		rendered.navBlockIndex == navBlockIndex {
+		return rendered
+	}
+
+	rendered := m.renderMessage(displayIndex, finalized)
+	rendered.selected = selected
+	rendered.navBlockIndex = navBlockIndex
+	if finalized {
+		m.renderCache[displayIndex] = rendered
+	}
+	return rendered
+}
+
+// renderMessage renders a single message in isolation; offsets are relative
+// to the message's first line, making the result position-independent.
+func (m *Messages) renderMessage(displayIndex int, finalized bool) *renderedMessage {
+	var b strings.Builder
+	currentLine := 0
+	var blockOffsets []int
+	mdBlockCount := 0
+
+	persisted := len(m.data.ChatMessages)
+	if displayIndex < persisted {
+		chatMessage := m.data.ChatMessages[displayIndex]
+		blockOffsets, mdBlockCount = m.renderChatMessage(&b, &currentLine, displayIndex, chatMessage, finalized)
+		if chatMessage.Error != nil {
+			b.WriteString(styles.MessageErrorStyle.Render("\nError: " + chatMessage.Error.GetMessage()))
+		}
+	} else if m.data.StreamingMessage != nil {
+		blockOffsets, mdBlockCount = m.renderAIMessage(&b, &currentLine, displayIndex, m.data.StreamingMessage, false)
+	}
+
+	content := b.String()
+	return &renderedMessage{
+		content:      content,
+		lineCount:    strings.Count(content, "\n"),
+		blockOffsets: blockOffsets,
+		mdBlockCount: mdBlockCount,
+	}
 }
 
 func (m *Messages) renderChatMessage(b *strings.Builder, currentLine *int, displayIndex int, chatMessage *sgptpb.Message, finalized bool) ([]int, int) {

@@ -10,14 +10,20 @@ import (
 
 // Renderer handles markdown rendering with syntax highlighting.
 type Renderer struct {
-	glamour                    *glamour.TermRenderer
-	width                      int
-	mdCache                    map[int]string
-	blockCache                 map[int]Block
-	blockMdCache               map[int]string
-	incrementalBlockIndex      int
-	incrementalBlockLineOffset int
-	incrementalBlockMdCache    string
+	glamour      *glamour.TermRenderer
+	width        int
+	mdCache      map[int]string
+	blockCache   map[int]Block
+	blockMdCache map[int]string
+
+	// Streaming state for the block currently being streamed. Stable content is
+	// rendered once and appended; only the small tail is ever re-rendered, so
+	// per-chunk cost is O(new lines) instead of O(block size).
+	incrementalBlockIndex    int
+	incrementalStableOffset  int
+	incrementalStableMdCache string
+	incrementalTailLineCount int
+	incrementalTailMdCache   string
 }
 
 // NewRenderer creates a new markdown renderer.
@@ -33,11 +39,12 @@ func NewRenderer(width int) (*Renderer, error) {
 	}
 
 	return &Renderer{
-		glamour:      gr,
-		width:        width,
-		mdCache:      map[int]string{},
-		blockCache:   map[int]Block{},
-		blockMdCache: map[int]string{},
+		glamour:               gr,
+		width:                 width,
+		mdCache:               map[int]string{},
+		blockCache:            map[int]Block{},
+		blockMdCache:          map[int]string{},
+		incrementalBlockIndex: -1, // avoid colliding with blockIndex 0
 	}, nil
 }
 
@@ -63,7 +70,9 @@ func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block)
 		}
 
 		isLastBlock := i == len(blocks)-1
-		incremental := !finalized && isLastBlock
+		// Never use streaming state for uncached (-1) renders: distinct blocks
+		// would collide on the same incremental state.
+		incremental := !finalized && isLastBlock && !disableCache
 
 		var md string
 		if incremental {
@@ -103,74 +112,125 @@ func (r *Renderer) SetWidth(width int) error {
 	return nil
 }
 
-// toMarkdownBlockIncremental renders markdown content incrementally.
-// Complete lines are rendered with full markdown, the current incomplete line is plain text.
+// toMarkdownBlockIncremental renders streaming content incrementally,
+// delegating to append-only strategies per block type. The finalized pass in
+// ToMarkdown re-renders the full block once, correcting any streaming
+// artifacts (multi-line tokens, paragraph re-wraps).
 func (r *Renderer) toMarkdownBlockIncremental(block Block, blockIndex int) string {
-	// Reset cache if block changed
-	if r.incrementalBlockIndex != blockIndex {
+	// Reset state if the block changed, or if content shrank (block was
+	// replaced/edited) — otherwise stale offsets would slice out of bounds.
+	if r.incrementalBlockIndex != blockIndex || r.blockLineCount(block) < r.incrementalStableOffset {
 		r.incrementalBlockIndex = blockIndex
-		r.incrementalBlockLineOffset = 0
-		r.incrementalBlockMdCache = ""
+		r.incrementalStableOffset = 0
+		r.incrementalStableMdCache = ""
+		r.incrementalTailLineCount = 0
+		r.incrementalTailMdCache = ""
 	}
-
-	var content string
-	var isCodeBlock bool
-	var language string
 
 	switch b := block.(type) {
 	case *TextBlock:
-		content = b.Text
+		return r.incrementalText(b.Text)
 	case *CodeBlock:
-		content = b.code
-		isCodeBlock = true
-		language = b.language
+		return r.incrementalCode(b.code, b.language)
 	default:
-		return r.incrementalBlockMdCache
+		return r.incrementalStableMdCache
+	}
+}
+
+func (r *Renderer) blockLineCount(block Block) int {
+	return strings.Count(block.Content(), "\n") + 1
+}
+
+// incrementalCode highlights only newly completed lines and appends them to
+// the stable cache, keeping per-chunk cost O(new lines) instead of O(block size).
+func (r *Renderer) incrementalCode(code, language string) string {
+	if code == "" {
+		return r.incrementalStableMdCache
+	}
+	lines := strings.Split(code, "\n")
+	completeLineCount := len(lines) - 1
+
+	if completeLineCount > r.incrementalStableOffset {
+		newContent := strings.Join(lines[r.incrementalStableOffset:completeLineCount], "\n")
+		rendered := strings.TrimSuffix(r.toMarkdownBlock("```"+language+"\n"+newContent+"\n```"), "\n")
+		r.appendStable(rendered)
+		r.incrementalStableOffset = completeLineCount
 	}
 
-	if content == "" {
-		return r.incrementalBlockMdCache
+	return r.withPartialLine(lines[len(lines)-1])
+}
+
+// incrementalText promotes fully-formed paragraphs (up to the last blank line)
+// into the stable cache; only the trailing paragraph is re-rendered, and only
+// when a new line completes.
+func (r *Renderer) incrementalText(text string) string {
+	if text == "" {
+		return r.withPartialLine("")
 	}
+	lines := strings.Split(text, "\n")
+	completeLineCount := len(lines) - 1
 
-	lines := strings.Split(content, "\n")
-	numLines := len(lines)
-
-	// Determine how many complete lines we have
-	var completeLinesCount int
-	if numLines > 1 {
-		completeLinesCount = numLines - 1
-	}
-
-	// Re-render all complete lines when a new line is added
-	if completeLinesCount > r.incrementalBlockLineOffset {
-		completeContent := strings.Join(lines[:completeLinesCount], "\n")
-		if completeContent != "" {
-			var toRender string
-			if isCodeBlock {
-				toRender = "```" + language + "\n" + completeContent + "\n```"
-			} else {
-				toRender = completeContent
-			}
-
-			rendered := r.toMarkdownBlock(toRender)
-			r.incrementalBlockMdCache = strings.TrimSuffix(rendered, "\n")
+	// Promote everything up to the last blank line: it is stable markdown
+	// context that no future chunk can change.
+	stableOffset := r.incrementalStableOffset
+	for i := completeLineCount - 1; i >= r.incrementalStableOffset; i-- {
+		if strings.TrimSpace(lines[i]) == "" {
+			stableOffset = i + 1
+			break
 		}
-		r.incrementalBlockLineOffset = completeLinesCount
+	}
+	if stableOffset > r.incrementalStableOffset {
+		newContent := strings.Join(lines[r.incrementalStableOffset:stableOffset], "\n")
+		if strings.TrimSpace(newContent) != "" {
+			r.appendStable(strings.TrimSuffix(r.toMarkdownBlock(newContent), "\n"))
+		}
+		r.incrementalStableOffset = stableOffset
+		r.incrementalTailLineCount = 0
+		r.incrementalTailMdCache = ""
 	}
 
-	// Output the latest (potentially incomplete) line as plain text
-	latestLine := lines[numLines-1]
-	if latestLine == "" {
-		return r.incrementalBlockMdCache
+	// Re-render the trailing paragraph only when a new line completes, not on
+	// every mid-line chunk.
+	tailLineCount := completeLineCount - r.incrementalStableOffset
+	if tailLineCount != r.incrementalTailLineCount {
+		tailContent := strings.Join(lines[r.incrementalStableOffset:completeLineCount], "\n")
+		if strings.TrimSpace(tailContent) == "" {
+			r.incrementalTailMdCache = ""
+		} else {
+			r.incrementalTailMdCache = strings.TrimSuffix(r.toMarkdownBlock(tailContent), "\n")
+		}
+		r.incrementalTailLineCount = tailLineCount
 	}
 
+	return r.withPartialLine(lines[len(lines)-1])
+}
+
+func (r *Renderer) appendStable(rendered string) {
+	if r.incrementalStableMdCache != "" {
+		r.incrementalStableMdCache += "\n"
+	}
+	r.incrementalStableMdCache += rendered
+}
+
+// withPartialLine assembles stable + tail caches plus the current incomplete
+// line as plain wrapped text — glamour is never invoked for mid-line chunks.
+func (r *Renderer) withPartialLine(line string) string {
+	out := r.incrementalStableMdCache
+	if r.incrementalTailMdCache != "" {
+		if out != "" {
+			out += "\n"
+		}
+		out += r.incrementalTailMdCache
+	}
+	if line == "" {
+		return out
+	}
 	// Wrap to renderer width so block indicators appear on each visual line
-	latestLine = wrapLine(latestLine, r.width)
-
-	if r.incrementalBlockMdCache == "" {
-		return latestLine
+	line = wrapLine(line, r.width)
+	if out == "" {
+		return line
 	}
-	return r.incrementalBlockMdCache + "\n" + latestLine
+	return out + "\n" + line
 }
 
 // toMarkdownBlock renders a single block of markdown content.
@@ -202,10 +262,6 @@ func customStyle() ansi.StyleConfig {
 
 	return style
 }
-
-// internal/markdown/render.go
-
-// Add this function:
 
 // wrapLine wraps a single line of text to the specified width using word boundaries.
 func wrapLine(text string, width int) string {
