@@ -3546,7 +3546,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260628165235-da76226d2fbd",
+    version = "v0.0.0-20260721231359-b4b1a9fc5015",
     visibility = ["PUBLIC"],
 )
 
@@ -4101,6 +4101,7 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
+        ":github.com__malonaz__core__go__grpc",
         ":github.com__malonaz__core__go__grpc__middleware",
         ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__jsonnet",
