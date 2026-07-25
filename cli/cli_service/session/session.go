@@ -91,7 +91,8 @@ func (s *Session) refresh() {
 }
 
 func (s *Session) emitError(err error) {
-	s.emit(ErrorEvent{Err: err})
+	// Errors must always reach the TUI; block until delivered.
+	s.eventCh <- ErrorEvent{Err: err}
 }
 
 func (s *Session) Chat() *sgptpb.Chat {
@@ -255,10 +256,13 @@ func (s *Session) saveChat() error {
 	defer s.mu.Unlock()
 
 	if s.chat.GetName() == "" {
+		chatID := uuid.MustNewV7().String()
 		createChatRequest := &sgptservicepb.CreateChatRequest{
 			RequestId: uuid.MustNewV7().String(),
-			ChatId:    uuid.MustNewV7().String()[:8],
-			Chat:      s.chat,
+			// Last segment of a v7 UUID is random; the first 8 chars are a timestamp
+			// prefix that collides for chats created within the same ~65s window.
+			ChatId: chatID[len(chatID)-8:],
+			Chat:   s.chat,
 		}
 		chat, err := s.chatClient.CreateChat(s.ctx, createChatRequest)
 		if err != nil {

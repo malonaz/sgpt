@@ -3546,7 +3546,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260721231359-b4b1a9fc5015",
+    version = "v0.0.0-20260725122320-c1ca447dec26",
     visibility = ["PUBLIC"],
 )
 
@@ -4106,6 +4106,7 @@ go_module(
         ":github.com__malonaz__core__go__grpc__status",
         ":github.com__malonaz__core__go__jsonnet",
         ":github.com__malonaz__core__go__pbutil",
+        ":go.einride.tech__aip__resourcename",
         ":google.golang.org__grpc",
         ":google.golang.org__grpc__codes",
         ":google.golang.org__grpc__metadata",
@@ -4119,6 +4120,8 @@ go_module(
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/go:github.com__google__cel-go__cel",
+        "//third_party/go:github.com__google__cel-go__common__types",
+        "//third_party/go:github.com__google__cel-go__common__types__ref",
         "//third_party/go:github.com__google__cel-go__ext",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2",
         "//third_party/go:github.com__grpc-ecosystem__go-grpc-middleware__v2__interceptors__auth",

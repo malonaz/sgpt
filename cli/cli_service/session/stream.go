@@ -140,7 +140,10 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.streamingMessage != nil {
+	// Persist even if no tokens arrived — gRPC stream errors typically surface
+	// on the first Recv(), when streamingMessage is still nil. Without this,
+	// the error would only live in the ephemeral streamError and could vanish.
+	if s.streamingMessage != nil || err != nil {
 		assistantMessage := ai.NewAssistantMessage(blocks...)
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {

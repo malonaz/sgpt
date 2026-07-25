@@ -75,7 +75,9 @@ type App struct {
 	height  int
 	ready   bool
 
-	alert        string
+	// Alerts are queued so that none are ever lost; they display one at a
+	// time, each for alertDuration.
+	alertQueue   []string
 	alertVisible bool
 	quitting     bool
 }
@@ -125,8 +127,11 @@ func (a *App) Init() tea.Cmd {
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case alertDismissMsg:
-		a.alertVisible = false
-		return a, nil
+		// Drop the alert that just finished displaying, then show the next.
+		if len(a.alertQueue) > 0 {
+			a.alertQueue = a.alertQueue[1:]
+		}
+		return a, a.displayNextAlert()
 
 	case openTabMsg:
 		cmd := a.addTab(msg.id, msg.screen)
@@ -197,13 +202,13 @@ func (a *App) View() tea.View {
 	}
 
 	var b strings.Builder
-	if a.alertVisible {
+	if a.alertVisible && len(a.alertQueue) > 0 {
 		alertStyle := lipgloss.NewStyle().
 			Background(styles.SuccessColor).
 			Foreground(lipgloss.Color("#000000")).
 			Bold(true).
 			Padding(0, 1)
-		b.WriteString(alertStyle.Width(a.width).Render(a.alert))
+		b.WriteString(alertStyle.Width(a.width).Render(a.alertQueue[0]))
 	} else {
 		b.WriteString(a.renderTabBar())
 	}
@@ -398,7 +403,19 @@ func (a *App) focusMenuSearch() tea.Cmd {
 }
 
 func (a *App) showAlert(text string) tea.Cmd {
-	a.alert = text
+	a.alertQueue = append(a.alertQueue, text)
+	if a.alertVisible {
+		// Already displaying; the pending dismiss tick will pop the next one.
+		return nil
+	}
+	return a.displayNextAlert()
+}
+
+func (a *App) displayNextAlert() tea.Cmd {
+	if len(a.alertQueue) == 0 {
+		a.alertVisible = false
+		return nil
+	}
 	a.alertVisible = true
 	return tea.Tick(alertDuration, func(time.Time) tea.Msg { return alertDismissMsg{} })
 }
