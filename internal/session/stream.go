@@ -117,7 +117,9 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 }
 
 // reviewToolCallEagerly attaches display/auto-execute metadata to a tool call
-// as soon as it appears in the stream, without waiting for stream completion.
+// as soon as it appears in the stream. Read-only (auto-execute) tools are
+// executed immediately — sequentially, in arrival order — so the turn keeps
+// moving instead of waiting for the full response.
 func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 	debug.LogProto("eager", toolCall)
 	if !s.registry.Handles(toolCall) {
@@ -125,7 +127,30 @@ func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 	}
 	if _, err := s.registry.Review(s.ctx, toolCall); err != nil {
 		s.emitError(fmt.Errorf("reviewing tool call %q: %w", toolCall.Name, err))
+		return
 	}
+	// Review can attach a result directly (e.g. discovery tools); executing
+	// those through the registry would fail with a parse-type mismatch.
+	if toolCall.GetResult() != nil {
+		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+		s.refresh()
+		return
+	}
+	metadata, err := tools.ParseToolCallMetadata(toolCall)
+	if err != nil || !metadata.GetAutoExecute() {
+		return
+	}
+
+	tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+	s.setExecutingToolCall(toolCall.GetId())
+	s.refresh()
+	toolResult, err := s.registry.Execute(s.ctx, toolCall)
+	if err != nil {
+		toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+	}
+	toolCall.Result = toolResult
+	s.setExecutingToolCall("")
+	s.refresh()
 }
 
 // finalizeStream commits the streamed message to the chat and resets stream state.
@@ -157,7 +182,7 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 	}
 
 	s.streamingMessage = nil
-	s.streaming = false
+	s.state = StateIdle
 	s.cancelStream = nil
 	s.streamError = err
 }

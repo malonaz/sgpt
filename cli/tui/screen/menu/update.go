@@ -7,21 +7,30 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
 )
 
 var (
-	keyUp           = key.NewBinding(key.WithKeys("ctrl+p"))
-	keyDown         = key.NewBinding(key.WithKeys("ctrl+n"))
-	keyOpen         = key.NewBinding(key.WithKeys("enter"))
-	keyDelete       = key.NewBinding(key.WithKeys("alt+d"))
-	keyRefresh      = key.NewBinding(key.WithKeys("alt+r"))
-	keyNextPage     = key.NewBinding(key.WithKeys("alt+]"))
-	keyPrevPage     = key.NewBinding(key.WithKeys("alt+["))
-	keyToTop        = key.NewBinding(key.WithKeys("alt+<"))
-	keyToBottom     = key.NewBinding(key.WithKeys("alt+>"))
-	keyMenuFavorite = key.NewBinding(key.WithKeys("alt+shift+f"))
+	keyUp           = keymap.New("ctrl+p", "Move up")
+	keyDown         = keymap.New("ctrl+n", "Move down")
+	keyOpen         = keymap.New("enter", "Open chat")
+	keyDelete       = keymap.New("alt+d", "Delete chat")
+	keyRefresh      = keymap.New("alt+r", "Refresh")
+	keyToTop        = keymap.New("alt+<", "Jump to filter")
+	keyToBottom     = keymap.New("alt+>", "Jump to last chat")
+	keyMenuFavorite = keymap.New("alt+shift+f", "Toggle favorite")
 )
+
+func (m *Model) Keymaps() []keymap.Map {
+	return []keymap.Map{{
+		Name: "Menu",
+		Bindings: []keymap.Binding{
+			keyUp, keyDown, keyOpen, keyDelete, keyMenuFavorite,
+			keyRefresh, keyToTop, keyToBottom,
+		},
+	}}
+}
 
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
@@ -32,28 +41,24 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return nil
 
 	case chatsLoadedMsg:
-		m.loading = false
 		if msg.Err != nil {
+			m.loading = false
+			m.loadingMore = false
 			m.err = msg.Err
 			return nil
 		}
+		// Discard results from a stale search query.
 		if msg.SearchQuery != m.searchQuery {
 			return nil
 		}
-		m.favorites = msg.Favorites
-		m.others = msg.Others
-		m.currentPageToken = msg.PageToken
-		m.nextPageToken = msg.NextPageToken
-		m.err = nil
-		m.chatCursor = 0
-		m.updateSelection()
-		m.listViewport.SetContent(m.renderList())
+		m.applyChats(&msg)
 		return nil
 
 	case chatDeletedMsg:
 		if msg.Err != nil {
 			return m.wrapCmd(screen.AlertMsg{Text: "Delete failed: " + msg.Err.Error()})
 		}
+		delete(m.detailCache, msg.Name)
 		m.removeChatByName(msg.Name)
 		m.updateSelection()
 		m.listViewport.SetContent(m.renderList())
@@ -64,11 +69,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return m.wrapCmd(screen.AlertMsg{Text: "Favorite toggle failed: " + msg.Err.Error()})
 		}
 		// Re-fetch to get correct server-side ordering.
+		delete(m.detailCache, msg.Name)
 		label := "added to"
 		if !msg.Favorited {
 			label = "removed from"
 		}
-		return tea.Batch(m.fetchChats(m.currentPageToken), m.wrapCmd(screen.AlertMsg{Text: "Chat " + label + " favorites"}))
+		return tea.Batch(m.fetchChats("", false), m.wrapCmd(screen.AlertMsg{Text: "Chat " + label + " favorites"}))
 
 	case searchDebounceTickMsg:
 		currentQuery := strings.TrimSpace(m.searchInput.Value())
@@ -80,8 +86,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		m.lastSearchQuery = currentQuery
 		m.searchQuery = currentQuery
-		m.resetPagination()
-		return m.fetchChats("")
+		return m.fetchChats("", false)
 
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
@@ -107,28 +112,30 @@ func (m *Model) removeChatByName(name string) {
 
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, keyToTop):
+	case key.Matches(msg, keyToTop.Key):
 		m.focusTarget = FocusFilter
 		m.listViewport.SetContent(m.renderList())
+		m.listViewport.GotoTop()
 		return m.applyFocus()
 
-	case key.Matches(msg, keyToBottom):
+	case key.Matches(msg, keyToBottom.Key):
 		displayed := m.displayedChats()
 		if len(displayed) > 0 {
 			m.focusTarget = FocusChatList
 			m.chatCursor = len(displayed) - 1
 			m.updateSelection()
 			m.listViewport.SetContent(m.renderList())
+			m.ensureCursorVisible()
 		}
 		return m.applyFocus()
 
-	case key.Matches(msg, keyUp):
+	case key.Matches(msg, keyUp.Key):
 		return m.navigateUp()
 
-	case key.Matches(msg, keyDown):
+	case key.Matches(msg, keyDown.Key):
 		return m.navigateDown()
 
-	case key.Matches(msg, keyOpen):
+	case key.Matches(msg, keyOpen.Key):
 		if m.focusTarget == FocusChatList {
 			if chat := m.selectedChat(); chat != nil {
 				return m.wrapCmd(screen.OpenChatMsg{Chat: chat})
@@ -136,7 +143,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
-	case key.Matches(msg, keyDelete):
+	case key.Matches(msg, keyDelete.Key):
 		if m.focusTarget == FocusChatList {
 			if chat := m.selectedChat(); chat != nil {
 				return m.deleteChat(chat.Name)
@@ -144,7 +151,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
-	case key.Matches(msg, keyMenuFavorite):
+	case key.Matches(msg, keyMenuFavorite.Key):
 		if m.focusTarget == FocusChatList {
 			if chat := m.selectedChat(); chat != nil {
 				return m.toggleFavorite(chat)
@@ -152,15 +159,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
-	case key.Matches(msg, keyRefresh):
-		m.resetPagination()
-		return m.fetchChats("")
-
-	case key.Matches(msg, keyNextPage):
-		return m.nextPage()
-
-	case key.Matches(msg, keyPrevPage):
-		return m.previousPage()
+	case key.Matches(msg, keyRefresh.Key):
+		m.detailCache = map[string]string{}
+		return m.fetchChats("", false)
 	}
 
 	switch m.focusTarget {
@@ -186,10 +187,12 @@ func (m *Model) navigateUp() tea.Cmd {
 			m.chatCursor--
 			m.updateSelection()
 			m.listViewport.SetContent(m.renderList())
+			m.ensureCursorVisible()
 			return nil
 		}
 		m.focusTarget = FocusSearch
 		m.listViewport.SetContent(m.renderList())
+		m.listViewport.GotoTop()
 		return m.applyFocus()
 	}
 	return nil
@@ -208,6 +211,7 @@ func (m *Model) navigateDown() tea.Cmd {
 			m.chatCursor = 0
 			m.updateSelection()
 			m.listViewport.SetContent(m.renderList())
+			m.ensureCursorVisible()
 			return m.applyFocus()
 		}
 		return nil
@@ -217,8 +221,10 @@ func (m *Model) navigateDown() tea.Cmd {
 			m.chatCursor++
 			m.updateSelection()
 			m.listViewport.SetContent(m.renderList())
+			m.ensureCursorVisible()
 		}
-		return nil
+		// Infinite scroll: top up the list before the cursor hits the end.
+		return m.maybeLoadMore()
 	}
 	return nil
 }
@@ -246,8 +252,7 @@ func (m *Model) handleSearchInput(msg tea.KeyPressMsg) tea.Cmd {
 	if currentQuery == "" && m.searchQuery != "" {
 		m.searchQuery = ""
 		m.lastSearchQuery = ""
-		m.resetPagination()
-		return tea.Batch(cmd, m.fetchChats(""))
+		return tea.Batch(cmd, m.fetchChats("", false))
 	}
 
 	if currentQuery != "" && currentQuery != m.lastSearchQuery {

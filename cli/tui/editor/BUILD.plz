@@ -1,0 +1,6 @@
+go_library(
+    name = "editor",
+    srcs = ["editor.go"],
+    visibility = ["//..."],
+    deps = ["//third_party/go:charm.land__bubbletea__v2"],
+)

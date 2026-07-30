@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"golang.design/x/clipboard"
 
+	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
 	"github.com/malonaz/sgpt/cli/tui/styles"
@@ -37,14 +38,15 @@ type tab struct {
 }
 
 var (
-	keyQuit     = key.NewBinding(key.WithKeys("ctrl+c"))
-	keyNewTab   = key.NewBinding(key.WithKeys("ctrl+t"))
-	keyCloseTab = key.NewBinding(key.WithKeys("ctrl+w"))
-	keyPrevTab  = key.NewBinding(key.WithKeys("alt+j"))
-	keyNextTab  = key.NewBinding(key.WithKeys("alt+;"))
-	keyOpenMenu = key.NewBinding(key.WithKeys("alt+m"))
-	keySearch   = key.NewBinding(key.WithKeys("ctrl+_"))
-	keyCopyName = key.NewBinding(key.WithKeys("alt+c"))
+	keyQuit     = keymap.New("ctrl+c", "Quit")
+	keyNewTab   = keymap.New("ctrl+t", "New chat tab")
+	keyCloseTab = keymap.New("ctrl+w", "Close tab")
+	keyPrevTab  = keymap.New("alt+j", "Previous tab")
+	keyNextTab  = keymap.New("alt+;", "Next tab")
+	keyOpenMenu = keymap.New("alt+m", "Open menu")
+	keySearch   = keymap.New("ctrl+_", "Search chats")
+	keyCopyName = keymap.New("alt+c", "Copy chat name")
+	keyHelp     = keymap.New("alt+h", "Toggle this help")
 	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
 	keyTab2     = key.NewBinding(key.WithKeys("alt+f2"))
 	keyTab3     = key.NewBinding(key.WithKeys("alt+f3"))
@@ -77,6 +79,7 @@ type App struct {
 	// time, each for alertDuration.
 	alertQueue   []string
 	alertVisible bool
+	helpVisible  bool
 	quitting     bool
 }
 
@@ -180,6 +183,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.closeTab(msg.TabID)
 
 	case tea.KeyPressMsg:
+		// The help modal swallows every key: alt+h opens, anything closes.
+		if a.helpVisible {
+			a.helpVisible = false
+			return a, nil
+		}
+		if key.Matches(msg, keyHelp.Key) {
+			a.helpVisible = true
+			return a, nil
+		}
 		if cmd := a.handleGlobalKey(msg); cmd != nil {
 			return a, cmd
 		}
@@ -198,6 +210,13 @@ func (a *App) View() tea.View {
 	}
 	if !a.ready {
 		return tea.NewView("Initializing...")
+	}
+
+	if a.helpVisible {
+		view := tea.NewView(keymap.RenderHelp(a.keymaps(), a.width, a.height))
+		view.AltScreen = true
+		view.ReportFocus = true
+		return view
 	}
 
 	var b strings.Builder
@@ -222,9 +241,27 @@ func (a *App) View() tea.View {
 	return view
 }
 
+// keymaps composes the global bindings with the active screen's, so the help
+// modal always reflects exactly what is currently reachable.
+func (a *App) keymaps() []keymap.Map {
+	maps := []keymap.Map{{
+		Name: "Global",
+		Bindings: []keymap.Binding{
+			keyHelp, keyQuit, keyNewTab, keyCloseTab, keyPrevTab, keyNextTab,
+			keyOpenMenu, keySearch, keyCopyName,
+		},
+	}}
+	if a.activeTab < len(a.tabs) {
+		if keymapper, ok := a.tabs[a.activeTab].screen.(keymap.Keymapper); ok {
+			maps = append(maps, keymapper.Keymaps()...)
+		}
+	}
+	return maps
+}
+
 func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, keyQuit):
+	case key.Matches(msg, keyQuit.Key):
 		if a.activeTab < len(a.tabs) {
 			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok && chatScreen.IsStreaming() {
 				break
@@ -232,19 +269,19 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		a.quitting = true
 		return tea.Quit
-	case key.Matches(msg, keyNewTab):
+	case key.Matches(msg, keyNewTab.Key):
 		return a.createNewChat()
-	case key.Matches(msg, keyCloseTab):
+	case key.Matches(msg, keyCloseTab.Key):
 		return a.closeTab("")
-	case key.Matches(msg, keyNextTab):
+	case key.Matches(msg, keyNextTab.Key):
 		return a.switchTab(a.activeTab + 1)
-	case key.Matches(msg, keyPrevTab):
+	case key.Matches(msg, keyPrevTab.Key):
 		return a.switchTab(a.activeTab - 1)
-	case key.Matches(msg, keyOpenMenu):
+	case key.Matches(msg, keyOpenMenu.Key):
 		return a.focusMenu()
-	case key.Matches(msg, keySearch):
+	case key.Matches(msg, keySearch.Key):
 		return a.focusMenuSearch()
-	case key.Matches(msg, keyCopyName):
+	case key.Matches(msg, keyCopyName.Key):
 		if a.activeTab < len(a.tabs) {
 			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok {
 				chatName := chatScreen.Session().Chat().GetName()

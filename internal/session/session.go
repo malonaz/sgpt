@@ -18,6 +18,17 @@ import (
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
+// State is the session lifecycle phase; the UI derives what to show
+// (input, spinner, review hints) from it rather than from ad-hoc booleans.
+type State int
+
+const (
+	StateIdle State = iota
+	StateStreaming
+	StateExecutingTools
+	StateAwaitingReview
+)
+
 // Params bundles per-chat parameters for a session.
 type Params struct {
 	Model              *aipb.Model
@@ -38,12 +49,13 @@ type Session struct {
 	store    *store.Store
 	registry *tools.Registry
 
-	mu               sync.Mutex
-	chat             *sgptpb.Chat
-	streamingMessage *aipb.Message
-	streamError      error
-	streaming        bool
-	cancelStream     context.CancelFunc
+	mu                sync.Mutex
+	chat              *sgptpb.Chat
+	streamingMessage  *aipb.Message
+	streamError       error
+	state             State
+	executingToolCall string
+	cancelStream      context.CancelFunc
 
 	totalModelUsage *aipb.ModelUsage
 	lastModelUsage  *aipb.ModelUsage
@@ -108,10 +120,39 @@ func (s *Session) StreamError() error {
 	return s.streamError
 }
 
-func (s *Session) IsStreaming() bool {
+func (s *Session) State() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.streaming
+	return s.state
+}
+
+func (s *Session) IsStreaming() bool {
+	return s.State() == StateStreaming
+}
+
+// Busy reports whether the session is actively working (input disabled).
+func (s *Session) Busy() bool {
+	state := s.State()
+	return state == StateStreaming || state == StateExecutingTools
+}
+
+// ExecutingToolCallID identifies the tool call currently in flight, if any.
+func (s *Session) ExecutingToolCallID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.executingToolCall
+}
+
+func (s *Session) setState(state State) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state = state
+}
+
+func (s *Session) setExecutingToolCall(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.executingToolCall = id
 }
 
 func (s *Session) Params() Params {
@@ -163,7 +204,7 @@ func (s *Session) SendMessage(text string) {
 
 	s.mu.Lock()
 	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: userMessage})
-	s.streaming = true
+	s.state = StateStreaming
 	s.streamError = nil
 	s.mu.Unlock()
 
@@ -180,8 +221,8 @@ func (s *Session) CancelStream() {
 }
 
 // runTurn executes a complete turn: stream → process tool calls → save.
-// Auto-execute tool calls are handled immediately. Non-auto ones pause for user.
-// Loops if all tool calls in a turn were auto-executed.
+// Auto-execute tool calls run immediately (some already ran eagerly during
+// streaming). Manual ones pause the turn for user review.
 func (s *Session) runTurn() {
 	for {
 		blocks, err := s.stream()
@@ -212,6 +253,7 @@ func (s *Session) runTurn() {
 		allAutoExecuted, err := s.processToolCallsAfterStream(toolCalls)
 		if err != nil {
 			s.emitError(fmt.Errorf("processing tool calls: %w", err))
+			s.setState(StateIdle)
 			s.refresh()
 			return
 		}
@@ -223,9 +265,7 @@ func (s *Session) runTurn() {
 		}
 
 		// All auto-executed — loop to stream again with tool results.
-		s.mu.Lock()
-		s.streaming = true
-		s.mu.Unlock()
+		s.setState(StateStreaming)
 	}
 }
 
