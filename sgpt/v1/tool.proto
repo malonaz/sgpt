@@ -11,6 +11,8 @@ message ToolCallMetadata {
 
   // Whether this tool call should be automatically executed without user confirmation.
   bool auto_execute = 2;
+  // Unified diff computed at review time by the edit_file tool.
+  string diff = 3;
 }
 
 // Metadata attached to a tool call result via annotations.

@@ -169,7 +169,7 @@ func (m *Model) renderDetail() string {
 	b.WriteString(styles.DividerStyle.Render(strings.Repeat("─", detailWidth)))
 	b.WriteString("\n")
 
-	items := timeline.BuildChatItems(chat.GetMetadata().GetMessages(), nil, "")
+	items := timeline.BuildChatItems(chat.GetMetadata().GetMessages(), nil, "", nil)
 	if len(items) == 0 {
 		b.WriteString(styles.DimTextStyle.Render(" No messages in this chat"))
 		return b.String()

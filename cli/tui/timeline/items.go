@@ -160,6 +160,12 @@ func (i *ThoughtItem) Render(ctx RenderContext) string {
 	return frame(ctx, styles.AIThoughtStyle, renderMarkdown(ctx, i.seq, i.finalized, markdown.ParseBlocks(i.text)...))
 }
 
+// RequestRenderer lets a tool dictate how its request renders in the
+// timeline; unset (or declining) falls back to raw JSON arguments.
+type RequestRenderer interface {
+	RenderRequest(toolCall *aipb.ToolCall) (string, bool)
+}
+
 // ---- ToolCallItem: request/response pair rendered adjacently ----
 
 type ToolCallItem struct {
@@ -168,6 +174,8 @@ type ToolCallItem struct {
 	ToolCall  *aipb.ToolCall
 	Result    *aipb.ToolResult
 	Executing bool
+	// RequestRenderer, when set, overrides the raw-JSON request rendering.
+	RequestRenderer RequestRenderer
 }
 
 func (i *ToolCallItem) ID() string { return i.id }
@@ -229,6 +237,12 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 }
 
 func (i *ToolCallItem) request(ctx RenderContext) string {
+	// Tools may dictate their own presentation (e.g. edit_file's diff).
+	if i.RequestRenderer != nil {
+		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {
+			return renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(md)...)
+		}
+	}
 	// Full payload — inspection during review was the whole point.
 	bytes, _ := pbutil.JSONMarshalPretty(i.ToolCall.GetArguments())
 	fenced := fmt.Sprintf("```json\n%s\n```", string(bytes))
@@ -350,7 +364,7 @@ func (i *InjectedFilesItem) Render(ctx RenderContext) string {
 // BuildChatItems converts chat messages (plus an optional in-flight streaming
 // message) into timeline items. Every tool result is paired with its
 // originating call so request/response render adjacently, in call order.
-func BuildChatItems(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string) []Item {
+func BuildChatItems(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
 	toolCallIDToResult := map[string]*aipb.ToolResult{}
 	for _, chatMessage := range messages {
 		message := chatMessage.GetMessage()
@@ -366,13 +380,13 @@ func BuildChatItems(messages []*sgptpb.Message, streamingMessage *aipb.Message, 
 
 	var items []Item
 	for messageIndex, chatMessage := range messages {
-		items = appendMessageItems(items, chatMessage.GetMessage(), messageIndex, true, toolCallIDToResult, executingToolCallID)
+		items = appendMessageItems(items, chatMessage.GetMessage(), messageIndex, true, toolCallIDToResult, executingToolCallID, requestRenderer)
 		if chatMessage.GetError() != nil {
 			items = append(items, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), chatMessage.GetError().GetMessage()))
 		}
 	}
 	if streamingMessage != nil {
-		items = appendMessageItems(items, streamingMessage, len(messages), false, toolCallIDToResult, executingToolCallID)
+		items = appendMessageItems(items, streamingMessage, len(messages), false, toolCallIDToResult, executingToolCallID, requestRenderer)
 	}
 	return items
 }
@@ -384,6 +398,7 @@ func appendMessageItems(
 	finalized bool,
 	toolCallIDToResult map[string]*aipb.ToolResult,
 	executingToolCallID string,
+	requestRenderer RequestRenderer,
 ) []Item {
 	baseSeq := messageIndex * 1000
 	switch message.GetRole() {
@@ -430,11 +445,12 @@ func appendMessageItems(
 					result = toolCallIDToResult[toolCall.GetId()]
 				}
 				items = append(items, &ToolCallItem{
-					id:        fmt.Sprintf("m%d-b%d-tool", messageIndex, blockIndex),
-					seq:       seq,
-					ToolCall:  toolCall,
-					Result:    result,
-					Executing: executingToolCallID != "" && toolCall.GetId() == executingToolCallID,
+					id:              fmt.Sprintf("m%d-b%d-tool", messageIndex, blockIndex),
+					seq:             seq,
+					ToolCall:        toolCall,
+					Result:          result,
+					Executing:       executingToolCallID != "" && toolCall.GetId() == executingToolCallID,
+					RequestRenderer: requestRenderer,
 				})
 			}
 		}

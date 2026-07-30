@@ -1,6 +1,9 @@
 go_library(
     name = "tools",
     srcs = [
+        "diff.go",
+        "edit_file.go",
+        "internal_tools.go",
         "read_files.go",
         "registry.go",
         "shell.go",

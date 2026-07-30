@@ -371,6 +371,7 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 		m.session.Chat().GetMetadata().GetMessages(),
 		m.session.StreamingMessage(),
 		m.session.ExecutingToolCallID(),
+		m.session.Registry(),
 	)...)
 	if err := m.session.StreamError(); err != nil {
 		items = append(items, timeline.NewErrorItem("stream-error", err.Error()))

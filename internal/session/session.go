@@ -324,3 +324,9 @@ func statusToProto(err error) *spb.Status {
 	}
 	return status.Convert(err).Proto()
 }
+
+// Registry exposes the tool registry so the TUI can delegate tool-dictated
+// request rendering (timeline.RequestRenderer).
+func (s *Session) Registry() *tools.Registry {
+	return s.registry
+}

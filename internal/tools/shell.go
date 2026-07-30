@@ -96,3 +96,18 @@ func (t *ShellTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.T
 }
 
 var _ Tool = (*ShellTool)(nil)
+
+// RenderRequest renders the command as a shell fence instead of raw JSON.
+func (t *ShellTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
+	arguments, err := parseShellCommandArguments(toolCall)
+	if err != nil {
+		return "", false
+	}
+	display := arguments.Command
+	if arguments.WorkingDirectory != "" {
+		display = fmt.Sprintf("cd %s && %s", arguments.WorkingDirectory, arguments.Command)
+	}
+	return fmt.Sprintf("```sh\n%s\n```", display), true
+}
+
+var _ RequestRenderer = (*ShellTool)(nil)

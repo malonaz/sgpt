@@ -27,6 +27,7 @@ type ToolCallMetadata struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_DisplayMessage *DisplayMessage        `protobuf:"bytes,1,opt,name=display_message,json=displayMessage,proto3"`
 	xxx_hidden_AutoExecute    bool                   `protobuf:"varint,2,opt,name=auto_execute,json=autoExecute,proto3"`
+	xxx_hidden_Diff           string                 `protobuf:"bytes,3,opt,name=diff,proto3"`
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
@@ -70,12 +71,23 @@ func (x *ToolCallMetadata) GetAutoExecute() bool {
 	return false
 }
 
+func (x *ToolCallMetadata) GetDiff() string {
+	if x != nil {
+		return x.xxx_hidden_Diff
+	}
+	return ""
+}
+
 func (x *ToolCallMetadata) SetDisplayMessage(v *DisplayMessage) {
 	x.xxx_hidden_DisplayMessage = v
 }
 
 func (x *ToolCallMetadata) SetAutoExecute(v bool) {
 	x.xxx_hidden_AutoExecute = v
+}
+
+func (x *ToolCallMetadata) SetDiff(v string) {
+	x.xxx_hidden_Diff = v
 }
 
 func (x *ToolCallMetadata) HasDisplayMessage() bool {
@@ -96,6 +108,8 @@ type ToolCallMetadata_builder struct {
 	DisplayMessage *DisplayMessage
 	// Whether this tool call should be automatically executed without user confirmation.
 	AutoExecute bool
+	// Unified diff computed at review time by the edit_file tool.
+	Diff string
 }
 
 func (b0 ToolCallMetadata_builder) Build() *ToolCallMetadata {
@@ -104,6 +118,7 @@ func (b0 ToolCallMetadata_builder) Build() *ToolCallMetadata {
 	_, _ = b, x
 	x.xxx_hidden_DisplayMessage = b.DisplayMessage
 	x.xxx_hidden_AutoExecute = b.AutoExecute
+	x.xxx_hidden_Diff = b.Diff
 	return m0
 }
 
@@ -255,10 +270,11 @@ var File_sgpt_v1_tool_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"\x12sgpt/v1/tool.proto\x12\asgpt.v1\"w\n" +
+	"\x12sgpt/v1/tool.proto\x12\asgpt.v1\"\x8b\x01\n" +
 	"\x10ToolCallMetadata\x12@\n" +
 	"\x0fdisplay_message\x18\x01 \x01(\v2\x17.sgpt.v1.DisplayMessageR\x0edisplayMessage\x12!\n" +
-	"\fauto_execute\x18\x02 \x01(\bR\vautoExecute\"Z\n" +
+	"\fauto_execute\x18\x02 \x01(\bR\vautoExecute\x12\x12\n" +
+	"\x04diff\x18\x03 \x01(\tR\x04diff\"Z\n" +
 	"\x16ToolCallResultMetadata\x12@\n" +
 	"\x0fdisplay_message\x18\x01 \x01(\v2\x17.sgpt.v1.DisplayMessageR\x0edisplayMessage\"B\n" +
 	"\x0eDisplayMessage\x12\x18\n" +

@@ -17,6 +17,7 @@ const (
 	HandlerIDShell     = "shell"
 	HandlerIDReadFiles = "read_files"
 	HandlerIDEngine    = "engine"
+	HandlerIDEditFile  = "edit_file"
 )
 
 // Tool reviews and executes tool calls.
@@ -118,4 +119,27 @@ func toolCallArgumentsJSON(toolCall *aipb.ToolCall) ([]byte, error) {
 		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
 	}
 	return bytes, nil
+}
+
+// RequestRenderer is implemented by tools that dictate how their request
+// renders in the timeline (e.g. edit_file renders a diff).
+type RequestRenderer interface {
+	Tool
+	// RenderRequest returns markdown for the request; returning false falls
+	// back to the default raw-JSON rendering.
+	RenderRequest(toolCall *aipb.ToolCall) (string, bool)
+}
+
+// RenderRequest returns tool-provided request markdown for a call, if its
+// tool implements RequestRenderer.
+func (r *Registry) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return "", false
+	}
+	renderer, ok := tool.(RequestRenderer)
+	if !ok {
+		return "", false
+	}
+	return renderer.RenderRequest(toolCall)
 }

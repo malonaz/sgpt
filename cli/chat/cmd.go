@@ -93,10 +93,27 @@ func NewCmd(
 			registry := tools.NewRegistry()
 			registry.Register(tools.HandlerIDShell, &tools.ShellTool{})
 			registry.Register(tools.HandlerIDReadFiles, &tools.ReadFilesTool{})
+			registry.Register(tools.HandlerIDEditFile, &tools.EditFileTool{})
 
 			toolNames := append(opts.Tools, parsedRole.GetTools()...)
+			// Partition: built-in tools are advertised directly; everything
+			// else must be a configured tool engine.
+			internalToolNameSet := map[string]struct{}{}
+			toolEngineNameSet := map[string]struct{}{}
+			for _, name := range toolNames {
+				if _, ok := tools.InternalTool(name); ok {
+					internalToolNameSet[name] = struct{}{}
+					continue
+				}
+				toolEngineNameSet[name] = struct{}{}
+			}
+			for name := range internalToolNameSet {
+				internalTool, _ := tools.InternalTool(name)
+				registry.AddTools(internalTool)
+			}
+
 			var toolEngineConfigurations []*sgptpb.ToolEngineConfiguration
-			if len(toolNames) > 0 {
+			if len(toolEngineNameSet) > 0 {
 				toolEngineNameSet := map[string]struct{}{}
 				for _, name := range toolNames {
 					toolEngineNameSet[name] = struct{}{}
@@ -192,9 +209,13 @@ func NewCmd(
 	})
 
 	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		var names []string
+		// Built-in tools complete alongside configured tool engines.
+		candidates := tools.InternalToolNames()
 		for _, toolEngineConfiguration := range config.GetToolEngines() {
-			name := toolEngineConfiguration.GetName()
+			candidates = append(candidates, toolEngineConfiguration.GetName())
+		}
+		var names []string
+		for _, name := range candidates {
 			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
 				names = append(names, name)
 			}
