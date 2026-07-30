@@ -10,10 +10,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
-	cliservice "github.com/malonaz/sgpt/cli/cli_service"
-	"github.com/malonaz/sgpt/cli/cli_service/session"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
+	"github.com/malonaz/sgpt/internal/session"
 )
 
 type FocusedComponent int
@@ -22,8 +21,6 @@ const (
 	FocusTextarea FocusedComponent = iota
 	FocusViewport
 )
-
-const favoriteTag = "favorite"
 
 type sessionEventMsg struct {
 	event session.Event
@@ -59,10 +56,9 @@ type ChatScreen struct {
 }
 
 func NewChatScreen(
-	svc *cliservice.Service,
 	wrap WrapFunc,
 	send SendFunc,
-	sess *session.Session,
+	chatSession *session.Session,
 	injectedFiles []string,
 ) *ChatScreen {
 	sp := spinner.New()
@@ -70,7 +66,7 @@ func NewChatScreen(
 	sp.Style = styles.SpinnerStyle
 
 	cs := &ChatScreen{
-		session:          sess,
+		session:          chatSession,
 		wrap:             wrap,
 		send:             send,
 		titlebar:         widget.NewTitleBar(),
@@ -395,7 +391,6 @@ func (m *ChatScreen) recalculateLayout() {
 	}
 
 	m.titlebar.SetWidth(m.width)
-	titleView := m.titlebar.View()
 
 	viewportHeight := m.height - m.titlebar.Height()
 	if !m.session.IsStreaming() {
@@ -418,8 +413,6 @@ func (m *ChatScreen) recalculateLayout() {
 		m.refreshMessages()
 		m.messages.GotoBottom()
 	}
-
-	_ = titleView
 }
 
 func (m *ChatScreen) View() string {

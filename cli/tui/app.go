@@ -9,18 +9,16 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/google/uuid"
 	"golang.design/x/clipboard"
-	"google.golang.org/protobuf/proto"
 
-	cliservice "github.com/malonaz/sgpt/cli/cli_service"
-	"github.com/malonaz/sgpt/cli/cli_service/session"
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
-	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/session"
+	"github.com/malonaz/sgpt/internal/store"
+	"github.com/malonaz/sgpt/internal/tools"
 )
 
 const alertDuration = 2 * time.Second
@@ -61,11 +59,11 @@ var (
 var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, keyTab6, keyTab7, keyTab8, keyTab9}
 
 type App struct {
-	ctx     context.Context
-	service *cliservice.Service
+	ctx      context.Context
+	store    *store.Store
+	registry *tools.Registry
 
-	defaultParams cliservice.SessionParams
-	initialChat   *sgptpb.Chat
+	defaultParams session.Params
 
 	tabs      []*tab
 	activeTab int
@@ -84,26 +82,27 @@ type App struct {
 
 func NewApp(
 	ctx context.Context,
-	service *cliservice.Service,
+	chatStore *store.Store,
+	registry *tools.Registry,
 	initialChat *sgptpb.Chat,
-	params cliservice.SessionParams,
+	params session.Params,
 ) *App {
 	app := &App{
 		ctx:           ctx,
-		service:       service,
+		store:         chatStore,
+		registry:      registry,
 		defaultParams: params,
-		initialChat:   initialChat,
 	}
 
-	menuScrn := menuscreen.New(ctx, service.ChatClient, app.makeWrap(menuTabID))
+	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
 
 	tabID := params.Chat
-	sess := session.New(ctx, service, initialChat, params)
-	chatScrn := screen.NewChatScreen(service, app.makeWrap(tabID), app.makeSend(tabID), sess, params.InjectedFiles)
+	chatSession := session.New(ctx, chatStore, registry, initialChat, params)
+	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, params.InjectedFiles)
 
 	app.tabs = []*tab{
-		{id: menuTabID, screen: menuScrn},
-		{id: tabID, screen: chatScrn},
+		{id: menuTabID, screen: menuScreen},
+		{id: tabID, screen: chatScreen},
 	}
 	app.activeTab = 1
 	return app
@@ -227,7 +226,7 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyQuit):
 		if a.activeTab < len(a.tabs) {
-			if cs, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok && cs.IsStreaming() {
+			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok && chatScreen.IsStreaming() {
 				break
 			}
 		}
@@ -247,8 +246,8 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return a.focusMenuSearch()
 	case key.Matches(msg, keyCopyName):
 		if a.activeTab < len(a.tabs) {
-			if cs, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok {
-				chatName := cs.Session().Chat().GetName()
+			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok {
+				chatName := chatScreen.Session().Chat().GetName()
 				if chatName != "" {
 					clipboard.Write(clipboard.FmtText, []byte(chatName))
 					return a.showAlert("Copied chat name: " + chatName)
@@ -336,30 +335,18 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		var err error
 
 		if msg.Fork && chat != nil {
-			forked := proto.Clone(chat).(*sgptpb.Chat)
-			forked.Name = ""
-			createChatRequest := &sgptservicepb.CreateChatRequest{
-				RequestId: uuid.New().String(),
-				ChatId:    uuid.New().String()[:8],
-				Chat:      forked,
-			}
-			chat, err = a.service.ChatClient.CreateChat(a.ctx, createChatRequest)
+			chat, err = a.store.ForkChat(a.ctx, chat)
 			if err != nil {
 				return screen.AlertMsg{Text: fmt.Sprintf("Fork failed: %v", err)}
 			}
 		}
 
 		if chat == nil {
-			createChatRequest := &sgptservicepb.CreateChatRequest{
-				RequestId: uuid.New().String(),
-				ChatId:    uuid.New().String()[:8],
-				Chat: &sgptpb.Chat{
-					Metadata: &sgptpb.ChatMetadata{
-						CurrentModel: a.defaultParams.Model.Name,
-					},
+			chat, err = a.store.CreateChat(a.ctx, &sgptpb.Chat{
+				Metadata: &sgptpb.ChatMetadata{
+					CurrentModel: a.defaultParams.Model.Name,
 				},
-			}
-			chat, err = a.service.ChatClient.CreateChat(a.ctx, createChatRequest)
+			})
 			if err != nil {
 				return screen.AlertMsg{Text: fmt.Sprintf("Create failed: %v", err)}
 			}
@@ -369,9 +356,9 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		params.Chat = chat.Name
 		tabID := chat.Name
 
-		sess := session.New(a.ctx, a.service, chat, params)
-		s := screen.NewChatScreen(a.service, a.makeWrap(tabID), a.makeSend(tabID), sess, params.InjectedFiles)
-		return openTabMsg{id: tabID, screen: s}
+		chatSession := session.New(a.ctx, a.store, a.registry, chat, params)
+		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, params.InjectedFiles)
+		return openTabMsg{id: tabID, screen: chatScreen}
 	}
 }
 
@@ -445,8 +432,8 @@ func (a *App) renderTabBar() string {
 	var tabs []widget.Tab
 	for i, t := range a.tabs {
 		streaming := false
-		if cs, ok := t.screen.(*screen.ChatScreen); ok {
-			streaming = cs.IsStreaming()
+		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
+			streaming = chatScreen.IsStreaming()
 		}
 		tabs = append(tabs, widget.Tab{
 			ID:        t.id,

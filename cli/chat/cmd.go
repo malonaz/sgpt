@@ -13,15 +13,16 @@ import (
 	"github.com/malonaz/core/go/grpc"
 	"github.com/spf13/cobra"
 
-	cliservice "github.com/malonaz/sgpt/cli/cli_service"
 	"github.com/malonaz/sgpt/cli/tui"
 	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
+	"github.com/malonaz/sgpt/internal/session"
+	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/toolengine"
+	"github.com/malonaz/sgpt/internal/tools"
 )
 
 func NewCmd(
@@ -30,6 +31,8 @@ func NewCmd(
 	chatClient sgptservicepb.SgptServiceClient,
 	baseURLToGRPCConnection map[string]*grpc.Connection,
 ) *cobra.Command {
+	chatStore := store.New(config, aiClient, chatClient)
+
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
@@ -63,24 +66,19 @@ func NewCmd(
 					opts.Model = config.Chat.DefaultModel
 				}
 			}
-			opts.Model, err = configuration.ResolveModelAlias(config, opts.Model)
-			cobra.CheckErr(err)
-
-			selectedModel, err := resolveModel(ctx, aiClient, opts.Model)
+			selectedModel, err := chatStore.ResolveModel(ctx, opts.Model)
 			cobra.CheckErr(err)
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
-
-			// Append role-defined files.
 			opts.FileInjection.Files = append(opts.FileInjection.Files, parsedRole.GetFiles()...)
-
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
 			filePaths := make([]string, len(files))
-			for i, f := range files {
-				filePaths[i] = f.Path
+			for i, parsedFile := range files {
+				filePaths[i] = parsedFile.Path
 			}
 
+			// Tag the chat with the GitHub repos its files belong to.
 			var tags []string
 			githubRepoSet := map[string]struct{}{}
 			for _, filePath := range filePaths {
@@ -92,101 +90,86 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
-			tools := append(opts.Tools, parsedRole.GetTools()...)
+			registry := tools.NewRegistry()
+			registry.Register(tools.HandlerIDShell, &tools.ShellTool{})
+			registry.Register(tools.HandlerIDReadFiles, &tools.ReadFilesTool{})
 
-			var toolEngineManager *toolengine.Manager
+			toolNames := append(opts.Tools, parsedRole.GetTools()...)
 			var toolEngineConfigurations []*sgptpb.ToolEngineConfiguration
-			if len(tools) > 0 {
+			if len(toolNames) > 0 {
 				toolEngineNameSet := map[string]struct{}{}
-				for _, name := range tools {
+				for _, name := range toolNames {
 					toolEngineNameSet[name] = struct{}{}
 				}
-
-				configToolEngineNameSet := map[string]struct{}{}
-				for _, te := range config.ToolEngines {
-					configToolEngineNameSet[te.GetName()] = struct{}{}
+				configuredToolEngineNameSet := map[string]struct{}{}
+				for _, toolEngineConfiguration := range config.ToolEngines {
+					configuredToolEngineNameSet[toolEngineConfiguration.GetName()] = struct{}{}
 				}
 				for name := range toolEngineNameSet {
-					if _, ok := configToolEngineNameSet[name]; !ok {
+					if _, ok := configuredToolEngineNameSet[name]; !ok {
 						return fmt.Errorf("unknown tool engine %q", name)
 					}
 				}
 
-				filteredConfig := *config
-				for _, te := range config.ToolEngines {
-					if _, ok := toolEngineNameSet[te.GetName()]; ok {
-						toolEngineConfigurations = append(toolEngineConfigurations, te)
+				filteredConfiguration := *config
+				for _, toolEngineConfiguration := range config.ToolEngines {
+					if _, ok := toolEngineNameSet[toolEngineConfiguration.GetName()]; ok {
+						toolEngineConfigurations = append(toolEngineConfigurations, toolEngineConfiguration)
 					}
 				}
-				filteredConfig.ToolEngines = toolEngineConfigurations
-				toolEngineManager, err = toolengine.Initialize(ctx, &filteredConfig, baseURLToGRPCConnection)
+				filteredConfiguration.ToolEngines = toolEngineConfigurations
+				toolEngineManager, err := toolengine.Initialize(ctx, &filteredConfiguration, baseURLToGRPCConnection)
 				if err != nil {
 					return fmt.Errorf("initializing tool engines: %w", err)
 				}
 				defer toolEngineManager.Close()
+				registry.Register(tools.HandlerIDEngine, toolEngineManager)
+				registry.AddToolSets(toolEngineManager.GetToolSets()...)
 			}
 
 			var chat *sgptpb.Chat
-			if opts.Chat != "" {
-				getChatRequest := &sgptservicepb.GetChatRequest{Name: opts.Chat}
-				chat, err = chatClient.GetChat(ctx, getChatRequest)
+			switch {
+			case opts.Chat != "":
+				chat, err = chatStore.GetChat(ctx, opts.Chat)
 				cobra.CheckErr(err)
-			} else if opts.Continue {
-				listChatsRequest := &sgptservicepb.ListChatsRequest{
-					PageSize: 1,
-					OrderBy:  "create_time desc",
-				}
-				listChatsResponse, err := chatClient.ListChats(ctx, listChatsRequest)
+			case opts.Continue:
+				chat, err = chatStore.LatestChat(ctx)
 				cobra.CheckErr(err)
-				if len(listChatsResponse.Chats) == 0 {
-					cobra.CheckErr(fmt.Errorf("no chat to continue"))
-				}
-				chat = listChatsResponse.Chats[0]
 				opts.Chat = chat.Name
-			} else {
+			default:
 				chat = &sgptpb.Chat{
 					Files: filePaths,
 					Tags:  tags,
 					Metadata: &sgptpb.ChatMetadata{
-						CurrentModel: opts.Model,
+						CurrentModel: selectedModel.Name,
 					},
 				}
 			}
 
-			additionalMessages := make([]*aipb.Message, 0, len(files)+1)
+			additionalMessages := make([]*aipb.Message, 0, len(files)+len(toolEngineConfigurations)+1)
 			additionalMessages = append(additionalMessages, ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt)))
-			for _, c := range toolEngineConfigurations {
-				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(c.Instructions)))
+			for _, toolEngineConfiguration := range toolEngineConfigurations {
+				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(toolEngineConfiguration.Instructions)))
 			}
-			for _, f := range files {
-				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", f.Path, f.Content))))
-			}
-
-			service := &cliservice.Service{
-				Config:                  config,
-				AIClient:                aiClient,
-				ChatClient:              chatClient,
-				BaseURLToGRPCConnection: baseURLToGRPCConnection,
+			for _, parsedFile := range files {
+				additionalMessages = append(additionalMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", parsedFile.Path, parsedFile.Content))))
 			}
 
-			params := cliservice.SessionParams{
+			params := session.Params{
 				Model:              selectedModel,
 				Role:               parsedRole,
 				MaxTokens:          opts.MaxTokens,
 				Temperature:        opts.Temperature,
 				Chat:               opts.Chat,
-				ToolEngineManager:  toolEngineManager,
 				AdditionalMessages: additionalMessages,
 				InjectedFiles:      filePaths,
-				Tools:              tools,
+				Tools:              toolNames,
 			}
 
-			app := tui.NewApp(ctx, service, chat, params)
-
-			p := tea.NewProgram(app, tea.WithContext(ctx))
-			app.SetProgram(p)
-
-			if _, err := p.Run(); err != nil {
+			app := tui.NewApp(ctx, chatStore, registry, chat, params)
+			program := tea.NewProgram(app, tea.WithContext(ctx))
+			app.SetProgram(program)
+			if _, err := program.Run(); err != nil {
 				return fmt.Errorf("running chat: %w", err)
 			}
 			return nil
@@ -204,14 +187,14 @@ func NewCmd(
 	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cachedModels, _ := fetchModelsWithCache(cmd.Context(), aiClient, false)
-		return filterModels(cachedModels, toComplete), cobra.ShellCompDirectiveNoFileComp
+		models, _ := chatStore.ListModels(cmd.Context(), false)
+		return filterModels(models, toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 
 	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var names []string
-		for _, te := range config.GetToolEngines() {
-			name := te.GetName()
+		for _, toolEngineConfiguration := range config.GetToolEngines() {
+			name := toolEngineConfiguration.GetName()
 			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
 				names = append(names, name)
 			}
@@ -221,12 +204,12 @@ func NewCmd(
 
 	cmd.RegisterFlagCompletionFunc("role", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var names []string
-		for _, r := range config.Chat.GetRoles() {
-			name := r.GetName()
+		for _, configuredRole := range config.Chat.GetRoles() {
+			name := configuredRole.GetName()
 			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
 				names = append(names, name)
 			}
-			if alias := r.GetAlias(); alias != "" {
+			if alias := configuredRole.GetAlias(); alias != "" {
 				if toComplete == "" || strings.Contains(strings.ToLower(alias), strings.ToLower(toComplete)) {
 					names = append(names, alias)
 				}
@@ -238,31 +221,9 @@ func NewCmd(
 	return cmd
 }
 
-func resolveModel(ctx context.Context, aiClient aiservicepb.AiServiceClient, modelName string) (*aipb.Model, error) {
-	cachedModels, err := fetchModelsWithCache(ctx, aiClient, false)
-	if err != nil {
-		return nil, err
-	}
-	for _, model := range cachedModels {
-		if model.Name == modelName {
-			return model, nil
-		}
-	}
-	cachedModels, err = fetchModelsWithCache(ctx, aiClient, true)
-	if err != nil {
-		return nil, err
-	}
-	for _, model := range cachedModels {
-		if model.Name == modelName {
-			return model, nil
-		}
-	}
-	return nil, fmt.Errorf("model not found: %s", modelName)
-}
-
-func filterModels(cachedModels []*aipb.Model, prefix string) []string {
+func filterModels(models []*aipb.Model, prefix string) []string {
 	var names []string
-	for _, model := range cachedModels {
+	for _, model := range models {
 		names = append(names, model.Name)
 	}
 	if prefix == "" {

@@ -18,7 +18,7 @@ func Dir() string {
 }
 
 func path(key string) string {
-	return filepath.Join(Dir(), "sgpt", key)
+	return filepath.Join(Dir(), key)
 }
 
 // Get loads a cached proto message. Returns nil, false if missing or expired.

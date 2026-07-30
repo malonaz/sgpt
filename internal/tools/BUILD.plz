@@ -1,8 +1,8 @@
 go_library(
     name = "tools",
     srcs = [
-        "handler.go",
         "read_files.go",
+        "registry.go",
         "shell.go",
         "tools.go",
     ],

@@ -44,6 +44,8 @@ type engineConnection struct {
 	schemaBuilder    *pbjson.SchemaBuilder
 }
 
+// Manager connects to remote tool engines and implements tools.Tool for
+// the tool sets they expose.
 type Manager struct {
 	mu                  sync.Mutex
 	toolSets            []*aipb.ToolSet
@@ -65,22 +67,20 @@ func Initialize(
 	}
 
 	for _, toolEngine := range config.GetToolEngines() {
-		conn := baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
-		reflectionClient := reflectionpb.NewServerReflectionClient(conn.Get())
+		connection := baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
+		reflectionClient := reflectionpb.NewServerReflectionClient(connection.Get())
 
 		// Resolve and cache schema per engine.
-		cacheKey := toolEngine.GetEngineService().GetBaseUrl()
-		cacheDir := cache.Dir()
 		schema, err := pbreflection.ResolveSchema(ctx, reflectionClient,
-			pbreflection.WithDiskCache(cacheKey, cacheDir, schemaCacheMaxAge),
+			pbreflection.WithDiskCache(toolEngine.GetEngineService().GetBaseUrl(), cache.Dir(), schemaCacheMaxAge),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("resolving schema for %s: %w", toolEngine.GetName(), err)
 		}
 
 		engine := &engineConnection{
-			client:           aienginepb.NewAiEngineClient(conn.Get()),
-			methodInvoker:    pbreflection.NewMethodInvoker(conn.Get()),
+			client:           aienginepb.NewAiEngineClient(connection.Get()),
+			methodInvoker:    pbreflection.NewMethodInvoker(connection.Get()),
 			reflectionClient: reflectionClient,
 			schema:           schema,
 			schemaBuilder:    pbjson.NewSchemaBuilder(schema),
@@ -105,13 +105,13 @@ func Initialize(
 			}
 			cache.Store(cacheKey, toolSet)
 			manager.toolSetNameToEngine[toolSet.GetName()] = engine
-			debug.Log(toolSet.GetName())
 			manager.toolSets = append(manager.toolSets, toolSet)
 		}
 	}
 	return manager, nil
 }
 
+// GetToolSets returns the tool sets exposed by all connected engines.
 func (m *Manager) GetToolSets() []*aipb.ToolSet {
 	if m == nil {
 		return nil
@@ -119,7 +119,7 @@ func (m *Manager) GetToolSets() []*aipb.ToolSet {
 	return m.toolSets
 }
 
-func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*tools.HandleResult, error) {
+func (m *Manager) engineFor(toolCall *aipb.ToolCall) (*engineConnection, error) {
 	toolSetName, ok := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolSetName)
 	if !ok {
 		return nil, fmt.Errorf("no tool set annotation found on tool call")
@@ -127,6 +127,15 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 	engine, ok := m.toolSetNameToEngine[toolSetName]
 	if !ok {
 		return nil, fmt.Errorf("no engine found for tool set %q", toolSetName)
+	}
+	return engine, nil
+}
+
+// Review implements tools.Tool.
+func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
+	engine, err := m.engineFor(toolCall)
+	if err != nil {
+		return nil, err
 	}
 
 	toolCallMetadata := &sgptpb.ToolCallMetadata{
@@ -176,29 +185,21 @@ func (m *Manager) HandleToolCall(ctx context.Context, toolCall *aipb.ToolCall) (
 		if !ok {
 			return nil, fmt.Errorf("expected method options for %q, got %T", rpc.MethodFullName, methodDescriptor.Options())
 		}
+		// Side-effect-free RPCs are safe to run without user confirmation.
 		toolCallMetadata.AutoExecute = methodOptions.GetIdempotencyLevel() == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 	default:
 		return nil, fmt.Errorf("unknown tool type: %s", toolType)
 	}
 
-	if err := tools.SetToolCallMetadata(toolCall, toolCallMetadata); err != nil {
-		return nil, fmt.Errorf("annotating tool call: %w", err)
-	}
-	debug.LogProto("toolcallmetadsata", toolCallMetadata)
-	return &tools.HandleResult{
-		Display:     toolCallMetadata.DisplayMessage.Content,
-		AutoExecute: toolCallMetadata.AutoExecute,
-	}, nil
+	debug.LogProto("tool call metadata", toolCallMetadata)
+	return toolCallMetadata, nil
 }
 
-func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	toolSetName, ok := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolSetName)
-	if !ok {
-		return nil, fmt.Errorf("no tool set annotation found on tool call")
-	}
-	engine, ok := m.toolSetNameToEngine[toolSetName]
-	if !ok {
-		return nil, fmt.Errorf("no engine found for tool set %q", toolSetName)
+// Execute implements tools.Tool.
+func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	engine, err := m.engineFor(toolCall)
+	if err != nil {
+		return nil, err
 	}
 
 	parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
@@ -249,6 +250,7 @@ func (m *Manager) ProcessToolCall(ctx context.Context, toolCall *aipb.ToolCall) 
 	return ai.NewStructuredToolResult(toolCall.Name, toolCall.Id, value), nil
 }
 
+// Close tears down all engine connections.
 func (m *Manager) Close() {
 	for _, closer := range m.closers {
 		closer()
@@ -256,4 +258,4 @@ func (m *Manager) Close() {
 	m.closers = nil
 }
 
-var _ tools.Handler = (*Manager)(nil)
+var _ tools.Tool = (*Manager)(nil)

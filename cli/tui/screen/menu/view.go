@@ -11,6 +11,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
+	"github.com/malonaz/sgpt/internal/store"
 )
 
 func (m *Model) View() string {
@@ -154,7 +155,7 @@ func (m *Model) renderDetail() string {
 
 	var b strings.Builder
 	title := chat.GetName()
-	if chatHasTag(chat, favoriteTag) {
+	if store.HasTag(chat, store.FavoriteTag) {
 		title = "⭐ " + title
 	}
 	b.WriteString(styles.MenuTitleStyle.Render(fmt.Sprintf(" %s", styles.Truncate(title, detailWidth-2))))

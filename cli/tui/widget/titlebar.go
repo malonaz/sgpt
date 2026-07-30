@@ -7,9 +7,8 @@ import (
 	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
-	cliservice "github.com/malonaz/sgpt/cli/cli_service"
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	"github.com/malonaz/sgpt/internal/toolengine"
+	"github.com/malonaz/sgpt/internal/session"
 )
 
 type TitleBar struct {
@@ -31,7 +30,7 @@ func (t *TitleBar) Height() int {
 }
 
 // Refresh rebuilds the title string from session state.
-func (t *TitleBar) Refresh(params cliservice.SessionParams, totalUsage, lastUsage *aipb.ModelUsage) {
+func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.ModelUsage) {
 	roleName := "anon"
 	if params.Role != nil {
 		roleName = params.Role.Name
@@ -94,6 +93,3 @@ func formatTokenCount(count int32) string {
 	}
 	return fmt.Sprintf("%.1fm", float64(count)/1000000)
 }
-
-// Ensure toolengine import is used for the interface check.
-var _ = (*toolengine.Manager)(nil)
