@@ -12,16 +12,17 @@ import (
 )
 
 // processToolCallsAfterStream handles tool calls after the stream completes.
-// Auto-execute tool calls are run immediately. Non-auto ones are left pending
-// for user accept/reject. Returns true if all tool calls were auto-executed.
+// Auto-execute tool calls run immediately (read-only tools may already carry
+// a result from eager execution during streaming). Manual ones are left
+// pending for user review. Returns true if everything was auto-executed.
 func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool, error) {
-	var autoToolCalls []*aipb.ToolCall
-	var prePopulatedToolCalls []*aipb.ToolCall
+	var executable []*aipb.ToolCall
 	hasManual := false
 	for _, toolCall := range toolCalls {
 		debug.LogProto(toolCall.GetName(), toolCall)
 		if toolCall.GetResult() != nil {
-			prePopulatedToolCalls = append(prePopulatedToolCalls, toolCall)
+			// Already executed — eagerly during streaming, or server-side.
+			executable = append(executable, toolCall)
 			continue
 		}
 		metadata, err := tools.ParseToolCallMetadata(toolCall)
@@ -29,31 +30,26 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 			return false, fmt.Errorf("parsing tool call metadata: %w", err)
 		}
 		if metadata.GetAutoExecute() {
-			autoToolCalls = append(autoToolCalls, toolCall)
+			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+			executable = append(executable, toolCall)
 		} else {
 			hasManual = true
 		}
 	}
 
-	s.mu.Lock()
-	for _, toolCall := range autoToolCalls {
-		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
-	}
-	s.mu.Unlock()
-
 	if hasManual {
-		// Manual calls stay pending; pre-accepted auto calls execute alongside
-		// them once the user resolves the pending ones.
+		// Pre-accepted auto calls execute alongside the manual ones once the
+		// user resolves every pending review.
+		s.setState(StateAwaitingReview)
 		return false, nil
 	}
 
-	s.executeToolCalls(append(prePopulatedToolCalls, autoToolCalls...))
+	s.executeToolCalls(executable)
 	return true, nil
 }
 
-// ResolveToolCalls produces a single tool message with results for ALL tool
-// calls of the last assistant message: accepted ones are executed, rejected
-// ones get error results. Then starts a new turn.
+// ResolveToolCalls executes ALL tool calls of the last assistant message —
+// accepted ones run, rejected ones get error results — then starts a new turn.
 func (s *Session) ResolveToolCalls() {
 	s.mu.Lock()
 	messages := s.chat.GetMetadata().GetMessages()
@@ -70,25 +66,44 @@ func (s *Session) ResolveToolCalls() {
 	}
 	s.mu.Unlock()
 
+	s.executeToolCalls(toolCalls)
+
+	s.setState(StateStreaming)
+	s.refresh()
+	s.runTurn()
+}
+
+// executeToolCalls resolves tool calls strictly sequentially, emitting a
+// refresh before and after each call so the UI shows the in-flight call and
+// renders each result the moment it lands — not all at once at the end.
+func (s *Session) executeToolCalls(toolCalls []*aipb.ToolCall) {
+	if len(toolCalls) == 0 {
+		return
+	}
+	s.setState(StateExecutingTools)
+	s.refresh()
+
 	resultBlocks := make([]*aipb.Block, 0, len(toolCalls))
 	for _, toolCall := range toolCalls {
-		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(s.resolveToolCall(toolCall)))
+		toolResult := toolCall.GetResult()
+		if toolResult == nil {
+			s.setExecutingToolCall(toolCall.GetId())
+			s.refresh()
+			toolResult = s.resolveToolCall(toolCall)
+			// Attach the result to its call so the UI renders the
+			// request/response pair adjacently and the pairing persists.
+			toolCall.Result = toolResult
+			s.setExecutingToolCall("")
+			s.refresh()
+		}
+		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
 	}
 	s.appendToolMessage(resultBlocks)
 	s.refresh()
-
-	s.mu.Lock()
-	s.streaming = true
-	s.mu.Unlock()
-
-	s.runTurn()
 }
 
 // resolveToolCall produces a result for a reviewed tool call based on its status.
 func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
-	if toolCall.GetResult() != nil {
-		return toolCall.GetResult()
-	}
 	switch tools.GetToolCallStatus(toolCall) {
 	case tools.ToolCallStatusRejected:
 		reason := tools.GetToolCallRejectionReason(toolCall)
@@ -102,25 +117,6 @@ func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
 	default:
 		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("unresolved tool call"))
 	}
-}
-
-// executeToolCalls executes tool calls and appends a single tool message with
-// all results. Used for fully-auto turns only.
-func (s *Session) executeToolCalls(toolCalls []*aipb.ToolCall) {
-	resultBlocks := make([]*aipb.Block, 0, len(toolCalls))
-	for _, toolCall := range toolCalls {
-		if toolCall.GetResult() != nil {
-			resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolCall.GetResult()))
-			continue
-		}
-		toolResult, err := s.registry.Execute(s.ctx, toolCall)
-		if err != nil {
-			toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-		}
-		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
-	}
-	s.appendToolMessage(resultBlocks)
-	s.refresh()
 }
 
 func (s *Session) appendToolMessage(resultBlocks []*aipb.Block) {

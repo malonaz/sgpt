@@ -7,15 +7,24 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/malonaz/sgpt/cli/tui/editor"
+	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/history"
 )
 
 var (
-	keyInputPrevHistory = key.NewBinding(key.WithKeys("alt+p"))
-	keyInputNextHistory = key.NewBinding(key.WithKeys("alt+n"))
-	keyInputOpenEditor  = key.NewBinding(key.WithKeys("alt+o"))
+	keyInputPrevHistory = keymap.New("alt+p", "Previous history entry")
+	keyInputNextHistory = keymap.New("alt+n", "Next history entry")
+	keyInputOpenEditor  = keymap.New("alt+o", "Compose in $EDITOR")
 )
+
+func InputKeymap() keymap.Map {
+	return keymap.Map{
+		Name:     "Input",
+		Bindings: []keymap.Binding{keyInputPrevHistory, keyInputNextHistory, keyInputOpenEditor},
+	}
+}
 
 type Input struct {
 	Textarea textarea.Model
@@ -25,7 +34,7 @@ type Input struct {
 
 func NewInput() *Input {
 	ta := textarea.New()
-	ta.Placeholder = "Type your message... (Ctrl+J to send, Tab to navigate)"
+	ta.Placeholder = "Type your message... (ctrl+j: send, tab: navigate, alt+h: help)"
 	ta.CharLimit = 0
 	ta.SetWidth(styles.DefaultTextareaWidth)
 	ta.SetHeight(styles.MinTextareaHeight)
@@ -92,20 +101,20 @@ func (i *Input) AdjustHeight() {
 
 func (i *Input) HandleKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, keyInputPrevHistory):
+	case key.Matches(msg, keyInputPrevHistory.Key):
 		if entry, ok := i.history.Previous(i.Textarea.Value()); ok {
 			i.Textarea.SetValue(entry)
 			i.AdjustHeight()
 		}
 		return nil
-	case key.Matches(msg, keyInputNextHistory):
+	case key.Matches(msg, keyInputNextHistory.Key):
 		if entry, ok := i.history.Next(); ok {
 			i.Textarea.SetValue(entry)
 			i.AdjustHeight()
 		}
 		return nil
-	case key.Matches(msg, keyInputOpenEditor):
-		return OpenEditor(i.Textarea.Value(), "md")
+	case key.Matches(msg, keyInputOpenEditor.Key):
+		return editor.Open(i.Textarea.Value(), "md")
 	}
 	return nil
 }

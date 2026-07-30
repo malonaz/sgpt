@@ -7,8 +7,10 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
+        "//cli/tui/keymap",
         "//cli/tui/screen",
         "//cli/tui/styles",
+        "//cli/tui/timeline",
         "//internal/markdown",
         "//internal/store",
         "//sgpt/v1",
@@ -17,6 +19,5 @@ go_library(
         "//third_party/go:charm.land__bubbles__v2__viewport",
         "//third_party/go:charm.land__bubbletea__v2",
         "//third_party/go:charm.land__lipgloss__v2",
-        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

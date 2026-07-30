@@ -1,4 +1,4 @@
-package widget
+package editor
 
 import (
 	"os"
@@ -8,12 +8,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-type EditorClosedMsg struct {
+type ClosedMsg struct {
 	Content  string
 	Modified bool
 }
 
-func OpenEditor(content, ext string) tea.Cmd {
+func Open(content, extension string) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
@@ -26,7 +26,7 @@ func OpenEditor(content, ext string) tea.Cmd {
 		return nil
 	}
 
-	tmpFile, err := os.CreateTemp("", "sgpt-*."+ext)
+	tmpFile, err := os.CreateTemp("", "sgpt-*."+extension)
 	if err != nil {
 		return nil
 	}
@@ -45,13 +45,13 @@ func OpenEditor(content, ext string) tea.Cmd {
 		defer os.Remove(tmpPath)
 		info, statErr := os.Stat(tmpPath)
 		if statErr != nil {
-			return EditorClosedMsg{}
+			return ClosedMsg{}
 		}
 		bytes, readErr := os.ReadFile(tmpPath)
 		if readErr != nil {
-			return EditorClosedMsg{}
+			return ClosedMsg{}
 		}
-		return EditorClosedMsg{
+		return ClosedMsg{
 			Modified: info.ModTime().After(modTimeBefore),
 			Content:  string(bytes),
 		}

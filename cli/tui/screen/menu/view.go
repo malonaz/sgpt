@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
+	"github.com/malonaz/sgpt/cli/tui/timeline"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/store"
 )
 
@@ -25,7 +24,7 @@ func (m *Model) View() string {
 	if m.searchQuery != "" {
 		modeLabel = "Search"
 	}
-	header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (%s, page %d) ", modeLabel, m.currentPage()))
+	header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (%s) ", modeLabel))
 	b.WriteString(header)
 	b.WriteString("\n")
 
@@ -47,15 +46,11 @@ func (m *Model) View() string {
 	b.WriteString(joined)
 
 	b.WriteString("\n")
-	var pagination strings.Builder
-	if m.hasPreviousPage() {
-		pagination.WriteString("◀ [ ")
+	status := fmt.Sprintf("%d chats loaded", len(m.displayedChats()))
+	if m.loadingMore {
+		status += " (loading more...)"
 	}
-	pagination.WriteString(fmt.Sprintf("page %d", m.currentPage()))
-	if m.hasNextPage() {
-		pagination.WriteString(" ] ▶")
-	}
-	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+f: favorite │ Alt+r: refresh │ %s", pagination.String())
+	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+f: favorite │ Alt+r: refresh │ Alt+h: help │ %s", status)
 	b.WriteString(styles.HelpStyle.Render(helpText))
 
 	return b.String()
@@ -109,6 +104,11 @@ func (m *Model) renderList() string {
 		b.WriteString(m.renderChatRows(displayed[favCount:], listWidth, favCount))
 	}
 
+	if m.loadingMore {
+		b.WriteString("\n")
+		b.WriteString(styles.DimTextStyle.Render("  loading more..."))
+	}
+
 	return b.String()
 }
 
@@ -140,6 +140,9 @@ func (m *Model) renderChatRows(chats []*sgptpb.Chat, listWidth int, globalIndexO
 	return b.String()
 }
 
+// renderDetail previews the selected chat using the shared timeline items —
+// same rendering path as the chat screen. Results are cached per chat name
+// in updateSelection.
 func (m *Model) renderDetail() string {
 	detailWidth := m.detailWidth()
 
@@ -148,111 +151,31 @@ func (m *Model) renderDetail() string {
 		return styles.DimTextStyle.Render(" Select a chat to preview")
 	}
 
-	messages := chat.GetMetadata().GetMessages()
-	if len(messages) == 0 {
-		return styles.DimTextStyle.Render(" No messages in this chat")
-	}
-
 	var b strings.Builder
 	title := chat.GetName()
 	if store.HasTag(chat, store.FavoriteTag) {
 		title = "⭐ " + title
 	}
-	b.WriteString(styles.MenuTitleStyle.Render(fmt.Sprintf(" %s", styles.Truncate(title, detailWidth-2))))
+	b.WriteString(styles.MenuTitleStyle.Render(" " + styles.Truncate(title, detailWidth-2)))
 	b.WriteString("\n")
-	model := chat.GetMetadata().GetCurrentModel()
-	if model != "" {
-		b.WriteString(styles.DimTextStyle.Render(fmt.Sprintf(" Model: %s", model)))
+	if model := chat.GetMetadata().GetCurrentModel(); model != "" {
+		b.WriteString(styles.DimTextStyle.Render(" Model: " + model))
 		b.WriteString("\n")
 	}
 	if tags := chat.GetTags(); len(tags) > 0 {
-		b.WriteString(styles.MenuTagStyle.Render(fmt.Sprintf(" Tags: %s", strings.Join(tags, ", "))))
+		b.WriteString(styles.MenuTagStyle.Render(" Tags: " + strings.Join(tags, ", ")))
 		b.WriteString("\n")
 	}
 	b.WriteString(styles.DividerStyle.Render(strings.Repeat("─", detailWidth)))
 	b.WriteString("\n")
 
-	contentWidth := detailWidth - 4
-
-	for i, chatMessage := range messages {
-		if i > 0 {
-			b.WriteString("\n")
-		}
-		message := chatMessage.GetMessage()
-		switch message.GetRole() {
-		case aipb.Role_ROLE_USER:
-			b.WriteString(styles.UserLabelStyle.Render(" You:"))
-			b.WriteString("\n")
-			for _, block := range message.GetBlocks() {
-				text := block.GetText()
-				if text != "" {
-					blocks := markdown.ParseBlocks(text)
-					rendered := m.renderer.ToMarkdown(-1, false, blocks...)
-					b.WriteString("  " + strings.ReplaceAll(rendered, "\n", "\n  "))
-					b.WriteString("\n")
-				}
-			}
-
-		case aipb.Role_ROLE_ASSISTANT:
-			b.WriteString(styles.AILabelStyle.Render(" Assistant:"))
-			b.WriteString("\n")
-			for _, block := range message.GetBlocks() {
-				if thought := block.GetThought(); thought != "" {
-					blocks := markdown.ParseBlocks(thought)
-					rendered := m.renderer.ToMarkdown(-1, false, blocks...)
-					b.WriteString(styles.ThoughtStyle.Render("  " + strings.ReplaceAll(rendered, "\n", "\n  ")))
-					b.WriteString("\n")
-				}
-				if text := block.GetText(); text != "" {
-					blocks := markdown.ParseBlocks(text)
-					rendered := m.renderer.ToMarkdown(-1, false, blocks...)
-					b.WriteString("  " + strings.ReplaceAll(rendered, "\n", "\n  "))
-					b.WriteString("\n")
-				}
-				if toolCall := block.GetToolCall(); toolCall != nil {
-					b.WriteString(styles.ToolLabelStyle.Render(fmt.Sprintf("  🔧 %s", toolCall.Name)))
-					b.WriteString("\n")
-				}
-			}
-
-		case aipb.Role_ROLE_TOOL:
-			b.WriteString(styles.ToolLabelStyle.Render(" ⚡ Tool Result"))
-			b.WriteString("\n")
-			for _, block := range message.GetBlocks() {
-				if toolResult := block.GetToolResult(); toolResult != nil {
-					var content string
-					if toolResult.GetError() != nil {
-						content = fmt.Sprintf("Error: %s", toolResult.GetError().GetMessage())
-					} else if structured := toolResult.GetStructuredContent(); structured != nil {
-						bytes, _ := structured.MarshalJSON()
-						content = fmt.Sprintf("```json\n%s\n```", string(bytes))
-					} else {
-						content = toolResult.GetContent()
-					}
-					if content != "" {
-						truncated := styles.Truncate(content, contentWidth*2)
-						b.WriteString(styles.DimTextStyle.Render("  " + strings.ReplaceAll(truncated, "\n", "\n  ")))
-						b.WriteString("\n")
-					}
-				}
-			}
-
-		case aipb.Role_ROLE_SYSTEM:
-			b.WriteString(styles.SystemStyle.Render(fmt.Sprintf(" System: %s", styles.Truncate(blockText(message), 60))))
-			b.WriteString("\n")
-		}
+	items := timeline.BuildChatItems(chat.GetMetadata().GetMessages(), nil, "")
+	if len(items) == 0 {
+		b.WriteString(styles.DimTextStyle.Render(" No messages in this chat"))
+		return b.String()
 	}
-
+	b.WriteString(timeline.RenderItems(items, m.renderer, detailWidth))
 	return b.String()
-}
-
-func blockText(message *aipb.Message) string {
-	for _, block := range message.GetBlocks() {
-		if text := block.GetText(); text != "" {
-			return text
-		}
-	}
-	return ""
 }
 
 func relativeTime(t time.Time) string {

@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
@@ -16,7 +17,15 @@ import (
 	"github.com/malonaz/sgpt/internal/store"
 )
 
-const searchDebounceInterval = 300 * time.Millisecond
+const (
+	searchDebounceInterval = 300 * time.Millisecond
+	// listPageSize is deliberately large: pages append into an
+	// infinite-scroll list rather than paginate.
+	listPageSize = 50
+	// loadMoreThreshold triggers a background fetch when the cursor gets
+	// within this many rows of the end of the loaded list.
+	loadMoreThreshold = 10
+)
 
 type FocusTarget int
 
@@ -31,8 +40,10 @@ type chatsLoadedMsg struct {
 	Others        []*sgptpb.Chat
 	NextPageToken string
 	Err           error
-	PageToken     string
 	SearchQuery   string
+	// Append marks background loads that extend the list (infinite scroll)
+	// instead of replacing it.
+	Append bool
 }
 
 type chatDeletedMsg struct {
@@ -58,12 +69,11 @@ type Model struct {
 	favorites []*sgptpb.Chat
 	others    []*sgptpb.Chat
 
-	chatCursor       int
-	loading          bool
-	err              error
-	nextPageToken    string
-	pageTokenStack   []string
-	currentPageToken string
+	chatCursor    int
+	loading       bool
+	loadingMore   bool
+	err           error
+	nextPageToken string
 
 	filterInput textarea.Model
 	filterText  string
@@ -74,6 +84,10 @@ type Model struct {
 
 	focusTarget      FocusTarget
 	selectedChatName string
+
+	// detailCache memoizes the (expensive) markdown render of each chat
+	// preview, keyed by chat name; invalidated on resize/refresh.
+	detailCache map[string]string
 
 	renderer       *markdown.Renderer
 	listViewport   viewport.Model
@@ -108,23 +122,13 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 		filterInput: filterInput,
 		searchInput: searchInput,
 		renderer:    renderer,
+		detailCache: map[string]string{},
 		focusTarget: FocusFilter,
 	}
 }
 
 func (m *Model) Init() tea.Cmd {
-	return m.fetchChats("")
-}
-
-func (m *Model) visibleRowCapacity() int {
-	inputHeight := 4
-	headerHeight := 1
-	helpBarHeight := 1
-	available := m.height - 4 - inputHeight - headerHeight - helpBarHeight
-	if available < 1 {
-		return 1
-	}
-	return available
+	return m.fetchChats("", false)
 }
 
 func (m *Model) Title() string {
@@ -171,45 +175,84 @@ func (m *Model) applyFocus() tea.Cmd {
 	return nil
 }
 
-func (m *Model) fetchChats(pageToken string) tea.Cmd {
-	m.loading = true
+// applyChats replaces (fresh load) or extends (infinite scroll) the list.
+func (m *Model) applyChats(msg *chatsLoadedMsg) {
+	if msg.Append {
+		m.loadingMore = false
+		// Appended pages fold into the main section; favorites are only
+		// meaningful on the first page.
+		m.others = append(m.others, append(msg.Favorites, msg.Others...)...)
+	} else {
+		m.loading = false
+		m.favorites = msg.Favorites
+		m.others = msg.Others
+		m.chatCursor = 0
+	}
+	m.nextPageToken = msg.NextPageToken
+	m.err = nil
+	m.updateSelection()
+	m.listViewport.SetContent(m.renderList())
+	m.ensureCursorVisible()
+}
+
+func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
+	if appendPage {
+		m.loadingMore = true
+	} else {
+		m.loading = true
+	}
 	wrap := m.wrap
 	searchQuery := m.searchQuery
-	pageSize := int32(m.visibleRowCapacity())
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 		defer cancel()
 
 		if searchQuery != "" {
-			chats, nextPageToken, err := m.store.SearchChats(ctx, searchQuery, pageSize, pageToken)
+			chats, nextPageToken, err := m.store.SearchChats(ctx, searchQuery, listPageSize, pageToken)
 			if err != nil {
-				return wrap(chatsLoadedMsg{Err: err, SearchQuery: searchQuery})
+				return wrap(chatsLoadedMsg{Err: err, SearchQuery: searchQuery, Append: appendPage})
 			}
 			favorites, others := partitionByTag(chats, store.FavoriteTag)
 			return wrap(chatsLoadedMsg{
 				Favorites:     favorites,
 				Others:        others,
 				NextPageToken: nextPageToken,
-				PageToken:     pageToken,
 				SearchQuery:   searchQuery,
+				Append:        appendPage,
 			})
 		}
 
-		favorites, err := m.store.ListFavoriteChats(ctx, pageSize)
-		if err != nil {
-			return wrap(chatsLoadedMsg{Err: err})
+		var favorites []*sgptpb.Chat
+		var err error
+		if !appendPage {
+			favorites, err = m.store.ListFavoriteChats(ctx, listPageSize)
+			if err != nil {
+				return wrap(chatsLoadedMsg{Err: err, Append: appendPage})
+			}
 		}
-		others, nextPageToken, err := m.store.ListChats(ctx, pageSize, pageToken, "")
+		others, nextPageToken, err := m.store.ListChats(ctx, listPageSize, pageToken, "")
 		if err != nil {
-			return wrap(chatsLoadedMsg{Err: err})
+			return wrap(chatsLoadedMsg{Err: err, Append: appendPage})
 		}
 		return wrap(chatsLoadedMsg{
 			Favorites:     favorites,
 			Others:        others,
 			NextPageToken: nextPageToken,
-			PageToken:     pageToken,
+			Append:        appendPage,
 		})
 	}
+}
+
+// maybeLoadMore extends the list in the background as the cursor approaches
+// the end — infinite scroll instead of explicit pagination.
+func (m *Model) maybeLoadMore() tea.Cmd {
+	if m.nextPageToken == "" || m.loadingMore || m.loading {
+		return nil
+	}
+	if m.chatCursor < len(m.displayedChats())-loadMoreThreshold {
+		return nil
+	}
+	return m.fetchChats(m.nextPageToken, true)
 }
 
 func (m *Model) deleteChat(name string) tea.Cmd {
@@ -231,12 +274,6 @@ func (m *Model) toggleFavorite(chat *sgptpb.Chat) tea.Cmd {
 			Err:       err,
 		})
 	}
-}
-
-func (m *Model) resetPagination() {
-	m.pageTokenStack = nil
-	m.currentPageToken = ""
-	m.nextPageToken = ""
 }
 
 // displayedChats returns favorites then others, with client-side filter applied.
@@ -286,8 +323,49 @@ func (m *Model) updateSelection() {
 	} else {
 		m.selectedChatName = ""
 	}
-	m.detailViewport.SetContent(m.renderDetail())
+
+	// Serve the preview from cache — rendering markdown for a whole chat on
+	// every cursor move is what made navigation slow.
+	content, ok := m.detailCache[m.selectedChatName]
+	if !ok {
+		content = m.renderDetail()
+		if m.selectedChatName != "" {
+			m.detailCache[m.selectedChatName] = content
+		}
+	}
+	m.detailViewport.SetContent(content)
 	m.detailViewport.GotoTop()
+}
+
+// cursorLine computes the absolute line of the cursor row inside the rendered
+// list, accounting for section headers and the inter-section gap.
+func (m *Model) cursorLine() int {
+	headerHeight := lipgloss.Height(styles.MenuHeaderStyle.Render("H"))
+	favCount := m.displayedFavoriteCount()
+	if favCount == 0 {
+		return headerHeight + m.chatCursor
+	}
+	if m.chatCursor < favCount {
+		return headerHeight + m.chatCursor
+	}
+	// favorites header + favorite rows + blank separator + others header.
+	return headerHeight + favCount + 1 + headerHeight + (m.chatCursor - favCount)
+}
+
+// ensureCursorVisible scrolls the list viewport so the cursor never runs off
+// the page.
+func (m *Model) ensureCursorVisible() {
+	if !m.ready || m.focusTarget != FocusChatList {
+		return
+	}
+	line := m.cursorLine()
+	top := m.listViewport.YOffset()
+	height := m.listViewport.Height()
+	if line < top {
+		m.listViewport.SetYOffset(line)
+	} else if line >= top+height {
+		m.listViewport.SetYOffset(line - height + 1)
+	}
 }
 
 func (m *Model) listWidth() int {
@@ -338,38 +416,11 @@ func (m *Model) recalculateLayout() {
 		rendererWidth = 10
 	}
 	m.renderer.SetWidth(rendererWidth)
+	// Width changes invalidate every cached preview (wrapping changed).
+	m.detailCache = map[string]string{}
 
 	m.filterInput.SetWidth(listWidth - 6)
 	m.searchInput.SetWidth(listWidth - 6)
-}
-
-func (m *Model) hasNextPage() bool {
-	return m.nextPageToken != ""
-}
-
-func (m *Model) hasPreviousPage() bool {
-	return len(m.pageTokenStack) > 0
-}
-
-func (m *Model) nextPage() tea.Cmd {
-	if !m.hasNextPage() {
-		return nil
-	}
-	m.pageTokenStack = append(m.pageTokenStack, m.currentPageToken)
-	return m.fetchChats(m.nextPageToken)
-}
-
-func (m *Model) previousPage() tea.Cmd {
-	if !m.hasPreviousPage() {
-		return nil
-	}
-	previousToken := m.pageTokenStack[len(m.pageTokenStack)-1]
-	m.pageTokenStack = m.pageTokenStack[:len(m.pageTokenStack)-1]
-	return m.fetchChats(previousToken)
-}
-
-func (m *Model) currentPage() int {
-	return len(m.pageTokenStack) + 1
 }
 
 func partitionByTag(chats []*sgptpb.Chat, tag string) (withTag []*sgptpb.Chat, withoutTag []*sgptpb.Chat) {

@@ -10,9 +10,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
+	"github.com/malonaz/sgpt/cli/tui/editor"
+	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/styles"
+	"github.com/malonaz/sgpt/cli/tui/timeline"
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	"github.com/malonaz/sgpt/internal/session"
+	"github.com/malonaz/sgpt/internal/tools"
 )
 
 type FocusedComponent int
@@ -27,10 +31,13 @@ type sessionEventMsg struct {
 }
 
 var (
-	keyCycleFocus     = key.NewBinding(key.WithKeys("tab"))
-	keyCycleReasoning = key.NewBinding(key.WithKeys("alt+t"))
-	keyForkChat       = key.NewBinding(key.WithKeys("alt+="))
-	keyToggleFavorite = key.NewBinding(key.WithKeys("alt+shift+f"))
+	chatKeyCycleFocus     = keymap.New("tab", "Toggle input/timeline focus")
+	chatKeySubmit         = keymap.New("ctrl+j", "Send message / review tool call")
+	chatKeyCancel         = keymap.New("ctrl+c", "Cancel stream / close tab")
+	chatKeyCycleReasoning = keymap.New("alt+t", "Cycle reasoning effort")
+	chatKeyForkChat       = keymap.New("alt+=", "Fork chat")
+	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
+	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
 )
 
 type ChatScreen struct {
@@ -38,15 +45,13 @@ type ChatScreen struct {
 	wrap    WrapFunc
 	send    SendFunc
 
-	titlebar   *widget.TitleBar
-	messages   *widget.Messages
-	input      *widget.Input
-	toolReview *widget.ToolReview
-	spinner    spinner.Model
+	titlebar *widget.TitleBar
+	timeline *timeline.Model
+	input    *widget.Input
+	spinner  spinner.Model
 
+	injectedFiles   []string
 	lastInputHeight int
-
-	injectedFiles []string
 
 	width            int
 	height           int
@@ -70,9 +75,8 @@ func NewChatScreen(
 		wrap:             wrap,
 		send:             send,
 		titlebar:         widget.NewTitleBar(),
-		messages:         widget.NewMessages(),
+		timeline:         timeline.New(),
 		input:            widget.NewInput(),
-		toolReview:       widget.NewToolReview(),
 		spinner:          sp,
 		injectedFiles:    injectedFiles,
 		focusedComponent: FocusTextarea,
@@ -98,6 +102,18 @@ func (m *ChatScreen) ShortTitle() string {
 	return styles.Truncate(m.Title(), 20)
 }
 
+func (m *ChatScreen) Keymaps() []keymap.Map {
+	return []keymap.Map{
+		{Name: "Chat", Bindings: []keymap.Binding{
+			chatKeySubmit, chatKeyCancel, chatKeyCycleFocus,
+			chatKeyCycleReasoning, chatKeyForkChat, chatKeyToggleFavorite,
+			chatKeyOpenAll,
+		}},
+		timeline.Keymap(),
+		widget.InputKeymap(),
+	}
+}
+
 func (m *ChatScreen) SetSize(width, height int) {
 	m.width = width
 	m.height = height
@@ -106,7 +122,7 @@ func (m *ChatScreen) SetSize(width, height int) {
 
 func (m *ChatScreen) OnFocus() tea.Cmd {
 	m.focused = true
-	if m.focusedComponent == FocusTextarea && !m.session.IsStreaming() && !m.inToolReview() {
+	if m.focusedComponent == FocusTextarea && !m.session.Busy() {
 		return m.input.Focus()
 	}
 	return nil
@@ -117,8 +133,10 @@ func (m *ChatScreen) OnBlur() {
 	m.input.Blur()
 }
 
+// IsStreaming reports whether the session is busy — drives the tab indicator
+// and the quit guard.
 func (m *ChatScreen) IsStreaming() bool {
-	return m.session.IsStreaming()
+	return m.session.Busy()
 }
 
 func (m *ChatScreen) Session() *session.Session {
@@ -138,30 +156,21 @@ func (m *ChatScreen) listenForSessionEvents() tea.Cmd {
 }
 
 func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
-	var cmds []tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.recalculateLayout()
+		m.SetSize(msg.Width, msg.Height)
 		return nil
 
 	case sessionEventMsg:
-		cmds = append(cmds, m.handleSessionEvent(msg.event))
-		cmds = append(cmds, m.listenForSessionEvents())
-		return tea.Batch(cmds...)
+		return tea.Batch(m.handleSessionEvent(msg.event), m.listenForSessionEvents())
 
-	case widget.EditorClosedMsg:
-		switch m.focusedComponent {
-		case FocusTextarea:
+	case editor.ClosedMsg:
+		if m.focusedComponent == FocusTextarea {
 			if msg.Modified {
 				m.input.Textarea.SetValue(msg.Content)
 				m.input.AdjustHeight()
 			}
 			return m.input.Focus()
-		case FocusViewport:
-			return nil
 		}
 		return nil
 
@@ -174,77 +183,40 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return m.handleKeyPress(msg)
 	}
 
-	if !m.session.IsStreaming() && !m.inToolReview() {
-		cmd := m.input.Update(msg)
-		if m.input.Height() != m.lastInputHeight {
-			m.lastInputHeight = m.input.Height()
-			m.recalculateLayout()
-		}
-		cmds = append(cmds, cmd)
+	if !m.session.Busy() && m.focusedComponent == FocusTextarea {
+		return m.updateInput(msg)
 	}
-	return tea.Batch(cmds...)
+	return nil
 }
 
 func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
 	switch e := event.(type) {
 	case session.RefreshEvent:
-		wasAtBottom := m.messages.AtBottom()
-		m.refreshMessages()
-		m.refreshTitle()
-		m.refreshToolReview()
-		m.recalculateLayout()
-		if wasAtBottom {
-			m.messages.GotoBottom()
-		}
-
+		m.refresh()
 	case session.ErrorEvent:
 		return func() tea.Msg { return m.wrap(AlertMsg{Text: e.Err.Error()}) }
 	}
-
 	return nil
 }
 
-func (m *ChatScreen) inToolReview() bool {
-	return m.toolReview.Active()
-}
-
-func (m *ChatScreen) refreshToolReview() {
-	pending := m.session.PendingToolCalls()
-	m.toolReview.SetToolCalls(pending)
-}
-
 func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
+	wrap := m.wrap
+	alertFn := func(text string) tea.Cmd {
+		return func() tea.Msg { return wrap(AlertMsg{Text: text}) }
+	}
+
 	switch {
-	case key.Matches(msg, keyCycleFocus):
-		if !m.inToolReview() {
-			return m.cycleFocus()
-		}
-	case key.Matches(msg, keyCycleReasoning):
+	case key.Matches(msg, chatKeyCycleFocus.Key):
+		return m.cycleFocus()
+	case key.Matches(msg, chatKeyCycleReasoning.Key):
 		m.cycleReasoningEffort()
 		return nil
-	case key.Matches(msg, keyForkChat):
-		return func() tea.Msg { return m.wrap(OpenChatMsg{Chat: m.session.Chat(), Fork: true}) }
-	case key.Matches(msg, keyToggleFavorite):
+	case key.Matches(msg, chatKeyForkChat.Key):
+		return func() tea.Msg { return wrap(OpenChatMsg{Chat: m.session.Chat(), Fork: true}) }
+	case key.Matches(msg, chatKeyToggleFavorite.Key):
 		return m.toggleFavorite()
-	}
-
-	if m.inToolReview() {
-		return m.handleToolReviewKey(msg)
-	}
-
-	switch m.focusedComponent {
-	case FocusTextarea:
-		if cmd := m.input.HandleKey(msg); cmd != nil {
-			return cmd
-		}
-	case FocusViewport:
-		wrap := m.wrap
-		alertFn := func(text string) tea.Cmd {
-			return func() tea.Msg { return wrap(AlertMsg{Text: text}) }
-		}
-		if cmd := m.messages.HandleKey(msg, alertFn); cmd != nil {
-			return cmd
-		}
+	case key.Matches(msg, chatKeyOpenAll.Key):
+		return editor.Open(timeline.ConversationText(m.session.Chat().GetMetadata().GetMessages()), "md")
 	}
 
 	switch msg.String() {
@@ -254,75 +226,86 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		return func() tea.Msg { return CloseTabMsg{} }
-
 	case "ctrl+j":
-		if m.session.IsStreaming() {
-			return nil
-		}
-		userInput := m.input.Value()
-		if userInput != "" {
-			text := m.input.Submit()
-			m.messages.ResetNavigation()
-			m.refreshMessages()
-			m.messages.GotoBottom()
-			m.recalculateLayout()
-
-			sess := m.session
-			wrap := m.wrap
-			return tea.Batch(m.spinner.Tick, func() tea.Msg {
-				sess.SendMessage(text)
-				return wrap(sessionEventMsg{event: session.RefreshEvent{}})
-			})
-		}
+		return m.submit()
 	}
 
-	if !m.session.IsStreaming() {
-		cmd := m.input.Update(msg)
-		if m.input.Height() != m.lastInputHeight {
-			m.lastInputHeight = m.input.Height()
-			m.recalculateLayout()
-		}
+	// Timeline stays navigable at all times — including during tool review.
+	if m.focusedComponent == FocusViewport {
+		return m.timeline.HandleKey(msg, alertFn)
+	}
+
+	if cmd := m.input.HandleKey(msg); cmd != nil {
 		return cmd
+	}
+	if !m.session.Busy() {
+		return m.updateInput(msg)
 	}
 	return nil
 }
 
-func (m *ChatScreen) handleToolReviewKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "ctrl+c":
-		return func() tea.Msg { return CloseTabMsg{} }
-
-	case "ctrl+n":
-		m.toolReview.NextToolCall()
+func (m *ChatScreen) submit() tea.Cmd {
+	if m.session.Busy() {
 		return nil
+	}
+	if pending := m.session.PendingToolCalls(); len(pending) > 0 {
+		return m.reviewToolCall(pending)
+	}
 
-	case "ctrl+p":
-		m.toolReview.PrevToolCall()
+	text := m.input.Submit()
+	if text == "" {
 		return nil
+	}
+	m.timeline.ClearSelection()
+	sess := m.session
+	wrap := m.wrap
+	m.refresh()
+	m.timeline.GotoBottom()
+	return tea.Batch(m.spinner.Tick, func() tea.Msg {
+		sess.SendMessage(text)
+		return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+	})
+}
 
-	case "ctrl+j":
-		reason := m.toolReview.InputValue()
-		if reason == "" {
-			m.toolReview.AcceptCurrent()
-		} else {
-			m.toolReview.RejectCurrent(reason)
+// reviewToolCall accepts (empty input) or rejects (input = reason) a tool
+// call. Reviewing follows timeline selection: navigate onto any pending call
+// to review it out of order; landing on an already-reviewed but not-yet
+// executed call re-opens it so verdicts can be changed.
+func (m *ChatScreen) reviewToolCall(pending []*aipb.ToolCall) tea.Cmd {
+	target := pending[0]
+	if m.focusedComponent == FocusViewport {
+		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok && item.Result == nil {
+			switch tools.GetToolCallStatus(item.ToolCall) {
+			case tools.ToolCallStatusPending:
+				target = item.ToolCall
+			case tools.ToolCallStatusAccepted, tools.ToolCallStatusRejected:
+				tools.SetToolCallStatus(item.ToolCall, tools.ToolCallStatusPending)
+				m.refresh()
+				return nil
+			}
 		}
-		m.toolReview.ResetInput()
+	}
 
-		if m.toolReview.AllResolved() {
-			sess := m.session
-			wrap := m.wrap
-			m.recalculateLayout()
-			return tea.Batch(m.spinner.Tick, func() tea.Msg {
-				sess.ResolveToolCalls()
-				return wrap(sessionEventMsg{event: session.RefreshEvent{}})
-			})
-		}
+	if reason := m.input.Value(); reason == "" {
+		tools.SetToolCallStatus(target, tools.ToolCallStatusAccepted)
+	} else {
+		tools.SetToolCallStatus(target, tools.ToolCallStatusRejected)
+		tools.SetToolCallRejectionReason(target, reason)
+		m.input.Reset()
+	}
+
+	if len(m.session.PendingToolCalls()) > 0 {
+		m.refresh()
 		return nil
 	}
 
-	cmd := m.toolReview.UpdateInput(msg)
-	return cmd
+	sess := m.session
+	wrap := m.wrap
+	m.refresh()
+	return tea.Batch(m.spinner.Tick, func() tea.Msg {
+		sess.ResolveToolCalls()
+		return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+	})
 }
 
 func (m *ChatScreen) toggleFavorite() tea.Cmd {
@@ -343,18 +326,16 @@ func (m *ChatScreen) cycleFocus() tea.Cmd {
 	case FocusTextarea:
 		m.focusedComponent = FocusViewport
 		m.input.Blur()
-		if m.messages.NavMessageIndex() == -1 {
-			m.messages.NavigateToBottom()
+		m.timeline.SetFocused(true)
+		if m.timeline.SelectedItem() == nil {
+			m.timeline.SelectLast()
 		}
-		m.messages.SetFocused(true)
-		m.refreshMessages()
-	case FocusViewport:
+		return nil
+	default:
 		m.focusedComponent = FocusTextarea
-		m.messages.SetFocused(false)
-		m.refreshMessages()
+		m.timeline.SetFocused(false)
 		return m.input.Focus()
 	}
-	return nil
 }
 
 func (m *ChatScreen) cycleReasoningEffort() {
@@ -372,13 +353,49 @@ func (m *ChatScreen) cycleReasoningEffort() {
 	m.refreshTitle()
 }
 
-func (m *ChatScreen) refreshMessages() {
-	m.messages.SetData(widget.MessagesData{
-		ChatMessages:     m.session.Chat().GetMetadata().GetMessages(),
-		StreamingMessage: m.session.StreamingMessage(),
-		StreamError:      m.session.StreamError(),
-		InjectedFiles:    m.injectedFiles,
-	})
+func (m *ChatScreen) updateInput(msg tea.Msg) tea.Cmd {
+	cmd := m.input.Update(msg)
+	if m.input.Height() != m.lastInputHeight {
+		m.lastInputHeight = m.input.Height()
+		m.recalculateLayout()
+	}
+	return cmd
+}
+
+func (m *ChatScreen) buildItems() []timeline.Item {
+	var items []timeline.Item
+	if len(m.injectedFiles) > 0 {
+		items = append(items, timeline.NewInjectedFilesItem(m.injectedFiles))
+	}
+	items = append(items, timeline.BuildChatItems(
+		m.session.Chat().GetMetadata().GetMessages(),
+		m.session.StreamingMessage(),
+		m.session.ExecutingToolCallID(),
+	)...)
+	if err := m.session.StreamError(); err != nil {
+		items = append(items, timeline.NewErrorItem("stream-error", err.Error()))
+	}
+	return items
+}
+
+func (m *ChatScreen) refresh() {
+	wasAtBottom := m.timeline.AtBottom()
+	m.timeline.SetItems(m.buildItems())
+	m.refreshTitle()
+	m.refreshPlaceholder()
+	m.recalculateLayout()
+	if wasAtBottom {
+		m.timeline.GotoBottom()
+	}
+}
+
+func (m *ChatScreen) refreshPlaceholder() {
+	if pending := m.session.PendingToolCalls(); len(pending) > 0 {
+		m.input.Textarea.Placeholder = fmt.Sprintf(
+			"%d tool call(s) pending — ctrl+j: accept, type reason + ctrl+j: reject, tab: inspect", len(pending))
+		return
+	}
+	m.input.Textarea.Placeholder = "Type your message... (ctrl+j: send, tab: navigate, alt+h: help)"
 }
 
 func (m *ChatScreen) refreshTitle() {
@@ -392,27 +409,30 @@ func (m *ChatScreen) recalculateLayout() {
 
 	m.titlebar.SetWidth(m.width)
 
-	viewportHeight := m.height - m.titlebar.Height()
-	if !m.session.IsStreaming() {
-		if m.inToolReview() {
-			viewportHeight -= m.toolReview.Height()
-		} else {
-			viewportHeight -= m.input.Height()
-		}
+	bottomHeight := m.input.Height()
+	if m.session.Busy() {
+		bottomHeight = 1
 	}
+	viewportHeight := m.height - m.titlebar.Height() - bottomHeight - 1
 	if viewportHeight < styles.MinViewportHeight {
 		viewportHeight = styles.MinViewportHeight
 	}
 
-	m.messages.SetSize(m.width, viewportHeight)
+	m.timeline.SetSize(m.width, viewportHeight)
 	m.input.SetWidth(m.width)
-	m.toolReview.SetWidth(m.width)
 
 	if !m.ready {
 		m.ready = true
-		m.refreshMessages()
-		m.messages.GotoBottom()
+		m.refresh()
+		m.timeline.GotoBottom()
 	}
+}
+
+func (m *ChatScreen) busyLabel() string {
+	if m.session.State() == session.StateExecutingTools {
+		return "executing tools..."
+	}
+	return "thinking... (ctrl+c to cancel)"
 }
 
 func (m *ChatScreen) View() string {
@@ -423,17 +443,15 @@ func (m *ChatScreen) View() string {
 	var b strings.Builder
 	b.WriteString(m.titlebar.View())
 	b.WriteString("\n")
-	b.WriteString(m.messages.View())
-
-	if !m.session.IsStreaming() {
-		b.WriteString("\n")
-		if m.inToolReview() {
-			b.WriteString(m.toolReview.View())
-		} else {
-			b.WriteString(m.input.View())
-		}
+	b.WriteString(m.timeline.View())
+	b.WriteString("\n")
+	if m.session.Busy() {
+		b.WriteString(m.spinner.View())
+		b.WriteString(" ")
+		b.WriteString(styles.DimTextStyle.Render(m.busyLabel()))
+	} else {
+		b.WriteString(m.input.View())
 	}
-
 	return b.String()
 }
 

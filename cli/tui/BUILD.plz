@@ -3,6 +3,7 @@ go_library(
     srcs = ["app.go"],
     visibility = ["//..."],
     deps = [
+        "//cli/tui/keymap",
         "//cli/tui/screen",
         "//cli/tui/screen/menu",
         "//cli/tui/styles",
