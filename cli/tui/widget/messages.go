@@ -959,11 +959,6 @@ func truncateLinesWithOverflow(s string, maxLines int) (string, string) {
 	return truncated, fmt.Sprintf("... (%d more lines)", len(lines)-maxLines)
 }
 
-func truncateLines(s string, maxLines int) string {
-	truncated, overflow := truncateLinesWithOverflow(s, maxLines)
-	return truncated + overflow
-}
-
 func toolCallStatusIndicator(toolCall *aipb.ToolCall) string {
 	switch tools.GetToolCallStatus(toolCall) {
 	case tools.ToolCallStatusAccepted:

@@ -2,25 +2,21 @@ package menu
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
+	"github.com/malonaz/sgpt/internal/store"
 )
 
-const (
-	searchDebounceInterval = 300 * time.Millisecond
-	favoriteTag            = "favorite"
-	favoriteFilter         = `tags:"favorite"`
-)
+const searchDebounceInterval = 300 * time.Millisecond
 
 type FocusTarget int
 
@@ -55,9 +51,9 @@ type searchDebounceTickMsg struct {
 }
 
 type Model struct {
-	ctx        context.Context
-	chatClient sgptservicepb.SgptServiceClient
-	wrap       screen.WrapFunc
+	ctx   context.Context
+	store *store.Store
+	wrap  screen.WrapFunc
 
 	favorites []*sgptpb.Chat
 	others    []*sgptpb.Chat
@@ -88,7 +84,7 @@ type Model struct {
 	focused        bool
 }
 
-func New(ctx context.Context, chatClient sgptservicepb.SgptServiceClient, wrap screen.WrapFunc) *Model {
+func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Model {
 	filterInput := textarea.New()
 	filterInput.Placeholder = "Filter chats..."
 	filterInput.CharLimit = 256
@@ -107,7 +103,7 @@ func New(ctx context.Context, chatClient sgptservicepb.SgptServiceClient, wrap s
 
 	return &Model{
 		ctx:         ctx,
-		chatClient:  chatClient,
+		store:       chatStore,
 		wrap:        wrap,
 		filterInput: filterInput,
 		searchInput: searchInput,
@@ -185,51 +181,32 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 		defer cancel()
 
 		if searchQuery != "" {
-			searchChatsRequest := &sgptservicepb.SearchChatsRequest{
-				Query:     searchQuery,
-				PageSize:  pageSize,
-				PageToken: pageToken,
-			}
-			searchChatsResponse, err := m.chatClient.SearchChats(ctx, searchChatsRequest)
+			chats, nextPageToken, err := m.store.SearchChats(ctx, searchQuery, pageSize, pageToken)
 			if err != nil {
 				return wrap(chatsLoadedMsg{Err: err, SearchQuery: searchQuery})
 			}
-			favorites, others := partitionByTag(searchChatsResponse.Chats, favoriteTag)
+			favorites, others := partitionByTag(chats, store.FavoriteTag)
 			return wrap(chatsLoadedMsg{
 				Favorites:     favorites,
 				Others:        others,
-				NextPageToken: searchChatsResponse.NextPageToken,
+				NextPageToken: nextPageToken,
 				PageToken:     pageToken,
 				SearchQuery:   searchQuery,
 			})
 		}
 
-		// Fetch favorites.
-		listFavoritesRequest := &sgptservicepb.ListChatsRequest{
-			PageSize: pageSize,
-			OrderBy:  "create_time desc",
-			Filter:   favoriteFilter,
-		}
-		listFavoritesResponse, err := m.chatClient.ListChats(ctx, listFavoritesRequest)
+		favorites, err := m.store.ListFavoriteChats(ctx, pageSize)
 		if err != nil {
 			return wrap(chatsLoadedMsg{Err: err})
 		}
-
-		// Fetch others (paginated).
-		listOthersRequest := &sgptservicepb.ListChatsRequest{
-			PageSize:  pageSize,
-			OrderBy:   "create_time desc",
-			PageToken: pageToken,
-		}
-		listOthersResponse, err := m.chatClient.ListChats(ctx, listOthersRequest)
+		others, nextPageToken, err := m.store.ListChats(ctx, pageSize, pageToken, "")
 		if err != nil {
 			return wrap(chatsLoadedMsg{Err: err})
 		}
-
 		return wrap(chatsLoadedMsg{
-			Favorites:     listFavoritesResponse.Chats,
-			Others:        listOthersResponse.Chats,
-			NextPageToken: listOthersResponse.NextPageToken,
+			Favorites:     favorites,
+			Others:        others,
+			NextPageToken: nextPageToken,
 			PageToken:     pageToken,
 		})
 	}
@@ -238,37 +215,19 @@ func (m *Model) fetchChats(pageToken string) tea.Cmd {
 func (m *Model) deleteChat(name string) tea.Cmd {
 	wrap := m.wrap
 	return func() tea.Msg {
-		deleteChatRequest := &sgptservicepb.DeleteChatRequest{Name: name}
-		_, err := m.chatClient.DeleteChat(m.ctx, deleteChatRequest)
+		err := m.store.DeleteChat(m.ctx, name)
 		return wrap(chatDeletedMsg{Name: name, Err: err})
 	}
 }
 
 func (m *Model) toggleFavorite(chat *sgptpb.Chat) tea.Cmd {
 	wrap := m.wrap
-	wasFavorite := chatHasTag(chat, favoriteTag)
-
-	if wasFavorite {
-		filtered := make([]string, 0, len(chat.Tags)-1)
-		for _, tag := range chat.Tags {
-			if tag != favoriteTag {
-				filtered = append(filtered, tag)
-			}
-		}
-		chat.Tags = filtered
-	} else {
-		chat.Tags = append(chat.Tags, favoriteTag)
-	}
-
+	favorite := !store.HasTag(chat, store.FavoriteTag)
 	return func() tea.Msg {
-		updateChatRequest := &sgptservicepb.UpdateChatRequest{
-			Chat:       chat,
-			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"tags"}},
-		}
-		_, err := m.chatClient.UpdateChat(m.ctx, updateChatRequest)
+		_, err := m.store.SetFavorite(m.ctx, chat, favorite)
 		return wrap(chatFavoriteToggledMsg{
 			Name:      chat.GetName(),
-			Favorited: !wasFavorite,
+			Favorited: favorite,
 			Err:       err,
 		})
 	}
@@ -295,10 +254,11 @@ func (m *Model) applyFilter(chats []*sgptpb.Chat) []*sgptpb.Chat {
 	if m.filterText == "" {
 		return chats
 	}
+	lowerFilter := strings.ToLower(m.filterText)
 	var result []*sgptpb.Chat
 	for _, chat := range chats {
 		title := chat.GetMetadata().GetTitle()
-		if containsIgnoreCase(title, m.filterText) || containsIgnoreCase(chat.Name, m.filterText) {
+		if strings.Contains(strings.ToLower(title), lowerFilter) || strings.Contains(strings.ToLower(chat.Name), lowerFilter) {
 			result = append(result, chat)
 		}
 	}
@@ -412,56 +372,15 @@ func (m *Model) currentPage() int {
 	return len(m.pageTokenStack) + 1
 }
 
-func chatHasTag(chat *sgptpb.Chat, tag string) bool {
-	for _, t := range chat.GetTags() {
-		if t == tag {
-			return true
-		}
-	}
-	return false
-}
-
 func partitionByTag(chats []*sgptpb.Chat, tag string) (withTag []*sgptpb.Chat, withoutTag []*sgptpb.Chat) {
 	for _, chat := range chats {
-		if chatHasTag(chat, tag) {
+		if store.HasTag(chat, tag) {
 			withTag = append(withTag, chat)
 		} else {
 			withoutTag = append(withoutTag, chat)
 		}
 	}
 	return withTag, withoutTag
-}
-
-func containsIgnoreCase(s, substr string) bool {
-	if substr == "" {
-		return true
-	}
-	ls := len(s)
-	lsub := len(substr)
-	if lsub > ls {
-		return false
-	}
-	for i := 0; i <= ls-lsub; i++ {
-		match := true
-		for j := 0; j < lsub; j++ {
-			a := s[i+j]
-			b := substr[j]
-			if a >= 'A' && a <= 'Z' {
-				a += 32
-			}
-			if b >= 'A' && b <= 'Z' {
-				b += 32
-			}
-			if a != b {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
-	return false
 }
 
 var _ screen.Screen = (*Model)(nil)

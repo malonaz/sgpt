@@ -1,3 +1,6 @@
+// Package session owns the chat lifecycle: streaming, tool handling and
+// persistence (via the store). All methods that mutate state are blocking and
+// sequential; the TUI drives the session from tea.Cmd goroutines.
 package session
 
 import (
@@ -5,31 +8,35 @@ import (
 	"fmt"
 	"sync"
 
-	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
-	"github.com/malonaz/core/go/pbutil/pbfieldmask"
-	"github.com/malonaz/core/go/uuid"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/status"
 
-	cliservice "github.com/malonaz/sgpt/cli/cli_service"
-	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tools"
 )
 
-// Session owns the chat lifecycle: streaming, tool handling, persistence.
-// All methods that mutate state are blocking and sequential. The TUI
-// drives the session from tea.Cmd goroutines managed by bubbletea.
-type Session struct {
-	ctx     context.Context
-	params  cliservice.SessionParams
-	service *cliservice.Service
+// Params bundles per-chat parameters for a session.
+type Params struct {
+	Model              *aipb.Model
+	Role               *sgptpb.Role
+	MaxTokens          int32
+	Temperature        float64
+	ReasoningEffort    aipb.ReasoningEffort
+	Tools              []string
+	Chat               string
+	AdditionalMessages []*aipb.Message
+	InjectedFiles      []string
+}
 
-	aiClient   aiservicepb.AiServiceClient
-	chatClient sgptservicepb.SgptServiceClient
-	config     *sgptpb.Configuration
+// Session drives a single chat conversation.
+type Session struct {
+	ctx      context.Context
+	params   Params
+	store    *store.Store
+	registry *tools.Registry
 
 	mu               sync.Mutex
 	chat             *sgptpb.Chat
@@ -41,37 +48,25 @@ type Session struct {
 	totalModelUsage *aipb.ModelUsage
 	lastModelUsage  *aipb.ModelUsage
 
-	toolHandlerIDToHandler map[string]tools.Handler
-
 	eventCh chan Event
 }
 
 func New(
 	ctx context.Context,
-	service *cliservice.Service,
+	chatStore *store.Store,
+	registry *tools.Registry,
 	chat *sgptpb.Chat,
-	params cliservice.SessionParams,
+	params Params,
 ) *Session {
-	toolHandlerIDToHandler := map[string]tools.Handler{
-		tools.HandlerIDShell:     &tools.ShellHandler{},
-		tools.HandlerIDReadFiles: &tools.ReadFilesHandler{},
-	}
-	if params.ToolEngineManager != nil {
-		toolHandlerIDToHandler[tools.HandlerIDEngine] = params.ToolEngineManager
-	}
-
 	return &Session{
-		ctx:                    ctx,
-		params:                 params,
-		service:                service,
-		aiClient:               service.AIClient,
-		chatClient:             service.ChatClient,
-		config:                 service.Config,
-		chat:                   chat,
-		totalModelUsage:        &aipb.ModelUsage{},
-		lastModelUsage:         &aipb.ModelUsage{},
-		toolHandlerIDToHandler: toolHandlerIDToHandler,
-		eventCh:                make(chan Event, 64),
+		ctx:             ctx,
+		params:          params,
+		store:           chatStore,
+		registry:        registry,
+		chat:            chat,
+		totalModelUsage: &aipb.ModelUsage{},
+		lastModelUsage:  &aipb.ModelUsage{},
+		eventCh:         make(chan Event, 64),
 	}
 }
 
@@ -119,7 +114,7 @@ func (s *Session) IsStreaming() bool {
 	return s.streaming
 }
 
-func (s *Session) Params() cliservice.SessionParams {
+func (s *Session) Params() Params {
 	return s.params
 }
 
@@ -147,9 +142,6 @@ func (s *Session) PendingToolCalls() []*aipb.ToolCall {
 
 func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
 	messages := s.chat.GetMetadata().GetMessages()
-	if len(messages) == 0 {
-		return nil
-	}
 	for i := len(messages) - 1; i >= 0; i-- {
 		message := messages[i].GetMessage()
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
@@ -256,65 +248,34 @@ func (s *Session) saveChat() error {
 	defer s.mu.Unlock()
 
 	if s.chat.GetName() == "" {
-		chatID := uuid.MustNewV7().String()
-		createChatRequest := &sgptservicepb.CreateChatRequest{
-			RequestId: uuid.MustNewV7().String(),
-			// Last segment of a v7 UUID is random; the first 8 chars are a timestamp
-			// prefix that collides for chats created within the same ~65s window.
-			ChatId: chatID[len(chatID)-8:],
-			Chat:   s.chat,
-		}
-		chat, err := s.chatClient.CreateChat(s.ctx, createChatRequest)
+		chat, err := s.store.CreateChat(s.ctx, s.chat)
 		if err != nil {
-			return fmt.Errorf("creating chat: %w", err)
+			return err
 		}
 		s.chat = chat
 		return nil
 	}
 
-	updateChatRequest := &sgptservicepb.UpdateChatRequest{
-		Chat:       s.chat,
-		UpdateMask: pbfieldmask.FromPaths("tags", "files", "metadata").MustValidate(&sgptpb.Chat{}).Proto(),
-	}
-	chat, err := s.chatClient.UpdateChat(s.ctx, updateChatRequest)
+	chat, err := s.store.UpdateChat(s.ctx, s.chat, "tags", "files", "metadata")
 	if err != nil {
-		return fmt.Errorf("updating chat: %w", err)
+		return err
 	}
 	s.chat = chat
 	return nil
 }
 
-// ToggleFavorite adds or removes the "favorite" tag from the chat and persists.
+// ToggleFavorite flips the favorite tag on the chat and persists.
 // Returns true if the chat is now a favorite.
 func (s *Session) ToggleFavorite() bool {
 	s.mu.Lock()
-	tags := s.chat.GetTags()
-	isFavorite := false
-	for _, tag := range tags {
-		if tag == "favorite" {
-			isFavorite = true
-			break
-		}
-	}
-
-	if isFavorite {
-		filtered := make([]string, 0, len(tags)-1)
-		for _, tag := range tags {
-			if tag != "favorite" {
-				filtered = append(filtered, tag)
-			}
-		}
-		s.chat.Tags = filtered
-	} else {
-		s.chat.Tags = append(s.chat.Tags, "favorite")
-	}
-	nowFavorite := !isFavorite
+	favorite := !store.HasTag(s.chat, store.FavoriteTag)
+	store.SetTag(s.chat, store.FavoriteTag, favorite)
 	s.mu.Unlock()
 
 	if err := s.saveChat(); err != nil {
 		s.emitError(fmt.Errorf("saving favorite: %w", err))
 	}
-	return nowFavorite
+	return favorite
 }
 
 func statusToProto(err error) *spb.Status {
@@ -322,17 +283,4 @@ func statusToProto(err error) *spb.Status {
 		return nil
 	}
 	return status.Convert(err).Proto()
-}
-
-func (s *Session) allTools() []*aipb.Tool {
-	var tools []*aipb.Tool
-	return tools
-}
-
-func (s *Session) allToolSets() []*aipb.ToolSet {
-	var toolSets []*aipb.ToolSet
-	if s.params.ToolEngineManager != nil {
-		toolSets = append(toolSets, s.params.ToolEngineManager.GetToolSets()...)
-	}
-	return toolSets
 }

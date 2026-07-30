@@ -8,8 +8,11 @@ import (
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
+
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
+// ShellCommand is the tool definition for shell execution.
 var ShellCommand = &aipb.Tool{
 	Name:        "exec_shell",
 	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
@@ -32,68 +35,64 @@ var ShellCommand = &aipb.Tool{
 	},
 }
 
-type ShellCommandArgs struct {
+type shellCommandArguments struct {
 	Command          string `json:"command"`
 	WorkingDirectory string `json:"working_directory"`
 }
 
-func ParseShellCommandArgs(bytes []byte) (*ShellCommandArgs, error) {
-	var args ShellCommandArgs
-	if err := json.Unmarshal(bytes, &args); err != nil {
-		return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
+func parseShellCommandArguments(toolCall *aipb.ToolCall) (*shellCommandArguments, error) {
+	bytes, err := toolCallArgumentsJSON(toolCall)
+	if err != nil {
+		return nil, err
 	}
-	if args.Command == "" {
+	arguments := &shellCommandArguments{}
+	if err := json.Unmarshal(bytes, arguments); err != nil {
+		return nil, fmt.Errorf("parsing tool arguments: %w", err)
+	}
+	if arguments.Command == "" {
 		return nil, fmt.Errorf("no command specified")
 	}
-	return &args, nil
+	return arguments, nil
 }
 
-func ExecuteShellCommand(args *ShellCommandArgs) (string, error) {
-	cmd := exec.Command("sh", "-c", args.Command)
-	if args.WorkingDirectory != "" {
-		cmd.Dir = args.WorkingDirectory
-	}
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Sprintf("Command failed with error: %v\nOutput: %s", err, string(output)), nil
-	}
-	return string(output), nil
-}
+// ShellTool executes shell commands on the user's system.
+type ShellTool struct{}
 
-type ShellHandler struct{}
-
-func (h *ShellHandler) HandleToolCall(_ context.Context, toolCall *aipb.ToolCall) (*HandleResult, error) {
-	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
-	if err != nil {
-		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
-	}
-	args, err := ParseShellCommandArgs(bytes)
+func (t *ShellTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
+	arguments, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	display := args.Command
-	if args.WorkingDirectory != "" {
-		display = fmt.Sprintf("cd %s && %s", args.WorkingDirectory, args.Command)
+	display := arguments.Command
+	if arguments.WorkingDirectory != "" {
+		display = fmt.Sprintf("cd %s && %s", arguments.WorkingDirectory, arguments.Command)
 	}
-	return &HandleResult{Display: display, AutoExecute: false}, nil
+	// Shell commands are arbitrary code execution: never auto-execute.
+	return &sgptpb.ToolCallMetadata{
+		DisplayMessage: &sgptpb.DisplayMessage{Content: display},
+	}, nil
 }
 
-func (h *ShellHandler) ProcessToolCall(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	bytes, err := json.Marshal(toolCall.Arguments.AsMap())
-	if err != nil {
-		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
-	}
-	args, err := ParseShellCommandArgs(bytes)
+func (t *ShellTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	arguments, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	result, err := ExecuteShellCommand(args)
+	command := exec.Command("sh", "-c", arguments.Command)
+	if arguments.WorkingDirectory != "" {
+		command.Dir = arguments.WorkingDirectory
+	}
+	output, err := command.CombinedOutput()
+	content := string(output)
 	if err != nil {
-		return nil, err
+		// Surface failures as content so the model can react to them.
+		content = fmt.Sprintf("Command failed with error: %v\nOutput: %s", err, string(output))
 	}
 	return &aipb.ToolResult{
 		ToolName:   toolCall.Name,
 		ToolCallId: toolCall.Id,
-		Result:     &aipb.ToolResult_Content{Content: result},
+		Result:     &aipb.ToolResult_Content{Content: content},
 	}, nil
 }
+
+var _ Tool = (*ShellTool)(nil)

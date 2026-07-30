@@ -28,13 +28,11 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 	s.cancelStream = cancel
 	s.mu.Unlock()
 
-	messages := s.messagesForAPI()
-
 	textToTextStreamRequest := &aiservicepb.TextToTextStreamRequest{
 		Model:    s.params.Model.Name,
-		Messages: messages,
-		Tools:    s.allTools(),
-		ToolSets: s.allToolSets(),
+		Messages: s.messagesForAPI(),
+		Tools:    s.registry.Tools(),
+		ToolSets: s.registry.ToolSets(),
 		Configuration: &aiservicepb.TextToTextConfiguration{
 			MaxTokens:       s.params.MaxTokens,
 			Temperature:     s.params.Temperature,
@@ -42,7 +40,7 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 		},
 	}
 	debug.LogProto("request", textToTextStreamRequest, "messages", "tools")
-	stream, err := s.aiClient.TextToTextStream(streamCtx, textToTextStreamRequest)
+	stream, err := s.store.TextToTextStream(streamCtx, textToTextStreamRequest)
 	if err != nil {
 		s.finalizeStream(nil, err)
 		return nil, fmt.Errorf("opening stream: %w", err)
@@ -51,7 +49,7 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 	accumulator := ai.NewTextToTextAccumulator()
 	lastRender := time.Now()
 	pendingRender := false
-	handledToolCallCount := 0
+	reviewedToolCallCount := 0
 
 	checkRender := func() {
 		if time.Since(lastRender) >= renderThrottleInterval {
@@ -101,37 +99,32 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 		s.streamingMessage = accumulator.Message
 		s.mu.Unlock()
 
-		switch content := response.Content.(type) {
-		case *aiservicepb.TextToTextStreamResponse_ModelUsage:
+		if modelUsage := response.GetModelUsage(); modelUsage != nil {
 			s.mu.Lock()
-			proto.Merge(s.lastModelUsage, content.ModelUsage)
+			proto.Merge(s.lastModelUsage, modelUsage)
 			s.mu.Unlock()
-		default:
 		}
 
-		// Handle new tool calls eagerly as they arrive during streaming.
+		// Review new tool calls eagerly as they arrive during streaming.
 		toolCallBlocks := ai.FilterBlocks(accumulator.Message.GetBlocks(), ai.BlockTypeToolCall)
-		for len(toolCallBlocks) > handledToolCallCount {
-			toolCall := toolCallBlocks[handledToolCallCount].GetToolCall()
-			s.handleToolCallEagerly(toolCall)
-			handledToolCallCount++
+		for len(toolCallBlocks) > reviewedToolCallCount {
+			s.reviewToolCallEagerly(toolCallBlocks[reviewedToolCallCount].GetToolCall())
+			reviewedToolCallCount++
 		}
 
 		checkRender()
 	}
 }
 
-// handleToolCallEagerly labels a tool call with metadata/annotations as soon as
-// it appears in the stream, without waiting for the stream to complete.
-func (s *Session) handleToolCallEagerly(toolCall *aipb.ToolCall) {
+// reviewToolCallEagerly attaches display/auto-execute metadata to a tool call
+// as soon as it appears in the stream, without waiting for stream completion.
+func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 	debug.LogProto("eager", toolCall)
-	handlerID := toolCall.GetAnnotations()[tools.ToolHandlerIDAnnotation]
-	handler, ok := s.toolHandlerIDToHandler[handlerID]
-	if !ok {
+	if !s.registry.Handles(toolCall) {
 		return
 	}
-	if _, err := handler.HandleToolCall(s.ctx, toolCall); err != nil {
-		s.emitError(fmt.Errorf("eagerly handling tool call %q: %w", toolCall.Name, err))
+	if _, err := s.registry.Review(s.ctx, toolCall); err != nil {
+		s.emitError(fmt.Errorf("reviewing tool call %q: %w", toolCall.Name, err))
 	}
 }
 

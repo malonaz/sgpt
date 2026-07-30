@@ -6,10 +6,9 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
-        "//cli/cli_service",
-        "//cli/cli_service/session",
         "//cli/tui/styles",
         "//cli/tui/widget",
+        "//internal/session",
         "//sgpt/v1",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbles__v2__spinner",
