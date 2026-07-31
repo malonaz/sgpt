@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"golang.design/x/clipboard"
 
 	"github.com/malonaz/sgpt/cli/tui/keymap"
@@ -17,7 +18,6 @@ import (
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
@@ -56,7 +56,6 @@ var (
 	keyPrevTab  = keymap.New("alt+j", "Previous tab")
 	keyNextTab  = keymap.New("alt+;", "Next tab")
 	keyOpenMenu = keymap.New("alt+m", "Open menu")
-	keySearch   = keymap.New("ctrl+_", "Search chats")
 	keyCopyName = keymap.New("alt+c", "Copy chat name")
 	keyHelp     = keymap.New("alt+h", "Toggle this help")
 	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
@@ -102,7 +101,7 @@ func NewApp(
 	ctx context.Context,
 	chatStore *store.Store,
 	registry *tool.Registry,
-	initialChat *sgptpb.Chat,
+	initialChat *aipb.Chat,
 	params session.Params,
 ) *App {
 	app := &App{
@@ -236,9 +235,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screen.OpenMenuMsg:
 		return a, a.focusMenu()
 
-	case screen.OpenSearchMsg:
-		return a, a.focusMenuSearch()
-
 	case screen.CloseTabMsg:
 		return a, a.closeTab(msg.TabID)
 
@@ -308,7 +304,7 @@ func (a *App) keymaps() []keymap.Map {
 		Name: "Global",
 		Bindings: []keymap.Binding{
 			keyHelp, keyQuit, keyNewTab, keyCloseTab, keyPrevTab, keyNextTab,
-			keyOpenMenu, keySearch, keyCopyName,
+			keyOpenMenu, keyCopyName,
 		},
 	}}
 	if a.activeTab < len(a.tabs) {
@@ -339,8 +335,6 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return a.switchTab(a.activeTab - 1)
 	case key.Matches(msg, keyOpenMenu.Key):
 		return a.focusMenu()
-	case key.Matches(msg, keySearch.Key):
-		return a.focusMenuSearch()
 	case key.Matches(msg, keyCopyName.Key):
 		if a.activeTab < len(a.tabs) {
 			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok {
@@ -439,11 +433,9 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		}
 
 		if chat == nil {
-			chat, err = a.store.CreateChat(a.ctx, &sgptpb.Chat{
-				Metadata: &sgptpb.ChatMetadata{
-					CurrentModel: a.defaultParams.Model.Name,
-				},
-			})
+			newChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+			store.SetCurrentModel(newChat, a.defaultParams.Model.Name)
+			chat, err = a.store.CreateChat(a.ctx, newChat)
 			if err != nil {
 				return screen.AlertMsg{Text: fmt.Sprintf("Create failed: %v", err)}
 			}
@@ -467,20 +459,6 @@ func (a *App) focusMenu() tea.Cmd {
 	for i, t := range a.tabs {
 		if t.id == menuTabID {
 			return a.switchTab(i)
-		}
-	}
-	return nil
-}
-
-func (a *App) focusMenuSearch() tea.Cmd {
-	for i, t := range a.tabs {
-		if t.id == menuTabID {
-			cmd := a.switchTab(i)
-			if menuModel, ok := t.screen.(*menuscreen.Model); ok {
-				searchCmd := menuModel.ActivateSearch()
-				return tea.Batch(cmd, searchCmd)
-			}
-			return cmd
 		}
 	}
 	return nil

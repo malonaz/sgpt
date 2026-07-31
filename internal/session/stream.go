@@ -11,8 +11,8 @@ import (
 	"github.com/malonaz/core/go/ai"
 	"google.golang.org/protobuf/proto"
 
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
+	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
@@ -191,13 +191,10 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 			}
 		}
 
-		chatMessage := &sgptpb.Message{
-			Message: assistantMessage,
-		}
 		if err != nil {
-			chatMessage.Error = statusToProto(err)
+			store.SetMessageError(assistantMessage, err.Error())
 		}
-		s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, chatMessage)
+		s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, assistantMessage)
 	}
 
 	s.streamingMessage = nil

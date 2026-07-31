@@ -12,10 +12,10 @@ go_library(
         "//internal/store",
         "//internal/tool",
         "//internal/tool/agent",
-        "//sgpt/v1",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbletea__v2",
         "//third_party/go:charm.land__lipgloss__v2",
         "//third_party/go:golang.design__x__clipboard",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

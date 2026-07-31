@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/timeline"
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/store"
 )
 
@@ -20,20 +20,13 @@ func (m *Model) View() string {
 
 	var b strings.Builder
 
-	modeLabel := "List"
-	if m.searchQuery != "" {
-		modeLabel = "Search"
-	}
-	header := styles.TitleStyle.Width(m.width).Render(fmt.Sprintf(" 📋 Chat History (%s) ", modeLabel))
+	header := styles.TitleStyle.Width(m.width).Render(" 📋 Chat History ")
 	b.WriteString(header)
 	b.WriteString("\n")
 
 	var leftPanel strings.Builder
 	filterStyle := m.inputStyle(FocusFilter)
 	leftPanel.WriteString(filterStyle.Width(m.listWidth() - 2).Render(m.filterInput.View()))
-	leftPanel.WriteString("\n")
-	searchStyle := m.inputStyle(FocusSearch)
-	leftPanel.WriteString(searchStyle.Width(m.listWidth() - 2).Render(m.searchInput.View()))
 	leftPanel.WriteString("\n")
 	leftPanel.WriteString(m.listViewport.View())
 
@@ -73,9 +66,6 @@ func (m *Model) renderList() string {
 
 	displayed := m.displayedChats()
 	if len(displayed) == 0 {
-		if m.searchQuery != "" {
-			return styles.DimTextStyle.Render("No search results")
-		}
 		if m.filterText != "" {
 			return styles.DimTextStyle.Render("No chats match filter")
 		}
@@ -112,16 +102,16 @@ func (m *Model) renderList() string {
 	return b.String()
 }
 
-func (m *Model) renderChatRows(chats []*sgptpb.Chat, listWidth int, globalIndexOffset int) string {
+func (m *Model) renderChatRows(chats []*aipb.Chat, listWidth int, globalIndexOffset int) string {
 	var b strings.Builder
 	for i, chat := range chats {
-		title := chat.GetMetadata().GetTitle()
+		title := chat.GetTitle()
 		title = styles.Truncate(title, 28)
 
 		messageCount := len(chat.GetMetadata().GetMessages())
 		updated := relativeTime(chat.GetUpdateTime().AsTime())
 
-		tags := strings.Join(chat.GetTags(), ",")
+		tags := strings.Join(store.Tags(chat), ",")
 		tags = styles.Truncate(tags, 15)
 
 		line := fmt.Sprintf("%-30s %-5d %-10s", title, messageCount, updated)
@@ -153,16 +143,16 @@ func (m *Model) renderDetail() string {
 
 	var b strings.Builder
 	title := chat.GetName()
-	if store.HasTag(chat, store.FavoriteTag) {
+	if store.IsFavorite(chat) {
 		title = "⭐ " + title
 	}
 	b.WriteString(styles.MenuTitleStyle.Render(" " + styles.Truncate(title, detailWidth-2)))
 	b.WriteString("\n")
-	if model := chat.GetMetadata().GetCurrentModel(); model != "" {
+	if model := store.CurrentModel(chat); model != "" {
 		b.WriteString(styles.DimTextStyle.Render(" Model: " + model))
 		b.WriteString("\n")
 	}
-	if tags := chat.GetTags(); len(tags) > 0 {
+	if tags := store.Tags(chat); len(tags) > 0 {
 		b.WriteString(styles.MenuTagStyle.Render(" Tags: " + strings.Join(tags, ", ")))
 		b.WriteString("\n")
 	}

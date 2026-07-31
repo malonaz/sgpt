@@ -12,7 +12,6 @@ import (
 
 	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
-	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
@@ -62,7 +61,6 @@ func run() error {
 	baseURLToGRPCConnection := map[string]*grpc.Connection{}
 	grpcClients := []*sgptpb.GrpcClient{
 		config.GetAiService(),
-		config.GetSgptService(),
 	}
 	for _, toolEngine := range config.GetToolEngines() {
 		grpcClients = append(grpcClients, toolEngine.GetEngineService())
@@ -89,9 +87,8 @@ func run() error {
 	}
 
 	aiClient := aiservicepb.NewAiServiceClient(baseURLToGRPCConnection[config.GetAiService().GetBaseUrl()].Get())
-	sgptClient := sgptservicepb.NewSgptServiceClient(baseURLToGRPCConnection[config.GetSgptService().GetBaseUrl()].Get())
 
-	rootCmd.AddCommand(chat.NewCmd(config, aiClient, sgptClient, baseURLToGRPCConnection))
+	rootCmd.AddCommand(chat.NewCmd(config, aiClient, baseURLToGRPCConnection))
 	rootCmd.AddCommand(cache.NewCmd())
 	return rootCmd.Execute()
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/malonaz/sgpt/cli/tui"
-	sgptservicepb "github.com/malonaz/sgpt/genproto/sgpt/sgpt_service/v1"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
@@ -32,10 +31,9 @@ import (
 func NewCmd(
 	config *sgptpb.Configuration,
 	aiClient aiservicepb.AiServiceClient,
-	chatClient sgptservicepb.SgptServiceClient,
 	baseURLToGRPCConnection map[string]*grpc.Connection,
 ) *cobra.Command {
-	chatStore := store.New(config, aiClient, chatClient)
+	chatStore := store.New(config, aiClient)
 
 	var opts struct {
 		FileInjection *file.InjectionOpts
@@ -158,7 +156,7 @@ func NewCmd(
 				return err
 			}
 
-			var chat *sgptpb.Chat
+			var chat *aipb.Chat
 			switch {
 			case opts.Chat != "":
 				chat, err = chatStore.GetChat(ctx, opts.Chat)
@@ -168,13 +166,10 @@ func NewCmd(
 				cobra.CheckErr(err)
 				opts.Chat = chat.Name
 			default:
-				chat = &sgptpb.Chat{
-					Files: filePaths,
-					Tags:  tags,
-					Metadata: &sgptpb.ChatMetadata{
-						CurrentModel: selectedModel.Name,
-					},
-				}
+				chat = &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+				store.SetTags(chat, tags)
+				store.SetFiles(chat, filePaths)
+				store.SetCurrentModel(chat, selectedModel.Name)
 			}
 
 			additionalMessages := make([]*aipb.Message, 0, len(files)+len(toolEngineConfigurations)+1)
@@ -228,13 +223,10 @@ func NewCmd(
 				for _, parsedFile := range subFiles {
 					subMessages = append(subMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", parsedFile.Path, parsedFile.Content))))
 				}
-				subChat := &sgptpb.Chat{
-					Files: subFilePaths,
-					Tags:  []string{"agent"},
-					Metadata: &sgptpb.ChatMetadata{
-						CurrentModel: model.Name,
-					},
-				}
+				subChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+				store.SetTags(subChat, []string{"agent"})
+				store.SetFiles(subChat, subFilePaths)
+				store.SetCurrentModel(subChat, model.Name)
 				subParams := session.Params{
 					Model:              model,
 					Role:               parsedRole,

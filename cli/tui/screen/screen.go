@@ -2,7 +2,7 @@ package screen
 
 import (
 	tea "charm.land/bubbletea/v2"
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 )
 
 type WrapFunc func(tea.Msg) tea.Msg
@@ -25,12 +25,11 @@ type TabMsg struct {
 }
 
 type OpenChatMsg struct {
-	Chat *sgptpb.Chat
+	Chat *aipb.Chat
 	Fork bool
 }
 
 type OpenMenuMsg struct{}
-type OpenSearchMsg struct{}
 
 type CloseTabMsg struct {
 	TabID string

@@ -10,8 +10,8 @@ option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
 // Configuration for the sgpt tool.
 message Configuration {
-  // gRPC client configuration for the chat service.
-  GrpcClient sgpt_service = 1;
+  reserved 1;
+  reserved "sgpt_service";
 
   // gRPC client configuration for the AI service.
   GrpcClient ai_service = 2;
@@ -54,6 +54,10 @@ message Model {
 
 // Chat-specific configuration.
 message ChatConfiguration {
+  // The parent user under which chats are created and listed.
+  // Format: organizations/{organization}/users/{user}
+  string parent = 5 [(google.api.resource_reference).type = "ai.malonaz.com/User"];
+
   // The resource name of the model used to generate summaries.
   // Format: providers/{provider}/models/{model}
   string summary_model = 1 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];

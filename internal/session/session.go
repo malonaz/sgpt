@@ -11,8 +11,6 @@ import (
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
-	spb "google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/grpc/status"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/store"
@@ -51,7 +49,7 @@ type Session struct {
 	registry *tool.Registry
 
 	mu                sync.Mutex
-	chat              *sgptpb.Chat
+	chat              *aipb.Chat
 	streamingMessage  *aipb.Message
 	streamError       error
 	state             State
@@ -74,7 +72,7 @@ func New(
 	ctx context.Context,
 	chatStore *store.Store,
 	registry *tool.Registry,
-	chat *sgptpb.Chat,
+	chat *aipb.Chat,
 	params Params,
 ) *Session {
 	return &Session{
@@ -109,7 +107,7 @@ func (s *Session) emitError(err error) {
 	s.eventCh <- ErrorEvent{Err: err}
 }
 
-func (s *Session) Chat() *sgptpb.Chat {
+func (s *Session) Chat() *aipb.Chat {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.chat
@@ -205,7 +203,7 @@ func (s *Session) lastAssistantText() string {
 	defer s.mu.Unlock()
 	messages := s.chat.GetMetadata().GetMessages()
 	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i].GetMessage()
+		message := messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
 			continue
 		}
@@ -227,7 +225,7 @@ func (s *Session) PendingToolCalls() []*aipb.ToolCall {
 func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
 	messages := s.chat.GetMetadata().GetMessages()
 	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i].GetMessage()
+		message := messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
 			continue
 		}
@@ -246,7 +244,7 @@ func (s *Session) SendMessage(text string) {
 	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
 
 	s.mu.Lock()
-	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: userMessage})
+	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, userMessage)
 	s.state = StateStreaming
 	s.streamError = nil
 	s.mu.Unlock()
@@ -321,9 +319,10 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 
 	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.chat.Metadata.Messages))
 	messages = append(messages, s.params.AdditionalMessages...)
-	for _, chatMessage := range s.chat.Metadata.Messages {
-		if chatMessage.Error == nil {
-			messages = append(messages, chatMessage.Message)
+	// Messages that errored are kept for display but never replayed to the model.
+	for _, message := range s.chat.Metadata.Messages {
+		if store.MessageError(message) == "" {
+			messages = append(messages, message)
 		}
 	}
 	return messages
@@ -342,7 +341,7 @@ func (s *Session) saveChat() error {
 		return nil
 	}
 
-	chat, err := s.store.UpdateChat(s.ctx, s.chat, "tags", "files", "metadata")
+	chat, err := s.store.UpdateChat(s.ctx, s.chat, "metadata", "annotations", "labels", "title")
 	if err != nil {
 		return err
 	}
@@ -354,21 +353,14 @@ func (s *Session) saveChat() error {
 // Returns true if the chat is now a favorite.
 func (s *Session) ToggleFavorite() bool {
 	s.mu.Lock()
-	favorite := !store.HasTag(s.chat, store.FavoriteTag)
-	store.SetTag(s.chat, store.FavoriteTag, favorite)
+	favorite := !store.IsFavorite(s.chat)
+	store.SetFavoriteLabel(s.chat, favorite)
 	s.mu.Unlock()
 
 	if err := s.saveChat(); err != nil {
 		s.emitError(fmt.Errorf("saving favorite: %w", err))
 	}
 	return favorite
-}
-
-func statusToProto(err error) *spb.Status {
-	if err == nil {
-		return nil
-	}
-	return status.Convert(err).Proto()
 }
 
 // Registry exposes the tool registry so the TUI can delegate tool-dictated

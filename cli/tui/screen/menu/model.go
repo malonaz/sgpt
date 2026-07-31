@@ -9,16 +9,15 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/store"
 )
 
 const (
-	searchDebounceInterval = 300 * time.Millisecond
 	// listPageSize is deliberately large: pages append into an
 	// infinite-scroll list rather than paginate.
 	listPageSize = 50
@@ -31,16 +30,14 @@ type FocusTarget int
 
 const (
 	FocusFilter FocusTarget = iota
-	FocusSearch
 	FocusChatList
 )
 
 type chatsLoadedMsg struct {
-	Favorites     []*sgptpb.Chat
-	Others        []*sgptpb.Chat
+	Favorites     []*aipb.Chat
+	Others        []*aipb.Chat
 	NextPageToken string
 	Err           error
-	SearchQuery   string
 	// Append marks background loads that extend the list (infinite scroll)
 	// instead of replacing it.
 	Append bool
@@ -57,17 +54,13 @@ type chatFavoriteToggledMsg struct {
 	Err       error
 }
 
-type searchDebounceTickMsg struct {
-	Query string
-}
-
 type Model struct {
 	ctx   context.Context
 	store *store.Store
 	wrap  screen.WrapFunc
 
-	favorites []*sgptpb.Chat
-	others    []*sgptpb.Chat
+	favorites []*aipb.Chat
+	others    []*aipb.Chat
 
 	chatCursor    int
 	loading       bool
@@ -77,10 +70,6 @@ type Model struct {
 
 	filterInput textarea.Model
 	filterText  string
-
-	searchInput     textarea.Model
-	searchQuery     string
-	lastSearchQuery string
 
 	focusTarget      FocusTarget
 	selectedChatName string
@@ -106,13 +95,6 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 	filterInput.ShowLineNumbers = false
 	filterInput.Prompt = "/ "
 
-	searchInput := textarea.New()
-	searchInput.Placeholder = "Search chats..."
-	searchInput.CharLimit = 256
-	searchInput.SetHeight(1)
-	searchInput.ShowLineNumbers = false
-	searchInput.Prompt = "🔍 "
-
 	renderer, _ := markdown.NewRenderer(styles.DefaultTextareaWidth)
 
 	return &Model{
@@ -120,7 +102,6 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 		store:       chatStore,
 		wrap:        wrap,
 		filterInput: filterInput,
-		searchInput: searchInput,
 		renderer:    renderer,
 		detailCache: map[string]string{},
 		focusTarget: FocusFilter,
@@ -153,23 +134,12 @@ func (m *Model) OnFocus() tea.Cmd {
 func (m *Model) OnBlur() {
 	m.focused = false
 	m.filterInput.Blur()
-	m.searchInput.Blur()
-}
-
-func (m *Model) ActivateSearch() tea.Cmd {
-	m.focusTarget = FocusSearch
-	return m.applyFocus()
 }
 
 func (m *Model) applyFocus() tea.Cmd {
 	m.filterInput.Blur()
-	m.searchInput.Blur()
-	switch m.focusTarget {
-	case FocusFilter:
+	if m.focusTarget == FocusFilter {
 		m.filterInput.Focus()
-		return textarea.Blink
-	case FocusSearch:
-		m.searchInput.Focus()
 		return textarea.Blink
 	}
 	return nil
@@ -202,27 +172,11 @@ func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 		m.loading = true
 	}
 	wrap := m.wrap
-	searchQuery := m.searchQuery
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 		defer cancel()
 
-		if searchQuery != "" {
-			chats, nextPageToken, err := m.store.SearchChats(ctx, searchQuery, listPageSize, pageToken)
-			if err != nil {
-				return wrap(chatsLoadedMsg{Err: err, SearchQuery: searchQuery, Append: appendPage})
-			}
-			favorites, others := partitionByTag(chats, store.FavoriteTag)
-			return wrap(chatsLoadedMsg{
-				Favorites:     favorites,
-				Others:        others,
-				NextPageToken: nextPageToken,
-				SearchQuery:   searchQuery,
-				Append:        appendPage,
-			})
-		}
-
-		var favorites []*sgptpb.Chat
+		var favorites []*aipb.Chat
 		var err error
 		if !appendPage {
 			favorites, err = m.store.ListFavoriteChats(ctx, listPageSize)
@@ -263,9 +217,9 @@ func (m *Model) deleteChat(name string) tea.Cmd {
 	}
 }
 
-func (m *Model) toggleFavorite(chat *sgptpb.Chat) tea.Cmd {
+func (m *Model) toggleFavorite(chat *aipb.Chat) tea.Cmd {
 	wrap := m.wrap
-	favorite := !store.HasTag(chat, store.FavoriteTag)
+	favorite := !store.IsFavorite(chat)
 	return func() tea.Msg {
 		_, err := m.store.SetFavorite(m.ctx, chat, favorite)
 		return wrap(chatFavoriteToggledMsg{
@@ -277,7 +231,7 @@ func (m *Model) toggleFavorite(chat *sgptpb.Chat) tea.Cmd {
 }
 
 // displayedChats returns favorites then others, with client-side filter applied.
-func (m *Model) displayedChats() []*sgptpb.Chat {
+func (m *Model) displayedChats() []*aipb.Chat {
 	favorites := m.applyFilter(m.favorites)
 	others := m.applyFilter(m.others)
 	return append(favorites, others...)
@@ -287,14 +241,14 @@ func (m *Model) displayedFavoriteCount() int {
 	return len(m.applyFilter(m.favorites))
 }
 
-func (m *Model) applyFilter(chats []*sgptpb.Chat) []*sgptpb.Chat {
+func (m *Model) applyFilter(chats []*aipb.Chat) []*aipb.Chat {
 	if m.filterText == "" {
 		return chats
 	}
 	lowerFilter := strings.ToLower(m.filterText)
-	var result []*sgptpb.Chat
+	var result []*aipb.Chat
 	for _, chat := range chats {
-		title := chat.GetMetadata().GetTitle()
+		title := chat.GetTitle()
 		if strings.Contains(strings.ToLower(title), lowerFilter) || strings.Contains(strings.ToLower(chat.Name), lowerFilter) {
 			result = append(result, chat)
 		}
@@ -302,7 +256,7 @@ func (m *Model) applyFilter(chats []*sgptpb.Chat) []*sgptpb.Chat {
 	return result
 }
 
-func (m *Model) selectedChat() *sgptpb.Chat {
+func (m *Model) selectedChat() *aipb.Chat {
 	displayed := m.displayedChats()
 	if m.chatCursor >= 0 && m.chatCursor < len(displayed) {
 		return displayed[m.chatCursor]
@@ -381,7 +335,7 @@ func (m *Model) recalculateLayout() {
 		return
 	}
 
-	inputHeight := 4
+	inputHeight := 3
 	totalViewportHeight := m.height - 4
 	listViewportHeight := totalViewportHeight - inputHeight
 	if listViewportHeight < 1 {
@@ -420,18 +374,6 @@ func (m *Model) recalculateLayout() {
 	m.detailCache = map[string]string{}
 
 	m.filterInput.SetWidth(listWidth - 6)
-	m.searchInput.SetWidth(listWidth - 6)
-}
-
-func partitionByTag(chats []*sgptpb.Chat, tag string) (withTag []*sgptpb.Chat, withoutTag []*sgptpb.Chat) {
-	for _, chat := range chats {
-		if store.HasTag(chat, tag) {
-			withTag = append(withTag, chat)
-		} else {
-			withoutTag = append(withoutTag, chat)
-		}
-	}
-	return withTag, withoutTag
 }
 
 var _ screen.Screen = (*Model)(nil)

@@ -6,7 +6,6 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tool"
 )
@@ -60,7 +59,7 @@ func (s *Session) ResolveToolCalls() {
 	messages := s.chat.GetMetadata().GetMessages()
 	var toolCalls []*aipb.ToolCall
 	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i].GetMessage()
+		message := messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
 			continue
 		}
@@ -128,5 +127,5 @@ func (s *Session) appendToolMessage(resultBlocks []*aipb.Block) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	toolMessage := ai.NewToolMessage(resultBlocks...)
-	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, &sgptpb.Message{Message: toolMessage})
+	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, toolMessage)
 }
