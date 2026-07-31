@@ -262,8 +262,11 @@ func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 		if err != nil {
 			return "", false
 		}
+		// Parse a snapshot: this runs on the TUI render goroutine and
+		// ParseToolCall walks the annotation map directly, racing with the
+		// session goroutine's status/metadata writes.
 		// Partial/unparsable arguments simply fall back to the default header.
-		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
+		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, tool.SnapshotToolCall(toolCall), m.toolSets)
 		if err != nil {
 			return "", false
 		}

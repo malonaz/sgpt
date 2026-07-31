@@ -1,14 +1,31 @@
+filegroup(
+    name = "descriptor_set",
+    srcs = ["//sgpt/v1:descriptor_set"],
+)
+
 go_library(
     name = "tool",
     srcs = [
         "builtin.go",
         "metadata.go",
         "registry.go",
+        "schema.go",
     ],
+    resources = [":descriptor_set"],
     visibility = ["//..."],
     deps = [
         "//sgpt/v1",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:github.com__malonaz__core__go__ai__tool",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:github.com__malonaz__core__go__pbutil__pbjson",
+        "//third_party/go:github.com__malonaz__core__go__pbutil__pbreflection",
+        "//third_party/go:google.golang.org__grpc__reflection",
+        "//third_party/go:google.golang.org__protobuf__proto",
+        "//third_party/go:google.golang.org__protobuf__reflect__protodesc",
+        "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
+        "//third_party/go:google.golang.org__protobuf__types__descriptorpb",
+        "//third_party/go:google.golang.org__protobuf__types__known__structpb",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

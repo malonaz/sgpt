@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package sgpt.v1;
+
+import "google/api/field_behavior.proto";
+
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
+
+// ToolService declares the built-in tools. It is never served: reflection
+// schema resolution only fetches files reachable from a listed service, and
+// tool definitions are built from its methods — descriptions from method
+// comments, JSON schemas from request messages, auto-execution from the
+// idempotency level.
+service ToolService {
+  // Edit a file by applying a unified diff. Start each hunk with an '@@'
+  // line; line numbers in hunk headers are ignored, so they may be wrong or
+  // omitted. Prefix unchanged context lines with a space, removed lines with
+  // '-' and added lines with '+'. Include enough context lines to anchor
+  // each hunk uniquely within the file. Hunks are applied sequentially.
+  rpc Diff(DiffRequest) returns (DiffResponse);
+
+  // Edit a file by applying one or more patches. Each patch replaces an
+  // exact, unique occurrence of `search` with `replace`. Include enough
+  // surrounding context in `search` to make it unique within the file.
+  // Patches are applied sequentially.
+  rpc Replace(ReplaceRequest) returns (ReplaceResponse);
+
+  // Read the contents of one or more files. Use this to examine file
+  // contents before making changes or to understand code structure.
+  rpc ReadFiles(ReadFilesRequest) returns (ReadFilesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Execute a shell command on the user's system. Use this when the user
+  // asks you to run commands, create files, or perform system operations.
+  rpc ExecShell(ExecShellRequest) returns (ExecShellResponse);
+
+  // Launch a sub-agent in a new chat tab to work on a self-contained task.
+  // The sub-agent receives the query, optional injected files and tools,
+  // runs until it produces a final answer, and that answer is returned as
+  // this tool's result. Provide all necessary context in the query: the
+  // sub-agent shares none of this conversation.
+  rpc Agent(AgentRequest) returns (AgentResponse);
+}
+
+// Request for the `diff` tool.
+message DiffRequest {
+  // Path of the file to edit.
+  string path = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Unified diff to apply ('@@' line numbers are ignored).
+  string diff = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `diff` tool.
+message DiffResponse {
+  // Path of the edited file.
+  string path = 1;
+
+  // Number of hunks applied.
+  int32 hunks_applied = 2;
+}
+
+// Request for the `replace` tool.
+message ReplaceRequest {
+  // Path of the file to edit.
+  string path = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Patches applied sequentially, each an exact search/replace.
+  repeated Patch patches = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// A single exact search/replace edit.
+message Patch {
+  // Exact text to find (must match exactly once unless replace_all).
+  string search = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Replacement text.
+  string replace = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // Replace every occurrence instead of requiring a unique match.
+  bool replace_all = 3;
+}
+
+// Result of the `replace` tool.
+message ReplaceResponse {
+  // Path of the edited file.
+  string path = 1;
+
+  // Number of patches applied.
+  int32 patches_applied = 2;
+}
+
+// Request for the `read_files` tool.
+message ReadFilesRequest {
+  // List of file paths to read.
+  repeated string paths = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `read_files` tool.
+message ReadFilesResponse {
+  // A single file read attempt.
+  message File {
+    // Path of the file.
+    string path = 1;
+
+    // File contents; empty if the read failed.
+    string content = 2;
+
+    // Read error, if any; other files are still returned.
+    string error = 3;
+  }
+
+  // One entry per requested path, in request order.
+  repeated File files = 1;
+}
+
+// Request for the `exec_shell` tool.
+message ExecShellRequest {
+  // The shell command to execute.
+  string command = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional working directory for the command execution. If not specified,
+  // uses current directory.
+  string working_directory = 2;
+}
+
+// Result of the `exec_shell` tool.
+message ExecShellResponse {
+  // Combined stdout and stderr of the command.
+  string output = 1;
+
+  // Process exit code; 0 on success.
+  int32 exit_code = 2;
+
+  // Set when the command failed to start or exited non-zero.
+  string error = 3;
+}
+
+// Request for the `agent` tool.
+message AgentRequest {
+  // Task for the sub-agent, including all required context.
+  string query = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // File paths to inject into the sub-agent's context.
+  repeated string files = 2;
+
+  // Tools to grant the sub-agent (built-in tools or configured tool engines).
+  repeated string tools = 3;
+
+  // Optional model override for the sub-agent.
+  string model = 4;
+}
+
+// Result of the `agent` tool.
+message AgentResponse {
+  // The sub-agent's final answer.
+  string response = 1;
+}

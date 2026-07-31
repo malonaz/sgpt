@@ -2,71 +2,42 @@ package shell
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
-// Definition is the tool definition for shell execution.
-var Definition = &aipb.Tool{
-	Name:        "exec_shell",
-	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
-	JsonSchema: &jsonpb.Schema{
-		Type: "object",
-		Properties: map[string]*jsonpb.Schema{
-			"command": {
-				Type:        "string",
-				Description: "The shell command to execute",
-			},
-			"working_directory": {
-				Type:        "string",
-				Description: "Optional working directory for the command execution. If not specified, uses current directory.",
-			},
-		},
-		Required: []string{"command"},
-	},
-	Annotations: map[string]string{
-		tool.ToolHandlerIDAnnotation: tool.HandlerIDShell,
-	},
-}
+// Definition is the tool definition for shell execution, built from the
+// ToolService.ExecShell method.
+var Definition = tool.MustBuildTool("exec_shell", tool.HandlerIDShell, "sgpt.v1.ToolService.ExecShell")
 
-type shellCommandArguments struct {
-	Command          string `json:"command"`
-	WorkingDirectory string `json:"working_directory"`
-}
-
-func parseShellCommandArguments(toolCall *aipb.ToolCall) (*shellCommandArguments, error) {
-	bytes, err := tool.ArgumentsJSON(toolCall)
-	if err != nil {
+func parseShellCommandArguments(toolCall *aipb.ToolCall) (*sgptpb.ExecShellRequest, error) {
+	execShellRequest := &sgptpb.ExecShellRequest{}
+	if err := tool.UnmarshalArguments(toolCall, execShellRequest); err != nil {
 		return nil, err
 	}
-	arguments := &shellCommandArguments{}
-	if err := json.Unmarshal(bytes, arguments); err != nil {
-		return nil, fmt.Errorf("parsing tool arguments: %w", err)
-	}
-	if arguments.Command == "" {
+	if execShellRequest.GetCommand() == "" {
 		return nil, fmt.Errorf("no command specified")
 	}
-	return arguments, nil
+	return execShellRequest, nil
 }
 
 // Tool executes shell commands on the user's system.
 type Tool struct{}
 
 func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	arguments, err := parseShellCommandArguments(toolCall)
+	execShellRequest, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	display := arguments.Command
-	if arguments.WorkingDirectory != "" {
-		display = fmt.Sprintf("cd %s && %s", arguments.WorkingDirectory, arguments.Command)
+	display := execShellRequest.GetCommand()
+	if execShellRequest.GetWorkingDirectory() != "" {
+		display = fmt.Sprintf("cd %s && %s", execShellRequest.GetWorkingDirectory(), execShellRequest.GetCommand())
 	}
 	// Shell commands are arbitrary code execution: never auto-execute.
 	return &sgptpb.ToolCallMetadata{
@@ -75,38 +46,38 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 }
 
 func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	arguments, err := parseShellCommandArguments(toolCall)
+	execShellRequest, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	command := exec.Command("sh", "-c", arguments.Command)
-	if arguments.WorkingDirectory != "" {
-		command.Dir = arguments.WorkingDirectory
+	command := exec.Command("sh", "-c", execShellRequest.GetCommand())
+	if execShellRequest.GetWorkingDirectory() != "" {
+		command.Dir = execShellRequest.GetWorkingDirectory()
 	}
 	output, err := command.CombinedOutput()
-	content := string(output)
+	execShellResponse := &sgptpb.ExecShellResponse{Output: string(output)}
 	if err != nil {
-		// Surface failures as content so the model can react to them.
-		content = fmt.Sprintf("Command failed with error: %v\nOutput: %s", err, string(output))
+		// Surface failures in the result so the model can react to them.
+		execShellResponse.Error = err.Error()
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			execShellResponse.ExitCode = int32(exitError.ExitCode())
+		}
 	}
-	return &aipb.ToolResult{
-		ToolName:   toolCall.Name,
-		ToolCallId: toolCall.Id,
-		Result:     &aipb.ToolResult_Content{Content: content},
-	}, nil
+	return tool.NewStructuredToolResult(toolCall, execShellResponse)
 }
 
 var _ tool.Tool = (*Tool)(nil)
 
 // RenderRequest renders the command as a shell fence instead of raw JSON.
 func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
-	arguments, err := parseShellCommandArguments(toolCall)
+	execShellRequest, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return "", false
 	}
-	display := arguments.Command
-	if arguments.WorkingDirectory != "" {
-		display = fmt.Sprintf("cd %s && %s", arguments.WorkingDirectory, arguments.Command)
+	display := execShellRequest.GetCommand()
+	if execShellRequest.GetWorkingDirectory() != "" {
+		display = fmt.Sprintf("cd %s && %s", execShellRequest.GetWorkingDirectory(), execShellRequest.GetCommand())
 	}
 	return fmt.Sprintf("```sh\n%s\n```", display), true
 }

@@ -2,76 +2,53 @@ package io
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tool"
 	"github.com/malonaz/sgpt/internal/tool/diff"
 )
 
-// Replace is the tool definition for patch-based file editing.
-var Replace = &aipb.Tool{
-	Name:        "replace",
-	Description: "Edit a file by applying one or more patches. Each patch replaces an exact, unique occurrence of `search` with `replace`. Include enough surrounding context in `search` to make it unique within the file. Patches are applied sequentially.",
-	JsonSchema: &jsonpb.Schema{
-		Type: "object",
-		Properties: map[string]*jsonpb.Schema{
-			"path": {Type: "string", Description: "Path of the file to edit"},
-			"patches": {
-				Type:        "array",
-				Description: "Patches applied sequentially, each an exact search/replace",
-				Items: &jsonpb.Schema{
-					Type: "object",
-					Properties: map[string]*jsonpb.Schema{
-						"search":      {Type: "string", Description: "Exact text to find (must match exactly once unless replace_all)"},
-						"replace":     {Type: "string", Description: "Replacement text"},
-						"replace_all": {Type: "boolean", Description: "Replace every occurrence instead of requiring a unique match"},
-					},
-					Required: []string{"search", "replace"},
-				},
-			},
-		},
-		Required: []string{"path", "patches"},
-	},
-	Annotations: map[string]string{
-		tool.ToolHandlerIDAnnotation: tool.HandlerIDReplace,
-	},
-}
+// Replace is the tool definition for patch-based file editing, built from
+// the ToolService.Replace method.
+var Replace = tool.MustBuildTool("replace", tool.HandlerIDReplace, "sgpt.v1.ToolService.Replace")
 
-type replaceArguments struct {
-	Path    string       `json:"path"`
-	Patches []diff.Patch `json:"patches"`
-}
-
-func parseSearchAndReplaceArguments(toolCall *aipb.ToolCall) (*replaceArguments, error) {
-	bytes, err := tool.ArgumentsJSON(toolCall)
-	if err != nil {
+func parseReplaceArguments(toolCall *aipb.ToolCall) (*sgptpb.ReplaceRequest, error) {
+	replaceRequest := &sgptpb.ReplaceRequest{}
+	if err := tool.UnmarshalArguments(toolCall, replaceRequest); err != nil {
 		return nil, err
 	}
-	arguments := &replaceArguments{}
-	if err := json.Unmarshal(bytes, arguments); err != nil {
-		return nil, fmt.Errorf("parsing tool arguments: %w", err)
-	}
-	if arguments.Path == "" {
+	if replaceRequest.GetPath() == "" {
 		return nil, fmt.Errorf("no path specified")
 	}
-	if len(arguments.Patches) == 0 {
+	if len(replaceRequest.GetPatches()) == 0 {
 		return nil, fmt.Errorf("no patches specified")
 	}
-	return arguments, nil
+	return replaceRequest, nil
+}
+
+// toPatches converts proto patches into the diff package's patch type.
+func toPatches(protoPatches []*sgptpb.Patch) []diff.Patch {
+	patches := make([]diff.Patch, 0, len(protoPatches))
+	for _, protoPatch := range protoPatches {
+		patches = append(patches, diff.Patch{
+			Search:     protoPatch.GetSearch(),
+			Replace:    protoPatch.GetReplace(),
+			ReplaceAll: protoPatch.GetReplaceAll(),
+		})
+	}
+	return patches
 }
 
 // ReplaceTool applies search/replace patches to files on the user's system.
 type ReplaceTool struct{}
 
 func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	arguments, err := parseSearchAndReplaceArguments(toolCall)
+	replaceRequest, err := parseReplaceArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +58,7 @@ func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptp
 	metadata := &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
-	contentBytes, err := os.ReadFile(arguments.Path)
+	contentBytes, err := os.ReadFile(replaceRequest.GetPath())
 	if err != nil {
 		// Surface the failure in the review UI rather than erroring the turn;
 		// Execute produces the error result the model can react to.
@@ -89,7 +66,7 @@ func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptp
 		return metadata, nil
 	}
 	// Dry-run: the user reviews the exact diff that will apply.
-	if _, diff, err := diff.ApplyPatches(arguments.Path, string(contentBytes), arguments.Patches); err != nil {
+	if _, diff, err := diff.ApplyPatches(replaceRequest.GetPath(), replaceRequest.GetPath(), string(contentBytes), toPatches(replaceRequest.GetPatches())); err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 	} else {
 		metadata.Diff = diff
@@ -98,33 +75,31 @@ func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptp
 }
 
 func (t *ReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	arguments, err := parseSearchAndReplaceArguments(toolCall)
+	replaceRequest, err := parseReplaceArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(arguments.Path)
+	info, err := os.Stat(replaceRequest.GetPath())
 	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", arguments.Path, err)
+		return nil, fmt.Errorf("stat %s: %w", replaceRequest.GetPath(), err)
 	}
-	contentBytes, err := os.ReadFile(arguments.Path)
+	contentBytes, err := os.ReadFile(replaceRequest.GetPath())
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", arguments.Path, err)
+		return nil, fmt.Errorf("reading %s: %w", replaceRequest.GetPath(), err)
 	}
 	// Re-apply at execution time: the file may have changed since review.
-	patched, _, err := diff.ApplyPatches(arguments.Path, string(contentBytes), arguments.Patches)
+	patched, _, err := diff.ApplyPatches(replaceRequest.GetPath(), replaceRequest.GetPath(), string(contentBytes), toPatches(replaceRequest.GetPatches()))
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(arguments.Path, []byte(patched), info.Mode()); err != nil {
-		return nil, fmt.Errorf("writing %s: %w", arguments.Path, err)
+	if err := os.WriteFile(replaceRequest.GetPath(), []byte(patched), info.Mode()); err != nil {
+		return nil, fmt.Errorf("writing %s: %w", replaceRequest.GetPath(), err)
 	}
-	return &aipb.ToolResult{
-		ToolName:   toolCall.Name,
-		ToolCallId: toolCall.Id,
-		Result: &aipb.ToolResult_Content{
-			Content: fmt.Sprintf("Applied %d patch(es) to %s", len(arguments.Patches), arguments.Path),
-		},
-	}, nil
+	replaceResponse := &sgptpb.ReplaceResponse{
+		Path:           replaceRequest.GetPath(),
+		PatchesApplied: int32(len(replaceRequest.GetPatches())),
+	}
+	return tool.NewStructuredToolResult(toolCall, replaceResponse)
 }
 
 // RenderRequest renders the review-time diff instead of raw JSON arguments.
@@ -142,15 +117,11 @@ func (t *ReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 // tolerates partial arguments so the header appears as soon as the path
 // streams in.
 func (t *ReplaceTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	bytes, err := tool.ArgumentsJSON(toolCall)
-	if err != nil {
+	replaceRequest := &sgptpb.ReplaceRequest{}
+	if tool.UnmarshalArguments(toolCall, replaceRequest) != nil || replaceRequest.GetPath() == "" {
 		return "", false
 	}
-	arguments := &replaceArguments{}
-	if json.Unmarshal(bytes, arguments) != nil || arguments.Path == "" {
-		return "", false
-	}
-	return fmt.Sprintf("edited `%s`", arguments.Path), true
+	return fmt.Sprintf("edited `%s`", replaceRequest.GetPath()), true
 }
 
 var (
