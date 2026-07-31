@@ -250,6 +250,32 @@ func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.T
 	return ai.NewStructuredToolResult(toolCall.Name, toolCall.Id, value), nil
 }
 
+// RenderHeader shows {Service}/{Method} for RPC calls and a discrete label
+// for discovery calls, instead of the generated tool names.
+func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+	toolType, _ := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolType)
+	switch toolType {
+	case aitool.AnnotationValueToolTypeDiscovery:
+		return "🔍 discovery", true
+	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
+		engine, err := m.engineFor(toolCall)
+		if err != nil {
+			return "", false
+		}
+		// Partial/unparsable arguments simply fall back to the default header.
+		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
+		if err != nil {
+			return "", false
+		}
+		parts := strings.Split(parseToolCallResponse.GetRpc().GetMethodFullName(), ".")
+		if len(parts) < 2 {
+			return "", false
+		}
+		return fmt.Sprintf("📡 `%s/%s`", parts[len(parts)-2], parts[len(parts)-1]), true
+	}
+	return "", false
+}
+
 // Close tears down all engine connections.
 func (m *Manager) Close() {
 	for _, closer := range m.closers {
@@ -258,4 +284,7 @@ func (m *Manager) Close() {
 	m.closers = nil
 }
 
-var _ tool.Tool = (*Manager)(nil)
+var (
+	_ tool.Tool           = (*Manager)(nil)
+	_ tool.HeaderRenderer = (*Manager)(nil)
+)

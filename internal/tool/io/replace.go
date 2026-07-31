@@ -76,10 +76,10 @@ func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptp
 		return nil, err
 	}
 	// File mutation: never auto-execute.
+	// The display message is reserved for problems; on success the title
+	// (✏️ path) plus the rendered diff already say everything.
 	metadata := &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{
-			Content: fmt.Sprintf("Editing %s (%d patch(es))", arguments.Path, len(arguments.Patches)),
-		},
+		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
 	contentBytes, err := os.ReadFile(arguments.Path)
 	if err != nil {
@@ -138,9 +138,25 @@ func (t *ReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
 }
 
+// RenderHeader shows the file being edited instead of the tool name. It
+// tolerates partial arguments so the header appears as soon as the path
+// streams in.
+func (t *ReplaceTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+	bytes, err := tool.ArgumentsJSON(toolCall)
+	if err != nil {
+		return "", false
+	}
+	arguments := &replaceArguments{}
+	if json.Unmarshal(bytes, arguments) != nil || arguments.Path == "" {
+		return "", false
+	}
+	return fmt.Sprintf("edited `%s`", arguments.Path), true
+}
+
 var (
 	_ tool.Tool            = (*ReplaceTool)(nil)
 	_ tool.RequestRenderer = (*ReplaceTool)(nil)
+	_ tool.HeaderRenderer  = (*ReplaceTool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(Replace) }

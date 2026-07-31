@@ -65,10 +65,10 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 		return nil, err
 	}
 	// File mutation: never auto-execute.
+	// The display message is reserved for problems; on success the title
+	// (✏️ path) plus the rendered diff already say everything.
 	metadata := &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{
-			Content: fmt.Sprintf("Editing %s", arguments.Path),
-		},
+		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
 	// Surface failures in the review UI rather than erroring the turn;
 	// Execute produces the error result the model can react to.
@@ -77,7 +77,6 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 		return metadata, nil
 	}
-	metadata.DisplayMessage.Content = fmt.Sprintf("Editing %s (%d hunk(s))", arguments.Path, len(patches))
 	contentBytes, err := os.ReadFile(arguments.Path)
 	if err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
@@ -152,9 +151,25 @@ func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	return fmt.Sprintf("```diff\n%s%s\n```", header, strings.TrimSuffix(arguments.Diff, "\n")), true
 }
 
+// RenderHeader shows the file being edited instead of the tool name. It
+// tolerates partial arguments so the header appears as soon as the path
+// streams in.
+func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+	bytes, err := tool.ArgumentsJSON(toolCall)
+	if err != nil {
+		return "", false
+	}
+	arguments := &arguments{}
+	if json.Unmarshal(bytes, arguments) != nil || arguments.Path == "" {
+		return "", false
+	}
+	return fmt.Sprintf("edited `%s`", arguments.Path), true
+}
+
 var (
 	_ tool.Tool            = (*Tool)(nil)
 	_ tool.RequestRenderer = (*Tool)(nil)
+	_ tool.HeaderRenderer  = (*Tool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(Definition) }

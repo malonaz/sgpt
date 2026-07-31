@@ -154,7 +154,7 @@ func (i *ThoughtItem) DefaultCollapsed() bool { return i.finalized }
 func (i *ThoughtItem) Render(ctx RenderContext) string {
 	if ctx.Collapsed {
 		summary := styles.ThoughtLabelStyle.Render(
-			fmt.Sprintf("🧠 thought (%d lines) — alt+z to expand", strings.Count(i.text, "\n")+1))
+			fmt.Sprintf("🧠 thought (%d lines)", strings.Count(i.text, "\n")+1))
 		return frame(ctx, styles.AIThoughtStyle, summary)
 	}
 	return frame(ctx, styles.AIThoughtStyle, renderMarkdown(ctx, i.seq, i.finalized, markdown.ParseBlocks(i.text)...))
@@ -164,6 +164,12 @@ func (i *ThoughtItem) Render(ctx RenderContext) string {
 // timeline; unset (or declining) falls back to raw JSON arguments.
 type RequestRenderer interface {
 	RenderRequest(toolCall *aipb.ToolCall) (string, bool)
+}
+
+// HeaderRenderer lets a tool render its call's header as arbitrary markdown
+// (e.g. ✏️ `file.go`); unset (or declining) falls back to the tool's name.
+type HeaderRenderer interface {
+	RenderHeader(toolCall *aipb.ToolCall) (string, bool)
 }
 
 // ---- ToolCallItem: request/response pair rendered adjacently ----
@@ -234,18 +240,30 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ running...")
 	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusPending:
 		suffix = " " + styles.ErrorStyle.Render("▶ pending review")
-	case ctx.Collapsed:
-		suffix = " " + styles.DimTextStyle.Render("(alt+z to expand)")
 	}
 	header := fmt.Sprintf("%s %s%s",
 		toolCallStatusIndicator(i.ToolCall),
-		styles.ToolLabelStyle.Render("tool: "+i.ToolCall.GetName()),
+		i.headerContent(ctx),
 		suffix,
 	)
 	if metadata, _ := tool.ParseToolCallMetadata(i.ToolCall); metadata.GetDisplayMessage().GetContent() != "" {
 		header += "\n" + styles.DimTextStyle.Render(metadata.GetDisplayMessage().GetContent())
 	}
 	return header
+}
+
+// headerContent lets the tool render its header as markdown (one line, so
+// code spans like `file.go` get the nice inline-code treatment);
+// RequestRenderer is the registry, which routes to the tool implementation.
+// Falls back to the styled tool name.
+func (i *ToolCallItem) headerContent(ctx RenderContext) string {
+	if renderer, ok := i.RequestRenderer.(HeaderRenderer); ok {
+		if md, ok := renderer.RenderHeader(i.ToolCall); ok {
+			// seq+2: request uses seq, response seq+1.
+			return strings.TrimSpace(renderMarkdown(ctx, i.seq+2, !i.Partial, markdown.ParseBlocks(md)...))
+		}
+	}
+	return styles.ToolLabelStyle.Render("🛠 " + i.ToolCall.GetName())
 }
 
 func (i *ToolCallItem) request(ctx RenderContext) string {

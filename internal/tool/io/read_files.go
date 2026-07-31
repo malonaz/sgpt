@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -57,16 +58,15 @@ func parseReadFilesArguments(toolCall *aipb.ToolCall) (*readFilesArguments, erro
 type ReadFilesTool struct{}
 
 func (t *ReadFilesTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	arguments, err := parseReadFilesArguments(toolCall)
-	if err != nil {
+	// Validate arguments even though the metadata no longer uses them.
+	if _, err := parseReadFilesArguments(toolCall); err != nil {
 		return nil, err
 	}
 	// Reads have no side effects: safe to auto-execute.
+	// No display message: the title (📖 basenames) already covers it.
 	return &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{
-			Content: fmt.Sprintf("Reading %d file(s): %s", len(arguments.Paths), strings.Join(arguments.Paths, ", ")),
-		},
-		AutoExecute: true,
+		DisplayMessage: &sgptpb.DisplayMessage{},
+		AutoExecute:    true,
 	}, nil
 }
 
@@ -91,6 +91,26 @@ func (t *ReadFilesTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*ai
 	}, nil
 }
 
-var _ tool.Tool = (*ReadFilesTool)(nil)
+// RenderHeader shows the basenames being read instead of the tool name.
+func (t *ReadFilesTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+	arguments, err := parseReadFilesArguments(toolCall)
+	if err != nil {
+		return "", false
+	}
+	names := make([]string, 0, len(arguments.Paths))
+	for _, path := range arguments.Paths {
+		names = append(names, fmt.Sprintf("`%s`", filepath.Base(path)))
+	}
+	// Keep the header to one scannable line; the payload has the full list.
+	if len(names) > 3 {
+		names = append(names[:3], fmt.Sprintf("+%d more", len(names)-3))
+	}
+	return "📖 " + strings.Join(names, ", "), true
+}
+
+var (
+	_ tool.Tool           = (*ReadFilesTool)(nil)
+	_ tool.HeaderRenderer = (*ReadFilesTool)(nil)
+)
 
 func init() { tool.RegisterBuiltin(ReadFiles) }

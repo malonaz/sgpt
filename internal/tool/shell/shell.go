@@ -111,6 +111,15 @@ func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	return fmt.Sprintf("```sh\n%s\n```", display), true
 }
 
-var _ tool.RequestRenderer = (*Tool)(nil)
+// RenderHeader: the command itself renders below (display message + fence),
+// so the header stays a discrete label.
+func (t *Tool) RenderHeader(*aipb.ToolCall) (string, bool) {
+	return "💻 shell", true
+}
+
+var (
+	_ tool.RequestRenderer = (*Tool)(nil)
+	_ tool.HeaderRenderer  = (*Tool)(nil)
+)
 
 func init() { tool.RegisterBuiltin(Definition) }

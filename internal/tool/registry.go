@@ -144,3 +144,26 @@ func (r *Registry) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	}
 	return renderer.RenderRequest(toolCall)
 }
+
+// HeaderRenderer is implemented by tools that render their calls' header in
+// the timeline as markdown (e.g. the diff tool shows the edited file).
+type HeaderRenderer interface {
+	Tool
+	// RenderHeader returns header markdown; returning false falls back to
+	// the default tool-name rendering.
+	RenderHeader(toolCall *aipb.ToolCall) (string, bool)
+}
+
+// RenderHeader returns tool-provided header markdown for a call, if its tool
+// implements HeaderRenderer.
+func (r *Registry) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return "", false
+	}
+	renderer, ok := tool.(HeaderRenderer)
+	if !ok {
+		return "", false
+	}
+	return renderer.RenderHeader(toolCall)
+}
