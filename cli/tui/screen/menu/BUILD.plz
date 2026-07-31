@@ -12,6 +12,7 @@ go_library(
         "//cli/tui/styles",
         "//cli/tui/timeline",
         "//internal/markdown",
+        "//internal/search",
         "//internal/store",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbles__v2__textarea",

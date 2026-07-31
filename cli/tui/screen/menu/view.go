@@ -159,6 +159,23 @@ func (m *Model) renderDetail() string {
 	return b.String()
 }
 
+// renderFragments shows why the selected chat matched the search query,
+// above the regular preview. Fragments carry ANSI highlighting from bleve.
+func (m *Model) renderFragments(fragments []string) string {
+	detailWidth := m.detailWidth()
+	var b strings.Builder
+	b.WriteString(styles.MenuTitleStyle.Render(" 🔍 Matches"))
+	b.WriteString("\n")
+	for _, fragment := range fragments {
+		// Flatten: multi-line fragments would blow up the pane.
+		b.WriteString(" " + strings.Join(strings.Fields(fragment), " "))
+		b.WriteString("\n")
+	}
+	b.WriteString(styles.DividerStyle.Render(strings.Repeat("─", detailWidth)))
+	b.WriteString("\n")
+	return b.String()
+}
+
 func relativeTime(t time.Time) string {
 	d := time.Since(t)
 	switch {

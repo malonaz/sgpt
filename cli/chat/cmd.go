@@ -18,6 +18,7 @@ import (
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
+	"github.com/malonaz/sgpt/internal/search"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
@@ -55,6 +56,16 @@ func NewCmd(
 			if opts.Debug {
 				if _, err := debug.Init(ctx); err != nil {
 					return fmt.Errorf("starting debug server: %w", err)
+				}
+			}
+
+			// Best-effort search wiring: the menu falls back to substring
+			// filtering whenever the index is unavailable.
+			if searchPath, err := search.DefaultPath(); err == nil {
+				if searchIndex, err := search.Open(searchPath); err == nil {
+					chatStore.SetSearchIndex(searchIndex)
+					// Incrementally backfill chats modified since last run.
+					go chatStore.SyncSearchIndex(ctx)
 				}
 			}
 

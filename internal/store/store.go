@@ -7,14 +7,17 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"github.com/malonaz/core/go/uuid"
 	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/search"
 )
 
 const (
@@ -40,6 +43,10 @@ const (
 type Store struct {
 	configuration   *sgptpb.Configuration
 	aiServiceClient aiservicepb.AiServiceClient
+
+	// searchIndex, when set, mirrors chat writes into the local search
+	// index. Optional and strictly best-effort: indexing never fails a save.
+	searchIndex *search.Index
 }
 
 // New instantiates a store.
@@ -51,6 +58,59 @@ func New(
 		configuration:   configuration,
 		aiServiceClient: aiServiceClient,
 	}
+}
+
+// SetSearchIndex enables search-index mirroring of chat writes.
+func (s *Store) SetSearchIndex(searchIndex *search.Index) {
+	s.searchIndex = searchIndex
+}
+
+// SearchIndex returns the search index, or nil when search is disabled.
+func (s *Store) SearchIndex() *search.Index {
+	return s.searchIndex
+}
+
+// indexChat mirrors a chat into the search index. Errors are swallowed:
+// the startup backfill reconciles any missed writes.
+func (s *Store) indexChat(chat *aipb.Chat) {
+	if s.searchIndex == nil {
+		return
+	}
+	_ = s.searchIndex.IndexChat(chat)
+}
+
+// SyncSearchIndex reconciles the index with chats modified since the last
+// sync (persisted watermark). First run (zero watermark) = full backfill.
+func (s *Store) SyncSearchIndex(ctx context.Context) error {
+	if s.searchIndex == nil {
+		return nil
+	}
+	lastSyncTime := s.searchIndex.LastSyncTime()
+	filter := ""
+	if !lastSyncTime.IsZero() {
+		filter = fmt.Sprintf(`update_time > %q`, lastSyncTime.Format(time.RFC3339))
+	}
+	listChatsRequest := &aiservicepb.ListChatsRequest{
+		Parent:   s.parent(),
+		PageSize: 100,
+		Filter:   filter,
+		// Ascending update_time keeps pagination stable and makes the
+		// watermark resumable mid-backfill.
+		OrderBy: "update_time asc",
+	}
+	watermark := lastSyncTime
+	for chat, err := range aip.Iterator[*aipb.Chat](ctx, listChatsRequest, s.aiServiceClient.ListChats) {
+		if err != nil {
+			// Persist progress so the next run resumes from here.
+			_ = s.searchIndex.SetLastSyncTime(watermark)
+			return err
+		}
+		if err := s.searchIndex.IndexChat(chat); err != nil {
+			continue
+		}
+		watermark = chat.GetUpdateTime().AsTime()
+	}
+	return s.searchIndex.SetLastSyncTime(watermark)
 }
 
 // parent is the user resource that owns all chats.
@@ -79,6 +139,7 @@ func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, er
 	if err != nil {
 		return nil, fmt.Errorf("creating chat: %w", err)
 	}
+	s.indexChat(createdChat)
 	return createdChat, nil
 }
 
@@ -92,6 +153,7 @@ func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string
 	if err != nil {
 		return nil, fmt.Errorf("updating chat: %w", err)
 	}
+	s.indexChat(updatedChat)
 	return updatedChat, nil
 }
 
@@ -110,6 +172,11 @@ func (s *Store) DeleteChat(ctx context.Context, name string) error {
 	deleteChatRequest := &aiservicepb.DeleteChatRequest{Name: name}
 	if _, err := s.aiServiceClient.DeleteChat(ctx, deleteChatRequest); err != nil {
 		return fmt.Errorf("deleting chat: %w", err)
+	}
+	if s.searchIndex != nil {
+		// Best-effort: a leaked stale hit is dropped at search time when its
+		// GetChat fails.
+		_ = s.searchIndex.DeleteChat(name)
 	}
 	return nil
 }

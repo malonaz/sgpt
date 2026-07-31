@@ -1,0 +1,13 @@
+go_library(
+    name = "search",
+    srcs = ["search.go"],
+    visibility = ["//..."],
+    deps = [
+        "//third_party/go:github.com__blevesearch__bleve__v2",
+        "//third_party/go:github.com__blevesearch__bleve__v2__analysis__analyzer__keyword",
+        "//third_party/go:github.com__blevesearch__bleve__v2__mapping",
+        "//third_party/go:github.com__blevesearch__bleve__v2__search__highlight__highlighter__ansi",
+        "//third_party/go:github.com__blevesearch__bleve__v2__search__query",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)

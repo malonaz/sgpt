@@ -13,6 +13,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/markdown"
+	"github.com/malonaz/sgpt/internal/search"
 	"github.com/malonaz/sgpt/internal/store"
 )
 
@@ -23,6 +24,8 @@ const (
 	// loadMoreThreshold triggers a background fetch when the cursor gets
 	// within this many rows of the end of the loaded list.
 	loadMoreThreshold = 10
+	// searchDebounceInterval delays index queries until typing pauses.
+	searchDebounceInterval = 150 * time.Millisecond
 )
 
 type FocusTarget int
@@ -53,6 +56,21 @@ type chatFavoriteToggledMsg struct {
 	Err       error
 }
 
+// searchDebounceMsg fires after the debounce window; stale seq values are
+// dropped so only the latest keystroke triggers an index query.
+type searchDebounceMsg struct {
+	seq int
+}
+
+type searchResultsMsg struct {
+	seq     int
+	results []search.Result
+	// fetched holds ranked hits that weren't in the loaded pages, fetched by
+	// name so search spans the entire history, not just what scrolled in.
+	fetched []*aipb.Chat
+	err     error
+}
+
 // listLine is one visual line of the chat list. chatIndex >= 0 marks a chat
 // row (rendered lazily through rowCache); otherwise text is pre-rendered
 // (section headers, separators).
@@ -77,6 +95,12 @@ type Model struct {
 
 	filterInput textarea.Model
 	filterText  string
+
+	// Bleve-backed search state. searchResults == nil means no completed
+	// search for the current filter; substring filtering applies meanwhile.
+	searchResults      []search.Result
+	searchFetchedChats map[string]*aipb.Chat
+	searchSeq          int
 
 	focusTarget      FocusTarget
 	selectedChatName string
@@ -257,15 +281,98 @@ func (m *Model) toggleFavorite(chat *aipb.Chat) tea.Cmd {
 // applied; memoized until refreshList invalidates it.
 func (m *Model) displayedChats() []*aipb.Chat {
 	if !m.displayedValid {
-		favorites := m.applyFilter(m.favorites)
-		others := m.applyFilter(m.others)
-		m.displayed = make([]*aipb.Chat, 0, len(favorites)+len(others))
-		m.displayed = append(m.displayed, favorites...)
-		m.displayed = append(m.displayed, others...)
-		m.displayedFavCount = len(favorites)
+		if m.filterText != "" && m.searchResults != nil {
+			// Ranked index results; no favorites section while searching.
+			m.displayed = m.rankedSearchChats()
+			m.displayedFavCount = 0
+		} else {
+			favorites := m.applyFilter(m.favorites)
+			others := m.applyFilter(m.others)
+			m.displayed = make([]*aipb.Chat, 0, len(favorites)+len(others))
+			m.displayed = append(m.displayed, favorites...)
+			m.displayed = append(m.displayed, others...)
+			m.displayedFavCount = len(favorites)
+		}
 		m.displayedValid = true
 	}
 	return m.displayed
+}
+
+// rankedSearchChats resolves search hits to chats, preserving bleve's order.
+func (m *Model) rankedSearchChats() []*aipb.Chat {
+	chatNameToChat := make(map[string]*aipb.Chat, len(m.favorites)+len(m.others))
+	for _, chat := range m.favorites {
+		chatNameToChat[chat.GetName()] = chat
+	}
+	for _, chat := range m.others {
+		chatNameToChat[chat.GetName()] = chat
+	}
+	chats := make([]*aipb.Chat, 0, len(m.searchResults))
+	for _, result := range m.searchResults {
+		chat, ok := chatNameToChat[result.ChatName]
+		if !ok {
+			chat, ok = m.searchFetchedChats[result.ChatName]
+		}
+		if !ok {
+			continue
+		}
+		chats = append(chats, chat)
+	}
+	return chats
+}
+
+// runSearch queries the index off the UI loop, fetching ranked hits that
+// infinite scroll hasn't loaded yet.
+func (m *Model) runSearch(seq int) tea.Cmd {
+	searchIndex := m.store.SearchIndex()
+	if searchIndex == nil {
+		return nil
+	}
+	query := m.filterText
+	// Snapshot loaded names so the goroutine only fetches unknown chats.
+	loadedChatNameSet := make(map[string]bool, len(m.favorites)+len(m.others))
+	for _, chat := range m.favorites {
+		loadedChatNameSet[chat.GetName()] = true
+	}
+	for _, chat := range m.others {
+		loadedChatNameSet[chat.GetName()] = true
+	}
+	wrap := m.wrap
+	chatStore := m.store
+	return func() tea.Msg {
+		results, err := searchIndex.Search(query, listPageSize)
+		if err != nil {
+			return wrap(searchResultsMsg{seq: seq, err: err})
+		}
+		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
+		defer cancel()
+		var fetched []*aipb.Chat
+		for _, result := range results {
+			if loadedChatNameSet[result.ChatName] {
+				continue
+			}
+			chat, err := chatStore.GetChat(ctx, result.ChatName)
+			if err != nil {
+				continue // stale index entry (e.g. chat deleted elsewhere)
+			}
+			fetched = append(fetched, chat)
+		}
+		return wrap(searchResultsMsg{seq: seq, results: results, fetched: fetched})
+	}
+}
+
+// selectedFragments returns the highlighted snippets for the selected chat,
+// if it came from an active search.
+func (m *Model) selectedFragments() []string {
+	if m.filterText == "" || m.selectedChatName == "" {
+		return nil
+	}
+	for _, result := range m.searchResults {
+		if result.ChatName == m.selectedChatName {
+			return result.Fragments
+		}
+	}
+	return nil
 }
 
 func (m *Model) displayedFavoriteCount() int {
@@ -318,6 +425,10 @@ func (m *Model) updateSelection() {
 		if m.selectedChatName != "" {
 			m.detailCache[m.selectedChatName] = content
 		}
+	}
+	// Match fragments are query-dependent — prepended outside the cache.
+	if fragments := m.selectedFragments(); len(fragments) > 0 {
+		content = m.renderFragments(fragments) + content
 	}
 	m.detailViewport.SetContent(content)
 	m.detailViewport.GotoTop()

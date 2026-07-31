@@ -2,9 +2,11 @@ package menu
 
 import (
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
@@ -69,6 +71,28 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			label = "removed from"
 		}
 		return tea.Batch(m.fetchChats("", false), m.wrapCmd(screen.AlertMsg{Text: "Chat " + label + " favorites"}))
+
+	case searchDebounceMsg:
+		if msg.seq != m.searchSeq {
+			return nil
+		}
+		return m.runSearch(msg.seq)
+
+	case searchResultsMsg:
+		if msg.seq != m.searchSeq || m.filterText == "" {
+			return nil
+		}
+		if msg.err != nil {
+			// Substring filtering stays in effect; just surface the failure.
+			return m.wrapCmd(screen.AlertMsg{Text: "Search failed: " + msg.err.Error()})
+		}
+		m.searchResults = msg.results
+		m.searchFetchedChats = map[string]*aipb.Chat{}
+		for _, chat := range msg.fetched {
+			m.searchFetchedChats[chat.GetName()] = chat
+		}
+		m.refreshList()
+		return nil
 
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
@@ -198,12 +222,24 @@ func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
 	m.filterInput, cmd = m.filterInput.Update(msg)
 
 	newFilter := strings.TrimSpace(m.filterInput.Value())
-	if newFilter != m.filterText {
-		m.filterText = newFilter
-		m.chatCursor = 0
-		m.refreshList()
+	if newFilter == m.filterText {
+		return cmd
 	}
-	return cmd
+	m.filterText = newFilter
+	m.chatCursor = 0
+	// Drop stale ranked results; substring filtering covers the gap until
+	// the debounced index query lands.
+	m.searchResults = nil
+	m.refreshList()
+	if newFilter == "" || m.store.SearchIndex() == nil {
+		return cmd
+	}
+	m.searchSeq++
+	seq := m.searchSeq
+	wrap := m.wrap
+	return tea.Batch(cmd, tea.Tick(searchDebounceInterval, func(time.Time) tea.Msg {
+		return wrap(searchDebounceMsg{seq: seq})
+	}))
 }
 
 func (m *Model) wrapCmd(msg tea.Msg) tea.Cmd {
