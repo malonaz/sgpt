@@ -27,7 +27,12 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 		}
 		metadata, err := tools.ParseToolCallMetadata(toolCall)
 		if err != nil {
-			return false, fmt.Errorf("parsing tool call metadata: %w", err)
+			// Review failed or never ran; resolve with an error result so the
+			// model can react rather than killing the turn.
+			toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusFailed)
+			executable = append(executable, toolCall)
+			continue
 		}
 		if metadata.GetAutoExecute() {
 			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)

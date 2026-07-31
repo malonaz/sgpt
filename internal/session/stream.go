@@ -126,7 +126,11 @@ func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 		return
 	}
 	if _, err := s.registry.Review(s.ctx, toolCall); err != nil {
-		s.emitError(fmt.Errorf("reviewing tool call %q: %w", toolCall.Name, err))
+		// Feed the failure back to the model as a tool result instead of
+		// aborting the turn; leaving the call unresolved poisons the history.
+		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusFailed)
+		s.refresh()
 		return
 	}
 	// Review can attach a result directly (e.g. discovery tools); executing
@@ -165,6 +169,10 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 		assistantMessage := ai.NewAssistantMessage(blocks...)
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
+			// Don't clobber statuses set during streaming (e.g. failed).
+			if tools.GetToolCallStatus(block.GetToolCall()) != "" {
+				continue
+			}
 			if block.GetToolCall().GetResult() != nil {
 				tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusAccepted)
 			} else {

@@ -16,6 +16,9 @@ const (
 	ToolCallStatusPending    = "pending"
 	ToolCallStatusAccepted   = "accepted"
 	ToolCallStatusRejected   = "rejected"
+	// ToolCallStatusFailed marks calls that never reached user review
+	// (e.g. unparseable arguments); the error result is attached directly.
+	ToolCallStatusFailed = "failed"
 
 	ToolCallRejectionReasonAnnotation = "sgpt.com/tool-rejection-reason"
 )
