@@ -7,6 +7,10 @@ import (
 
 const diffContextLines = 3
 
+// devNull marks file creation ('--- /dev/null') and deletion
+// ('+++ /dev/null') in unified diff headers.
+const devNull = "/dev/null"
+
 // Patch is a single exact search/replace edit.
 type Patch struct {
 	Search     string `json:"search"`
@@ -18,10 +22,10 @@ type Patch struct {
 // unified-style diff. Patches whose search text has no exact match are healed
 // against the content with whitespace-lenient matching. The same code path
 // serves review (dry-run) and execution, so the diff the user approves is
-// exactly what gets applied.
-func ApplyPatches(path, content string, patches []Patch) (string, string, error) {
+// exactly what gets applied. oldPath and newPath differ only on renames.
+func ApplyPatches(oldPath, newPath, content string, patches []Patch) (string, string, error) {
 	var diff strings.Builder
-	diff.WriteString(fmt.Sprintf("--- a/%s\n+++ b/%s\n", path, path))
+	diff.WriteString(fmt.Sprintf("--- a/%s\n+++ b/%s\n", oldPath, newPath))
 	// Line drift from earlier patches, so later hunk headers stay accurate.
 	lineDelta := 0
 
@@ -34,10 +38,10 @@ func ApplyPatches(path, content string, patches []Patch) (string, string, error)
 		p = healPatch(content, p)
 		count := strings.Count(content, p.Search)
 		if count == 0 {
-			return "", "", fmt.Errorf("patch %d: search text not found in %s", i+1, path)
+			return "", "", fmt.Errorf("patch %d: search text not found in %s", i+1, oldPath)
 		}
 		if count > 1 && !p.ReplaceAll {
-			return "", "", fmt.Errorf("patch %d: search text matches %d locations in %s; add more context or set replace_all", i+1, count, path)
+			return "", "", fmt.Errorf("patch %d: search text matches %d locations in %s; add more context or set replace_all", i+1, count, oldPath)
 		}
 		occurrences := 1
 		if p.ReplaceAll {
@@ -161,12 +165,27 @@ func leadingWhitespace(line string) string {
 	return line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 }
 
-// ParseUnifiedDiff converts a unified diff into search/replace patches, one
-// per hunk. Line numbers in '@@' headers are ignored entirely — models
-// miscount them constantly — so each hunk is anchored purely by its context
-// and removed lines.
-func ParseUnifiedDiff(diff string) ([]Patch, error) {
-	var patches []Patch
+// FileDiff is the parsed form of a single-file unified diff: the file
+// operation encoded by its '---'/'+++' headers plus one Patch per hunk.
+type FileDiff struct {
+	// Create is set by a '--- /dev/null' header; hunks must be pure additions.
+	Create bool
+	// Delete is set by a '+++ /dev/null' header; hunks are ignored.
+	Delete bool
+	// NewPath is the '+++' header path; a value different from the edited
+	// file's path means the file is renamed.
+	NewPath string
+	Patches []Patch
+}
+
+// ParseUnifiedDiff converts a unified diff into a FileDiff, with one
+// search/replace patch per hunk. Line numbers in '@@' headers are ignored
+// entirely — models miscount them constantly — so each hunk is anchored
+// purely by its context and removed lines. File headers encode the
+// operation: '--- /dev/null' creates, '+++ /dev/null' deletes, and a '+++'
+// path that differs from the edited file's path renames.
+func ParseUnifiedDiff(diff string) (*FileDiff, error) {
+	fileDiff := &FileDiff{}
 	var search, replace []string
 	inHunk := false
 	flush := func() error {
@@ -180,10 +199,11 @@ func ParseUnifiedDiff(diff string) ([]Patch, error) {
 			search = search[:len(search)-1]
 			replace = replace[:len(replace)-1]
 		}
-		if len(search) == 0 {
-			return fmt.Errorf("hunk %d has no context or removed lines to anchor on", len(patches)+1)
+		// Creations have nothing to anchor on: the file does not exist yet.
+		if len(search) == 0 && !fileDiff.Create {
+			return fmt.Errorf("hunk %d has no context or removed lines to anchor on", len(fileDiff.Patches)+1)
 		}
-		patches = append(patches, Patch{
+		fileDiff.Patches = append(fileDiff.Patches, Patch{
 			Search:  strings.Join(search, "\n"),
 			Replace: strings.Join(replace, "\n"),
 		})
@@ -197,9 +217,19 @@ func ParseUnifiedDiff(diff string) ([]Patch, error) {
 				return nil, err
 			}
 			inHunk = true
+		case !inHunk && strings.HasPrefix(line, "--- "):
+			if strings.TrimSpace(line[4:]) == devNull {
+				fileDiff.Create = true
+			}
+		case !inHunk && strings.HasPrefix(line, "+++ "):
+			if target := strings.TrimSpace(line[4:]); target == devNull {
+				fileDiff.Delete = true
+			} else {
+				fileDiff.NewPath = stripDiffPathPrefix(target)
+			}
 		case !inHunk:
-			// Tolerate anything before the first hunk: '---'/'+++' file
-			// headers, 'diff --git' lines, prose.
+			// Tolerate anything else before the first hunk: 'diff --git'
+			// lines, prose.
 		case strings.HasPrefix(line, `\`):
 			// "\ No newline at end of file" markers.
 		case strings.HasPrefix(line, "+"):
@@ -219,8 +249,58 @@ func ParseUnifiedDiff(diff string) ([]Patch, error) {
 	if err := flush(); err != nil {
 		return nil, err
 	}
-	if len(patches) == 0 {
+	// Deletions and pure renames are expressed by headers alone.
+	if len(fileDiff.Patches) == 0 && !fileDiff.Delete && fileDiff.NewPath == "" {
 		return nil, fmt.Errorf("diff contains no hunks")
 	}
-	return patches, nil
+	if fileDiff.Create && fileDiff.Delete {
+		return nil, fmt.Errorf("diff both creates and deletes a file")
+	}
+	return fileDiff, nil
+}
+
+func stripDiffPathPrefix(path string) string {
+	if strings.HasPrefix(path, "a/") || strings.HasPrefix(path, "b/") {
+		return path[2:]
+	}
+	return path
+}
+
+// NewFileContent flattens a create diff's hunks into the new file's content.
+func NewFileContent(fileDiff *FileDiff) (string, error) {
+	if len(fileDiff.Patches) == 0 {
+		return "", fmt.Errorf("create diff has no hunks")
+	}
+	var lines []string
+	for i, patch := range fileDiff.Patches {
+		if patch.Search != "" {
+			return "", fmt.Errorf("hunk %d: a create diff must contain only added lines", i+1)
+		}
+		lines = append(lines, strings.Split(patch.Replace, "\n")...)
+	}
+	return strings.Join(lines, "\n") + "\n", nil
+}
+
+// RenderCreateDiff renders the unified diff shown when creating path with content.
+func RenderCreateDiff(path, content string) string {
+	lines := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
+	var diff strings.Builder
+	diff.WriteString(fmt.Sprintf("--- %s\n+++ b/%s\n", devNull, path))
+	diff.WriteString(fmt.Sprintf("@@ -0,0 +1,%d @@\n", len(lines)))
+	for _, line := range lines {
+		diff.WriteString("+" + line + "\n")
+	}
+	return diff.String()
+}
+
+// RenderDeleteDiff renders the unified diff shown when deleting path.
+func RenderDeleteDiff(path, content string) string {
+	lines := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
+	var diff strings.Builder
+	diff.WriteString(fmt.Sprintf("--- a/%s\n+++ %s\n", path, devNull))
+	diff.WriteString(fmt.Sprintf("@@ -1,%d +0,0 @@\n", len(lines)))
+	for _, line := range lines {
+		diff.WriteString("-" + line + "\n")
+	}
+	return diff.String()
 }

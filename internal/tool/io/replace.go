@@ -66,7 +66,7 @@ func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptp
 		return metadata, nil
 	}
 	// Dry-run: the user reviews the exact diff that will apply.
-	if _, diff, err := diff.ApplyPatches(replaceRequest.GetPath(), string(contentBytes), toPatches(replaceRequest.GetPatches())); err != nil {
+	if _, diff, err := diff.ApplyPatches(replaceRequest.GetPath(), replaceRequest.GetPath(), string(contentBytes), toPatches(replaceRequest.GetPatches())); err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 	} else {
 		metadata.Diff = diff
@@ -88,7 +88,7 @@ func (t *ReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb
 		return nil, fmt.Errorf("reading %s: %w", replaceRequest.GetPath(), err)
 	}
 	// Re-apply at execution time: the file may have changed since review.
-	patched, _, err := diff.ApplyPatches(replaceRequest.GetPath(), string(contentBytes), toPatches(replaceRequest.GetPatches()))
+	patched, _, err := diff.ApplyPatches(replaceRequest.GetPath(), replaceRequest.GetPath(), string(contentBytes), toPatches(replaceRequest.GetPatches()))
 	if err != nil {
 		return nil, err
 	}
