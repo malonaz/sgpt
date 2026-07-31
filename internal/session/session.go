@@ -338,11 +338,36 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 
 	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.chat.Metadata.Messages))
 	messages = append(messages, s.params.AdditionalMessages...)
-	// Messages that errored are kept for display but never replayed to the model.
+	// Messages that errored are kept for display but never replayed to the
+	// model. Tool results whose originating call lives in an excluded message
+	// must be dropped with it: orphaned results are invalid history and make
+	// the model re-issue the same call.
+	includedToolCallIDSet := map[string]bool{}
 	for _, message := range s.chat.Metadata.Messages {
-		if store.MessageError(message) == "" {
-			messages = append(messages, message)
+		if store.MessageError(message) != "" {
+			continue
 		}
+		switch message.GetRole() {
+		case aipb.Role_ROLE_ASSISTANT:
+			for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
+				includedToolCallIDSet[block.GetToolCall().GetId()] = true
+			}
+		case aipb.Role_ROLE_TOOL:
+			blocks := make([]*aipb.Block, 0, len(message.GetBlocks()))
+			for _, block := range message.GetBlocks() {
+				toolResult := block.GetToolResult()
+				if toolResult == nil || includedToolCallIDSet[toolResult.GetToolCallId()] {
+					blocks = append(blocks, block)
+				}
+			}
+			if len(blocks) == 0 {
+				continue
+			}
+			if len(blocks) != len(message.GetBlocks()) {
+				message = ai.NewToolMessage(blocks...)
+			}
+		}
+		messages = append(messages, message)
 	}
 	return messages
 }

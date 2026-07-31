@@ -184,14 +184,22 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 		assistantMessage := ai.NewAssistantMessage(blocks...)
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
+			toolCall := block.GetToolCall()
 			// Don't clobber statuses set during streaming (e.g. failed).
-			if tool.GetToolCallStatus(block.GetToolCall()) != "" {
+			if tool.GetToolCallStatus(toolCall) != "" {
 				continue
 			}
-			if block.GetToolCall().GetResult() != nil {
-				tool.SetToolCallStatus(block.GetToolCall(), tool.ToolCallStatusAccepted)
-			} else {
-				tool.SetToolCallStatus(block.GetToolCall(), tool.ToolCallStatusPending)
+			switch {
+			case toolCall.GetResult() != nil:
+				tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+			case err != nil:
+				// The stream died: this message is excluded from API history,
+				// so a review verdict could never reach the model. Resolve as
+				// failed instead of leaving an unreviewable pending call.
+				toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+				tool.SetToolCallStatus(toolCall, tool.ToolCallStatusFailed)
+			default:
+				tool.SetToolCallStatus(toolCall, tool.ToolCallStatusPending)
 			}
 		}
 
