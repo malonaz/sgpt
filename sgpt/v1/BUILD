@@ -1,7 +1,6 @@
 filegroup(
     name = "proto",
     srcs = [
-        "chat.proto",
         "configuration.proto",
         "tool.proto",
     ],
@@ -11,7 +10,6 @@ filegroup(
 proto_library(
     name = "v1",
     srcs = [
-        "chat.proto",
         "configuration.proto",
         "tool.proto",
     ],
@@ -23,11 +21,7 @@ proto_library(
     visibility = ["PUBLIC"],
     deps = [
         "//third_party/proto:google__api__annotations",
-        "//third_party/proto:google__rpc__status",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
-        "//third_party/proto:malonaz__core__genproto__ai__v1",
-        "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
-        "//third_party/proto:malonaz__core__genproto__json__v1",
         "//third_party/proto:validate",
     ],
 )

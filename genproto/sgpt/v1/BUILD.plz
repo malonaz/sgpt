@@ -1,23 +1,15 @@
 go_library(
     name = "v1",
     srcs = [
-        "chat.pb.go",
-        "chat_aip.go",
         "configuration.pb.go",
         "tool.pb.go",
     ],
     visibility = ["//..."],
     deps = [
-        "//third_party/go:go.einride.tech__aip__resourcename",
         "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
         "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
-        "//third_party/go:google.golang.org__protobuf__types__descriptorpb",
-        "//third_party/go:google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/proto:google__api__annotations",
-        "//third_party/proto:google__rpc__status",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
-        "//third_party/proto:malonaz__core__genproto__ai__v1",
-        "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
         "//third_party/proto:validate",
     ],
 )

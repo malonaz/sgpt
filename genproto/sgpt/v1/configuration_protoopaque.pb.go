@@ -28,11 +28,10 @@ const (
 // Configuration for the sgpt tool.
 type Configuration struct {
 	state                  protoimpl.MessageState      `protogen:"opaque.v1"`
-	xxx_hidden_SgptService *GrpcClient                 `protobuf:"bytes,1,opt,name=sgpt_service,json=sgptService,proto3"`
-	xxx_hidden_AiService   *GrpcClient                 `protobuf:"bytes,2,opt,name=ai_service,json=aiService,proto3"`
-	xxx_hidden_Models      *[]*Model                   `protobuf:"bytes,3,rep,name=models,proto3"`
-	xxx_hidden_Chat        *ChatConfiguration          `protobuf:"bytes,4,opt,name=chat,proto3"`
-	xxx_hidden_ToolEngines *[]*ToolEngineConfiguration `protobuf:"bytes,5,rep,name=tool_engines,json=toolEngines,proto3"`
+	xxx_hidden_AiService   *GrpcClient                 `protobuf:"bytes,1,opt,name=ai_service,json=aiService,proto3"`
+	xxx_hidden_Models      *[]*Model                   `protobuf:"bytes,2,rep,name=models,proto3"`
+	xxx_hidden_Chat        *ChatConfiguration          `protobuf:"bytes,3,opt,name=chat,proto3"`
+	xxx_hidden_ToolEngines *[]*ToolEngineConfiguration `protobuf:"bytes,4,rep,name=tool_engines,json=toolEngines,proto3"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -60,13 +59,6 @@ func (x *Configuration) ProtoReflect() protoreflect.Message {
 		return ms
 	}
 	return mi.MessageOf(x)
-}
-
-func (x *Configuration) GetSgptService() *GrpcClient {
-	if x != nil {
-		return x.xxx_hidden_SgptService
-	}
-	return nil
 }
 
 func (x *Configuration) GetAiService() *GrpcClient {
@@ -101,10 +93,6 @@ func (x *Configuration) GetToolEngines() []*ToolEngineConfiguration {
 	return nil
 }
 
-func (x *Configuration) SetSgptService(v *GrpcClient) {
-	x.xxx_hidden_SgptService = v
-}
-
 func (x *Configuration) SetAiService(v *GrpcClient) {
 	x.xxx_hidden_AiService = v
 }
@@ -121,13 +109,6 @@ func (x *Configuration) SetToolEngines(v []*ToolEngineConfiguration) {
 	x.xxx_hidden_ToolEngines = &v
 }
 
-func (x *Configuration) HasSgptService() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_SgptService != nil
-}
-
 func (x *Configuration) HasAiService() bool {
 	if x == nil {
 		return false
@@ -142,10 +123,6 @@ func (x *Configuration) HasChat() bool {
 	return x.xxx_hidden_Chat != nil
 }
 
-func (x *Configuration) ClearSgptService() {
-	x.xxx_hidden_SgptService = nil
-}
-
 func (x *Configuration) ClearAiService() {
 	x.xxx_hidden_AiService = nil
 }
@@ -157,8 +134,6 @@ func (x *Configuration) ClearChat() {
 type Configuration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// gRPC client configuration for the chat service.
-	SgptService *GrpcClient
 	// gRPC client configuration for the AI service.
 	AiService *GrpcClient
 	// Model aliases.
@@ -174,7 +149,6 @@ func (b0 Configuration_builder) Build() *Configuration {
 	m0 := &Configuration{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_SgptService = b.SgptService
 	x.xxx_hidden_AiService = b.AiService
 	x.xxx_hidden_Models = &b.Models
 	x.xxx_hidden_Chat = b.Chat
@@ -349,10 +323,11 @@ func (b0 Model_builder) Build() *Model {
 // Chat-specific configuration.
 type ChatConfiguration struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_SummaryModel string                 `protobuf:"bytes,1,opt,name=summary_model,json=summaryModel,proto3"`
-	xxx_hidden_DefaultModel string                 `protobuf:"bytes,2,opt,name=default_model,json=defaultModel,proto3"`
-	xxx_hidden_DefaultRole  string                 `protobuf:"bytes,3,opt,name=default_role,json=defaultRole,proto3"`
-	xxx_hidden_Roles        *[]*Role               `protobuf:"bytes,4,rep,name=roles,proto3"`
+	xxx_hidden_User         string                 `protobuf:"bytes,1,opt,name=user,proto3"`
+	xxx_hidden_SummaryModel string                 `protobuf:"bytes,2,opt,name=summary_model,json=summaryModel,proto3"`
+	xxx_hidden_DefaultModel string                 `protobuf:"bytes,3,opt,name=default_model,json=defaultModel,proto3"`
+	xxx_hidden_DefaultRole  string                 `protobuf:"bytes,4,opt,name=default_role,json=defaultRole,proto3"`
+	xxx_hidden_Roles        *[]*Role               `protobuf:"bytes,5,rep,name=roles,proto3"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -380,6 +355,13 @@ func (x *ChatConfiguration) ProtoReflect() protoreflect.Message {
 		return ms
 	}
 	return mi.MessageOf(x)
+}
+
+func (x *ChatConfiguration) GetUser() string {
+	if x != nil {
+		return x.xxx_hidden_User
+	}
+	return ""
 }
 
 func (x *ChatConfiguration) GetSummaryModel() string {
@@ -412,6 +394,10 @@ func (x *ChatConfiguration) GetRoles() []*Role {
 	return nil
 }
 
+func (x *ChatConfiguration) SetUser(v string) {
+	x.xxx_hidden_User = v
+}
+
 func (x *ChatConfiguration) SetSummaryModel(v string) {
 	x.xxx_hidden_SummaryModel = v
 }
@@ -431,6 +417,9 @@ func (x *ChatConfiguration) SetRoles(v []*Role) {
 type ChatConfiguration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The user under which chats are created and listed.
+	// Format: organizations/{organization}/users/{user}
+	User string
 	// The resource name of the model used to generate summaries.
 	// Format: providers/{provider}/models/{model}
 	SummaryModel string
@@ -447,6 +436,7 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 	m0 := &ChatConfiguration{}
 	b, x := &b0, m0
 	_, _ = b, x
+	x.xxx_hidden_User = b.User
 	x.xxx_hidden_SummaryModel = b.SummaryModel
 	x.xxx_hidden_DefaultModel = b.DefaultModel
 	x.xxx_hidden_DefaultRole = b.DefaultRole
@@ -711,14 +701,13 @@ var File_sgpt_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\x98\x02\n" +
-	"\rConfiguration\x126\n" +
-	"\fsgpt_service\x18\x01 \x01(\v2\x13.sgpt.v1.GrpcClientR\vsgptService\x122\n" +
+	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\xe0\x01\n" +
+	"\rConfiguration\x122\n" +
 	"\n" +
-	"ai_service\x18\x02 \x01(\v2\x13.sgpt.v1.GrpcClientR\taiService\x12&\n" +
-	"\x06models\x18\x03 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
-	"\x04chat\x18\x04 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12C\n" +
-	"\ftool_engines\x18\x05 \x03(\v2 .sgpt.v1.ToolEngineConfigurationR\vtoolEngines\"n\n" +
+	"ai_service\x18\x01 \x01(\v2\x13.sgpt.v1.GrpcClientR\taiService\x12&\n" +
+	"\x06models\x18\x02 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
+	"\x04chat\x18\x03 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12C\n" +
+	"\ftool_engines\x18\x04 \x03(\v2 .sgpt.v1.ToolEngineConfigurationR\vtoolEngines\"n\n" +
 	"\n" +
 	"GrpcClient\x12!\n" +
 	"\bbase_url\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\abaseUrl\x12\x17\n" +
@@ -727,14 +716,16 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05Model\x123\n" +
 	"\x04name\x18\x01 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\"\xdb\x01\n" +
-	"\x11ChatConfiguration\x12>\n" +
-	"\rsummary_model\x18\x01 \x01(\tB\x19\xfaA\x16\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\"\x89\x02\n" +
+	"\x11ChatConfiguration\x12,\n" +
+	"\x04user\x18\x01 \x01(\tB\x18\xfaA\x15\n" +
+	"\x13ai.malonaz.com/UserR\x04user\x12>\n" +
+	"\rsummary_model\x18\x02 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fsummaryModel\x12>\n" +
-	"\rdefault_model\x18\x02 \x01(\tB\x19\xfaA\x16\n" +
+	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
-	"\fdefault_role\x18\x03 \x01(\tR\vdefaultRole\x12#\n" +
-	"\x05roles\x18\x04 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xb5\x01\n" +
+	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\x12#\n" +
+	"\x05roles\x18\x05 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xb5\x01\n" +
 	"\x04Role\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1e\n" +
@@ -760,19 +751,18 @@ var file_sgpt_v1_configuration_proto_goTypes = []any{
 	(*v1.CreateServiceToolSetRequest)(nil), // 6: malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
 }
 var file_sgpt_v1_configuration_proto_depIdxs = []int32{
-	1, // 0: sgpt.v1.Configuration.sgpt_service:type_name -> sgpt.v1.GrpcClient
-	1, // 1: sgpt.v1.Configuration.ai_service:type_name -> sgpt.v1.GrpcClient
-	2, // 2: sgpt.v1.Configuration.models:type_name -> sgpt.v1.Model
-	3, // 3: sgpt.v1.Configuration.chat:type_name -> sgpt.v1.ChatConfiguration
-	5, // 4: sgpt.v1.Configuration.tool_engines:type_name -> sgpt.v1.ToolEngineConfiguration
-	4, // 5: sgpt.v1.ChatConfiguration.roles:type_name -> sgpt.v1.Role
-	1, // 6: sgpt.v1.ToolEngineConfiguration.engine_service:type_name -> sgpt.v1.GrpcClient
-	6, // 7: sgpt.v1.ToolEngineConfiguration.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	1, // 0: sgpt.v1.Configuration.ai_service:type_name -> sgpt.v1.GrpcClient
+	2, // 1: sgpt.v1.Configuration.models:type_name -> sgpt.v1.Model
+	3, // 2: sgpt.v1.Configuration.chat:type_name -> sgpt.v1.ChatConfiguration
+	5, // 3: sgpt.v1.Configuration.tool_engines:type_name -> sgpt.v1.ToolEngineConfiguration
+	4, // 4: sgpt.v1.ChatConfiguration.roles:type_name -> sgpt.v1.Role
+	1, // 5: sgpt.v1.ToolEngineConfiguration.engine_service:type_name -> sgpt.v1.GrpcClient
+	6, // 6: sgpt.v1.ToolEngineConfiguration.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_configuration_proto_init() }

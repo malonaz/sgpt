@@ -97,7 +97,8 @@ func (m *ChatScreen) Title() string {
 	if name == "" {
 		return "New Chat"
 	}
-	return strings.TrimPrefix(name, "chats/")
+	// Names are organizations/{org}/users/{user}/chats/{chat}; show the ID.
+	return name[strings.LastIndex(name, "/")+1:]
 }
 
 func (m *ChatScreen) ShortTitle() string {

@@ -75,6 +75,7 @@
         "github.com/anthropics/anthropic-sdk-go/internal/encoding/json/shims": "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__encoding__json__shims",
         "github.com/anthropics/anthropic-sdk-go/internal/paramutil": "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__paramutil",
         "github.com/anthropics/anthropic-sdk-go/internal/requestconfig": "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+        "github.com/anthropics/anthropic-sdk-go/internal/stainlessheader": "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__stainlessheader",
         "github.com/anthropics/anthropic-sdk-go/option": "//third_party/go:github.com__anthropics__anthropic-sdk-go__option",
         "github.com/anthropics/anthropic-sdk-go/packages/jsonl": "//third_party/go:github.com__anthropics__anthropic-sdk-go__packages__jsonl",
         "github.com/anthropics/anthropic-sdk-go/packages/pagination": "//third_party/go:github.com__anthropics__anthropic-sdk-go__packages__pagination",

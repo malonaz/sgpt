@@ -2,8 +2,5 @@ go_library(
     name = "app",
     srcs = ["service.go"],
     visibility = ["//..."],
-    deps = [
-        "//sgpt/sgpt_service/v1",
-        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
-    ],
+    deps = ["//third_party/proto:malonaz__core__genproto__ai__ai_service__v1"],
 )

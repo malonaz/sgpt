@@ -812,7 +812,7 @@ go_mod_download(
     name = "github.com__anthropics__anthropic-sdk-go",
     _tag = "download",
     module = "github.com/anthropics/anthropic-sdk-go",
-    version = "v1.50.1",
+    version = "v1.61.0",
     visibility = ["PUBLIC"],
 )
 
@@ -832,6 +832,7 @@ go_module(
         ":github.com__anthropics__anthropic-sdk-go__internal__encoding__json",
         ":github.com__anthropics__anthropic-sdk-go__internal__paramutil",
         ":github.com__anthropics__anthropic-sdk-go__internal__requestconfig",
+        ":github.com__anthropics__anthropic-sdk-go__internal__stainlessheader",
         ":github.com__anthropics__anthropic-sdk-go__option",
         ":github.com__anthropics__anthropic-sdk-go__packages__jsonl",
         ":github.com__anthropics__anthropic-sdk-go__packages__pagination",
@@ -979,6 +980,15 @@ go_module(
         "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apiform",
         "//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__apiquery",
     ],
+)
+
+go_module(
+    name = "github.com__anthropics__anthropic-sdk-go__internal__stainlessheader",
+    download = ":_github.com__anthropics__anthropic-sdk-go#download",
+    install = ["internal/stainlessheader"],
+    module = "github.com/anthropics/anthropic-sdk-go",
+    visibility = ["PUBLIC"],
+    deps = ["//third_party/go:github.com__anthropics__anthropic-sdk-go__internal__requestconfig"],
 )
 
 go_module(
@@ -3546,7 +3556,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260725122320-c1ca447dec26",
+    version = "v0.0.0-20260731103146-8336b7fa98fa",
     visibility = ["PUBLIC"],
 )
 
@@ -5267,8 +5277,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):

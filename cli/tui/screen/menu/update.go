@@ -2,7 +2,6 @@ package menu
 
 import (
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -47,10 +46,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.err = msg.Err
 			return nil
 		}
-		// Discard results from a stale search query.
-		if msg.SearchQuery != m.searchQuery {
-			return nil
-		}
 		m.applyChats(&msg)
 		return nil
 
@@ -75,18 +70,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			label = "removed from"
 		}
 		return tea.Batch(m.fetchChats("", false), m.wrapCmd(screen.AlertMsg{Text: "Chat " + label + " favorites"}))
-
-	case searchDebounceTickMsg:
-		currentQuery := strings.TrimSpace(m.searchInput.Value())
-		if msg.Query != currentQuery {
-			return nil
-		}
-		if currentQuery == m.lastSearchQuery {
-			return nil
-		}
-		m.lastSearchQuery = currentQuery
-		m.searchQuery = currentQuery
-		return m.fetchChats("", false)
 
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
@@ -164,13 +147,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.fetchChats("", false)
 	}
 
-	switch m.focusTarget {
-	case FocusFilter:
+	if m.focusTarget == FocusFilter {
 		return m.handleFilterInput(msg)
-	case FocusSearch:
-		return m.handleSearchInput(msg)
 	}
-
 	return nil
 }
 
@@ -178,10 +157,6 @@ func (m *Model) navigateUp() tea.Cmd {
 	switch m.focusTarget {
 	case FocusFilter:
 		return nil
-	case FocusSearch:
-		m.focusTarget = FocusFilter
-		m.listViewport.SetContent(m.renderList())
-		return m.applyFocus()
 	case FocusChatList:
 		if m.chatCursor > 0 {
 			m.chatCursor--
@@ -190,7 +165,7 @@ func (m *Model) navigateUp() tea.Cmd {
 			m.ensureCursorVisible()
 			return nil
 		}
-		m.focusTarget = FocusSearch
+		m.focusTarget = FocusFilter
 		m.listViewport.SetContent(m.renderList())
 		m.listViewport.GotoTop()
 		return m.applyFocus()
@@ -201,10 +176,6 @@ func (m *Model) navigateUp() tea.Cmd {
 func (m *Model) navigateDown() tea.Cmd {
 	switch m.focusTarget {
 	case FocusFilter:
-		m.focusTarget = FocusSearch
-		m.listViewport.SetContent(m.renderList())
-		return m.applyFocus()
-	case FocusSearch:
 		displayed := m.displayedChats()
 		if len(displayed) > 0 {
 			m.focusTarget = FocusChatList
@@ -240,28 +211,6 @@ func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
 		m.updateSelection()
 		m.listViewport.SetContent(m.renderList())
 	}
-	return cmd
-}
-
-func (m *Model) handleSearchInput(msg tea.KeyPressMsg) tea.Cmd {
-	var cmd tea.Cmd
-	m.searchInput, cmd = m.searchInput.Update(msg)
-
-	currentQuery := strings.TrimSpace(m.searchInput.Value())
-
-	if currentQuery == "" && m.searchQuery != "" {
-		m.searchQuery = ""
-		m.lastSearchQuery = ""
-		return tea.Batch(cmd, m.fetchChats("", false))
-	}
-
-	if currentQuery != "" && currentQuery != m.lastSearchQuery {
-		query := currentQuery
-		cmd = tea.Batch(cmd, tea.Tick(searchDebounceInterval, func(time.Time) tea.Msg {
-			return searchDebounceTickMsg{Query: query}
-		}))
-	}
-
 	return cmd
 }
 

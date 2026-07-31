@@ -10,8 +10,8 @@ import (
 	"github.com/malonaz/core/go/pbutil"
 
 	"github.com/malonaz/sgpt/cli/tui/styles"
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
+	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
@@ -413,7 +413,7 @@ type Builder struct {
 type builderEntry struct {
 	// message is compared by pointer: saves replace the chat's protos, and
 	// cached items would otherwise keep referencing (and mutating) stale copies.
-	message *sgptpb.Message
+	message *aipb.Message
 	items   []Item
 }
 
@@ -429,7 +429,7 @@ func NewBuilder() *Builder {
 // into timeline items, reusing cached items for unchanged messages. Every tool
 // result is paired with its originating call so request/response render
 // adjacently, in call order.
-func (b *Builder) Build(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
+func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
 	if b.scannedMessageCount > len(messages) {
 		// History shrank (chat replaced) — every cache is invalid.
 		b.messageIndexToEntry = map[int]builderEntry{}
@@ -438,8 +438,7 @@ func (b *Builder) Build(messages []*sgptpb.Message, streamingMessage *aipb.Messa
 		b.scannedMessageCount = 0
 	}
 	// Messages are append-only; scan only the unseen tail for tool results.
-	for _, chatMessage := range messages[b.scannedMessageCount:] {
-		message := chatMessage.GetMessage()
+	for _, message := range messages[b.scannedMessageCount:] {
 		if message.GetRole() != aipb.Role_ROLE_TOOL {
 			continue
 		}
@@ -452,15 +451,15 @@ func (b *Builder) Build(messages []*sgptpb.Message, streamingMessage *aipb.Messa
 	b.scannedMessageCount = len(messages)
 
 	var items []Item
-	for messageIndex, chatMessage := range messages {
+	for messageIndex, message := range messages {
 		entry, ok := b.messageIndexToEntry[messageIndex]
-		if !ok || entry.message != chatMessage {
+		if !ok || entry.message != message {
 			var messageItems []Item
-			messageItems = appendMessageItems(messageItems, chatMessage.GetMessage(), messageIndex, true, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
-			if chatMessage.GetError() != nil {
-				messageItems = append(messageItems, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), chatMessage.GetError().GetMessage()))
+			messageItems = appendMessageItems(messageItems, message, messageIndex, true, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
+			if errText := store.MessageError(message); errText != "" {
+				messageItems = append(messageItems, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), errText))
 			}
-			entry = builderEntry{message: chatMessage, items: messageItems}
+			entry = builderEntry{message: message, items: messageItems}
 			b.messageIndexToEntry[messageIndex] = entry
 		}
 		// Results and execution state land after an item is first built; patch
@@ -490,7 +489,7 @@ func (b *Builder) Build(messages []*sgptpb.Message, streamingMessage *aipb.Messa
 
 // BuildChatItems is the uncached one-shot variant — used by read-only
 // previews (menu detail pane). Stateful callers should hold a Builder.
-func BuildChatItems(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
+func BuildChatItems(messages []*aipb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
 	return NewBuilder().Build(messages, streamingMessage, executingToolCallID, requestRenderer)
 }
 
@@ -587,13 +586,9 @@ func appendMessageItems(
 
 // ConversationText renders the entire chat as plain markdown — used by
 // alt+shift+o to open the full conversation in $EDITOR.
-func ConversationText(messages []*sgptpb.Message) string {
+func ConversationText(messages []*aipb.Message) string {
 	var b strings.Builder
-	for _, chatMessage := range messages {
-		message := chatMessage.GetMessage()
-		if message == nil {
-			continue
-		}
+	for _, message := range messages {
 		switch message.GetRole() {
 		case aipb.Role_ROLE_USER:
 			b.WriteString("## User\n\n")
