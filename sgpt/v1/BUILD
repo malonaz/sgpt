@@ -3,8 +3,24 @@ filegroup(
     srcs = [
         "configuration.proto",
         "tool.proto",
+        "tools.proto",
     ],
     visibility = ["PUBLIC"],
+)
+
+# Descriptor set with source info, embedded in the binary so tool schemas can
+# be built via reflection with proto comments as descriptions.
+proto_descriptor_set(
+    name = "descriptor_set",
+    srcs = [":v1"],
+    protoc_flags = ["-Ithird_party/proto"],
+    visibility = ["PUBLIC"],
+    deps = [
+        ":v1",
+        "//third_party/proto:google__api__annotations",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:validate",
+    ],
 )
 
 proto_library(
@@ -12,6 +28,7 @@ proto_library(
     srcs = [
         "configuration.proto",
         "tool.proto",
+        "tools.proto",
     ],
     additional_context = {
         GENERATE_GO_AIP: True,

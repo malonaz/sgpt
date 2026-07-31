@@ -3,6 +3,7 @@ go_library(
     srcs = [
         "configuration.pb.go",
         "tool.pb.go",
+        "tools.pb.go",
     ],
     visibility = ["//..."],
     deps = [

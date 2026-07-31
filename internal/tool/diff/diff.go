@@ -2,56 +2,32 @@ package diff
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
-// Definition is the tool definition for unified-diff file editing.
-var Definition = &aipb.Tool{
-	Name:        "diff",
-	Description: "Edit a file by applying a unified diff. Start each hunk with an '@@' line; line numbers in hunk headers are ignored, so they may be wrong or omitted. Prefix unchanged context lines with a space, removed lines with '-' and added lines with '+'. Include enough context lines to anchor each hunk uniquely within the file. Hunks are applied sequentially.",
-	JsonSchema: &jsonpb.Schema{
-		Type: "object",
-		Properties: map[string]*jsonpb.Schema{
-			"path": {Type: "string", Description: "Path of the file to edit"},
-			"diff": {Type: "string", Description: "Unified diff to apply ('@@' line numbers are ignored)"},
-		},
-		Required: []string{"path", "diff"},
-	},
-	Annotations: map[string]string{
-		tool.ToolHandlerIDAnnotation: tool.HandlerIDDiff,
-	},
-}
+// Definition is the tool definition for unified-diff file editing, built
+// from the ToolService.Diff method.
+var Definition = tool.MustBuildTool("diff", tool.HandlerIDDiff, "sgpt.v1.ToolService.Diff")
 
-type arguments struct {
-	Path string `json:"path"`
-	Diff string `json:"diff"`
-}
-
-func parseArguments(toolCall *aipb.ToolCall) (*arguments, error) {
-	bytes, err := tool.ArgumentsJSON(toolCall)
-	if err != nil {
+func parseArguments(toolCall *aipb.ToolCall) (*sgptpb.DiffRequest, error) {
+	diffRequest := &sgptpb.DiffRequest{}
+	if err := tool.UnmarshalArguments(toolCall, diffRequest); err != nil {
 		return nil, err
 	}
-	arguments := &arguments{}
-	if err := json.Unmarshal(bytes, arguments); err != nil {
-		return nil, fmt.Errorf("parsing tool arguments: %w", err)
-	}
-	if arguments.Path == "" {
+	if diffRequest.GetPath() == "" {
 		return nil, fmt.Errorf("no path specified")
 	}
-	if strings.TrimSpace(arguments.Diff) == "" {
+	if strings.TrimSpace(diffRequest.GetDiff()) == "" {
 		return nil, fmt.Errorf("no diff specified")
 	}
-	return arguments, nil
+	return diffRequest, nil
 }
 
 // Tool applies model-written unified diffs to files on the user's
@@ -60,7 +36,7 @@ func parseArguments(toolCall *aipb.ToolCall) (*arguments, error) {
 type Tool struct{}
 
 func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	arguments, err := parseArguments(toolCall)
+	diffRequest, err := parseArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
@@ -72,19 +48,19 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 	}
 	// Surface failures in the review UI rather than erroring the turn;
 	// Execute produces the error result the model can react to.
-	patches, err := ParseUnifiedDiff(arguments.Diff)
+	patches, err := ParseUnifiedDiff(diffRequest.GetDiff())
 	if err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 		return metadata, nil
 	}
-	contentBytes, err := os.ReadFile(arguments.Path)
+	contentBytes, err := os.ReadFile(diffRequest.GetPath())
 	if err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 		return metadata, nil
 	}
 	// Dry-run: the user reviews the healed diff that will actually apply,
 	// not the model's raw (possibly misaligned) diff.
-	if _, diff, err := ApplyPatches(arguments.Path, string(contentBytes), patches); err != nil {
+	if _, diff, err := ApplyPatches(diffRequest.GetPath(), string(contentBytes), patches); err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 	} else {
 		metadata.Diff = diff
@@ -93,37 +69,35 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 }
 
 func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	arguments, err := parseArguments(toolCall)
+	diffRequest, err := parseArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	patches, err := ParseUnifiedDiff(arguments.Diff)
+	patches, err := ParseUnifiedDiff(diffRequest.GetDiff())
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(arguments.Path)
+	info, err := os.Stat(diffRequest.GetPath())
 	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", arguments.Path, err)
+		return nil, fmt.Errorf("stat %s: %w", diffRequest.GetPath(), err)
 	}
-	contentBytes, err := os.ReadFile(arguments.Path)
+	contentBytes, err := os.ReadFile(diffRequest.GetPath())
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", arguments.Path, err)
+		return nil, fmt.Errorf("reading %s: %w", diffRequest.GetPath(), err)
 	}
 	// Re-apply at execution time: the file may have changed since review.
-	patched, _, err := ApplyPatches(arguments.Path, string(contentBytes), patches)
+	patched, _, err := ApplyPatches(diffRequest.GetPath(), string(contentBytes), patches)
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(arguments.Path, []byte(patched), info.Mode()); err != nil {
-		return nil, fmt.Errorf("writing %s: %w", arguments.Path, err)
+	if err := os.WriteFile(diffRequest.GetPath(), []byte(patched), info.Mode()); err != nil {
+		return nil, fmt.Errorf("writing %s: %w", diffRequest.GetPath(), err)
 	}
-	return &aipb.ToolResult{
-		ToolName:   toolCall.Name,
-		ToolCallId: toolCall.Id,
-		Result: &aipb.ToolResult_Content{
-			Content: fmt.Sprintf("Applied %d hunk(s) to %s", len(patches), arguments.Path),
-		},
-	}, nil
+	diffResponse := &sgptpb.DiffResponse{
+		Path:         diffRequest.GetPath(),
+		HunksApplied: int32(len(patches)),
+	}
+	return tool.NewStructuredToolResult(toolCall, diffResponse)
 }
 
 // RenderRequest renders the review-time healed diff when available. While the
@@ -135,35 +109,27 @@ func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	if err == nil && metadata.GetDiff() != "" {
 		return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
 	}
-	bytes, err := tool.ArgumentsJSON(toolCall)
-	if err != nil {
-		return "", false
-	}
-	arguments := &arguments{}
+	diffRequest := &sgptpb.DiffRequest{}
 	// Partial arguments: tolerate missing fields, only require some diff text.
-	if json.Unmarshal(bytes, arguments) != nil || arguments.Diff == "" {
+	if tool.UnmarshalArguments(toolCall, diffRequest) != nil || diffRequest.GetDiff() == "" {
 		return "", false
 	}
 	header := ""
-	if arguments.Path != "" {
-		header = fmt.Sprintf("--- a/%s\n+++ b/%s\n", arguments.Path, arguments.Path)
+	if diffRequest.GetPath() != "" {
+		header = fmt.Sprintf("--- a/%s\n+++ b/%s\n", diffRequest.GetPath(), diffRequest.GetPath())
 	}
-	return fmt.Sprintf("```diff\n%s%s\n```", header, strings.TrimSuffix(arguments.Diff, "\n")), true
+	return fmt.Sprintf("```diff\n%s%s\n```", header, strings.TrimSuffix(diffRequest.GetDiff(), "\n")), true
 }
 
 // RenderHeader shows the file being edited instead of the tool name. It
 // tolerates partial arguments so the header appears as soon as the path
 // streams in.
 func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	bytes, err := tool.ArgumentsJSON(toolCall)
-	if err != nil {
+	diffRequest := &sgptpb.DiffRequest{}
+	if tool.UnmarshalArguments(toolCall, diffRequest) != nil || diffRequest.GetPath() == "" {
 		return "", false
 	}
-	arguments := &arguments{}
-	if json.Unmarshal(bytes, arguments) != nil || arguments.Path == "" {
-		return "", false
-	}
-	return fmt.Sprintf("edited `%s`", arguments.Path), true
+	return fmt.Sprintf("edited `%s`", diffRequest.GetPath()), true
 }
 
 var (

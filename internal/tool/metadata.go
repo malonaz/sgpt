@@ -2,9 +2,12 @@ package tool
 
 import (
 	"fmt"
+	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/pbutil"
+	"google.golang.org/protobuf/proto"
+
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
@@ -23,7 +26,23 @@ const (
 	ToolCallRejectionReasonAnnotation = "sgpt.com/tool-rejection-reason"
 )
 
+// annotationsMu guards tool call/result annotation maps: the session
+// goroutine mutates them (status, metadata) while the TUI goroutine reads
+// them during renders — unsynchronized map access is a fatal runtime error.
+var annotationsMu sync.RWMutex
+
+// SnapshotToolCall returns a deep copy taken under the annotations lock, for
+// code paths (e.g. core's ParseToolCall) that walk the maps directly and
+// would otherwise race with concurrent annotation writes.
+func SnapshotToolCall(toolCall *aipb.ToolCall) *aipb.ToolCall {
+	annotationsMu.RLock()
+	defer annotationsMu.RUnlock()
+	return proto.Clone(toolCall).(*aipb.ToolCall)
+}
+
 func SetToolCallStatus(toolCall *aipb.ToolCall, status string) {
+	annotationsMu.Lock()
+	defer annotationsMu.Unlock()
 	if toolCall.Annotations == nil {
 		toolCall.Annotations = map[string]string{}
 	}
@@ -31,10 +50,14 @@ func SetToolCallStatus(toolCall *aipb.ToolCall, status string) {
 }
 
 func GetToolCallStatus(toolCall *aipb.ToolCall) string {
+	annotationsMu.RLock()
+	defer annotationsMu.RUnlock()
 	return toolCall.GetAnnotations()[ToolCallStatusAnnotation]
 }
 
 func SetToolCallRejectionReason(toolCall *aipb.ToolCall, reason string) {
+	annotationsMu.Lock()
+	defer annotationsMu.Unlock()
 	if toolCall.Annotations == nil {
 		toolCall.Annotations = map[string]string{}
 	}
@@ -42,6 +65,8 @@ func SetToolCallRejectionReason(toolCall *aipb.ToolCall, reason string) {
 }
 
 func GetToolCallRejectionReason(toolCall *aipb.ToolCall) string {
+	annotationsMu.RLock()
+	defer annotationsMu.RUnlock()
 	return toolCall.GetAnnotations()[ToolCallRejectionReasonAnnotation]
 }
 
@@ -50,6 +75,8 @@ func SetToolCallMetadata(toolCall *aipb.ToolCall, metadata *sgptpb.ToolCallMetad
 	if err != nil {
 		return fmt.Errorf("marshaling tool call metadata: %w", err)
 	}
+	annotationsMu.Lock()
+	defer annotationsMu.Unlock()
 	if toolCall.Annotations == nil {
 		toolCall.Annotations = map[string]string{}
 	}
@@ -58,7 +85,9 @@ func SetToolCallMetadata(toolCall *aipb.ToolCall, metadata *sgptpb.ToolCallMetad
 }
 
 func ParseToolCallMetadata(toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
+	annotationsMu.RLock()
 	raw, ok := toolCall.Annotations[ToolCallMetadataAnnotationKey]
+	annotationsMu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("tool call missing %s annotation", ToolCallMetadataAnnotationKey)
 	}
@@ -74,6 +103,8 @@ func SetToolResultMetadata(toolResult *aipb.ToolResult, metadata *sgptpb.ToolCal
 	if err != nil {
 		return fmt.Errorf("marshaling tool result metadata: %w", err)
 	}
+	annotationsMu.Lock()
+	defer annotationsMu.Unlock()
 	if toolResult.Annotations == nil {
 		toolResult.Annotations = map[string]string{}
 	}
@@ -82,7 +113,9 @@ func SetToolResultMetadata(toolResult *aipb.ToolResult, metadata *sgptpb.ToolCal
 }
 
 func ParseToolResultMetadata(toolResult *aipb.ToolResult) (*sgptpb.ToolCallResultMetadata, error) {
+	annotationsMu.RLock()
 	raw, ok := toolResult.Annotations[ToolResultMetadataAnnotationKey]
+	annotationsMu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("tool result missing %s annotation", ToolResultMetadataAnnotationKey)
 	}
