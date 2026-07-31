@@ -61,6 +61,19 @@ func ApplyPatches(path, content string, patches []Patch) (string, string, error)
 			// occurrences of the search text.
 			added := strings.Split(content[lineStart:index]+p.Replace+content[index+len(p.Search):lineEnd], "\n")
 
+			// The search text usually embeds the hunk's context lines, which
+			// would otherwise be emitted as -/+ pairs; demote lines shared at
+			// both ends to context so only the true change is highlighted.
+			commonPrefix := 0
+			for commonPrefix < len(removed) && commonPrefix < len(added) && removed[commonPrefix] == added[commonPrefix] {
+				commonPrefix++
+			}
+			commonSuffix := 0
+			for commonSuffix < len(removed)-commonPrefix && commonSuffix < len(added)-commonPrefix &&
+				removed[len(removed)-1-commonSuffix] == added[len(added)-1-commonSuffix] {
+				commonSuffix++
+			}
+
 			allLines := strings.Split(content, "\n")
 			startLine := strings.Count(content[:lineStart], "\n") // 0-based
 			contextStart := max(0, startLine-diffContextLines)
@@ -73,11 +86,17 @@ func ApplyPatches(path, content string, patches []Patch) (string, string, error)
 			for _, line := range allLines[contextStart:startLine] {
 				diff.WriteString(" " + line + "\n")
 			}
-			for _, line := range removed {
+			for _, line := range removed[:commonPrefix] {
+				diff.WriteString(" " + line + "\n")
+			}
+			for _, line := range removed[commonPrefix : len(removed)-commonSuffix] {
 				diff.WriteString("-" + line + "\n")
 			}
-			for _, line := range added {
+			for _, line := range added[commonPrefix : len(added)-commonSuffix] {
 				diff.WriteString("+" + line + "\n")
+			}
+			for _, line := range removed[len(removed)-commonSuffix:] {
+				diff.WriteString(" " + line + "\n")
 			}
 			for _, line := range allLines[afterRemoved:contextEnd] {
 				diff.WriteString(" " + line + "\n")

@@ -204,7 +204,11 @@ func (i *ToolCallItem) CacheKey() string {
 	if i.Partial {
 		return ""
 	}
-	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall))
+	// Review metadata (healed diff, display message) lands on the call's
+	// annotations after the first render; without it in the key, the cached
+	// pre-review render (raw JSON) would be served forever.
+	metadata := i.ToolCall.GetAnnotations()[tool.ToolCallMetadataAnnotationKey]
+	return fmt.Sprintf("%s|r%t|e%t|s%v|m%d", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall), len(metadata))
 }
 
 // Resolved calls fold to a one-line summary; pending/executing stay expanded.

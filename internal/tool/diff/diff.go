@@ -180,14 +180,20 @@ func (t *Tool) RenderRequestRaw(toolCall *aipb.ToolCall, width int) (string, boo
 }
 
 // GitHub-style split-view palette; backgrounds fill whole cells so changes
-// read as colored bands.
+// read as colored bands. Terminals have no alpha, so the base bands are the
+// emphasis colors pre-blended at 25% over a dark panel (#1e1e1e):
+// 0.25×#870000 + 0.75×#1e1e1e = #381717, and likewise #173817 for green —
+// the same hues as the emphasis shades, just "transparent".
 var (
-	sideBySideRemovedStyle   = lipgloss.NewStyle().Background(lipgloss.Color("52")).Foreground(lipgloss.Color("224"))
-	sideBySideAddedStyle     = lipgloss.NewStyle().Background(lipgloss.Color("22")).Foreground(lipgloss.Color("194"))
-	sideBySideContextStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
-	sideBySideEmptyStyle     = lipgloss.NewStyle().Background(lipgloss.Color("236"))
-	sideBySideNumberStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
-	sideBySideSeparatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	sideBySideRemovedStyle = lipgloss.NewStyle().Background(lipgloss.Color("#381717")).Foreground(lipgloss.Color("224"))
+	sideBySideAddedStyle   = lipgloss.NewStyle().Background(lipgloss.Color("#173817")).Foreground(lipgloss.Color("194"))
+	// Emphasis shades mark the intra-line changed core, GitHub-style.
+	sideBySideRemovedEmphasisStyle = lipgloss.NewStyle().Background(lipgloss.Color("88")).Foreground(lipgloss.Color("231"))
+	sideBySideAddedEmphasisStyle   = lipgloss.NewStyle().Background(lipgloss.Color("28")).Foreground(lipgloss.Color("231"))
+	sideBySideContextStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
+	sideBySideEmptyStyle           = lipgloss.NewStyle().Background(lipgloss.Color("236"))
+	sideBySideNumberStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	sideBySideSeparatorStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
 type sideBySideRowKind int
@@ -239,17 +245,47 @@ func RenderSideBySide(diff string, width int) (string, bool) {
 			continue
 		}
 		oldStyle, newStyle := sideBySideContextStyle, sideBySideContextStyle
+		oldEmphasisStyle, newEmphasisStyle := oldStyle, newStyle
+		// Expand tabs before computing emphasis so rune indexes line up with
+		// what the cell renderer truncates and pads.
+		oldText := strings.ReplaceAll(row.oldText, "\t", "    ")
+		newText := strings.ReplaceAll(row.newText, "\t", "    ")
+		var oldFrom, oldTo, newFrom, newTo int
 		if row.kind == sideBySideRowChange {
 			oldStyle, newStyle = sideBySideRemovedStyle, sideBySideAddedStyle
+			oldEmphasisStyle, newEmphasisStyle = sideBySideRemovedEmphasisStyle, sideBySideAddedEmphasisStyle
+			// Intra-line emphasis only makes sense on modified pairs; pure
+			// adds/removes stay a uniform band, as on GitHub.
+			if row.hasOld && row.hasNew {
+				oldFrom, oldTo, newFrom, newTo = intralineRanges(oldText, newText)
+			}
 		}
-		b.WriteString(renderSideBySideCell(row.hasOld, row.oldNumber, row.oldText, numberWidth, contentWidth, oldStyle))
+		b.WriteString(renderSideBySideCell(row.hasOld, row.oldNumber, oldText, numberWidth, contentWidth, oldStyle, oldEmphasisStyle, oldFrom, oldTo))
 		b.WriteString(separator)
-		b.WriteString(renderSideBySideCell(row.hasNew, row.newNumber, row.newText, numberWidth, contentWidth, newStyle))
+		b.WriteString(renderSideBySideCell(row.hasNew, row.newNumber, newText, numberWidth, contentWidth, newStyle, newEmphasisStyle, newFrom, newTo))
 	}
 	return b.String(), true
 }
 
-func renderSideBySideCell(present bool, number int, text string, numberWidth, contentWidth int, style lipgloss.Style) string {
+// intralineRanges locates the differing core of a modified line pair by
+// trimming the runes common to both ends. Cheap, and matches GitHub's
+// within-line highlighting for the typical single-span edit; multi-span
+// edits emphasize one slightly-too-wide region instead of several.
+func intralineRanges(oldText, newText string) (oldFrom, oldTo, newFrom, newTo int) {
+	oldRunes, newRunes := []rune(oldText), []rune(newText)
+	prefix := 0
+	for prefix < len(oldRunes) && prefix < len(newRunes) && oldRunes[prefix] == newRunes[prefix] {
+		prefix++
+	}
+	suffix := 0
+	for suffix < len(oldRunes)-prefix && suffix < len(newRunes)-prefix &&
+		oldRunes[len(oldRunes)-1-suffix] == newRunes[len(newRunes)-1-suffix] {
+		suffix++
+	}
+	return prefix, len(oldRunes) - suffix, prefix, len(newRunes) - suffix
+}
+
+func renderSideBySideCell(present bool, number int, text string, numberWidth, contentWidth int, style, emphasisStyle lipgloss.Style, emphasisFrom, emphasisTo int) string {
 	if !present {
 		// Filler: no counterpart line on this side (pure add/remove).
 		return sideBySideEmptyStyle.Render(strings.Repeat(" ", numberWidth+contentWidth+2))
@@ -258,13 +294,22 @@ func renderSideBySideCell(present bool, number int, text string, numberWidth, co
 	if number > 0 {
 		numberText = fmt.Sprintf("%*d", numberWidth, number)
 	}
-	text = strings.ReplaceAll(text, "\t", "    ")
 	runes := []rune(text)
 	if len(runes) > contentWidth {
 		runes = append(runes[:contentWidth-1], '…')
 	}
-	padded := string(runes) + strings.Repeat(" ", contentWidth-len(runes))
-	return sideBySideNumberStyle.Render(numberText) + style.Render(" "+padded+" ")
+	// Clamp emphasis to the visible (possibly truncated) runes; padding is
+	// never emphasized.
+	emphasisFrom = min(max(emphasisFrom, 0), len(runes))
+	emphasisTo = min(max(emphasisTo, emphasisFrom), len(runes))
+	padding := strings.Repeat(" ", contentWidth-len(runes))
+	if emphasisFrom == emphasisTo {
+		return sideBySideNumberStyle.Render(numberText) + style.Render(" "+string(runes)+padding+" ")
+	}
+	return sideBySideNumberStyle.Render(numberText) +
+		style.Render(" "+string(runes[:emphasisFrom])) +
+		emphasisStyle.Render(string(runes[emphasisFrom:emphasisTo])) +
+		style.Render(string(runes[emphasisTo:])+padding+" ")
 }
 
 // parseSideBySideRows pairs each hunk's removed/added runs index-wise so
