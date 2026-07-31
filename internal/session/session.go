@@ -56,6 +56,10 @@ type Session struct {
 	executingToolCall string
 	cancelStream      context.CancelFunc
 
+	// autoAcceptedToolNameSet holds tools the user marked "always accept";
+	// their calls skip manual review for the rest of the session.
+	autoAcceptedToolNameSet map[string]bool
+
 	totalModelUsage *aipb.ModelUsage
 	lastModelUsage  *aipb.ModelUsage
 
@@ -76,14 +80,15 @@ func New(
 	params Params,
 ) *Session {
 	return &Session{
-		ctx:             ctx,
-		params:          params,
-		store:           chatStore,
-		registry:        registry,
-		chat:            chat,
-		totalModelUsage: &aipb.ModelUsage{},
-		lastModelUsage:  &aipb.ModelUsage{},
-		eventCh:         make(chan Event, 64),
+		ctx:                     ctx,
+		params:                  params,
+		store:                   chatStore,
+		registry:                registry,
+		chat:                    chat,
+		autoAcceptedToolNameSet: map[string]bool{},
+		totalModelUsage:         &aipb.ModelUsage{},
+		lastModelUsage:          &aipb.ModelUsage{},
+		eventCh:                 make(chan Event, 64),
 	}
 }
 
@@ -178,6 +183,20 @@ func (s *Session) LastModelUsage() *aipb.ModelUsage {
 
 func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
 	s.params.ReasoningEffort = effort
+}
+
+// AutoAcceptTool whitelists a tool: its future calls execute without review.
+func (s *Session) AutoAcceptTool(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.autoAcceptedToolNameSet[name] = true
+}
+
+// IsToolAutoAccepted reports whether the user whitelisted this tool.
+func (s *Session) IsToolAutoAccepted(name string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.autoAcceptedToolNameSet[name]
 }
 
 func (s *Session) SetOnTurnComplete(callback func(finalText string, err error)) {

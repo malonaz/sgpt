@@ -161,6 +161,17 @@ func (m *Model) SelectLast() {
 	}
 }
 
+// SelectFunc selects (and scrolls to) the first item matching the predicate.
+func (m *Model) SelectFunc(match func(Item) bool) bool {
+	for i, item := range m.items {
+		if match(item) {
+			m.setCursor(i, 0)
+			return true
+		}
+	}
+	return false
+}
+
 // View assembles only the visible window — O(viewport height), not O(chat).
 func (m *Model) View() string {
 	if !m.ready {

@@ -8,7 +8,6 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
@@ -54,6 +53,14 @@ type chatFavoriteToggledMsg struct {
 	Err       error
 }
 
+// listLine is one visual line of the chat list. chatIndex >= 0 marks a chat
+// row (rendered lazily through rowCache); otherwise text is pre-rendered
+// (section headers, separators).
+type listLine struct {
+	text      string
+	chatIndex int
+}
+
 type Model struct {
 	ctx   context.Context
 	store *store.Store
@@ -78,8 +85,25 @@ type Model struct {
 	// preview, keyed by chat name; invalidated on resize/refresh.
 	detailCache map[string]string
 
+	// rowCache memoizes rendered chat rows keyed by name+selection state, so
+	// a cursor move costs two map lookups instead of re-styling every row.
+	rowCache map[string]string
+
+	// Virtualized list state: listLines is the flattened layout the view
+	// slices a window out of; chatIndexToLine locates a chat's row line for
+	// cursor scrolling.
+	listLines       []listLine
+	chatIndexToLine []int
+	listYOffset     int
+	listHeight      int
+
+	// displayed memoizes filtered favorites+others; a single keypress
+	// previously recomputed the filter several times.
+	displayed         []*aipb.Chat
+	displayedFavCount int
+	displayedValid    bool
+
 	renderer       *markdown.Renderer
-	listViewport   viewport.Model
 	detailViewport viewport.Model
 	width          int
 	height         int
@@ -104,6 +128,7 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 		filterInput: filterInput,
 		renderer:    renderer,
 		detailCache: map[string]string{},
+		rowCache:    map[string]string{},
 		focusTarget: FocusFilter,
 	}
 }
@@ -160,9 +185,7 @@ func (m *Model) applyChats(msg *chatsLoadedMsg) {
 	}
 	m.nextPageToken = msg.NextPageToken
 	m.err = nil
-	m.updateSelection()
-	m.listViewport.SetContent(m.renderList())
-	m.ensureCursorVisible()
+	m.refreshList()
 }
 
 func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
@@ -230,15 +253,24 @@ func (m *Model) toggleFavorite(chat *aipb.Chat) tea.Cmd {
 	}
 }
 
-// displayedChats returns favorites then others, with client-side filter applied.
+// displayedChats returns favorites then others, with client-side filter
+// applied; memoized until refreshList invalidates it.
 func (m *Model) displayedChats() []*aipb.Chat {
-	favorites := m.applyFilter(m.favorites)
-	others := m.applyFilter(m.others)
-	return append(favorites, others...)
+	if !m.displayedValid {
+		favorites := m.applyFilter(m.favorites)
+		others := m.applyFilter(m.others)
+		m.displayed = make([]*aipb.Chat, 0, len(favorites)+len(others))
+		m.displayed = append(m.displayed, favorites...)
+		m.displayed = append(m.displayed, others...)
+		m.displayedFavCount = len(favorites)
+		m.displayedValid = true
+	}
+	return m.displayed
 }
 
 func (m *Model) displayedFavoriteCount() int {
-	return len(m.applyFilter(m.favorites))
+	m.displayedChats()
+	return m.displayedFavCount
 }
 
 func (m *Model) applyFilter(chats []*aipb.Chat) []*aipb.Chat {
@@ -291,34 +323,82 @@ func (m *Model) updateSelection() {
 	m.detailViewport.GotoTop()
 }
 
-// cursorLine computes the absolute line of the cursor row inside the rendered
-// list, accounting for section headers and the inter-section gap.
-func (m *Model) cursorLine() int {
-	headerHeight := lipgloss.Height(styles.MenuHeaderStyle.Render("H"))
-	favCount := m.displayedFavoriteCount()
-	if favCount == 0 {
-		return headerHeight + m.chatCursor
-	}
-	if m.chatCursor < favCount {
-		return headerHeight + m.chatCursor
-	}
-	// favorites header + favorite rows + blank separator + others header.
-	return headerHeight + favCount + 1 + headerHeight + (m.chatCursor - favCount)
+// refreshList re-derives the displayed slice and line layout after any data
+// or filter change. Cursor-only moves don't need it: selection is applied at
+// render time via rowCache.
+func (m *Model) refreshList() {
+	m.displayedValid = false
+	m.rowCache = map[string]string{}
+	m.updateSelection()
+	m.rebuildListLines()
+	m.ensureCursorVisible()
 }
 
-// ensureCursorVisible scrolls the list viewport so the cursor never runs off
-// the page.
+// rebuildListLines flattens headers and chat rows into the line layout the
+// virtualized view slices.
+func (m *Model) rebuildListLines() {
+	displayed := m.displayedChats()
+	favoriteCount := m.displayedFavoriteCount()
+	listWidth := m.listWidth()
+
+	m.listLines = m.listLines[:0]
+	m.chatIndexToLine = make([]int, len(displayed))
+
+	appendHeader := func(label string) {
+		rendered := styles.MenuHeaderStyle.Width(listWidth).Render(label)
+		for _, line := range strings.Split(rendered, "\n") {
+			m.listLines = append(m.listLines, listLine{text: line, chatIndex: -1})
+		}
+	}
+	appendChatRows := func(start, end int) {
+		for i := start; i < end; i++ {
+			m.chatIndexToLine[i] = len(m.listLines)
+			m.listLines = append(m.listLines, listLine{chatIndex: i})
+		}
+	}
+
+	if favoriteCount > 0 {
+		appendHeader("⭐ Favorites")
+		appendChatRows(0, favoriteCount)
+		if favoriteCount < len(displayed) {
+			m.listLines = append(m.listLines, listLine{chatIndex: -1})
+		}
+	}
+	if favoriteCount < len(displayed) {
+		appendHeader("📋 Chats")
+		appendChatRows(favoriteCount, len(displayed))
+	}
+	m.clampListOffset()
+}
+
+// ensureCursorVisible scrolls the virtual window so the cursor row never
+// runs off the page.
 func (m *Model) ensureCursorVisible() {
 	if !m.ready || m.focusTarget != FocusChatList {
 		return
 	}
-	line := m.cursorLine()
-	top := m.listViewport.YOffset()
-	height := m.listViewport.Height()
-	if line < top {
-		m.listViewport.SetYOffset(line)
-	} else if line >= top+height {
-		m.listViewport.SetYOffset(line - height + 1)
+	if m.chatCursor < 0 || m.chatCursor >= len(m.chatIndexToLine) {
+		return
+	}
+	line := m.chatIndexToLine[m.chatCursor]
+	if line < m.listYOffset {
+		m.listYOffset = line
+	} else if line >= m.listYOffset+m.listHeight {
+		m.listYOffset = line - m.listHeight + 1
+	}
+	m.clampListOffset()
+}
+
+func (m *Model) clampListOffset() {
+	maxOffset := len(m.listLines) - m.listHeight
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.listYOffset > maxOffset {
+		m.listYOffset = maxOffset
+	}
+	if m.listYOffset < 0 {
+		m.listYOffset = 0
 	}
 }
 
@@ -348,19 +428,15 @@ func (m *Model) recalculateLayout() {
 	listWidth := m.listWidth()
 	detailWidth := m.detailWidth()
 
+	m.listHeight = listViewportHeight
+
 	if !m.ready {
-		m.listViewport = viewport.New(
-			viewport.WithWidth(listWidth),
-			viewport.WithHeight(listViewportHeight),
-		)
 		m.detailViewport = viewport.New(
 			viewport.WithWidth(detailWidth),
 			viewport.WithHeight(totalViewportHeight),
 		)
 		m.ready = true
 	} else {
-		m.listViewport.SetWidth(listWidth)
-		m.listViewport.SetHeight(listViewportHeight)
 		m.detailViewport.SetWidth(detailWidth)
 		m.detailViewport.SetHeight(totalViewportHeight)
 	}
@@ -370,8 +446,11 @@ func (m *Model) recalculateLayout() {
 		rendererWidth = 10
 	}
 	m.renderer.SetWidth(rendererWidth)
-	// Width changes invalidate every cached preview (wrapping changed).
+	// Width changes invalidate every cached preview and row (wrapping changed).
 	m.detailCache = map[string]string{}
+	m.rowCache = map[string]string{}
+	m.rebuildListLines()
+	m.ensureCursorVisible()
 
 	m.filterInput.SetWidth(listWidth - 6)
 }

@@ -240,16 +240,29 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ running...")
 	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusPending:
 		suffix = " " + styles.ErrorStyle.Render("▶ pending review")
+	// Verdicts stay editable until the turn resolves — say so.
+	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusAccepted:
+		suffix = " " + styles.DimTextStyle.Render("✓ accepted — runs once review completes")
+	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusRejected:
+		suffix = " " + styles.DimTextStyle.Render("✗ rejected")
 	}
 	header := fmt.Sprintf("%s %s%s",
 		toolCallStatusIndicator(i.ToolCall),
 		i.headerContent(ctx),
 		suffix,
 	)
-	if metadata, _ := tool.ParseToolCallMetadata(i.ToolCall); metadata.GetDisplayMessage().GetContent() != "" {
-		header += "\n" + styles.DimTextStyle.Render(metadata.GetDisplayMessage().GetContent())
+	metadata, _ := tool.ParseToolCallMetadata(i.ToolCall)
+	displayMessage := metadata.GetDisplayMessage().GetContent()
+	if displayMessage == "" {
+		return header
 	}
-	return header
+	if ctx.Collapsed {
+		// Collapsed items must stay a single line: flatten the display
+		// message and fold it inline, truncated, instead of a second line.
+		flattened := strings.Join(strings.Fields(displayMessage), " ")
+		return header + " " + styles.DimTextStyle.Render(styles.Truncate(flattened, 80))
+	}
+	return header + "\n" + styles.DimTextStyle.Render(displayMessage)
 }
 
 // headerContent lets the tool render its header as markdown (one line, so

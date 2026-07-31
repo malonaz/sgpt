@@ -33,7 +33,7 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 			executable = append(executable, toolCall)
 			continue
 		}
-		if metadata.GetAutoExecute() {
+		if metadata.GetAutoExecute() || s.IsToolAutoAccepted(toolCall.GetName()) {
 			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
 			executable = append(executable, toolCall)
 		} else {

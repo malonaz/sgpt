@@ -143,7 +143,11 @@ func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 		return
 	}
 	metadata, err := tool.ParseToolCallMetadata(toolCall)
-	if err != nil || !metadata.GetAutoExecute() {
+	if err != nil {
+		return
+	}
+	// User-whitelisted tools execute eagerly, just like read-only ones.
+	if !metadata.GetAutoExecute() && !s.IsToolAutoAccepted(toolCall.GetName()) {
 		return
 	}
 

@@ -149,22 +149,13 @@ func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.
 		if toolResult == nil {
 			return nil, fmt.Errorf("discovery tool call %q has no result", toolCall.GetName())
 		}
-		var displayToolNames []string
-		if discovered, ok := aip.GetAnnotation(toolResult, aitool.AnnotationKeyDiscoveredTools); ok && discovered != "" {
-			displayToolNames = strings.Split(discovered, ",")
-		}
-		displayContent := "`●` Discovered tools"
-		if len(displayToolNames) > 0 {
-			displayContent = fmt.Sprintf("`●` Discovered %s", strings.Join(displayToolNames, ", "))
-		}
 		parsedResult, err := ai.ParseToolResult(toolResult)
 		if err != nil {
 			return nil, fmt.Errorf("parsing discovery tool result: %w", err)
 		}
 		if toolResult.GetError() != nil {
-			displayContent += fmt.Sprintf(" (errors: %s)", parsedResult)
+			toolCallMetadata.DisplayMessage.Content = fmt.Sprintf("error: %s", parsedResult)
 		}
-		toolCallMetadata.DisplayMessage.Content = displayContent
 		toolCallMetadata.AutoExecute = true
 
 	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
@@ -256,7 +247,32 @@ func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	toolType, _ := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolType)
 	switch toolType {
 	case aitool.AnnotationValueToolTypeDiscovery:
-		return "🔍 discovery", true
+		toolResult := toolCall.GetResult()
+		if toolResult == nil {
+			return "🔍 discovering tools…", true
+		}
+		discovered, ok := aip.GetAnnotation(toolResult, aitool.AnnotationKeyDiscoveredTools)
+		if !ok || discovered == "" {
+			return "🔍 discovered tools", true
+		}
+		serviceToMethods := map[string][]string{}
+		for _, name := range strings.Split(discovered, ",") {
+			parts := strings.SplitN(name, "_", 2)
+			if len(parts) == 2 {
+				serviceToMethods[parts[0]] = append(serviceToMethods[parts[0]], parts[1])
+			} else {
+				serviceToMethods[""] = append(serviceToMethods[""], name)
+			}
+		}
+		var sections []string
+		for service, methods := range serviceToMethods {
+			if service == "" {
+				sections = append(sections, strings.Join(methods, ", "))
+			} else {
+				sections = append(sections, fmt.Sprintf("%s: discovered %s", service, strings.Join(methods, ", ")))
+			}
+		}
+		return "🔍 " + strings.Join(sections, " | "), true
 	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
 		engine, err := m.engineFor(toolCall)
 		if err != nil {

@@ -55,8 +55,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		delete(m.detailCache, msg.Name)
 		m.removeChatByName(msg.Name)
-		m.updateSelection()
-		m.listViewport.SetContent(m.renderList())
+		m.refreshList()
 		return m.wrapCmd(screen.AlertMsg{Text: "Chat deleted"})
 
 	case chatFavoriteToggledMsg:
@@ -97,8 +96,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyToTop.Key):
 		m.focusTarget = FocusFilter
-		m.listViewport.SetContent(m.renderList())
-		m.listViewport.GotoTop()
+		m.listYOffset = 0
 		return m.applyFocus()
 
 	case key.Matches(msg, keyToBottom.Key):
@@ -107,7 +105,6 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.focusTarget = FocusChatList
 			m.chatCursor = len(displayed) - 1
 			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
 			m.ensureCursorVisible()
 		}
 		return m.applyFocus()
@@ -161,13 +158,11 @@ func (m *Model) navigateUp() tea.Cmd {
 		if m.chatCursor > 0 {
 			m.chatCursor--
 			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
 			m.ensureCursorVisible()
 			return nil
 		}
 		m.focusTarget = FocusFilter
-		m.listViewport.SetContent(m.renderList())
-		m.listViewport.GotoTop()
+		m.listYOffset = 0
 		return m.applyFocus()
 	}
 	return nil
@@ -181,7 +176,6 @@ func (m *Model) navigateDown() tea.Cmd {
 			m.focusTarget = FocusChatList
 			m.chatCursor = 0
 			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
 			m.ensureCursorVisible()
 			return m.applyFocus()
 		}
@@ -191,7 +185,6 @@ func (m *Model) navigateDown() tea.Cmd {
 		if m.chatCursor < len(displayed)-1 {
 			m.chatCursor++
 			m.updateSelection()
-			m.listViewport.SetContent(m.renderList())
 			m.ensureCursorVisible()
 		}
 		// Infinite scroll: top up the list before the cursor hits the end.
@@ -208,8 +201,7 @@ func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
 	if newFilter != m.filterText {
 		m.filterText = newFilter
 		m.chatCursor = 0
-		m.updateSelection()
-		m.listViewport.SetContent(m.renderList())
+		m.refreshList()
 	}
 	return cmd
 }

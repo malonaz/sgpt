@@ -28,7 +28,7 @@ func (m *Model) View() string {
 	filterStyle := m.inputStyle(FocusFilter)
 	leftPanel.WriteString(filterStyle.Width(m.listWidth() - 2).Render(m.filterInput.View()))
 	leftPanel.WriteString("\n")
-	leftPanel.WriteString(m.listViewport.View())
+	leftPanel.WriteString(m.renderList())
 
 	detailPanel := m.detailViewport.View()
 	separator := lipgloss.NewStyle().Foreground(styles.BorderColor).Render(
@@ -56,6 +56,8 @@ func (m *Model) inputStyle(target FocusTarget) lipgloss.Style {
 	return styles.SearchInputStyle.BorderForeground(styles.BorderColor)
 }
 
+// renderList materializes only the visible window of the virtualized list —
+// O(list height), not O(loaded chats).
 func (m *Model) renderList() string {
 	if m.loading {
 		return styles.DimTextStyle.Render("Loading chats...")
@@ -72,62 +74,51 @@ func (m *Model) renderList() string {
 		return styles.DimTextStyle.Render("No chats yet")
 	}
 
-	listWidth := m.listWidth()
-	favCount := m.displayedFavoriteCount()
-
-	var b strings.Builder
-
-	if favCount > 0 {
-		sectionHeader := styles.MenuHeaderStyle.Width(listWidth).Render("⭐ Favorites")
-		b.WriteString(sectionHeader)
-		b.WriteString("\n")
-		b.WriteString(m.renderChatRows(displayed[:favCount], listWidth, 0))
-		if favCount < len(displayed) {
-			b.WriteString("\n\n")
+	top := m.listYOffset
+	bottom := top + m.listHeight
+	if bottom > len(m.listLines) {
+		bottom = len(m.listLines)
+	}
+	visible := make([]string, 0, m.listHeight)
+	for _, line := range m.listLines[top:bottom] {
+		if line.chatIndex >= 0 {
+			visible = append(visible, m.renderChatRow(displayed[line.chatIndex], line.chatIndex))
+		} else {
+			visible = append(visible, line.text)
 		}
 	}
-
-	if favCount < len(displayed) {
-		sectionHeader := styles.MenuHeaderStyle.Width(listWidth).Render("📋 Chats")
-		b.WriteString(sectionHeader)
-		b.WriteString("\n")
-		b.WriteString(m.renderChatRows(displayed[favCount:], listWidth, favCount))
+	// Pad so the horizontal join keeps the separator at full height.
+	for len(visible) < m.listHeight {
+		visible = append(visible, "")
 	}
-
-	if m.loadingMore {
-		b.WriteString("\n")
-		b.WriteString(styles.DimTextStyle.Render("  loading more..."))
-	}
-
-	return b.String()
+	return strings.Join(visible, "\n")
 }
 
-func (m *Model) renderChatRows(chats []*aipb.Chat, listWidth int, globalIndexOffset int) string {
-	var b strings.Builder
-	for i, chat := range chats {
-		title := chat.GetTitle()
-		title = styles.Truncate(title, 28)
-
-		messageCount := len(chat.GetMetadata().GetMessages())
-		updated := relativeTime(chat.GetUpdateTime().AsTime())
-
-		tags := strings.Join(store.Tags(chat), ",")
-		tags = styles.Truncate(tags, 15)
-
-		line := fmt.Sprintf("%-30s %-5d %-10s", title, messageCount, updated)
-		coloredTags := styles.MenuTagStyle.Render(tags)
-
-		globalIndex := globalIndexOffset + i
-		style := styles.MenuItemStyle
-		if m.focusTarget == FocusChatList && globalIndex == m.chatCursor {
-			style = styles.MenuSelectedStyle
-		}
-		b.WriteString(style.Width(listWidth).Render(line + coloredTags))
-		if i < len(chats)-1 {
-			b.WriteString("\n")
-		}
+// renderChatRow renders (and caches) a single row; selection participates in
+// the cache key, so cursor moves are pure map lookups once both variants of
+// a row have been rendered.
+func (m *Model) renderChatRow(chat *aipb.Chat, globalIndex int) string {
+	selected := m.focusTarget == FocusChatList && globalIndex == m.chatCursor
+	cacheKey := fmt.Sprintf("%s|%t", chat.GetName(), selected)
+	if row, ok := m.rowCache[cacheKey]; ok {
+		return row
 	}
-	return b.String()
+
+	title := styles.Truncate(chat.GetTitle(), 28)
+	messageCount := len(chat.GetMetadata().GetMessages())
+	updated := relativeTime(chat.GetUpdateTime().AsTime())
+	tags := styles.Truncate(strings.Join(store.Tags(chat), ","), 15)
+
+	line := fmt.Sprintf("%-30s %-5d %-10s", title, messageCount, updated)
+	coloredTags := styles.MenuTagStyle.Render(tags)
+
+	style := styles.MenuItemStyle
+	if selected {
+		style = styles.MenuSelectedStyle
+	}
+	row := style.Width(m.listWidth()).Render(line + coloredTags)
+	m.rowCache[cacheKey] = row
+	return row
 }
 
 // renderDetail previews the selected chat using the shared timeline items —
