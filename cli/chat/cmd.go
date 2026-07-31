@@ -94,6 +94,7 @@ func NewCmd(
 			registry.Register(tools.HandlerIDShell, &tools.ShellTool{})
 			registry.Register(tools.HandlerIDReadFiles, &tools.ReadFilesTool{})
 			registry.Register(tools.HandlerIDEditFile, &tools.EditFileTool{})
+			registry.Register(tools.HandlerIDSearchAndReplace, &tools.SearchAndReplaceTool{})
 
 			toolNames := append(opts.Tools, parsedRole.GetTools()...)
 			// Partition: built-in tools are advertised directly; everything

@@ -9,9 +9,10 @@ import (
 // nameToInternalTool indexes built-in tools by their advertised name, so they
 // are enabled via --tool exactly like tool engines.
 var nameToInternalTool = map[string]*aipb.Tool{
-	ShellCommand.GetName(): ShellCommand,
-	ReadFiles.GetName():    ReadFiles,
-	EditFile.GetName():     EditFile,
+	ShellCommand.GetName():     ShellCommand,
+	ReadFiles.GetName():        ReadFiles,
+	EditFile.GetName():         EditFile,
+	SearchAndReplace.GetName(): SearchAndReplace,
 }
 
 // InternalTool returns the built-in tool definition for name, if any.
