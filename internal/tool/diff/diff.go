@@ -61,7 +61,7 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 	}
 	path := diffRequest.GetPath()
 	switch {
-	case fileDiff.Create:
+	case isCreate(path, fileDiff):
 		if _, err := os.Stat(path); err == nil {
 			return fail(fmt.Errorf("%s already exists", path))
 		}
@@ -113,7 +113,7 @@ func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolRe
 		HunksApplied: int32(len(fileDiff.Patches)),
 	}
 	switch {
-	case fileDiff.Create:
+	case isCreate(path, fileDiff):
 		if _, err := os.Stat(path); err == nil {
 			return nil, fmt.Errorf("%s already exists", path)
 		}
@@ -121,11 +121,8 @@ func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolRe
 		if err != nil {
 			return nil, err
 		}
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			return nil, fmt.Errorf("creating directories for %s: %w", path, err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			return nil, fmt.Errorf("writing %s: %w", path, err)
+		if err := writeFile(path, content, 0o644); err != nil {
+			return nil, err
 		}
 	case fileDiff.Delete:
 		if err := os.Remove(path); err != nil {
@@ -153,12 +150,9 @@ func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolRe
 			if _, err := os.Stat(newPath); err == nil {
 				return nil, fmt.Errorf("rename target %s already exists", newPath)
 			}
-			if err := os.MkdirAll(filepath.Dir(newPath), 0o755); err != nil {
-				return nil, fmt.Errorf("creating directories for %s: %w", newPath, err)
-			}
 		}
-		if err := os.WriteFile(newPath, []byte(patched), info.Mode()); err != nil {
-			return nil, fmt.Errorf("writing %s: %w", newPath, err)
+		if err := writeFile(newPath, patched, info.Mode()); err != nil {
+			return nil, err
 		}
 		// Only remove the source once the destination is safely written.
 		if newPath != path {
@@ -178,6 +172,43 @@ func renameTarget(path string, fileDiff *FileDiff) string {
 		return fileDiff.NewPath
 	}
 	return path
+}
+
+// isCreate reports whether the diff should be applied as a file creation.
+// Beyond an explicit '--- /dev/null' header, a diff whose target does not
+// exist yet and whose hunks are pure additions is treated as a creation:
+// models routinely omit the /dev/null header, and failing there would also
+// skip the parent-directory creation the write needs.
+func isCreate(path string, fileDiff *FileDiff) bool {
+	if fileDiff.Create {
+		return true
+	}
+	if fileDiff.Delete || len(fileDiff.Patches) == 0 {
+		return false
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		return false
+	}
+	for _, patch := range fileDiff.Patches {
+		if patch.Search != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// writeFile writes content to path, creating any missing parent directories
+// first: diffs regularly target new files in directories that do not exist.
+func writeFile(path, content string, mode os.FileMode) error {
+	if directory := filepath.Dir(path); directory != "." {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
+			return fmt.Errorf("creating directories for %s: %w", path, err)
+		}
+	}
+	if err := os.WriteFile(path, []byte(content), mode); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	return nil
 }
 
 // RenderRequest renders the review-time healed diff when available. While the
@@ -214,7 +245,7 @@ func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	// for its file headers to parse.
 	if fileDiff, err := ParseUnifiedDiff(diffRequest.GetDiff()); err == nil {
 		switch {
-		case fileDiff.Create:
+		case isCreate(path, fileDiff):
 			return fmt.Sprintf("created `%s`", path), true
 		case fileDiff.Delete:
 			return fmt.Sprintf("deleted `%s`", path), true

@@ -31,7 +31,7 @@ func ApplyPatches(oldPath, newPath, content string, patches []Patch) (string, st
 
 	for i, p := range patches {
 		if p.Search == "" {
-			return "", "", fmt.Errorf("patch %d: empty search text", i+1)
+			return "", "", fmt.Errorf("patch %d: no context or removed lines to anchor on", i+1)
 		}
 		// Heal against the current content so hunks with stale whitespace or
 		// indentation still land, and later hunks see earlier hunks' edits.
@@ -199,10 +199,9 @@ func ParseUnifiedDiff(diff string) (*FileDiff, error) {
 			search = search[:len(search)-1]
 			replace = replace[:len(replace)-1]
 		}
-		// Creations have nothing to anchor on: the file does not exist yet.
-		if len(search) == 0 && !fileDiff.Create {
-			return fmt.Errorf("hunk %d has no context or removed lines to anchor on", len(fileDiff.Patches)+1)
-		}
+		// Anchorless hunks are kept: they are legal for creations, and the
+		// caller may still classify a headerless pure-addition diff as one.
+		// ApplyPatches reports the error otherwise.
 		fileDiff.Patches = append(fileDiff.Patches, Patch{
 			Search:  strings.Join(search, "\n"),
 			Replace: strings.Join(replace, "\n"),
