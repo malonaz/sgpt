@@ -12,7 +12,7 @@ go_library(
         "//cli/tui/timeline",
         "//cli/tui/widget",
         "//internal/session",
-        "//internal/tools",
+        "//internal/tool",
         "//sgpt/v1",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbles__v2__spinner",

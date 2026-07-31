@@ -19,7 +19,7 @@ import (
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 const alertDuration = 2 * time.Second
@@ -63,7 +63,7 @@ var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, ke
 type App struct {
 	ctx      context.Context
 	store    *store.Store
-	registry *tools.Registry
+	registry *tool.Registry
 
 	defaultParams session.Params
 
@@ -86,7 +86,7 @@ type App struct {
 func NewApp(
 	ctx context.Context,
 	chatStore *store.Store,
-	registry *tools.Registry,
+	registry *tool.Registry,
 	initialChat *sgptpb.Chat,
 	params session.Params,
 ) *App {

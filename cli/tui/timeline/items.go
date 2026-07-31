@@ -12,7 +12,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/markdown"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 // frame renders content in a role-styled bordered box, recoloring the border
@@ -192,7 +192,7 @@ func (i *ToolCallItem) CacheKey() string {
 	if i.Partial {
 		return ""
 	}
-	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tools.GetToolCallStatus(i.ToolCall))
+	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall))
 }
 
 // Resolved calls fold to a one-line summary; pending/executing stay expanded.
@@ -232,7 +232,7 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ streaming...")
 	case i.Executing:
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ running...")
-	case i.Result == nil && tools.GetToolCallStatus(i.ToolCall) == tools.ToolCallStatusPending:
+	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusPending:
 		suffix = " " + styles.ErrorStyle.Render("▶ pending review")
 	case ctx.Collapsed:
 		suffix = " " + styles.DimTextStyle.Render("(alt+z to expand)")
@@ -242,14 +242,14 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		styles.ToolLabelStyle.Render("tool: "+i.ToolCall.GetName()),
 		suffix,
 	)
-	if metadata, _ := tools.ParseToolCallMetadata(i.ToolCall); metadata.GetDisplayMessage().GetContent() != "" {
+	if metadata, _ := tool.ParseToolCallMetadata(i.ToolCall); metadata.GetDisplayMessage().GetContent() != "" {
 		header += "\n" + styles.DimTextStyle.Render(metadata.GetDisplayMessage().GetContent())
 	}
 	return header
 }
 
 func (i *ToolCallItem) request(ctx RenderContext) string {
-	// Tools may dictate their own presentation (e.g. edit_file's diff).
+	// Tools may dictate their own presentation (e.g. the diff tool's diff).
 	if i.RequestRenderer != nil {
 		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {
 			if i.lastGoodRequests != nil {
@@ -291,10 +291,10 @@ func toolResultText(toolResult *aipb.ToolResult) string {
 }
 
 func toolCallStatusIndicator(toolCall *aipb.ToolCall) string {
-	switch tools.GetToolCallStatus(toolCall) {
-	case tools.ToolCallStatusAccepted:
+	switch tool.GetToolCallStatus(toolCall) {
+	case tool.ToolCallStatusAccepted:
 		return lipgloss.NewStyle().Foreground(styles.SuccessColor).Render("●")
-	case tools.ToolCallStatusRejected:
+	case tool.ToolCallStatusRejected:
 		return lipgloss.NewStyle().Foreground(styles.ErrorColor).Render("●")
 	default:
 		return lipgloss.NewStyle().Foreground(styles.MutedColor).Render("●")

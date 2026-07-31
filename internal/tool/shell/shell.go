@@ -1,4 +1,4 @@
-package tools
+package shell
 
 import (
 	"context"
@@ -10,10 +10,11 @@ import (
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
-// ShellCommand is the tool definition for shell execution.
-var ShellCommand = &aipb.Tool{
+// Definition is the tool definition for shell execution.
+var Definition = &aipb.Tool{
 	Name:        "exec_shell",
 	Description: "Execute a shell command on the user's system. Use this when the user asks you to run commands, create files, or perform system operations.",
 	JsonSchema: &jsonpb.Schema{
@@ -31,7 +32,7 @@ var ShellCommand = &aipb.Tool{
 		Required: []string{"command"},
 	},
 	Annotations: map[string]string{
-		ToolHandlerIDAnnotation: HandlerIDShell,
+		tool.ToolHandlerIDAnnotation: tool.HandlerIDShell,
 	},
 }
 
@@ -41,7 +42,7 @@ type shellCommandArguments struct {
 }
 
 func parseShellCommandArguments(toolCall *aipb.ToolCall) (*shellCommandArguments, error) {
-	bytes, err := toolCallArgumentsJSON(toolCall)
+	bytes, err := tool.ArgumentsJSON(toolCall)
 	if err != nil {
 		return nil, err
 	}
@@ -55,10 +56,10 @@ func parseShellCommandArguments(toolCall *aipb.ToolCall) (*shellCommandArguments
 	return arguments, nil
 }
 
-// ShellTool executes shell commands on the user's system.
-type ShellTool struct{}
+// Tool executes shell commands on the user's system.
+type Tool struct{}
 
-func (t *ShellTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
+func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
 	arguments, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
@@ -73,7 +74,7 @@ func (t *ShellTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.
 	}, nil
 }
 
-func (t *ShellTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
 	arguments, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
@@ -95,10 +96,10 @@ func (t *ShellTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.T
 	}, nil
 }
 
-var _ Tool = (*ShellTool)(nil)
+var _ tool.Tool = (*Tool)(nil)
 
 // RenderRequest renders the command as a shell fence instead of raw JSON.
-func (t *ShellTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
+func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	arguments, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return "", false
@@ -110,4 +111,6 @@ func (t *ShellTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	return fmt.Sprintf("```sh\n%s\n```", display), true
 }
 
-var _ RequestRenderer = (*ShellTool)(nil)
+var _ tool.RequestRenderer = (*Tool)(nil)
+
+func init() { tool.RegisterBuiltin(Definition) }

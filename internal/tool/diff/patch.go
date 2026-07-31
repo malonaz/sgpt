@@ -1,32 +1,25 @@
-package tools
+package diff
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
-
-	aipb "github.com/malonaz/core/genproto/ai/v1"
-	jsonpb "github.com/malonaz/core/genproto/json/v1"
-
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 const diffContextLines = 3
 
-type patch struct {
+// Patch is a single exact search/replace edit.
+type Patch struct {
 	Search     string `json:"search"`
 	Replace    string `json:"replace"`
 	ReplaceAll bool   `json:"replace_all"`
 }
 
-// applyPatches applies search/replace patches sequentially and builds a
+// ApplyPatches applies search/replace patches sequentially and builds a
 // unified-style diff. Patches whose search text has no exact match are healed
 // against the content with whitespace-lenient matching. The same code path
 // serves review (dry-run) and execution, so the diff the user approves is
 // exactly what gets applied.
-func applyPatches(path, content string, patches []patch) (string, string, error) {
+func ApplyPatches(path, content string, patches []Patch) (string, string, error) {
 	var diff strings.Builder
 	diff.WriteString(fmt.Sprintf("--- a/%s\n+++ b/%s\n", path, path))
 	// Line drift from earlier patches, so later hunk headers stay accurate.
@@ -104,8 +97,8 @@ func applyPatches(path, content string, patches []patch) (string, string, error)
 // comparing lines with whitespace leniency, then rebuilds the search from the
 // file's actual lines. This absorbs the most common model diff mistakes:
 // stale trailing whitespace and wrong indentation. Ambiguous or absent
-// matches leave the patch untouched so applyPatches reports the error.
-func healPatch(content string, p patch) patch {
+// matches leave the patch untouched so ApplyPatches reports the error.
+func healPatch(content string, p Patch) Patch {
 	if strings.Contains(content, p.Search) {
 		return p
 	}
@@ -168,12 +161,12 @@ func leadingWhitespace(line string) string {
 	return line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 }
 
-// parseUnifiedDiff converts a unified diff into search/replace patches, one
+// ParseUnifiedDiff converts a unified diff into search/replace patches, one
 // per hunk. Line numbers in '@@' headers are ignored entirely — models
 // miscount them constantly — so each hunk is anchored purely by its context
 // and removed lines.
-func parseUnifiedDiff(diff string) ([]patch, error) {
-	var patches []patch
+func ParseUnifiedDiff(diff string) ([]Patch, error) {
+	var patches []Patch
 	var search, replace []string
 	inHunk := false
 	flush := func() error {
@@ -190,7 +183,7 @@ func parseUnifiedDiff(diff string) ([]patch, error) {
 		if len(search) == 0 {
 			return fmt.Errorf("hunk %d has no context or removed lines to anchor on", len(patches)+1)
 		}
-		patches = append(patches, patch{
+		patches = append(patches, Patch{
 			Search:  strings.Join(search, "\n"),
 			Replace: strings.Join(replace, "\n"),
 		})
@@ -231,148 +224,3 @@ func parseUnifiedDiff(diff string) ([]patch, error) {
 	}
 	return patches, nil
 }
-
-// ---- edit_file: unified-diff editing built on the patch engine above ----
-
-// EditFile is the tool definition for unified-diff file editing.
-var EditFile = &aipb.Tool{
-	Name:        "edit_file",
-	Description: "Edit a file by applying a unified diff. Start each hunk with an '@@' line; line numbers in hunk headers are ignored, so they may be wrong or omitted. Prefix unchanged context lines with a space, removed lines with '-' and added lines with '+'. Include enough context lines to anchor each hunk uniquely within the file. Hunks are applied sequentially.",
-	JsonSchema: &jsonpb.Schema{
-		Type: "object",
-		Properties: map[string]*jsonpb.Schema{
-			"path": {Type: "string", Description: "Path of the file to edit"},
-			"diff": {Type: "string", Description: "Unified diff to apply ('@@' line numbers are ignored)"},
-		},
-		Required: []string{"path", "diff"},
-	},
-	Annotations: map[string]string{
-		ToolHandlerIDAnnotation: HandlerIDEditFile,
-	},
-}
-
-type editFileArguments struct {
-	Path string `json:"path"`
-	Diff string `json:"diff"`
-}
-
-func parseEditFileArguments(toolCall *aipb.ToolCall) (*editFileArguments, error) {
-	bytes, err := toolCallArgumentsJSON(toolCall)
-	if err != nil {
-		return nil, err
-	}
-	arguments := &editFileArguments{}
-	if err := json.Unmarshal(bytes, arguments); err != nil {
-		return nil, fmt.Errorf("parsing tool arguments: %w", err)
-	}
-	if arguments.Path == "" {
-		return nil, fmt.Errorf("no path specified")
-	}
-	if strings.TrimSpace(arguments.Diff) == "" {
-		return nil, fmt.Errorf("no diff specified")
-	}
-	return arguments, nil
-}
-
-// EditFileTool applies model-written unified diffs to files on the user's
-// system. Hunks are converted to search/replace patches and healed against
-// the file, so the model never has to count lines.
-type EditFileTool struct{}
-
-func (t *EditFileTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	arguments, err := parseEditFileArguments(toolCall)
-	if err != nil {
-		return nil, err
-	}
-	// File mutation: never auto-execute.
-	metadata := &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{
-			Content: fmt.Sprintf("Editing %s", arguments.Path),
-		},
-	}
-	// Surface failures in the review UI rather than erroring the turn;
-	// Execute produces the error result the model can react to.
-	patches, err := parseUnifiedDiff(arguments.Diff)
-	if err != nil {
-		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
-		return metadata, nil
-	}
-	metadata.DisplayMessage.Content = fmt.Sprintf("Editing %s (%d hunk(s))", arguments.Path, len(patches))
-	contentBytes, err := os.ReadFile(arguments.Path)
-	if err != nil {
-		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
-		return metadata, nil
-	}
-	// Dry-run: the user reviews the healed diff that will actually apply,
-	// not the model's raw (possibly misaligned) diff.
-	if _, diff, err := applyPatches(arguments.Path, string(contentBytes), patches); err != nil {
-		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
-	} else {
-		metadata.Diff = diff
-	}
-	return metadata, nil
-}
-
-func (t *EditFileTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	arguments, err := parseEditFileArguments(toolCall)
-	if err != nil {
-		return nil, err
-	}
-	patches, err := parseUnifiedDiff(arguments.Diff)
-	if err != nil {
-		return nil, err
-	}
-	info, err := os.Stat(arguments.Path)
-	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", arguments.Path, err)
-	}
-	contentBytes, err := os.ReadFile(arguments.Path)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", arguments.Path, err)
-	}
-	// Re-apply at execution time: the file may have changed since review.
-	patched, _, err := applyPatches(arguments.Path, string(contentBytes), patches)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(arguments.Path, []byte(patched), info.Mode()); err != nil {
-		return nil, fmt.Errorf("writing %s: %w", arguments.Path, err)
-	}
-	return &aipb.ToolResult{
-		ToolName:   toolCall.Name,
-		ToolCallId: toolCall.Id,
-		Result: &aipb.ToolResult_Content{
-			Content: fmt.Sprintf("Applied %d hunk(s) to %s", len(patches), arguments.Path),
-		},
-	}, nil
-}
-
-// RenderRequest renders the review-time healed diff when available. While the
-// call is still streaming (no review metadata yet), it renders the raw diff
-// argument directly so the edit is readable as it arrives; the healed diff
-// replaces it once review runs on completion.
-func (t *EditFileTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
-	metadata, err := ParseToolCallMetadata(toolCall)
-	if err == nil && metadata.GetDiff() != "" {
-		return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
-	}
-	bytes, err := toolCallArgumentsJSON(toolCall)
-	if err != nil {
-		return "", false
-	}
-	arguments := &editFileArguments{}
-	// Partial arguments: tolerate missing fields, only require some diff text.
-	if json.Unmarshal(bytes, arguments) != nil || arguments.Diff == "" {
-		return "", false
-	}
-	header := ""
-	if arguments.Path != "" {
-		header = fmt.Sprintf("--- a/%s\n+++ b/%s\n", arguments.Path, arguments.Path)
-	}
-	return fmt.Sprintf("```diff\n%s%s\n```", header, strings.TrimSuffix(arguments.Diff, "\n")), true
-}
-
-var (
-	_ Tool            = (*EditFileTool)(nil)
-	_ RequestRenderer = (*EditFileTool)(nil)
-)

@@ -10,7 +10,7 @@ go_library(
     deps = [
         "//internal/debug",
         "//internal/store",
-        "//internal/tools",
+        "//internal/tool",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:google.golang.org__grpc__status",

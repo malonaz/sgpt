@@ -13,7 +13,7 @@ import (
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 const renderThrottleInterval = 66 * time.Millisecond
@@ -131,23 +131,23 @@ func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 		// Feed the failure back to the model as a tool result instead of
 		// aborting the turn; leaving the call unresolved poisons the history.
 		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusFailed)
+		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusFailed)
 		s.refresh()
 		return
 	}
 	// Review can attach a result directly (e.g. discovery tools); executing
 	// those through the registry would fail with a parse-type mismatch.
 	if toolCall.GetResult() != nil {
-		tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
 		s.refresh()
 		return
 	}
-	metadata, err := tools.ParseToolCallMetadata(toolCall)
+	metadata, err := tool.ParseToolCallMetadata(toolCall)
 	if err != nil || !metadata.GetAutoExecute() {
 		return
 	}
 
-	tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+	tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
 	s.setExecutingToolCall(toolCall.GetId())
 	s.refresh()
 	toolResult, err := s.registry.Execute(s.ctx, toolCall)
@@ -181,13 +181,13 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
 			// Don't clobber statuses set during streaming (e.g. failed).
-			if tools.GetToolCallStatus(block.GetToolCall()) != "" {
+			if tool.GetToolCallStatus(block.GetToolCall()) != "" {
 				continue
 			}
 			if block.GetToolCall().GetResult() != nil {
-				tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusAccepted)
+				tool.SetToolCallStatus(block.GetToolCall(), tool.ToolCallStatusAccepted)
 			} else {
-				tools.SetToolCallStatus(block.GetToolCall(), tools.ToolCallStatusPending)
+				tool.SetToolCallStatus(block.GetToolCall(), tool.ToolCallStatusPending)
 			}
 		}
 

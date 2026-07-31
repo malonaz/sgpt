@@ -1,4 +1,4 @@
-package tools
+package tool
 
 import (
 	"context"
@@ -14,11 +14,11 @@ import (
 const ToolHandlerIDAnnotation = "sgpt.com/tool-handler-id"
 
 const (
-	HandlerIDShell            = "shell"
-	HandlerIDReadFiles        = "read_files"
-	HandlerIDEngine           = "engine"
-	HandlerIDEditFile         = "edit_file"
-	HandlerIDSearchAndReplace = "search_and_replace"
+	HandlerIDShell     = "shell"
+	HandlerIDReadFiles = "read_files"
+	HandlerIDEngine    = "engine"
+	HandlerIDDiff      = "diff"
+	HandlerIDReplace   = "replace"
 )
 
 // Tool reviews and executes tool calls.
@@ -113,8 +113,8 @@ func (r *Registry) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.
 	return toolResult, nil
 }
 
-// toolCallArgumentsJSON marshals a tool call's arguments to JSON bytes.
-func toolCallArgumentsJSON(toolCall *aipb.ToolCall) ([]byte, error) {
+// ArgumentsJSON marshals a tool call's arguments to JSON bytes.
+func ArgumentsJSON(toolCall *aipb.ToolCall) ([]byte, error) {
 	bytes, err := json.Marshal(toolCall.GetArguments().AsMap())
 	if err != nil {
 		return nil, fmt.Errorf("marshaling tool call arguments: %w", err)
@@ -123,7 +123,7 @@ func toolCallArgumentsJSON(toolCall *aipb.ToolCall) ([]byte, error) {
 }
 
 // RequestRenderer is implemented by tools that dictate how their request
-// renders in the timeline (e.g. edit_file renders a diff).
+// renders in the timeline (e.g. the diff tool renders a diff).
 type RequestRenderer interface {
 	Tool
 	// RenderRequest returns markdown for the request; returning false falls

@@ -15,7 +15,7 @@ import (
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/store"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 // State is the session lifecycle phase; the UI derives what to show
@@ -47,7 +47,7 @@ type Session struct {
 	ctx      context.Context
 	params   Params
 	store    *store.Store
-	registry *tools.Registry
+	registry *tool.Registry
 
 	mu                sync.Mutex
 	chat              *sgptpb.Chat
@@ -66,7 +66,7 @@ type Session struct {
 func New(
 	ctx context.Context,
 	chatStore *store.Store,
-	registry *tools.Registry,
+	registry *tool.Registry,
 	chat *sgptpb.Chat,
 	params Params,
 ) *Session {
@@ -190,7 +190,7 @@ func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
 		}
 		var pending []*aipb.ToolCall
 		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
-			if tools.GetToolCallStatus(block.GetToolCall()) == tools.ToolCallStatusPending {
+			if tool.GetToolCallStatus(block.GetToolCall()) == tool.ToolCallStatusPending {
 				pending = append(pending, block.GetToolCall())
 			}
 		}
@@ -327,6 +327,6 @@ func statusToProto(err error) *spb.Status {
 
 // Registry exposes the tool registry so the TUI can delegate tool-dictated
 // request rendering (timeline.RequestRenderer).
-func (s *Session) Registry() *tools.Registry {
+func (s *Session) Registry() *tool.Registry {
 	return s.registry
 }

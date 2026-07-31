@@ -21,8 +21,11 @@ import (
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
-	"github.com/malonaz/sgpt/internal/toolengine"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
+	"github.com/malonaz/sgpt/internal/tool/diff"
+	toolio "github.com/malonaz/sgpt/internal/tool/io"
+	"github.com/malonaz/sgpt/internal/tool/rpc"
+	"github.com/malonaz/sgpt/internal/tool/shell"
 )
 
 func NewCmd(
@@ -90,11 +93,11 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
-			registry := tools.NewRegistry()
-			registry.Register(tools.HandlerIDShell, &tools.ShellTool{})
-			registry.Register(tools.HandlerIDReadFiles, &tools.ReadFilesTool{})
-			registry.Register(tools.HandlerIDEditFile, &tools.EditFileTool{})
-			registry.Register(tools.HandlerIDSearchAndReplace, &tools.SearchAndReplaceTool{})
+			registry := tool.NewRegistry()
+			registry.Register(tool.HandlerIDShell, &shell.Tool{})
+			registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
+			registry.Register(tool.HandlerIDDiff, &diff.Tool{})
+			registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
 
 			toolNames := append(opts.Tools, parsedRole.GetTools()...)
 			// Partition: built-in tools are advertised directly; everything
@@ -102,14 +105,14 @@ func NewCmd(
 			internalToolNameSet := map[string]struct{}{}
 			toolEngineNameSet := map[string]struct{}{}
 			for _, name := range toolNames {
-				if _, ok := tools.InternalTool(name); ok {
+				if _, ok := tool.Builtin(name); ok {
 					internalToolNameSet[name] = struct{}{}
 					continue
 				}
 				toolEngineNameSet[name] = struct{}{}
 			}
 			for name := range internalToolNameSet {
-				internalTool, _ := tools.InternalTool(name)
+				internalTool, _ := tool.Builtin(name)
 				registry.AddTools(internalTool)
 			}
 
@@ -136,12 +139,12 @@ func NewCmd(
 					}
 				}
 				filteredConfiguration.ToolEngines = toolEngineConfigurations
-				toolEngineManager, err := toolengine.Initialize(ctx, &filteredConfiguration, baseURLToGRPCConnection)
+				toolEngineManager, err := rpc.Initialize(ctx, &filteredConfiguration, baseURLToGRPCConnection)
 				if err != nil {
 					return fmt.Errorf("initializing tool engines: %w", err)
 				}
 				defer toolEngineManager.Close()
-				registry.Register(tools.HandlerIDEngine, toolEngineManager)
+				registry.Register(tool.HandlerIDEngine, toolEngineManager)
 				registry.AddToolSets(toolEngineManager.GetToolSets()...)
 			}
 
@@ -211,7 +214,7 @@ func NewCmd(
 
 	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		// Built-in tools complete alongside configured tool engines.
-		candidates := tools.InternalToolNames()
+		candidates := tool.BuiltinNames()
 		for _, toolEngineConfiguration := range config.GetToolEngines() {
 			candidates = append(candidates, toolEngineConfiguration.GetName())
 		}

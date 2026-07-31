@@ -1,4 +1,4 @@
-package tools
+package io
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 // ReadFiles is the tool definition for file reading.
@@ -29,7 +30,7 @@ var ReadFiles = &aipb.Tool{
 		Required: []string{"paths"},
 	},
 	Annotations: map[string]string{
-		ToolHandlerIDAnnotation: HandlerIDReadFiles,
+		tool.ToolHandlerIDAnnotation: tool.HandlerIDReadFiles,
 	},
 }
 
@@ -38,7 +39,7 @@ type readFilesArguments struct {
 }
 
 func parseReadFilesArguments(toolCall *aipb.ToolCall) (*readFilesArguments, error) {
-	bytes, err := toolCallArgumentsJSON(toolCall)
+	bytes, err := tool.ArgumentsJSON(toolCall)
 	if err != nil {
 		return nil, err
 	}
@@ -90,4 +91,6 @@ func (t *ReadFilesTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*ai
 	}, nil
 }
 
-var _ Tool = (*ReadFilesTool)(nil)
+var _ tool.Tool = (*ReadFilesTool)(nil)
+
+func init() { tool.RegisterBuiltin(ReadFiles) }

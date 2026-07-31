@@ -1,4 +1,4 @@
-package toolengine
+package rpc
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/cache"
 	"github.com/malonaz/sgpt/internal/debug"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 const (
@@ -44,7 +44,7 @@ type engineConnection struct {
 	schemaBuilder    *pbjson.SchemaBuilder
 }
 
-// Manager connects to remote tool engines and implements tools.Tool for
+// Manager connects to remote tool engines and implements tool.Tool for
 // the tool sets they expose.
 type Manager struct {
 	mu                  sync.Mutex
@@ -99,9 +99,9 @@ func Initialize(
 			if err != nil {
 				return nil, err
 			}
-			aip.SetAnnotation(toolSet.DiscoveryTool, tools.ToolHandlerIDAnnotation, tools.HandlerIDEngine)
-			for _, tool := range toolSet.GetTools() {
-				aip.SetAnnotation(tool, tools.ToolHandlerIDAnnotation, tools.HandlerIDEngine)
+			aip.SetAnnotation(toolSet.DiscoveryTool, tool.ToolHandlerIDAnnotation, tool.HandlerIDEngine)
+			for _, engineTool := range toolSet.GetTools() {
+				aip.SetAnnotation(engineTool, tool.ToolHandlerIDAnnotation, tool.HandlerIDEngine)
 			}
 			cache.Store(cacheKey, toolSet)
 			manager.toolSetNameToEngine[toolSet.GetName()] = engine
@@ -131,7 +131,7 @@ func (m *Manager) engineFor(toolCall *aipb.ToolCall) (*engineConnection, error) 
 	return engine, nil
 }
 
-// Review implements tools.Tool.
+// Review implements tool.Tool.
 func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
 	engine, err := m.engineFor(toolCall)
 	if err != nil {
@@ -195,7 +195,7 @@ func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.
 	return toolCallMetadata, nil
 }
 
-// Execute implements tools.Tool.
+// Execute implements tool.Tool.
 func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
 	engine, err := m.engineFor(toolCall)
 	if err != nil {
@@ -258,4 +258,4 @@ func (m *Manager) Close() {
 	m.closers = nil
 }
 
-var _ tools.Tool = (*Manager)(nil)
+var _ tool.Tool = (*Manager)(nil)

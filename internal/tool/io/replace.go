@@ -1,4 +1,4 @@
-package tools
+package io
 
 import (
 	"context"
@@ -11,11 +11,13 @@ import (
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/tool"
+	"github.com/malonaz/sgpt/internal/tool/diff"
 )
 
-// SearchAndReplace is the tool definition for patch-based file editing.
-var SearchAndReplace = &aipb.Tool{
-	Name:        "search_and_replace",
+// Replace is the tool definition for patch-based file editing.
+var Replace = &aipb.Tool{
+	Name:        "replace",
 	Description: "Edit a file by applying one or more patches. Each patch replaces an exact, unique occurrence of `search` with `replace`. Include enough surrounding context in `search` to make it unique within the file. Patches are applied sequentially.",
 	JsonSchema: &jsonpb.Schema{
 		Type: "object",
@@ -38,21 +40,21 @@ var SearchAndReplace = &aipb.Tool{
 		Required: []string{"path", "patches"},
 	},
 	Annotations: map[string]string{
-		ToolHandlerIDAnnotation: HandlerIDSearchAndReplace,
+		tool.ToolHandlerIDAnnotation: tool.HandlerIDReplace,
 	},
 }
 
-type searchAndReplaceArguments struct {
-	Path    string  `json:"path"`
-	Patches []patch `json:"patches"`
+type replaceArguments struct {
+	Path    string       `json:"path"`
+	Patches []diff.Patch `json:"patches"`
 }
 
-func parseSearchAndReplaceArguments(toolCall *aipb.ToolCall) (*searchAndReplaceArguments, error) {
-	bytes, err := toolCallArgumentsJSON(toolCall)
+func parseSearchAndReplaceArguments(toolCall *aipb.ToolCall) (*replaceArguments, error) {
+	bytes, err := tool.ArgumentsJSON(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	arguments := &searchAndReplaceArguments{}
+	arguments := &replaceArguments{}
 	if err := json.Unmarshal(bytes, arguments); err != nil {
 		return nil, fmt.Errorf("parsing tool arguments: %w", err)
 	}
@@ -65,10 +67,10 @@ func parseSearchAndReplaceArguments(toolCall *aipb.ToolCall) (*searchAndReplaceA
 	return arguments, nil
 }
 
-// SearchAndReplaceTool applies search/replace patches to files on the user's system.
-type SearchAndReplaceTool struct{}
+// ReplaceTool applies search/replace patches to files on the user's system.
+type ReplaceTool struct{}
 
-func (t *SearchAndReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
+func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
 	arguments, err := parseSearchAndReplaceArguments(toolCall)
 	if err != nil {
 		return nil, err
@@ -87,7 +89,7 @@ func (t *SearchAndReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall
 		return metadata, nil
 	}
 	// Dry-run: the user reviews the exact diff that will apply.
-	if _, diff, err := applyPatches(arguments.Path, string(contentBytes), arguments.Patches); err != nil {
+	if _, diff, err := diff.ApplyPatches(arguments.Path, string(contentBytes), arguments.Patches); err != nil {
 		metadata.DisplayMessage.Content = fmt.Sprintf("Edit will fail: %v", err)
 	} else {
 		metadata.Diff = diff
@@ -95,7 +97,7 @@ func (t *SearchAndReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall
 	return metadata, nil
 }
 
-func (t *SearchAndReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+func (t *ReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
 	arguments, err := parseSearchAndReplaceArguments(toolCall)
 	if err != nil {
 		return nil, err
@@ -109,7 +111,7 @@ func (t *SearchAndReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCal
 		return nil, fmt.Errorf("reading %s: %w", arguments.Path, err)
 	}
 	// Re-apply at execution time: the file may have changed since review.
-	patched, _, err := applyPatches(arguments.Path, string(contentBytes), arguments.Patches)
+	patched, _, err := diff.ApplyPatches(arguments.Path, string(contentBytes), arguments.Patches)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +130,8 @@ func (t *SearchAndReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCal
 // RenderRequest renders the review-time diff instead of raw JSON arguments.
 // The diff is persisted on the call's metadata so it survives chat reloads
 // even though the underlying file has since changed.
-func (t *SearchAndReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
-	metadata, err := ParseToolCallMetadata(toolCall)
+func (t *ReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
+	metadata, err := tool.ParseToolCallMetadata(toolCall)
 	if err != nil || metadata.GetDiff() == "" {
 		return "", false
 	}
@@ -137,6 +139,8 @@ func (t *SearchAndReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, b
 }
 
 var (
-	_ Tool            = (*SearchAndReplaceTool)(nil)
-	_ RequestRenderer = (*SearchAndReplaceTool)(nil)
+	_ tool.Tool            = (*ReplaceTool)(nil)
+	_ tool.RequestRenderer = (*ReplaceTool)(nil)
 )
+
+func init() { tool.RegisterBuiltin(Replace) }

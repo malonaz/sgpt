@@ -16,7 +16,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/timeline"
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	"github.com/malonaz/sgpt/internal/session"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 type FocusedComponent int
@@ -277,11 +277,11 @@ func (m *ChatScreen) reviewToolCall(pending []*aipb.ToolCall) tea.Cmd {
 	target := pending[0]
 	if m.focusedComponent == FocusViewport {
 		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok && item.Result == nil {
-			switch tools.GetToolCallStatus(item.ToolCall) {
-			case tools.ToolCallStatusPending:
+			switch tool.GetToolCallStatus(item.ToolCall) {
+			case tool.ToolCallStatusPending:
 				target = item.ToolCall
-			case tools.ToolCallStatusAccepted, tools.ToolCallStatusRejected:
-				tools.SetToolCallStatus(item.ToolCall, tools.ToolCallStatusPending)
+			case tool.ToolCallStatusAccepted, tool.ToolCallStatusRejected:
+				tool.SetToolCallStatus(item.ToolCall, tool.ToolCallStatusPending)
 				m.refresh()
 				return nil
 			}
@@ -289,10 +289,10 @@ func (m *ChatScreen) reviewToolCall(pending []*aipb.ToolCall) tea.Cmd {
 	}
 
 	if reason := m.input.Value(); reason == "" {
-		tools.SetToolCallStatus(target, tools.ToolCallStatusAccepted)
+		tool.SetToolCallStatus(target, tool.ToolCallStatusAccepted)
 	} else {
-		tools.SetToolCallStatus(target, tools.ToolCallStatusRejected)
-		tools.SetToolCallRejectionReason(target, reason)
+		tool.SetToolCallStatus(target, tool.ToolCallStatusRejected)
+		tool.SetToolCallRejectionReason(target, reason)
 		m.input.Reset()
 	}
 
@@ -433,7 +433,7 @@ func (m *ChatScreen) recalculateLayout() {
 
 func (m *ChatScreen) busyLabel() string {
 	if m.session.State() == session.StateExecutingTools {
-		return "executing tools..."
+		return "executing tool..."
 	}
 	return "thinking... (ctrl+c to cancel)"
 }

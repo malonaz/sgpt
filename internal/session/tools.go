@@ -8,7 +8,7 @@ import (
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
-	"github.com/malonaz/sgpt/internal/tools"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 // processToolCallsAfterStream handles tool calls after the stream completes.
@@ -25,17 +25,17 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 			executable = append(executable, toolCall)
 			continue
 		}
-		metadata, err := tools.ParseToolCallMetadata(toolCall)
+		metadata, err := tool.ParseToolCallMetadata(toolCall)
 		if err != nil {
 			// Review failed or never ran; resolve with an error result so the
 			// model can react rather than killing the turn.
 			toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusFailed)
+			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusFailed)
 			executable = append(executable, toolCall)
 			continue
 		}
 		if metadata.GetAutoExecute() {
-			tools.SetToolCallStatus(toolCall, tools.ToolCallStatusAccepted)
+			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
 			executable = append(executable, toolCall)
 		} else {
 			hasManual = true
@@ -109,11 +109,11 @@ func (s *Session) executeToolCalls(toolCalls []*aipb.ToolCall) {
 
 // resolveToolCall produces a result for a reviewed tool call based on its status.
 func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
-	switch tools.GetToolCallStatus(toolCall) {
-	case tools.ToolCallStatusRejected:
-		reason := tools.GetToolCallRejectionReason(toolCall)
+	switch tool.GetToolCallStatus(toolCall) {
+	case tool.ToolCallStatusRejected:
+		reason := tool.GetToolCallRejectionReason(toolCall)
 		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("rejected by user: %s", reason))
-	case tools.ToolCallStatusAccepted:
+	case tool.ToolCallStatusAccepted:
 		toolResult, err := s.registry.Execute(s.ctx, toolCall)
 		if err != nil {
 			return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)

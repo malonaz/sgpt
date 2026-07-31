@@ -1,11 +1,11 @@
 go_library(
-    name = "toolengine",
-    srcs = ["toolengine.go"],
+    name = "rpc",
+    srcs = ["rpc.go"],
     visibility = ["//..."],
     deps = [
         "//internal/cache",
         "//internal/debug",
-        "//internal/tools",
+        "//internal/tool",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__ai__tool",
