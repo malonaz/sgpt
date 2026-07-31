@@ -174,14 +174,24 @@ type ToolCallItem struct {
 	ToolCall  *aipb.ToolCall
 	Result    *aipb.ToolResult
 	Executing bool
+	// Partial marks a call still streaming in; arguments may be incomplete.
+	Partial bool
 	// RequestRenderer, when set, overrides the raw-JSON request rendering.
 	RequestRenderer RequestRenderer
+	// lastGoodRequests persists the last successful tool-dictated render,
+	// keyed by tool call ID — streaming items are reconstructed every tick,
+	// so this state must live outside the item (owned by the Builder).
+	lastGoodRequests map[string]string
 }
 
 func (i *ToolCallItem) ID() string { return i.id }
 
 // CacheKey: result attachment, execution and review status all change the render.
 func (i *ToolCallItem) CacheKey() string {
+	// Partial calls mutate every tick — opt out of render caching.
+	if i.Partial {
+		return ""
+	}
 	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tools.GetToolCallStatus(i.ToolCall))
 }
 
@@ -218,6 +228,8 @@ func (i *ToolCallItem) Render(ctx RenderContext) string {
 func (i *ToolCallItem) header(ctx RenderContext) string {
 	var suffix string
 	switch {
+	case i.Partial:
+		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ streaming...")
 	case i.Executing:
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ running...")
 	case i.Result == nil && tools.GetToolCallStatus(i.ToolCall) == tools.ToolCallStatusPending:
@@ -240,13 +252,21 @@ func (i *ToolCallItem) request(ctx RenderContext) string {
 	// Tools may dictate their own presentation (e.g. edit_file's diff).
 	if i.RequestRenderer != nil {
 		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {
-			return renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(md)...)
+			if i.lastGoodRequests != nil {
+				i.lastGoodRequests[i.ToolCall.GetId()] = md
+			}
+			return renderMarkdown(ctx, i.seq, !i.Partial, markdown.ParseBlocks(md)...)
+		}
+		// Partial arguments may be momentarily unparsable by the tool's
+		// renderer; fall back to the last render that succeeded.
+		if md, ok := i.lastGoodRequests[i.ToolCall.GetId()]; ok {
+			return renderMarkdown(ctx, i.seq, false, markdown.ParseBlocks(md)...)
 		}
 	}
 	// Full payload — inspection during review was the whole point.
 	bytes, _ := pbutil.JSONMarshalPretty(i.ToolCall.GetArguments())
 	fenced := fmt.Sprintf("```json\n%s\n```", string(bytes))
-	return renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(fenced)...)
+	return renderMarkdown(ctx, i.seq, !i.Partial, markdown.ParseBlocks(fenced)...)
 }
 
 func (i *ToolCallItem) response(ctx RenderContext) string {
@@ -361,34 +381,99 @@ func (i *InjectedFilesItem) Render(ctx RenderContext) string {
 
 // ---- Builder ----
 
-// BuildChatItems converts chat messages (plus an optional in-flight streaming
-// message) into timeline items. Every tool result is paired with its
-// originating call so request/response render adjacently, in call order.
-func BuildChatItems(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
-	toolCallIDToResult := map[string]*aipb.ToolResult{}
-	for _, chatMessage := range messages {
+// Builder memoizes per-message item construction so a streaming refresh costs
+// O(streaming message) instead of re-parsing the entire history every tick.
+type Builder struct {
+	messageIndexToEntry map[int]builderEntry
+	toolCallIDToResult  map[string]*aipb.ToolResult
+	// toolCallIDToLastGoodRequest survives item reconstruction so partial
+	// tool call renders can fall back to the last successful one.
+	toolCallIDToLastGoodRequest map[string]string
+	scannedMessageCount         int
+}
+
+type builderEntry struct {
+	// message is compared by pointer: saves replace the chat's protos, and
+	// cached items would otherwise keep referencing (and mutating) stale copies.
+	message *sgptpb.Message
+	items   []Item
+}
+
+func NewBuilder() *Builder {
+	return &Builder{
+		messageIndexToEntry:         map[int]builderEntry{},
+		toolCallIDToResult:          map[string]*aipb.ToolResult{},
+		toolCallIDToLastGoodRequest: map[string]string{},
+	}
+}
+
+// Build converts chat messages (plus an optional in-flight streaming message)
+// into timeline items, reusing cached items for unchanged messages. Every tool
+// result is paired with its originating call so request/response render
+// adjacently, in call order.
+func (b *Builder) Build(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
+	if b.scannedMessageCount > len(messages) {
+		// History shrank (chat replaced) — every cache is invalid.
+		b.messageIndexToEntry = map[int]builderEntry{}
+		b.toolCallIDToResult = map[string]*aipb.ToolResult{}
+		b.toolCallIDToLastGoodRequest = map[string]string{}
+		b.scannedMessageCount = 0
+	}
+	// Messages are append-only; scan only the unseen tail for tool results.
+	for _, chatMessage := range messages[b.scannedMessageCount:] {
 		message := chatMessage.GetMessage()
 		if message.GetRole() != aipb.Role_ROLE_TOOL {
 			continue
 		}
 		for _, block := range message.GetBlocks() {
 			if toolResult := block.GetToolResult(); toolResult != nil {
-				toolCallIDToResult[toolResult.GetToolCallId()] = toolResult
+				b.toolCallIDToResult[toolResult.GetToolCallId()] = toolResult
 			}
 		}
 	}
+	b.scannedMessageCount = len(messages)
 
 	var items []Item
 	for messageIndex, chatMessage := range messages {
-		items = appendMessageItems(items, chatMessage.GetMessage(), messageIndex, true, toolCallIDToResult, executingToolCallID, requestRenderer)
-		if chatMessage.GetError() != nil {
-			items = append(items, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), chatMessage.GetError().GetMessage()))
+		entry, ok := b.messageIndexToEntry[messageIndex]
+		if !ok || entry.message != chatMessage {
+			var messageItems []Item
+			messageItems = appendMessageItems(messageItems, chatMessage.GetMessage(), messageIndex, true, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
+			if chatMessage.GetError() != nil {
+				messageItems = append(messageItems, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), chatMessage.GetError().GetMessage()))
+			}
+			entry = builderEntry{message: chatMessage, items: messageItems}
+			b.messageIndexToEntry[messageIndex] = entry
 		}
+		// Results and execution state land after an item is first built; patch
+		// the cached items instead of re-parsing the whole message.
+		for _, item := range entry.items {
+			toolCallItem, ok := item.(*ToolCallItem)
+			if !ok {
+				continue
+			}
+			if toolCallItem.Result == nil {
+				if result := toolCallItem.ToolCall.GetResult(); result != nil {
+					toolCallItem.Result = result
+				} else {
+					toolCallItem.Result = b.toolCallIDToResult[toolCallItem.ToolCall.GetId()]
+				}
+			}
+			toolCallItem.Executing = executingToolCallID != "" && toolCallItem.ToolCall.GetId() == executingToolCallID
+		}
+		items = append(items, entry.items...)
 	}
 	if streamingMessage != nil {
-		items = appendMessageItems(items, streamingMessage, len(messages), false, toolCallIDToResult, executingToolCallID, requestRenderer)
+		// Still mutating — never cached; finalization lands it in messages.
+		items = appendMessageItems(items, streamingMessage, len(messages), false, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
 	}
 	return items
+}
+
+// BuildChatItems is the uncached one-shot variant — used by read-only
+// previews (menu detail pane). Stateful callers should hold a Builder.
+func BuildChatItems(messages []*sgptpb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
+	return NewBuilder().Build(messages, streamingMessage, executingToolCallID, requestRenderer)
 }
 
 func appendMessageItems(
@@ -399,6 +484,7 @@ func appendMessageItems(
 	toolCallIDToResult map[string]*aipb.ToolResult,
 	executingToolCallID string,
 	requestRenderer RequestRenderer,
+	toolCallIDToLastGoodRequest map[string]string,
 ) []Item {
 	baseSeq := messageIndex * 1000
 	switch message.GetRole() {
@@ -445,12 +531,24 @@ func appendMessageItems(
 					result = toolCallIDToResult[toolCall.GetId()]
 				}
 				items = append(items, &ToolCallItem{
-					id:              fmt.Sprintf("m%d-b%d-tool", messageIndex, blockIndex),
-					seq:             seq,
-					ToolCall:        toolCall,
-					Result:          result,
-					Executing:       executingToolCallID != "" && toolCall.GetId() == executingToolCallID,
-					RequestRenderer: requestRenderer,
+					id:               fmt.Sprintf("m%d-b%d-tool", messageIndex, blockIndex),
+					seq:              seq,
+					ToolCall:         toolCall,
+					Result:           result,
+					Executing:        executingToolCallID != "" && toolCall.GetId() == executingToolCallID,
+					RequestRenderer:  requestRenderer,
+					lastGoodRequests: toolCallIDToLastGoodRequest,
+				})
+			} else if partialToolCall := block.GetPartialToolCall(); partialToolCall != nil {
+				// Same ID as the completed call so collapse/selection state
+				// carries over when the partial upgrades to a full call.
+				items = append(items, &ToolCallItem{
+					id:               fmt.Sprintf("m%d-b%d-tool", messageIndex, blockIndex),
+					seq:              seq,
+					ToolCall:         partialToolCall,
+					Partial:          true,
+					RequestRenderer:  requestRenderer,
+					lastGoodRequests: toolCallIDToLastGoodRequest,
 				})
 			}
 		}

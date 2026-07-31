@@ -347,15 +347,29 @@ func (t *EditFileTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aip
 	}, nil
 }
 
-// RenderRequest renders the review-time healed diff instead of the raw
-// arguments. The diff is persisted on the call's metadata so it survives chat
-// reloads even though the underlying file has since changed.
+// RenderRequest renders the review-time healed diff when available. While the
+// call is still streaming (no review metadata yet), it renders the raw diff
+// argument directly so the edit is readable as it arrives; the healed diff
+// replaces it once review runs on completion.
 func (t *EditFileTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	metadata, err := ParseToolCallMetadata(toolCall)
-	if err != nil || metadata.GetDiff() == "" {
+	if err == nil && metadata.GetDiff() != "" {
+		return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
+	}
+	bytes, err := toolCallArgumentsJSON(toolCall)
+	if err != nil {
 		return "", false
 	}
-	return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
+	arguments := &editFileArguments{}
+	// Partial arguments: tolerate missing fields, only require some diff text.
+	if json.Unmarshal(bytes, arguments) != nil || arguments.Diff == "" {
+		return "", false
+	}
+	header := ""
+	if arguments.Path != "" {
+		header = fmt.Sprintf("--- a/%s\n+++ b/%s\n", arguments.Path, arguments.Path)
+	}
+	return fmt.Sprintf("```diff\n%s%s\n```", header, strings.TrimSuffix(arguments.Diff, "\n")), true
 }
 
 var (

@@ -37,6 +37,8 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 			MaxTokens:       s.params.MaxTokens,
 			Temperature:     s.params.Temperature,
 			ReasoningEffort: s.params.ReasoningEffort,
+			// Stream partial tool calls so the TUI can render them as they build.
+			StreamPartialToolCalls: true,
 		},
 	}
 	debug.LogProto("request", textToTextStreamRequest, "messages", "tools")
@@ -166,6 +168,15 @@ func (s *Session) finalizeStream(blocks []*aipb.Block, err error) {
 	// on the first Recv(), when streamingMessage is still nil. Without this,
 	// the error would only live in the ephemeral streamError and could vanish.
 	if s.streamingMessage != nil || err != nil {
+		// Drop partial tool calls left over from a cancelled/failed stream:
+		// they fail assistant-message validation and can never be resolved.
+		finalBlocks := make([]*aipb.Block, 0, len(blocks))
+		for _, block := range blocks {
+			if block.GetPartialToolCall() == nil {
+				finalBlocks = append(finalBlocks, block)
+			}
+		}
+		blocks = finalBlocks
 		assistantMessage := ai.NewAssistantMessage(blocks...)
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {

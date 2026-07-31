@@ -47,6 +47,7 @@ type ChatScreen struct {
 
 	titlebar *widget.TitleBar
 	timeline *timeline.Model
+	builder  *timeline.Builder
 	input    *widget.Input
 	spinner  spinner.Model
 
@@ -76,6 +77,7 @@ func NewChatScreen(
 		send:             send,
 		titlebar:         widget.NewTitleBar(),
 		timeline:         timeline.New(),
+		builder:          timeline.NewBuilder(),
 		input:            widget.NewInput(),
 		spinner:          sp,
 		injectedFiles:    injectedFiles,
@@ -367,7 +369,7 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 	if len(m.injectedFiles) > 0 {
 		items = append(items, timeline.NewInjectedFilesItem(m.injectedFiles))
 	}
-	items = append(items, timeline.BuildChatItems(
+	items = append(items, m.builder.Build(
 		m.session.Chat().GetMetadata().GetMessages(),
 		m.session.StreamingMessage(),
 		m.session.ExecutingToolCallID(),
