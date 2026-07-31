@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	jsonpb "github.com/malonaz/core/genproto/json/v1"
 
@@ -166,10 +168,221 @@ func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	return fmt.Sprintf("edited `%s`", arguments.Path), true
 }
 
+// RenderRequestRaw renders the healed review-time diff as a GitHub-style
+// side-by-side view. Streaming calls (no metadata yet) and narrow widths
+// return false, falling back to the unified markdown rendering.
+func (t *Tool) RenderRequestRaw(toolCall *aipb.ToolCall, width int) (string, bool) {
+	metadata, err := tool.ParseToolCallMetadata(toolCall)
+	if err != nil || metadata.GetDiff() == "" {
+		return "", false
+	}
+	return RenderSideBySide(metadata.GetDiff(), width)
+}
+
+// GitHub-style split-view palette; backgrounds fill whole cells so changes
+// read as colored bands. Terminals have no alpha, so the base bands are the
+// emphasis colors pre-blended at 25% over a dark panel (#1e1e1e):
+// 0.25×#870000 + 0.75×#1e1e1e = #381717, and likewise #173817 for green —
+// the same hues as the emphasis shades, just "transparent".
 var (
-	_ tool.Tool            = (*Tool)(nil)
-	_ tool.RequestRenderer = (*Tool)(nil)
-	_ tool.HeaderRenderer  = (*Tool)(nil)
+	sideBySideRemovedStyle = lipgloss.NewStyle().Background(lipgloss.Color("#381717")).Foreground(lipgloss.Color("224"))
+	sideBySideAddedStyle   = lipgloss.NewStyle().Background(lipgloss.Color("#173817")).Foreground(lipgloss.Color("194"))
+	// Emphasis shades mark the intra-line changed core, GitHub-style.
+	sideBySideRemovedEmphasisStyle = lipgloss.NewStyle().Background(lipgloss.Color("88")).Foreground(lipgloss.Color("231"))
+	sideBySideAddedEmphasisStyle   = lipgloss.NewStyle().Background(lipgloss.Color("28")).Foreground(lipgloss.Color("231"))
+	sideBySideContextStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
+	sideBySideEmptyStyle           = lipgloss.NewStyle().Background(lipgloss.Color("236"))
+	sideBySideNumberStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	sideBySideSeparatorStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+)
+
+type sideBySideRowKind int
+
+const (
+	sideBySideRowContext sideBySideRowKind = iota
+	sideBySideRowChange
+	sideBySideRowHunkBreak
+)
+
+type sideBySideRow struct {
+	kind                 sideBySideRowKind
+	oldNumber, newNumber int
+	oldText, newText     string
+	hasOld, hasNew       bool
+}
+
+// RenderSideBySide renders a unified diff as a GitHub-style split view:
+// removals left, additions right, change runs aligned. Returns false when
+// the diff has no hunks or the width is too narrow to split usefully, so
+// callers can fall back to unified rendering.
+func RenderSideBySide(diff string, width int) (string, bool) {
+	rows := parseSideBySideRows(strings.TrimSuffix(diff, "\n"))
+	if len(rows) == 0 {
+		return "", false
+	}
+	numberWidth := 3
+	for _, row := range rows {
+		if digits := len(strconv.Itoa(max(row.oldNumber, row.newNumber))); digits > numberWidth {
+			numberWidth = digits
+		}
+	}
+	// Each half: number column + space + content + trailing space; halves
+	// joined by a single separator column.
+	contentWidth := (width-1)/2 - numberWidth - 2
+	if contentWidth < 10 {
+		return "", false
+	}
+	halfWidth := numberWidth + contentWidth + 2
+	separator := sideBySideSeparatorStyle.Render("│")
+
+	var b strings.Builder
+	for i, row := range rows {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		if row.kind == sideBySideRowHunkBreak {
+			b.WriteString(sideBySideSeparatorStyle.Render(strings.Repeat("┈", halfWidth*2+1)))
+			continue
+		}
+		oldStyle, newStyle := sideBySideContextStyle, sideBySideContextStyle
+		oldEmphasisStyle, newEmphasisStyle := oldStyle, newStyle
+		// Expand tabs before computing emphasis so rune indexes line up with
+		// what the cell renderer truncates and pads.
+		oldText := strings.ReplaceAll(row.oldText, "\t", "    ")
+		newText := strings.ReplaceAll(row.newText, "\t", "    ")
+		var oldFrom, oldTo, newFrom, newTo int
+		if row.kind == sideBySideRowChange {
+			oldStyle, newStyle = sideBySideRemovedStyle, sideBySideAddedStyle
+			oldEmphasisStyle, newEmphasisStyle = sideBySideRemovedEmphasisStyle, sideBySideAddedEmphasisStyle
+			// Intra-line emphasis only makes sense on modified pairs; pure
+			// adds/removes stay a uniform band, as on GitHub.
+			if row.hasOld && row.hasNew {
+				oldFrom, oldTo, newFrom, newTo = intralineRanges(oldText, newText)
+			}
+		}
+		b.WriteString(renderSideBySideCell(row.hasOld, row.oldNumber, oldText, numberWidth, contentWidth, oldStyle, oldEmphasisStyle, oldFrom, oldTo))
+		b.WriteString(separator)
+		b.WriteString(renderSideBySideCell(row.hasNew, row.newNumber, newText, numberWidth, contentWidth, newStyle, newEmphasisStyle, newFrom, newTo))
+	}
+	return b.String(), true
+}
+
+// intralineRanges locates the differing core of a modified line pair by
+// trimming the runes common to both ends. Cheap, and matches GitHub's
+// within-line highlighting for the typical single-span edit; multi-span
+// edits emphasize one slightly-too-wide region instead of several.
+func intralineRanges(oldText, newText string) (oldFrom, oldTo, newFrom, newTo int) {
+	oldRunes, newRunes := []rune(oldText), []rune(newText)
+	prefix := 0
+	for prefix < len(oldRunes) && prefix < len(newRunes) && oldRunes[prefix] == newRunes[prefix] {
+		prefix++
+	}
+	suffix := 0
+	for suffix < len(oldRunes)-prefix && suffix < len(newRunes)-prefix &&
+		oldRunes[len(oldRunes)-1-suffix] == newRunes[len(newRunes)-1-suffix] {
+		suffix++
+	}
+	return prefix, len(oldRunes) - suffix, prefix, len(newRunes) - suffix
+}
+
+func renderSideBySideCell(present bool, number int, text string, numberWidth, contentWidth int, style, emphasisStyle lipgloss.Style, emphasisFrom, emphasisTo int) string {
+	if !present {
+		// Filler: no counterpart line on this side (pure add/remove).
+		return sideBySideEmptyStyle.Render(strings.Repeat(" ", numberWidth+contentWidth+2))
+	}
+	numberText := strings.Repeat(" ", numberWidth)
+	if number > 0 {
+		numberText = fmt.Sprintf("%*d", numberWidth, number)
+	}
+	runes := []rune(text)
+	if len(runes) > contentWidth {
+		runes = append(runes[:contentWidth-1], '…')
+	}
+	// Clamp emphasis to the visible (possibly truncated) runes; padding is
+	// never emphasized.
+	emphasisFrom = min(max(emphasisFrom, 0), len(runes))
+	emphasisTo = min(max(emphasisTo, emphasisFrom), len(runes))
+	padding := strings.Repeat(" ", contentWidth-len(runes))
+	if emphasisFrom == emphasisTo {
+		return sideBySideNumberStyle.Render(numberText) + style.Render(" "+string(runes)+padding+" ")
+	}
+	return sideBySideNumberStyle.Render(numberText) +
+		style.Render(" "+string(runes[:emphasisFrom])) +
+		emphasisStyle.Render(string(runes[emphasisFrom:emphasisTo])) +
+		style.Render(string(runes[emphasisTo:])+padding+" ")
+}
+
+// parseSideBySideRows pairs each hunk's removed/added runs index-wise so
+// changed lines sit opposite each other. Hunk header numbers are trusted:
+// callers render the healed diff produced by ApplyPatches, whose headers are
+// computed, not model-written.
+func parseSideBySideRows(diff string) []sideBySideRow {
+	var rows []sideBySideRow
+	var removed, added []string
+	oldLine, newLine := 0, 0
+	flush := func() {
+		for i := 0; i < len(removed) || i < len(added); i++ {
+			row := sideBySideRow{kind: sideBySideRowChange}
+			if i < len(removed) {
+				row.oldText, row.oldNumber, row.hasOld = removed[i], oldLine, true
+				oldLine++
+			}
+			if i < len(added) {
+				row.newText, row.newNumber, row.hasNew = added[i], newLine, true
+				newLine++
+			}
+			rows = append(rows, row)
+		}
+		removed, added = nil, nil
+	}
+	inHunk := false
+	for _, line := range strings.Split(diff, "\n") {
+		switch {
+		case strings.HasPrefix(line, "@@"):
+			flush()
+			if inHunk {
+				rows = append(rows, sideBySideRow{kind: sideBySideRowHunkBreak})
+			}
+			inHunk = true
+			oldLine, newLine = parseHunkHeader(line)
+		case !inHunk:
+			// File headers, prose — not rendered.
+		case strings.HasPrefix(line, `\`):
+			// "\ No newline at end of file".
+		case strings.HasPrefix(line, "-"):
+			removed = append(removed, line[1:])
+		case strings.HasPrefix(line, "+"):
+			added = append(added, line[1:])
+		default:
+			flush()
+			text := strings.TrimPrefix(line, " ")
+			rows = append(rows, sideBySideRow{
+				kind:    sideBySideRowContext,
+				oldText: text, newText: text,
+				oldNumber: oldLine, newNumber: newLine,
+				hasOld: true, hasNew: true,
+			})
+			oldLine++
+			newLine++
+		}
+	}
+	flush()
+	return rows
+}
+
+func parseHunkHeader(line string) (int, int) {
+	var oldStart, oldCount, newStart, newCount int
+	if _, err := fmt.Sscanf(line, "@@ -%d,%d +%d,%d @@", &oldStart, &oldCount, &newStart, &newCount); err != nil {
+		return 0, 0 // unknown — cells render without numbers
+	}
+	return oldStart, newStart
+}
+
+var (
+	_ tool.Tool               = (*Tool)(nil)
+	_ tool.RequestRenderer    = (*Tool)(nil)
+	_ tool.HeaderRenderer     = (*Tool)(nil)
+	_ tool.RawRequestRenderer = (*Tool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(Definition) }

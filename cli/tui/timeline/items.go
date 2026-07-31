@@ -172,6 +172,12 @@ type HeaderRenderer interface {
 	RenderHeader(toolCall *aipb.ToolCall) (string, bool)
 }
 
+// RawRequestRenderer lets a tool bypass markdown and render its request
+// directly with width awareness (e.g. the diff tool's side-by-side view).
+type RawRequestRenderer interface {
+	RenderRequestRaw(toolCall *aipb.ToolCall, width int) (string, bool)
+}
+
 // ---- ToolCallItem: request/response pair rendered adjacently ----
 
 type ToolCallItem struct {
@@ -198,7 +204,11 @@ func (i *ToolCallItem) CacheKey() string {
 	if i.Partial {
 		return ""
 	}
-	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall))
+	// Review metadata (healed diff, display message) lands on the call's
+	// annotations after the first render; without it in the key, the cached
+	// pre-review render (raw JSON) would be served forever.
+	metadata := i.ToolCall.GetAnnotations()[tool.ToolCallMetadataAnnotationKey]
+	return fmt.Sprintf("%s|r%t|e%t|s%v|m%d", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall), len(metadata))
 }
 
 // Resolved calls fold to a one-line summary; pending/executing stay expanded.
@@ -267,6 +277,12 @@ func (i *ToolCallItem) headerContent(ctx RenderContext) string {
 }
 
 func (i *ToolCallItem) request(ctx RenderContext) string {
+	// Width-aware raw rendering (side-by-side diffs) takes precedence.
+	if renderer, ok := i.RequestRenderer.(RawRequestRenderer); ok {
+		if rendered, ok := renderer.RenderRequestRaw(i.ToolCall, ctx.Width-styles.MessageHorizontalFrameSize()); ok {
+			return rendered
+		}
+	}
 	// Tools may dictate their own presentation (e.g. the diff tool's diff).
 	if i.RequestRenderer != nil {
 		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {

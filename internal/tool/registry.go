@@ -167,3 +167,27 @@ func (r *Registry) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	}
 	return renderer.RenderHeader(toolCall)
 }
+
+// RawRequestRenderer is implemented by tools that bypass markdown and render
+// their request directly with width awareness (e.g. the diff tool's
+// side-by-side view).
+type RawRequestRenderer interface {
+	Tool
+	// RenderRequestRaw returns pre-styled request output; returning false
+	// falls back to RenderRequest / raw-JSON rendering.
+	RenderRequestRaw(toolCall *aipb.ToolCall, width int) (string, bool)
+}
+
+// RenderRequestRaw returns tool-provided width-aware request output for a
+// call, if its tool implements RawRequestRenderer.
+func (r *Registry) RenderRequestRaw(toolCall *aipb.ToolCall, width int) (string, bool) {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return "", false
+	}
+	renderer, ok := tool.(RawRequestRenderer)
+	if !ok {
+		return "", false
+	}
+	return renderer.RenderRequestRaw(toolCall, width)
+}
