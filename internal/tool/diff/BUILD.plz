@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//internal/tool",
         "//sgpt/v1",
+        "//third_party/go:charm.land__lipgloss__v2",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__json__v1",
     ],

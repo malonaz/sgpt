@@ -172,6 +172,12 @@ type HeaderRenderer interface {
 	RenderHeader(toolCall *aipb.ToolCall) (string, bool)
 }
 
+// RawRequestRenderer lets a tool bypass markdown and render its request
+// directly with width awareness (e.g. the diff tool's side-by-side view).
+type RawRequestRenderer interface {
+	RenderRequestRaw(toolCall *aipb.ToolCall, width int) (string, bool)
+}
+
 // ---- ToolCallItem: request/response pair rendered adjacently ----
 
 type ToolCallItem struct {
@@ -267,6 +273,12 @@ func (i *ToolCallItem) headerContent(ctx RenderContext) string {
 }
 
 func (i *ToolCallItem) request(ctx RenderContext) string {
+	// Width-aware raw rendering (side-by-side diffs) takes precedence.
+	if renderer, ok := i.RequestRenderer.(RawRequestRenderer); ok {
+		if rendered, ok := renderer.RenderRequestRaw(i.ToolCall, ctx.Width-styles.MessageHorizontalFrameSize()); ok {
+			return rendered
+		}
+	}
 	// Tools may dictate their own presentation (e.g. the diff tool's diff).
 	if i.RequestRenderer != nil {
 		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {
