@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
@@ -33,7 +34,10 @@ type Tool interface {
 
 // Registry dispatches tool calls to registered tools and owns the tool
 // definitions advertised to the model.
+// Guarded by a mutex: tools/tool sets are registered from background
+// goroutines (e.g. MCP discovery) while the TUI reads them on every render.
 type Registry struct {
+	mutex           sync.RWMutex
 	handlerIDToTool map[string]Tool
 	tools           []*aipb.Tool
 	toolSets        []*aipb.ToolSet
@@ -46,38 +50,57 @@ func NewRegistry() *Registry {
 
 // Register binds a handler ID to a tool implementation.
 func (r *Registry) Register(handlerID string, tool Tool) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	r.handlerIDToTool[handlerID] = tool
 }
 
 // AddTools advertises tool definitions to the model.
 func (r *Registry) AddTools(tools ...*aipb.Tool) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	r.tools = append(r.tools, tools...)
 }
 
 // AddToolSets advertises tool sets to the model.
 func (r *Registry) AddToolSets(toolSets ...*aipb.ToolSet) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	r.toolSets = append(r.toolSets, toolSets...)
 }
 
 // Tools returns the advertised tool definitions.
 func (r *Registry) Tools() []*aipb.Tool {
-	return r.tools
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	// Copy: callers must not observe later appends re-slicing under them.
+	tools := make([]*aipb.Tool, len(r.tools))
+	copy(tools, r.tools)
+	return tools
 }
 
 // ToolSets returns the advertised tool sets.
 func (r *Registry) ToolSets() []*aipb.ToolSet {
-	return r.toolSets
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	toolSets := make([]*aipb.ToolSet, len(r.toolSets))
+	copy(toolSets, r.toolSets)
+	return toolSets
 }
 
 // Handles reports whether a tool is registered for the given call.
 func (r *Registry) Handles(toolCall *aipb.ToolCall) bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 	_, ok := r.handlerIDToTool[toolCall.GetAnnotations()[ToolHandlerIDAnnotation]]
 	return ok
 }
 
 func (r *Registry) lookup(toolCall *aipb.ToolCall) (Tool, error) {
+	r.mutex.RLock()
 	handlerID := toolCall.GetAnnotations()[ToolHandlerIDAnnotation]
 	tool, ok := r.handlerIDToTool[handlerID]
+	r.mutex.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("no tool registered for %q (handler_id=%q)", toolCall.GetName(), handlerID)
 	}
