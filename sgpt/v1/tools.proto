@@ -142,6 +142,9 @@ message AgentRequest {
   // Task for the sub-agent, including all required context.
   string query = 1 [(google.api.field_behavior) = REQUIRED];
 
+  // Short human-readable title for the sub-agent's chat (a few words).
+  string title = 5 [(google.api.field_behavior) = REQUIRED];
+
   // File paths to inject into the sub-agent's context.
   repeated string files = 2;
 

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package sgpt.v1;
+
+import "malonaz/codegen/aip/v1/label.proto";
+
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+option (malonaz.codegen.aip.v1.label) = {
+  key: "sgpt.com/favorite"
+  description: "Marks a chat as a favorite."
+};
+option (malonaz.codegen.aip.v1.label) = {
+  key: "sgpt.com/parent-chat"
+  description: "ID segment of the chat that launched this sub-agent chat."
+};

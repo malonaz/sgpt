@@ -217,10 +217,16 @@ github_proto_library(
     name = "malonaz__core__genproto__codegen__aip__v1",
     additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/codegen/aip/v1"},
     dir = "malonaz/codegen/aip/v1",
-    files = ["aip.proto"],
+    files = [
+        "aip.proto",
+        "label.proto",
+    ],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
-    deps = [":validate"],
+    deps = [
+        ":malonaz__core__genproto__aip__v1",
+        ":validate",
+    ],
 )
 
 github_proto_library(
@@ -239,4 +245,21 @@ github_proto_library(
     files = ["timeofday.proto"],
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
+)
+
+github_proto_library(
+    name = "malonaz__core__genproto__aip__v1",
+    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/aip/v1"},
+    dir = "malonaz/aip/v1",
+    files = [
+        "aip.proto",
+        "extensions.proto",
+        "label.proto",
+    ],
+    repo = "malonaz/core",
+    revision = CONFIG.CORE_REVISION,
+    deps = [
+        ":google__api__annotations",
+        ":validate",
+    ],
 )

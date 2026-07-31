@@ -59,13 +59,18 @@ func NewCmd(
 				}
 			}
 
-			// Best-effort search wiring: the menu falls back to substring
-			// filtering whenever the index is unavailable.
-			if searchPath, err := search.DefaultPath(); err == nil {
-				if searchIndex, err := search.Open(searchPath); err == nil {
-					chatStore.SetSearchIndex(searchIndex)
-					// Incrementally backfill chats modified since last run.
-					go chatStore.SyncSearchIndex(ctx)
+			// Search is disabled for now: bleve's bolt file lock is exclusive,
+			// so a second sgpt window would hang forever on startup waiting
+			// for it. Flip to true once multi-process access is solved.
+			if false {
+				// Best-effort search wiring: the menu falls back to substring
+				// filtering whenever the index is unavailable.
+				if searchPath, err := search.DefaultPath(); err == nil {
+					if searchIndex, err := search.Open(searchPath); err == nil {
+						chatStore.SetSearchIndex(searchIndex)
+						// Incrementally backfill chats modified since last run.
+						go chatStore.SyncSearchIndex(ctx)
+					}
 				}
 			}
 
@@ -235,6 +240,8 @@ func NewCmd(
 					subMessages = append(subMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", parsedFile.Path, parsedFile.Content))))
 				}
 				subChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+				// Agent-provided title: skips auto-generation and labels the tab.
+				subChat.Title = request.Title
 				store.SetTags(subChat, []string{"agent"})
 				store.SetFiles(subChat, subFilePaths)
 				store.SetCurrentModel(subChat, model.Name)

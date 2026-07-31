@@ -698,6 +698,7 @@ func (b0 ExecShellResponse_builder) Build() *ExecShellResponse {
 type AgentRequest struct {
 	state            protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Query string                 `protobuf:"bytes,1,opt,name=query,proto3"`
+	xxx_hidden_Title string                 `protobuf:"bytes,5,opt,name=title,proto3"`
 	xxx_hidden_Files []string               `protobuf:"bytes,2,rep,name=files,proto3"`
 	xxx_hidden_Tools []string               `protobuf:"bytes,3,rep,name=tools,proto3"`
 	xxx_hidden_Model string                 `protobuf:"bytes,4,opt,name=model,proto3"`
@@ -737,6 +738,13 @@ func (x *AgentRequest) GetQuery() string {
 	return ""
 }
 
+func (x *AgentRequest) GetTitle() string {
+	if x != nil {
+		return x.xxx_hidden_Title
+	}
+	return ""
+}
+
 func (x *AgentRequest) GetFiles() []string {
 	if x != nil {
 		return x.xxx_hidden_Files
@@ -762,6 +770,10 @@ func (x *AgentRequest) SetQuery(v string) {
 	x.xxx_hidden_Query = v
 }
 
+func (x *AgentRequest) SetTitle(v string) {
+	x.xxx_hidden_Title = v
+}
+
 func (x *AgentRequest) SetFiles(v []string) {
 	x.xxx_hidden_Files = v
 }
@@ -779,6 +791,8 @@ type AgentRequest_builder struct {
 
 	// Task for the sub-agent, including all required context.
 	Query string
+	// Short human-readable title for the sub-agent's chat (a few words).
+	Title string
 	// File paths to inject into the sub-agent's context.
 	Files []string
 	// Tools to grant the sub-agent (built-in tools or configured tool engines).
@@ -792,6 +806,7 @@ func (b0 AgentRequest_builder) Build() *AgentRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Query = b.Query
+	x.xxx_hidden_Title = b.Title
 	x.xxx_hidden_Files = b.Files
 	x.xxx_hidden_Tools = b.Tools
 	x.xxx_hidden_Model = b.Model
@@ -982,9 +997,10 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x11ExecShellResponse\x12\x16\n" +
 	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"k\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\x86\x01\n" +
 	"\fAgentRequest\x12\x19\n" +
-	"\x05query\x18\x01 \x01(\tB\x03\xe0A\x02R\x05query\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tB\x03\xe0A\x02R\x05query\x12\x19\n" +
+	"\x05title\x18\x05 \x01(\tB\x03\xe0A\x02R\x05title\x12\x14\n" +
 	"\x05files\x18\x02 \x03(\tR\x05files\x12\x14\n" +
 	"\x05tools\x18\x03 \x03(\tR\x05tools\x12\x14\n" +
 	"\x05model\x18\x04 \x01(\tR\x05model\"+\n" +

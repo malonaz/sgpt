@@ -55,6 +55,8 @@ type Session struct {
 	state             State
 	executingToolCall string
 	cancelStream      context.CancelFunc
+	// titleGenerating guards against launching concurrent title generations.
+	titleGenerating bool
 
 	// autoAcceptedToolNameSet holds tools the user marked "always accept";
 	// their calls skip manual review for the rest of the session.
@@ -307,6 +309,7 @@ func (s *Session) runTurn() {
 			if err := s.saveChat(); err != nil {
 				s.emitError(fmt.Errorf("saving chat: %w", err))
 			}
+			s.maybeGenerateTitle()
 			s.refresh()
 			s.notifyTurnComplete(s.lastAssistantText(), nil)
 			return
@@ -391,6 +394,66 @@ func (s *Session) saveChat() error {
 	}
 	s.chat = chat
 	return nil
+}
+
+// maybeGenerateTitle asynchronously titles a freshly persisted, untitled
+// chat. Only the user's own words are sent to the (cheap) summary model;
+// generation is skipped entirely when no summary model is configured.
+func (s *Session) maybeGenerateTitle() {
+	s.mu.Lock()
+	if s.titleGenerating || s.chat.GetName() == "" || s.chat.GetTitle() != "" {
+		s.mu.Unlock()
+		return
+	}
+	var parts []string
+	for _, message := range s.chat.GetMetadata().GetMessages() {
+		if message.GetRole() != aipb.Role_ROLE_USER {
+			continue
+		}
+		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
+			parts = append(parts, block.GetText())
+		}
+	}
+	userText := strings.TrimSpace(strings.Join(parts, "\n"))
+	if userText == "" {
+		s.mu.Unlock()
+		return
+	}
+	s.titleGenerating = true
+	chatName := s.chat.GetName()
+	s.mu.Unlock()
+
+	go func() {
+		// Cap the excerpt: the summary model only needs the gist.
+		const maxTitleInputLength = 2000
+		if len(userText) > maxTitleInputLength {
+			userText = userText[:maxTitleInputLength]
+		}
+		title, err := s.store.GenerateTitle(s.ctx, userText)
+
+		s.mu.Lock()
+		s.titleGenerating = false
+		discard := err != nil || title == "" || s.chat.GetTitle() != ""
+		if !discard {
+			// Set locally so subsequent full saves (which mask "title")
+			// don't clear it.
+			s.chat.Title = title
+		}
+		s.mu.Unlock()
+		if err != nil {
+			s.emitError(fmt.Errorf("generating title: %w", err))
+		}
+		if discard {
+			return
+		}
+		// Persist only the title: a full save here could clobber in-flight
+		// local edits from a turn running concurrently.
+		if _, err := s.store.SetTitle(s.ctx, chatName, title); err != nil {
+			s.emitError(fmt.Errorf("saving title: %w", err))
+			return
+		}
+		s.refresh()
+	}()
 }
 
 // ToggleFavorite flips the favorite tag on the chat and persists.

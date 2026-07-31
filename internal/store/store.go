@@ -20,13 +20,13 @@ import (
 	"github.com/malonaz/sgpt/internal/search"
 )
 
-const (
-	// FavoriteLabel marks a chat as a favorite. Labels (unlike annotations)
-	// are server-filterable.
-	FavoriteLabel = "favorite"
-	// FavoriteFilter is the server-side filter matching favorite chats.
-	FavoriteFilter = `labels.favorite = "true"`
+// FavoriteFilter is the server-side filter matching favorite chats.
+// Label keys are codegen'd from sgpt/v1/labels.proto.
+// AIP-160 requires map keys containing special characters (dots, slashes) to
+// be quoted as string literals: labels."sgpt.com/favorite" = "true".
+var FavoriteFilter = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.Favorite.GetKey(), aip.LabelValueTrue)
 
+const (
 	// TagsAnnotation stores chat tags, comma-separated. Tags such as GitHub
 	// repos ("owner/repo") don't fit the label value pattern, hence annotations.
 	TagsAnnotation = "sgpt.com/tags"
@@ -157,6 +157,12 @@ func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string
 	return updatedChat, nil
 }
 
+// SetTitle persists a chat's title without touching any other field — safe
+// to call while a session is mid-turn on the same chat.
+func (s *Store) SetTitle(ctx context.Context, name, title string) (*aipb.Chat, error) {
+	return s.UpdateChat(ctx, &aipb.Chat{Name: name, Title: title}, "title")
+}
+
 // GetChat fetches a chat by resource name.
 func (s *Store) GetChat(ctx context.Context, name string) (*aipb.Chat, error) {
 	getChatRequest := &aiservicepb.GetChatRequest{Name: name}
@@ -231,19 +237,33 @@ func (s *Store) SetFavorite(ctx context.Context, chat *aipb.Chat, favorite bool)
 
 // IsFavorite reports whether a chat is marked as a favorite.
 func IsFavorite(chat *aipb.Chat) bool {
-	return chat.GetLabels()[FavoriteLabel] == "true"
+	value, _ := aip.GetLabel(chat, sgptpb.Labels.Favorite.GetKey())
+	return value == aip.LabelValueTrue
 }
 
 // SetFavoriteLabel sets or clears the favorite label on a chat in place.
 func SetFavoriteLabel(chat *aipb.Chat, favorite bool) {
 	if !favorite {
-		delete(chat.GetLabels(), FavoriteLabel)
+		aip.DeleteLabel(chat, sgptpb.Labels.Favorite.GetKey())
 		return
 	}
-	if chat.Labels == nil {
-		chat.Labels = map[string]string{}
+	aip.SetLabel(chat, sgptpb.Labels.Favorite.GetKey(), aip.LabelValueTrue)
+}
+
+// ParentChatID returns the ID of the chat that launched this sub-agent chat.
+func ParentChatID(chat *aipb.Chat) string {
+	value, _ := aip.GetLabel(chat, sgptpb.Labels.ParentChat.GetKey())
+	return value
+}
+
+// SetParentChatID labels a chat with the ID segment of the chat that
+// launched it. No-op when the parent is unnamed (not yet persisted).
+func SetParentChatID(chat *aipb.Chat, parentChatName string) {
+	chatRn := &aipb.ChatResourceName{}
+	if err := chatRn.UnmarshalString(parentChatName); err != nil {
+		return
 	}
-	chat.Labels[FavoriteLabel] = "true"
+	aip.SetLabel(chat, sgptpb.Labels.ParentChat.GetKey(), chatRn.Chat)
 }
 
 // Tags returns a chat's tags.

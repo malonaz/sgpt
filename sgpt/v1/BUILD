@@ -2,6 +2,7 @@ filegroup(
     name = "proto",
     srcs = [
         "configuration.proto",
+        "labels.proto",
         "tool.proto",
         "tools.proto",
     ],
@@ -19,6 +20,7 @@ proto_descriptor_set(
         ":v1",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
         "//third_party/proto:validate",
     ],
 )
@@ -27,11 +29,13 @@ proto_library(
     name = "v1",
     srcs = [
         "configuration.proto",
+        "labels.proto",
         "tool.proto",
         "tools.proto",
     ],
     additional_context = {
         GENERATE_GO_AIP: True,
+        GENERATE_GO_AIP_LABEL: True,
         GO_IMPORT_PATH: "github.com/malonaz/sgpt/genproto/sgpt/v1",
     },
     labels = ["copy_generated_code::genproto"],
@@ -39,6 +43,7 @@ proto_library(
     deps = [
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
         "//third_party/proto:validate",
     ],
 )

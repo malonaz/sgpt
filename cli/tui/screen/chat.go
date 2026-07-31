@@ -99,6 +99,10 @@ func (m *ChatScreen) Init() tea.Cmd {
 }
 
 func (m *ChatScreen) Title() string {
+	// Prefer the human-readable title (agent-provided or auto-generated).
+	if title := m.session.Chat().GetTitle(); title != "" {
+		return title
+	}
 	name := m.session.Chat().GetName()
 	if name == "" {
 		return "New Chat"

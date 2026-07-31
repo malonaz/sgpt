@@ -19,6 +19,7 @@ var Definition = tool.MustBuildTool("agent", tool.HandlerIDAgent, "sgpt.v1.ToolS
 // LaunchRequest carries everything a CLI-launched chat can get.
 type LaunchRequest struct {
 	Query string
+	Title string
 	Files []string
 	Tools []string
 	Model string
@@ -96,6 +97,7 @@ func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.Tool
 	}
 	launchRequest := &LaunchRequest{
 		Query: agentRequest.GetQuery(),
+		Title: agentRequest.GetTitle(),
 		Files: agentRequest.GetFiles(),
 		Tools: agentRequest.GetTools(),
 		Model: agentRequest.GetModel(),
@@ -123,8 +125,14 @@ func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	return agentRequest.GetQuery(), true
 }
 
-func (t *Tool) RenderHeader(*aipb.ToolCall) (string, bool) {
-	return "🤖 sub-agent", true
+func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+	// Tolerates partial arguments: falls back to the bare label until the
+	// title streams in.
+	agentRequest := &sgptpb.AgentRequest{}
+	if tool.UnmarshalArguments(toolCall, agentRequest) != nil || agentRequest.GetTitle() == "" {
+		return "🤖 sub-agent", true
+	}
+	return "🤖 sub-agent: " + agentRequest.GetTitle(), true
 }
 
 var (
