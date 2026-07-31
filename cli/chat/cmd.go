@@ -22,6 +22,7 @@ import (
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
+	"github.com/malonaz/sgpt/internal/tool/agent"
 	"github.com/malonaz/sgpt/internal/tool/diff"
 	toolio "github.com/malonaz/sgpt/internal/tool/io"
 	"github.com/malonaz/sgpt/internal/tool/rpc"
@@ -93,59 +94,68 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
-			registry := tool.NewRegistry()
-			registry.Register(tool.HandlerIDShell, &shell.Tool{})
-			registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
-			registry.Register(tool.HandlerIDDiff, &diff.Tool{})
-			registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
+			agentTool := &agent.Tool{}
 
-			toolNames := append(opts.Tools, parsedRole.GetTools()...)
-			// Partition: built-in tools are advertised directly; everything
-			// else must be a configured tool engine.
-			internalToolNameSet := map[string]struct{}{}
-			toolEngineNameSet := map[string]struct{}{}
-			for _, name := range toolNames {
-				if _, ok := tool.Builtin(name); ok {
-					internalToolNameSet[name] = struct{}{}
-					continue
-				}
-				toolEngineNameSet[name] = struct{}{}
-			}
-			for name := range internalToolNameSet {
-				internalTool, _ := tool.Builtin(name)
-				registry.AddTools(internalTool)
-			}
+			// buildRegistry is shared by the root chat and every sub-agent
+			// launch, so sub-agents get the full tool surface.
+			buildRegistry := func(ctx context.Context, toolNames []string) (*tool.Registry, []*sgptpb.ToolEngineConfiguration, error) {
+				registry := tool.NewRegistry()
+				registry.Register(tool.HandlerIDShell, &shell.Tool{})
+				registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
+				registry.Register(tool.HandlerIDDiff, &diff.Tool{})
+				registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
+				// Same instance everywhere: sub-agents can spawn sub-agents.
+				registry.Register(tool.HandlerIDAgent, agentTool)
 
-			var toolEngineConfigurations []*sgptpb.ToolEngineConfiguration
-			if len(toolEngineNameSet) > 0 {
+				// Partition: built-in tools are advertised directly; everything
+				// else must be a configured tool engine.
+				internalToolNameSet := map[string]struct{}{}
 				toolEngineNameSet := map[string]struct{}{}
 				for _, name := range toolNames {
+					if _, ok := tool.Builtin(name); ok {
+						internalToolNameSet[name] = struct{}{}
+						continue
+					}
 					toolEngineNameSet[name] = struct{}{}
 				}
-				configuredToolEngineNameSet := map[string]struct{}{}
-				for _, toolEngineConfiguration := range config.ToolEngines {
-					configuredToolEngineNameSet[toolEngineConfiguration.GetName()] = struct{}{}
-				}
-				for name := range toolEngineNameSet {
-					if _, ok := configuredToolEngineNameSet[name]; !ok {
-						return fmt.Errorf("unknown tool engine %q", name)
-					}
+				for name := range internalToolNameSet {
+					internalTool, _ := tool.Builtin(name)
+					registry.AddTools(internalTool)
 				}
 
-				filteredConfiguration := *config
-				for _, toolEngineConfiguration := range config.ToolEngines {
-					if _, ok := toolEngineNameSet[toolEngineConfiguration.GetName()]; ok {
-						toolEngineConfigurations = append(toolEngineConfigurations, toolEngineConfiguration)
+				var toolEngineConfigurations []*sgptpb.ToolEngineConfiguration
+				if len(toolEngineNameSet) > 0 {
+					configuredToolEngineNameSet := map[string]struct{}{}
+					for _, toolEngineConfiguration := range config.ToolEngines {
+						configuredToolEngineNameSet[toolEngineConfiguration.GetName()] = struct{}{}
 					}
+					for name := range toolEngineNameSet {
+						if _, ok := configuredToolEngineNameSet[name]; !ok {
+							return nil, nil, fmt.Errorf("unknown tool engine %q", name)
+						}
+					}
+
+					filteredConfiguration := *config
+					for _, toolEngineConfiguration := range config.ToolEngines {
+						if _, ok := toolEngineNameSet[toolEngineConfiguration.GetName()]; ok {
+							toolEngineConfigurations = append(toolEngineConfigurations, toolEngineConfiguration)
+						}
+					}
+					filteredConfiguration.ToolEngines = toolEngineConfigurations
+					toolEngineManager, err := rpc.Initialize(ctx, &filteredConfiguration, baseURLToGRPCConnection)
+					if err != nil {
+						return nil, nil, fmt.Errorf("initializing tool engines: %w", err)
+					}
+					registry.Register(tool.HandlerIDEngine, toolEngineManager)
+					registry.AddToolSets(toolEngineManager.GetToolSets()...)
 				}
-				filteredConfiguration.ToolEngines = toolEngineConfigurations
-				toolEngineManager, err := rpc.Initialize(ctx, &filteredConfiguration, baseURLToGRPCConnection)
-				if err != nil {
-					return fmt.Errorf("initializing tool engines: %w", err)
-				}
-				defer toolEngineManager.Close()
-				registry.Register(tool.HandlerIDEngine, toolEngineManager)
-				registry.AddToolSets(toolEngineManager.GetToolSets()...)
+				return registry, toolEngineConfigurations, nil
+			}
+
+			toolNames := append(opts.Tools, parsedRole.GetTools()...)
+			registry, toolEngineConfigurations, err := buildRegistry(ctx, toolNames)
+			if err != nil {
+				return err
 			}
 
 			var chat *sgptpb.Chat
@@ -188,6 +198,55 @@ func NewCmd(
 			}
 
 			app := tui.NewApp(ctx, chatStore, registry, chat, params)
+			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, []string, error) {
+				model := selectedModel
+				if request.Model != "" {
+					var err error
+					model, err = chatStore.ResolveModel(ctx, request.Model)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+				subRegistry, subToolEngineConfigurations, err := buildRegistry(ctx, request.Tools)
+				if err != nil {
+					return nil, nil, err
+				}
+				subFiles, err := file.Parse(&file.InjectionOpts{Files: request.Files})
+				if err != nil {
+					return nil, nil, err
+				}
+				subFilePaths := make([]string, len(subFiles))
+				for i, parsedFile := range subFiles {
+					subFilePaths[i] = parsedFile.Path
+				}
+				// Mirror the CLI-launched chat context assembly exactly.
+				subMessages := make([]*aipb.Message, 0, len(subFiles)+len(subToolEngineConfigurations)+1)
+				subMessages = append(subMessages, ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt)))
+				for _, toolEngineConfiguration := range subToolEngineConfigurations {
+					subMessages = append(subMessages, ai.NewUserMessage(ai.NewTextBlock(toolEngineConfiguration.Instructions)))
+				}
+				for _, parsedFile := range subFiles {
+					subMessages = append(subMessages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", parsedFile.Path, parsedFile.Content))))
+				}
+				subChat := &sgptpb.Chat{
+					Files: subFilePaths,
+					Tags:  []string{"agent"},
+					Metadata: &sgptpb.ChatMetadata{
+						CurrentModel: model.Name,
+					},
+				}
+				subParams := session.Params{
+					Model:              model,
+					Role:               parsedRole,
+					MaxTokens:          opts.MaxTokens,
+					Temperature:        opts.Temperature,
+					Tools:              request.Tools,
+					AdditionalMessages: subMessages,
+					InjectedFiles:      subFilePaths,
+				}
+				return session.New(ctx, chatStore, subRegistry, subChat, subParams), subFilePaths, nil
+			})
+			agentTool.SetLauncher(app)
 			program := tea.NewProgram(app, tea.WithContext(ctx))
 			app.SetProgram(program)
 			if _, err := program.Run(); err != nil {
