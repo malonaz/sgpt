@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -20,6 +21,7 @@ import (
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
+	"github.com/malonaz/sgpt/internal/tool/agent"
 )
 
 const alertDuration = 2 * time.Second
@@ -30,6 +32,16 @@ type alertDismissMsg struct{}
 type openTabMsg struct {
 	id     string
 	screen screen.Screen
+}
+
+// AgentSessionFactory builds a ready-to-run session for a sub-agent launch
+// (registry, injected files, system prompt). Lives in cli/chat, which owns
+// tool/file/role resolution.
+type AgentSessionFactory func(ctx context.Context, request *agent.LaunchRequest) (chatSession *session.Session, injectedFiles []string, err error)
+
+type agentResult struct {
+	text string
+	err  error
 }
 
 type tab struct {
@@ -66,6 +78,9 @@ type App struct {
 	registry *tool.Registry
 
 	defaultParams session.Params
+
+	agentSessionFactory AgentSessionFactory
+	agentTabCounter     atomic.Int64
 
 	tabs      []*tab
 	activeTab int
@@ -114,6 +129,51 @@ func NewApp(
 func (a *App) SetProgram(p *tea.Program) {
 	a.program = p
 }
+
+func (a *App) SetAgentSessionFactory(factory AgentSessionFactory) {
+	a.agentSessionFactory = factory
+}
+
+// LaunchAgent implements agent.Launcher. Called from a session's tool-execute
+// goroutine — never the bubbletea loop — so the tab is opened via program.Send.
+func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (string, error) {
+	if a.agentSessionFactory == nil {
+		return "", fmt.Errorf("sub-agent launching is not configured")
+	}
+	chatSession, injectedFiles, err := a.agentSessionFactory(ctx, request)
+	if err != nil {
+		return "", err
+	}
+
+	resultCh := make(chan agentResult, 1)
+	chatSession.SetOnTurnComplete(func(text string, err error) {
+		// Only the first terminal turn is the sub-agent's answer; the user may
+		// keep chatting in the tab afterwards — those completions are dropped.
+		select {
+		case resultCh <- agentResult{text: text, err: err}:
+		default:
+		}
+	})
+
+	// Chat names are assigned lazily on first save; use a local counter for a
+	// unique tab ID.
+	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
+	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, injectedFiles)
+	a.program.Send(openTabMsg{id: tabID, screen: chatScreen})
+
+	// SendMessage blocks for the whole turn; run it off this goroutine so we
+	// can honor ctx cancellation while waiting.
+	go chatSession.SendMessage(request.Query)
+
+	select {
+	case result := <-resultCh:
+		return result.text, result.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+var _ agent.Launcher = (*App)(nil)
 
 func (a *App) Init() tea.Cmd {
 	var cmds []tea.Cmd

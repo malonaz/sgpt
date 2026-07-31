@@ -6,6 +6,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -59,6 +60,12 @@ type Session struct {
 
 	totalModelUsage *aipb.ModelUsage
 	lastModelUsage  *aipb.ModelUsage
+
+	// onTurnComplete fires when a turn reaches a terminal state: final answer
+	// (no tool calls), stream error, or tool-processing failure. It does NOT
+	// fire while awaiting review — the sub-agent launcher uses it to collect
+	// the final answer after the user resolves everything in the tab.
+	onTurnComplete func(finalText string, err error)
 
 	eventCh chan Event
 }
@@ -175,6 +182,42 @@ func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
 	s.params.ReasoningEffort = effort
 }
 
+func (s *Session) SetOnTurnComplete(callback func(finalText string, err error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onTurnComplete = callback
+}
+
+// notifyTurnComplete invokes the callback outside the lock: it may block
+// (delivering the sub-agent result) and must not deadlock the session.
+func (s *Session) notifyTurnComplete(finalText string, err error) {
+	s.mu.Lock()
+	callback := s.onTurnComplete
+	s.mu.Unlock()
+	if callback != nil {
+		callback(finalText, err)
+	}
+}
+
+// lastAssistantText joins the text blocks of the most recent assistant message.
+func (s *Session) lastAssistantText() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	messages := s.chat.GetMetadata().GetMessages()
+	for i := len(messages) - 1; i >= 0; i-- {
+		message := messages[i].GetMessage()
+		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
+			continue
+		}
+		var parts []string
+		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
+			parts = append(parts, block.GetText())
+		}
+		return strings.Join(parts, "\n")
+	}
+	return ""
+}
+
 func (s *Session) PendingToolCalls() []*aipb.ToolCall {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -234,6 +277,7 @@ func (s *Session) runTurn() {
 
 		if err != nil {
 			s.refresh()
+			s.notifyTurnComplete("", err)
 			return
 		}
 
@@ -247,6 +291,7 @@ func (s *Session) runTurn() {
 				s.emitError(fmt.Errorf("saving chat: %w", err))
 			}
 			s.refresh()
+			s.notifyTurnComplete(s.lastAssistantText(), nil)
 			return
 		}
 
@@ -255,6 +300,7 @@ func (s *Session) runTurn() {
 			s.emitError(fmt.Errorf("processing tool calls: %w", err))
 			s.setState(StateIdle)
 			s.refresh()
+			s.notifyTurnComplete("", err)
 			return
 		}
 

@@ -19,6 +19,7 @@ const (
 	HandlerIDEngine    = "engine"
 	HandlerIDDiff      = "diff"
 	HandlerIDReplace   = "replace"
+	HandlerIDAgent     = "agent"
 )
 
 // Tool reviews and executes tool calls.
