@@ -10,21 +10,18 @@ option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
 // Configuration for the sgpt tool.
 message Configuration {
-  reserved 1;
-  reserved "sgpt_service";
-
   // gRPC client configuration for the AI service.
-  GrpcClient ai_service = 2;
+  GrpcClient ai_service = 1;
 
   // Model aliases.
-  repeated Model models = 3;
+  repeated Model models = 2;
 
   // Chat configuration.
-  ChatConfiguration chat = 4;
+  ChatConfiguration chat = 3;
 
   // Tool engine configurations. Each entry defines a remote gRPC service
   // that provides tool sets for AI interactions.
-  repeated ToolEngineConfiguration tool_engines = 5;
+  repeated ToolEngineConfiguration tool_engines = 4;
 }
 
 // gRPC client configuration.
@@ -54,23 +51,23 @@ message Model {
 
 // Chat-specific configuration.
 message ChatConfiguration {
-  // The parent user under which chats are created and listed.
+  // The user under which chats are created and listed.
   // Format: organizations/{organization}/users/{user}
-  string parent = 5 [(google.api.resource_reference).type = "ai.malonaz.com/User"];
+  string user = 1 [(google.api.resource_reference).type = "ai.malonaz.com/User"];
 
   // The resource name of the model used to generate summaries.
   // Format: providers/{provider}/models/{model}
-  string summary_model = 1 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
+  string summary_model = 2 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
 
   // The resource name of the default model.
   // Format: providers/{provider}/models/{model}
-  string default_model = 2 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
+  string default_model = 3 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
 
   // The default role alias or name.
-  string default_role = 3;
+  string default_role = 4;
 
   // User-defined roles.
-  repeated Role roles = 4;
+  repeated Role roles = 5;
 }
 
 // A role defines a persona with a system prompt.

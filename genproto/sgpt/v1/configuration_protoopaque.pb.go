@@ -28,10 +28,10 @@ const (
 // Configuration for the sgpt tool.
 type Configuration struct {
 	state                  protoimpl.MessageState      `protogen:"opaque.v1"`
-	xxx_hidden_AiService   *GrpcClient                 `protobuf:"bytes,2,opt,name=ai_service,json=aiService,proto3"`
-	xxx_hidden_Models      *[]*Model                   `protobuf:"bytes,3,rep,name=models,proto3"`
-	xxx_hidden_Chat        *ChatConfiguration          `protobuf:"bytes,4,opt,name=chat,proto3"`
-	xxx_hidden_ToolEngines *[]*ToolEngineConfiguration `protobuf:"bytes,5,rep,name=tool_engines,json=toolEngines,proto3"`
+	xxx_hidden_AiService   *GrpcClient                 `protobuf:"bytes,1,opt,name=ai_service,json=aiService,proto3"`
+	xxx_hidden_Models      *[]*Model                   `protobuf:"bytes,2,rep,name=models,proto3"`
+	xxx_hidden_Chat        *ChatConfiguration          `protobuf:"bytes,3,opt,name=chat,proto3"`
+	xxx_hidden_ToolEngines *[]*ToolEngineConfiguration `protobuf:"bytes,4,rep,name=tool_engines,json=toolEngines,proto3"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -323,11 +323,11 @@ func (b0 Model_builder) Build() *Model {
 // Chat-specific configuration.
 type ChatConfiguration struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Parent       string                 `protobuf:"bytes,5,opt,name=parent,proto3"`
-	xxx_hidden_SummaryModel string                 `protobuf:"bytes,1,opt,name=summary_model,json=summaryModel,proto3"`
-	xxx_hidden_DefaultModel string                 `protobuf:"bytes,2,opt,name=default_model,json=defaultModel,proto3"`
-	xxx_hidden_DefaultRole  string                 `protobuf:"bytes,3,opt,name=default_role,json=defaultRole,proto3"`
-	xxx_hidden_Roles        *[]*Role               `protobuf:"bytes,4,rep,name=roles,proto3"`
+	xxx_hidden_User         string                 `protobuf:"bytes,1,opt,name=user,proto3"`
+	xxx_hidden_SummaryModel string                 `protobuf:"bytes,2,opt,name=summary_model,json=summaryModel,proto3"`
+	xxx_hidden_DefaultModel string                 `protobuf:"bytes,3,opt,name=default_model,json=defaultModel,proto3"`
+	xxx_hidden_DefaultRole  string                 `protobuf:"bytes,4,opt,name=default_role,json=defaultRole,proto3"`
+	xxx_hidden_Roles        *[]*Role               `protobuf:"bytes,5,rep,name=roles,proto3"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -357,9 +357,9 @@ func (x *ChatConfiguration) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ChatConfiguration) GetParent() string {
+func (x *ChatConfiguration) GetUser() string {
 	if x != nil {
-		return x.xxx_hidden_Parent
+		return x.xxx_hidden_User
 	}
 	return ""
 }
@@ -394,8 +394,8 @@ func (x *ChatConfiguration) GetRoles() []*Role {
 	return nil
 }
 
-func (x *ChatConfiguration) SetParent(v string) {
-	x.xxx_hidden_Parent = v
+func (x *ChatConfiguration) SetUser(v string) {
+	x.xxx_hidden_User = v
 }
 
 func (x *ChatConfiguration) SetSummaryModel(v string) {
@@ -417,9 +417,9 @@ func (x *ChatConfiguration) SetRoles(v []*Role) {
 type ChatConfiguration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The parent user under which chats are created and listed.
+	// The user under which chats are created and listed.
 	// Format: organizations/{organization}/users/{user}
-	Parent string
+	User string
 	// The resource name of the model used to generate summaries.
 	// Format: providers/{provider}/models/{model}
 	SummaryModel string
@@ -436,7 +436,7 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 	m0 := &ChatConfiguration{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Parent = b.Parent
+	x.xxx_hidden_User = b.User
 	x.xxx_hidden_SummaryModel = b.SummaryModel
 	x.xxx_hidden_DefaultModel = b.DefaultModel
 	x.xxx_hidden_DefaultRole = b.DefaultRole
@@ -701,13 +701,13 @@ var File_sgpt_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\xf4\x01\n" +
+	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\xe0\x01\n" +
 	"\rConfiguration\x122\n" +
 	"\n" +
-	"ai_service\x18\x02 \x01(\v2\x13.sgpt.v1.GrpcClientR\taiService\x12&\n" +
-	"\x06models\x18\x03 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
-	"\x04chat\x18\x04 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12C\n" +
-	"\ftool_engines\x18\x05 \x03(\v2 .sgpt.v1.ToolEngineConfigurationR\vtoolEnginesJ\x04\b\x01\x10\x02R\fsgpt_service\"n\n" +
+	"ai_service\x18\x01 \x01(\v2\x13.sgpt.v1.GrpcClientR\taiService\x12&\n" +
+	"\x06models\x18\x02 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
+	"\x04chat\x18\x03 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12C\n" +
+	"\ftool_engines\x18\x04 \x03(\v2 .sgpt.v1.ToolEngineConfigurationR\vtoolEngines\"n\n" +
 	"\n" +
 	"GrpcClient\x12!\n" +
 	"\bbase_url\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\abaseUrl\x12\x17\n" +
@@ -716,16 +716,16 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05Model\x123\n" +
 	"\x04name\x18\x01 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\"\x8d\x02\n" +
-	"\x11ChatConfiguration\x120\n" +
-	"\x06parent\x18\x05 \x01(\tB\x18\xfaA\x15\n" +
-	"\x13ai.malonaz.com/UserR\x06parent\x12>\n" +
-	"\rsummary_model\x18\x01 \x01(\tB\x19\xfaA\x16\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\"\x89\x02\n" +
+	"\x11ChatConfiguration\x12,\n" +
+	"\x04user\x18\x01 \x01(\tB\x18\xfaA\x15\n" +
+	"\x13ai.malonaz.com/UserR\x04user\x12>\n" +
+	"\rsummary_model\x18\x02 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fsummaryModel\x12>\n" +
-	"\rdefault_model\x18\x02 \x01(\tB\x19\xfaA\x16\n" +
+	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
-	"\fdefault_role\x18\x03 \x01(\tR\vdefaultRole\x12#\n" +
-	"\x05roles\x18\x04 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xb5\x01\n" +
+	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\x12#\n" +
+	"\x05roles\x18\x05 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xb5\x01\n" +
 	"\x04Role\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1e\n" +

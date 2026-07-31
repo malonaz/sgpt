@@ -56,7 +56,7 @@ func New(
 // parent is the user resource that owns all chats.
 // Format: organizations/{organization}/users/{user}
 func (s *Store) parent() string {
-	return s.configuration.GetChat().GetParent()
+	return s.configuration.GetChat().GetUser()
 }
 
 // newChatID returns the last 8 characters of a v7 UUID. The first characters
