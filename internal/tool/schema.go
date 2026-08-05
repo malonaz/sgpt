@@ -112,7 +112,8 @@ func MustBuildTool(toolName, handlerID string, methodFullName protoreflect.FullN
 // NoSideEffects reports whether a tool call targets a method declared
 // side-effect free (idempotency_level = NO_SIDE_EFFECTS).
 func NoSideEffects(toolCall *aipb.ToolCall) bool {
-	return toolCall.GetAnnotations()[aitool.AnnotationKeyNoSideEffect] == "true"
+	// Locked read: the session goroutine mutates annotations concurrently.
+	return GetToolCallAnnotation(toolCall, aitool.AnnotationKeyNoSideEffect) == "true"
 }
 
 // NewStructuredToolResult marshals a typed response proto into a structured

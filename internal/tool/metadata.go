@@ -55,6 +55,15 @@ func GetToolCallStatus(toolCall *aipb.ToolCall) string {
 	return toolCall.GetAnnotations()[ToolCallStatusAnnotation]
 }
 
+// GetToolCallAnnotation reads an arbitrary tool call annotation under the
+// annotations lock. Any read of the annotations map outside this package's
+// accessors races with the session goroutine's status/metadata writes.
+func GetToolCallAnnotation(toolCall *aipb.ToolCall, key string) string {
+	annotationsMu.RLock()
+	defer annotationsMu.RUnlock()
+	return toolCall.GetAnnotations()[key]
+}
+
 func SetToolCallRejectionReason(toolCall *aipb.ToolCall, reason string) {
 	annotationsMu.Lock()
 	defer annotationsMu.Unlock()

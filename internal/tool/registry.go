@@ -90,15 +90,18 @@ func (r *Registry) ToolSets() []*aipb.ToolSet {
 
 // Handles reports whether a tool is registered for the given call.
 func (r *Registry) Handles(toolCall *aipb.ToolCall) bool {
+	// Locked read: the session goroutine mutates annotations concurrently.
+	handlerID := GetToolCallAnnotation(toolCall, ToolHandlerIDAnnotation)
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	_, ok := r.handlerIDToTool[toolCall.GetAnnotations()[ToolHandlerIDAnnotation]]
+	_, ok := r.handlerIDToTool[handlerID]
 	return ok
 }
 
 func (r *Registry) lookup(toolCall *aipb.ToolCall) (Tool, error) {
+	// Locked read: the session goroutine mutates annotations concurrently.
+	handlerID := GetToolCallAnnotation(toolCall, ToolHandlerIDAnnotation)
 	r.mutex.RLock()
-	handlerID := toolCall.GetAnnotations()[ToolHandlerIDAnnotation]
 	tool, ok := r.handlerIDToTool[handlerID]
 	r.mutex.RUnlock()
 	if !ok {
