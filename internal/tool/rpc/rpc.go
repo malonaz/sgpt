@@ -47,76 +47,111 @@ type engineConnection struct {
 // Manager connects to remote tool engines and implements tool.Tool for
 // the tool sets they expose.
 type Manager struct {
+	configuration           *sgptpb.Configuration
+	baseURLToGRPCConnection map[string]*grpc.Connection
+
 	mu                  sync.Mutex
 	toolSets            []*aipb.ToolSet
 	toolSetNameToEngine map[string]*engineConnection
-	closers             []func()
+	// engineNameToToolSets records initialized engines: engines are dialed
+	// lazily, on the first EnsureEngine call for their name.
+	engineNameToToolSets map[string][]*aipb.ToolSet
+	closers              []func()
 }
 
 func toolSetCacheKey(engineName string, index int) string {
 	return fmt.Sprintf("%s%s_%d.pb", toolSetCacheKeyPrefix, engineName, index)
 }
 
-func Initialize(
-	ctx context.Context,
-	config *sgptpb.Configuration,
+// NewManager creates a lazy manager: no engine is contacted until
+// EnsureEngine is called for it.
+func NewManager(
+	configuration *sgptpb.Configuration,
 	baseURLToGRPCConnection map[string]*grpc.Connection,
-) (*Manager, error) {
-	manager := &Manager{
-		toolSetNameToEngine: map[string]*engineConnection{},
+) *Manager {
+	return &Manager{
+		configuration:           configuration,
+		baseURLToGRPCConnection: baseURLToGRPCConnection,
+		toolSetNameToEngine:     map[string]*engineConnection{},
+		engineNameToToolSets:    map[string][]*aipb.ToolSet{},
 	}
-
-	for _, toolEngine := range config.GetToolEngines() {
-		connection := baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
-		reflectionClient := reflectionpb.NewServerReflectionClient(connection.Get())
-
-		// Resolve and cache schema per engine.
-		schema, err := pbreflection.ResolveSchema(ctx, reflectionClient,
-			pbreflection.WithDiskCache(toolEngine.GetEngineService().GetBaseUrl(), cache.Dir(), schemaCacheMaxAge),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("resolving schema for %s: %w", toolEngine.GetName(), err)
-		}
-
-		engine := &engineConnection{
-			client:           aienginepb.NewAiEngineClient(connection.Get()),
-			methodInvoker:    pbreflection.NewMethodInvoker(connection.Get()),
-			reflectionClient: reflectionClient,
-			schema:           schema,
-			schemaBuilder:    pbjson.NewSchemaBuilder(schema),
-		}
-		for i, request := range toolEngine.GetToolSets() {
-			cacheKey := toolSetCacheKey(toolEngine.GetName(), i)
-
-			cachedToolSet, ok := cache.Get(cacheKey, toolSetCacheMaxAge, &aipb.ToolSet{})
-			if ok && cachedToolSet.GetName() != "" {
-				manager.toolSetNameToEngine[cachedToolSet.GetName()] = engine
-				manager.toolSets = append(manager.toolSets, cachedToolSet)
-				continue
-			}
-
-			toolSet, err := engine.client.CreateServiceToolSet(ctx, request)
-			if err != nil {
-				return nil, err
-			}
-			aip.SetAnnotation(toolSet.DiscoveryTool, tool.ToolHandlerIDAnnotation, tool.HandlerIDEngine)
-			for _, engineTool := range toolSet.GetTools() {
-				aip.SetAnnotation(engineTool, tool.ToolHandlerIDAnnotation, tool.HandlerIDEngine)
-			}
-			cache.Store(cacheKey, toolSet)
-			manager.toolSetNameToEngine[toolSet.GetName()] = engine
-			manager.toolSets = append(manager.toolSets, toolSet)
-		}
-	}
-	return manager, nil
 }
 
-// GetToolSets returns the tool sets exposed by all connected engines.
+// EnsureEngine initializes the named engine on first use (schema resolution
+// + tool set creation) and returns its tool sets; later calls are served
+// from memory.
+func (m *Manager) EnsureEngine(ctx context.Context, engineName string) ([]*aipb.ToolSet, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if toolSets, ok := m.engineNameToToolSets[engineName]; ok {
+		return toolSets, nil
+	}
+	var toolEngine *sgptpb.ToolEngineConfiguration
+	for _, candidate := range m.configuration.GetToolEngines() {
+		if candidate.GetName() == engineName {
+			toolEngine = candidate
+			break
+		}
+	}
+	if toolEngine == nil {
+		return nil, fmt.Errorf("unknown tool engine %q", engineName)
+	}
+
+	connection := m.baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
+	reflectionClient := reflectionpb.NewServerReflectionClient(connection.Get())
+	// Resolve and cache the schema for this engine.
+	schema, err := pbreflection.ResolveSchema(ctx, reflectionClient,
+		pbreflection.WithDiskCache(toolEngine.GetEngineService().GetBaseUrl(), cache.Dir(), schemaCacheMaxAge),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("resolving schema for %s: %w", toolEngine.GetName(), err)
+	}
+
+	engine := &engineConnection{
+		client:           aienginepb.NewAiEngineClient(connection.Get()),
+		methodInvoker:    pbreflection.NewMethodInvoker(connection.Get()),
+		reflectionClient: reflectionClient,
+		schema:           schema,
+		schemaBuilder:    pbjson.NewSchemaBuilder(schema),
+	}
+	var toolSets []*aipb.ToolSet
+	for i, request := range toolEngine.GetToolSets() {
+		cacheKey := toolSetCacheKey(toolEngine.GetName(), i)
+
+		cachedToolSet, ok := cache.Get(cacheKey, toolSetCacheMaxAge, &aipb.ToolSet{})
+		if ok && cachedToolSet.GetName() != "" {
+			m.toolSetNameToEngine[cachedToolSet.GetName()] = engine
+			toolSets = append(toolSets, cachedToolSet)
+			continue
+		}
+
+		toolSet, err := engine.client.CreateServiceToolSet(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		aip.SetAnnotation(toolSet.DiscoveryTool, tool.ToolHandlerIDAnnotation, tool.HandlerIDEngine)
+		for _, engineTool := range toolSet.GetTools() {
+			aip.SetAnnotation(engineTool, tool.ToolHandlerIDAnnotation, tool.HandlerIDEngine)
+		}
+		cache.Store(cacheKey, toolSet)
+		m.toolSetNameToEngine[toolSet.GetName()] = engine
+		toolSets = append(toolSets, toolSet)
+	}
+	m.engineNameToToolSets[engineName] = toolSets
+	m.toolSets = append(m.toolSets, toolSets...)
+	return toolSets, nil
+}
+
+// GetToolSets returns the tool sets of every initialized engine.
 func (m *Manager) GetToolSets() []*aipb.ToolSet {
 	if m == nil {
 		return nil
 	}
-	return m.toolSets
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	toolSets := make([]*aipb.ToolSet, len(m.toolSets))
+	copy(toolSets, m.toolSets)
+	return toolSets
 }
 
 func (m *Manager) engineFor(toolCall *aipb.ToolCall) (*engineConnection, error) {
@@ -124,7 +159,10 @@ func (m *Manager) engineFor(toolCall *aipb.ToolCall) (*engineConnection, error) 
 	if !ok {
 		return nil, fmt.Errorf("no tool set annotation found on tool call")
 	}
+	// Locked: engines register concurrently (lazy init off the UI loop).
+	m.mu.Lock()
 	engine, ok := m.toolSetNameToEngine[toolSetName]
+	m.mu.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("no engine found for tool set %q", toolSetName)
 	}
@@ -159,7 +197,7 @@ func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.
 		toolCallMetadata.AutoExecute = true
 
 	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
-		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
+		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.GetToolSets())
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +231,7 @@ func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.T
 		return nil, err
 	}
 
-	parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.toolSets)
+	parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.GetToolSets())
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +320,7 @@ func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 		// ParseToolCall walks the annotation map directly, racing with the
 		// session goroutine's status/metadata writes.
 		// Partial/unparsable arguments simply fall back to the default header.
-		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, tool.SnapshotToolCall(toolCall), m.toolSets)
+		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, tool.SnapshotToolCall(toolCall), m.GetToolSets())
 		if err != nil {
 			return "", false
 		}

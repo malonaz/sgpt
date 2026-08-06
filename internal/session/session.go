@@ -6,6 +6,8 @@ package session
 import (
 	"context"
 	"fmt"
+	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -30,12 +32,18 @@ const (
 
 // Params bundles per-chat parameters for a session.
 type Params struct {
-	Model              *aipb.Model
-	Role               *sgptpb.Role
-	MaxTokens          int32
-	Temperature        float64
-	ReasoningEffort    aipb.ReasoningEffort
-	Tools              []string
+	Model           *aipb.Model
+	Role            *sgptpb.Role
+	MaxTokens       int32
+	Temperature     float64
+	ReasoningEffort aipb.ReasoningEffort
+	Tools           []string
+	// AvailableToolNames lists every selectable tool name (builtin or tool
+	// engine config name); Tools is only the initial selection.
+	AvailableToolNames []string
+	// ResolveTool expands a user-facing tool name into the advertised
+	// tool/tool-set names, lazily initializing tool engines on first use.
+	ResolveTool        func(ctx context.Context, name string) ([]string, error)
 	Chat               string
 	AdditionalMessages []*aipb.Message
 	InjectedFiles      []string
@@ -62,6 +70,15 @@ type Session struct {
 	// their calls skip manual review for the rest of the session.
 	autoAcceptedToolNameSet map[string]bool
 
+	// injectedFilePaths are the files in the model context; re-read on every
+	// turn and mutable at runtime via SetInjectedFiles.
+	injectedFilePaths []string
+	// enabledUserToolNameSet is the user-facing tool selection;
+	// enabledAdvertisedNameSet is its expansion to the tool/tool-set names
+	// actually advertised to the model.
+	enabledUserToolNameSet   map[string]bool
+	enabledAdvertisedNameSet map[string]bool
+
 	totalModelUsage *aipb.ModelUsage
 	lastModelUsage  *aipb.ModelUsage
 
@@ -81,17 +98,24 @@ func New(
 	chat *aipb.Chat,
 	params Params,
 ) *Session {
-	return &Session{
+	s := &Session{
 		ctx:                     ctx,
 		params:                  params,
 		store:                   chatStore,
 		registry:                registry,
 		chat:                    chat,
 		autoAcceptedToolNameSet: map[string]bool{},
+		injectedFilePaths:       append([]string(nil), params.InjectedFiles...),
 		totalModelUsage:         &aipb.ModelUsage{},
 		lastModelUsage:          &aipb.ModelUsage{},
 		eventCh:                 make(chan Event, 64),
 	}
+	s.enabledUserToolNameSet = map[string]bool{}
+	s.enabledAdvertisedNameSet = map[string]bool{}
+	// Seed from --tool/role config. The CLI already resolved these names at
+	// launch (dialing their engines), so this is served from cache.
+	_ = s.SetEnabledTools(params.Tools)
+	return s
 }
 
 func (s *Session) Events() <-chan Event {
@@ -185,6 +209,99 @@ func (s *Session) LastModelUsage() *aipb.ModelUsage {
 
 func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
 	s.params.ReasoningEffort = effort
+}
+
+// InjectedFiles returns the file paths currently injected into the context.
+func (s *Session) InjectedFiles() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.injectedFilePaths...)
+}
+
+// SetInjectedFiles replaces the injected files; takes effect on the next
+// turn and is persisted (files annotation) on the next save.
+func (s *Session) SetInjectedFiles(paths []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.injectedFilePaths = append([]string(nil), paths...)
+	store.SetFiles(s.chat, paths)
+}
+
+// AvailableToolNames lists every selectable tool name, sorted.
+func (s *Session) AvailableToolNames() []string {
+	names := append([]string(nil), s.params.AvailableToolNames...)
+	sort.Strings(names)
+	return names
+}
+
+// EnabledTools returns the user-facing tool names currently enabled.
+func (s *Session) EnabledTools() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	enabled := make(map[string]bool, len(s.enabledUserToolNameSet))
+	for name := range s.enabledUserToolNameSet {
+		enabled[name] = true
+	}
+	return enabled
+}
+
+// SetEnabledTools replaces the enabled tool selection (user-facing names);
+// takes effect on the next request. May block dialing a not-yet-initialized
+// tool engine — call it off the UI loop. Resolution happens outside the
+// session lock so renders never stall behind a dial.
+func (s *Session) SetEnabledTools(names []string) error {
+	resolve := s.params.ResolveTool
+	if resolve == nil {
+		// No resolver configured: names are advertised as-is.
+		resolve = func(_ context.Context, name string) ([]string, error) { return []string{name}, nil }
+	}
+	userSet := make(map[string]bool, len(names))
+	advertisedSet := map[string]bool{}
+	for _, name := range names {
+		advertisedNames, err := resolve(s.ctx, name)
+		if err != nil {
+			return fmt.Errorf("enabling tool %q: %w", name, err)
+		}
+		userSet[name] = true
+		for _, advertisedName := range advertisedNames {
+			advertisedSet[advertisedName] = true
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.enabledUserToolNameSet = userSet
+	s.enabledAdvertisedNameSet = advertisedSet
+	// Keep params in sync so the titlebar reflects the new selection.
+	s.params.Tools = append([]string(nil), names...)
+	return nil
+}
+
+func (s *Session) toolEnabled(name string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.enabledAdvertisedNameSet[name]
+}
+
+// advertisedTools filters the registry's tool definitions by the enabled set.
+func (s *Session) advertisedTools() []*aipb.Tool {
+	var tools []*aipb.Tool
+	for _, advertisedTool := range s.registry.Tools() {
+		if s.toolEnabled(advertisedTool.GetName()) {
+			tools = append(tools, advertisedTool)
+		}
+	}
+	return tools
+}
+
+// advertisedToolSets filters the registry's tool sets by the enabled set.
+func (s *Session) advertisedToolSets() []*aipb.ToolSet {
+	var toolSets []*aipb.ToolSet
+	for _, toolSet := range s.registry.ToolSets() {
+		if s.toolEnabled(toolSet.GetName()) {
+			toolSets = append(toolSets, toolSet)
+		}
+	}
+	return toolSets
 }
 
 // AutoAcceptTool whitelists a tool: its future calls execute without review.
@@ -339,8 +456,19 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.chat.Metadata.Messages))
+	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.injectedFilePaths)+len(s.chat.Metadata.Messages))
 	messages = append(messages, s.params.AdditionalMessages...)
+	// Files are re-read on every turn: runtime toggles (SetInjectedFiles) and
+	// on-disk edits are always reflected; a vanished file degrades to an
+	// inline note instead of killing the turn.
+	for _, path := range s.injectedFilePaths {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: [unreadable: %v]", path, err))))
+			continue
+		}
+		messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", path, content))))
+	}
 	// Messages that errored are kept for display but never replayed to the
 	// model. Tool results whose originating call lives in an excluded message
 	// must be dropped with it: orphaned results are invalid history and make

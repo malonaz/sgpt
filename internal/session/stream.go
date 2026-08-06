@@ -31,8 +31,9 @@ func (s *Session) stream() ([]*aipb.Block, error) {
 	textToTextStreamRequest := &aiservicepb.TextToTextStreamRequest{
 		Model:    s.params.Model.Name,
 		Messages: s.messagesForAPI(),
-		Tools:    s.registry.Tools(),
-		ToolSets: s.registry.ToolSets(),
+		// Filtered by the user's runtime tool selection (SetEnabledTools).
+		Tools:    s.advertisedTools(),
+		ToolSets: s.advertisedToolSets(),
 		Configuration: &aiservicepb.TextToTextConfiguration{
 			MaxTokens:       s.params.MaxTokens,
 			Temperature:     s.params.Temperature,

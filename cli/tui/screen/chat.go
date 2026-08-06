@@ -2,6 +2,8 @@ package screen
 
 import (
 	"fmt"
+	"io/fs"
+	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -42,6 +44,8 @@ var (
 	chatKeyForkChat       = keymap.New("alt+=", "Fork chat")
 	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
 	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
+	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
+	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
 )
 
 type ChatScreen struct {
@@ -57,6 +61,11 @@ type ChatScreen struct {
 
 	injectedFiles   []string
 	lastInputHeight int
+
+	// picker, when non-nil, is a modal fuzzy multi-select that captures all
+	// keys; pickerApply consumes its selection on confirm.
+	picker      *widget.Picker
+	pickerApply func(selected []string) tea.Cmd
 
 	width            int
 	height           int
@@ -121,7 +130,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeySubmit, chatKeyAccept, chatKeyAcceptAll, chatKeyAlwaysAccept,
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyForkChat, chatKeyToggleFavorite,
-			chatKeyOpenAll,
+			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -131,6 +140,9 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 func (m *ChatScreen) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	if m.picker != nil {
+		m.picker.SetSize(width, height)
+	}
 	m.recalculateLayout()
 }
 
@@ -194,6 +206,9 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 
 	case tea.KeyPressMsg:
+		if m.picker != nil {
+			return m.handlePickerKey(msg)
+		}
 		return m.handleKeyPress(msg)
 	}
 
@@ -244,6 +259,10 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.toggleFavorite()
 	case key.Matches(msg, chatKeyOpenAll.Key):
 		return editor.Open(timeline.ConversationText(m.session.Chat().GetMetadata().GetMessages()), "md")
+	case key.Matches(msg, chatKeyPickTools.Key):
+		return m.openToolPicker()
+	case key.Matches(msg, chatKeyPickFiles.Key):
+		return m.openFilePicker()
 	}
 
 	switch msg.String() {
@@ -441,6 +460,104 @@ func (m *ChatScreen) toggleFavorite() tea.Cmd {
 	}
 }
 
+func (m *ChatScreen) handlePickerKey(msg tea.KeyPressMsg) tea.Cmd {
+	done, canceled := m.picker.HandleKey(msg)
+	if !done {
+		return nil
+	}
+	picker, apply := m.picker, m.pickerApply
+	m.picker, m.pickerApply = nil, nil
+	if canceled {
+		return nil
+	}
+	cmd := apply(picker.Selected())
+	m.refresh()
+	return cmd
+}
+
+// openToolPicker lists every selectable tool (all builtins + configured
+// engines), regardless of the --tool flags; the selection takes effect on
+// the next request.
+func (m *ChatScreen) openToolPicker() tea.Cmd {
+	names := m.session.AvailableToolNames()
+	if len(names) == 0 {
+		wrap := m.wrap
+		return func() tea.Msg { return wrap(AlertMsg{Text: "No tools configured"}) }
+	}
+	enabledToolNameSet := m.session.EnabledTools()
+	items := make([]widget.PickerItem, 0, len(names))
+	for _, name := range names {
+		items = append(items, widget.PickerItem{Label: name, Selected: enabledToolNameSet[name]})
+	}
+	m.picker = widget.NewPicker("🔧 Tools", items)
+	m.picker.SetSize(m.width, m.height)
+	sess := m.session
+	wrap := m.wrap
+	m.pickerApply = func(selected []string) tea.Cmd {
+		return func() tea.Msg {
+			// May dial a tool engine on first enablement — off the UI loop.
+			if err := sess.SetEnabledTools(selected); err != nil {
+				return wrap(AlertMsg{Text: fmt.Sprintf("Enabling tools failed: %v", err)})
+			}
+			m.refreshTitle()
+			return wrap(AlertMsg{Text: fmt.Sprintf("Tools enabled: %d", len(selected))})
+		}
+	}
+	return nil
+}
+
+// openFilePicker lists the injected files (selected) plus files discovered
+// under the cwd (unselected), so files can be added as well as removed.
+func (m *ChatScreen) openFilePicker() tea.Cmd {
+	injected := m.session.InjectedFiles()
+	injectedPathSet := make(map[string]bool, len(injected))
+	items := make([]widget.PickerItem, 0, len(injected))
+	for _, path := range injected {
+		injectedPathSet[path] = true
+		items = append(items, widget.PickerItem{Label: path, Selected: true})
+	}
+	for _, path := range discoverFiles(".", 2000) {
+		if !injectedPathSet[path] {
+			items = append(items, widget.PickerItem{Label: path})
+		}
+	}
+	m.picker = widget.NewPicker("📎 Files", items)
+	m.picker.SetSize(m.width, m.height)
+	m.pickerApply = func(selected []string) tea.Cmd {
+		m.session.SetInjectedFiles(selected)
+		m.injectedFiles = selected
+		m.refresh()
+		return nil
+	}
+	return nil
+}
+
+// discoverFiles walks root collecting up to limit file paths, skipping
+// hidden files and directories (.git and friends).
+func discoverFiles(root string, limit int) []string {
+	var paths []string
+	filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if entry.IsDir() {
+			if name := entry.Name(); name != "." && strings.HasPrefix(name, ".") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(entry.Name(), ".") {
+			return nil
+		}
+		paths = append(paths, path)
+		if len(paths) >= limit {
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return paths
+}
+
 func (m *ChatScreen) cycleFocus() tea.Cmd {
 	switch m.focusedComponent {
 	case FocusTextarea:
@@ -561,6 +678,9 @@ func (m *ChatScreen) busyLabel() string {
 func (m *ChatScreen) View() string {
 	if !m.ready {
 		return "Initializing..."
+	}
+	if m.picker != nil {
+		return m.picker.View()
 	}
 
 	var b strings.Builder
