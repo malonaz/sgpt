@@ -104,19 +104,27 @@ func (m *Model) renderChatRow(chat *aipb.Chat, globalIndex int) string {
 		return row
 	}
 
-	title := styles.Truncate(chat.GetTitle(), 28)
+	// Give the title every column not claimed by the fixed-width metadata
+	// (count, age, tags) instead of a hardcoded 28 chars.
+	listWidth := m.listWidth()
+	tagWidth := 15
+	titleWidth := listWidth - 2 - 5 - 10 - tagWidth - 3 // padding + gaps
+	if titleWidth < 20 {
+		titleWidth = 20
+	}
+	title := styles.Truncate(chat.GetTitle(), titleWidth)
 	messageCount := len(chat.GetMetadata().GetMessages())
 	updated := relativeTime(chat.GetUpdateTime().AsTime())
-	tags := styles.Truncate(strings.Join(store.Tags(chat), ","), 15)
+	tags := styles.Truncate(strings.Join(store.Tags(chat), ","), tagWidth)
 
-	line := fmt.Sprintf("%-30s %-5d %-10s", title, messageCount, updated)
+	line := fmt.Sprintf("%-*s %-5d %-10s", titleWidth, title, messageCount, updated)
 	coloredTags := styles.MenuTagStyle.Render(tags)
 
 	style := styles.MenuItemStyle
 	if selected {
 		style = styles.MenuSelectedStyle
 	}
-	row := style.Width(m.listWidth()).Render(line + coloredTags)
+	row := style.Width(listWidth).Render(line + coloredTags)
 	m.rowCache[cacheKey] = row
 	return row
 }
@@ -133,11 +141,18 @@ func (m *Model) renderDetail() string {
 	}
 
 	var b strings.Builder
-	title := chat.GetName()
+	// Full human title, wrapped — the detail pane is where it fits; the
+	// resource name goes on a dim second line.
+	title := chat.GetTitle()
+	if title == "" {
+		title = chat.GetName()
+	}
 	if store.IsFavorite(chat) {
 		title = "⭐ " + title
 	}
-	b.WriteString(styles.MenuTitleStyle.Render(" " + styles.Truncate(title, detailWidth-2)))
+	b.WriteString(styles.MenuTitleStyle.Width(detailWidth - 1).Render(" " + title))
+	b.WriteString("\n")
+	b.WriteString(styles.DimTextStyle.Render(" " + styles.Truncate(chat.GetName(), detailWidth-2)))
 	b.WriteString("\n")
 	if model := store.CurrentModel(chat); model != "" {
 		b.WriteString(styles.DimTextStyle.Render(" Model: " + model))
