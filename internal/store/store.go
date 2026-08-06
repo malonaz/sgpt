@@ -145,6 +145,13 @@ func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, er
 
 // UpdateChat persists the given paths of a chat.
 func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string) (*aipb.Chat, error) {
+	// Drop the etag: the server updates the chat during streaming, so the
+	// local etag is stale after every turn and optimistic locking only
+	// produces spurious ABORTED saves. Updates are masked, which bounds the
+	// blast radius of last-write-wins to the listed paths. Cloned so the
+	// caller's in-memory chat is left untouched.
+	chat = proto.CloneOf(chat)
+	chat.Etag = ""
 	updateChatRequest := &aiservicepb.UpdateChatRequest{
 		Chat:       chat,
 		UpdateMask: pbfieldmask.FromPaths(paths...).MustValidate(&aipb.Chat{}).Proto(),
