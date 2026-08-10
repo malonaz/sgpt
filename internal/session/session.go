@@ -73,6 +73,11 @@ type Session struct {
 	// injectedFilePaths are the files in the model context; re-read on every
 	// turn and mutable at runtime via SetInjectedFiles.
 	injectedFilePaths []string
+	// injectedFilePathToContent snapshots each file's rendered message the
+	// first time it is sent. Re-reading on every turn silently rewrites the
+	// prompt prefix mid-conversation, which invalidates provider prompt
+	// caches and confuses the model (history no longer matches what it saw).
+	injectedFilePathToContent map[string]string
 	// enabledUserToolNameSet is the user-facing tool selection;
 	// enabledAdvertisedNameSet is its expansion to the tool/tool-set names
 	// actually advertised to the model.
@@ -106,6 +111,7 @@ func New(
 		chat:                    chat,
 		autoAcceptedToolNameSet: map[string]bool{},
 		injectedFilePaths:       append([]string(nil), params.InjectedFiles...),
+		injectedFilePathToContent: map[string]string{},
 		totalModelUsage:         &aipb.ModelUsage{},
 		lastModelUsage:          &aipb.ModelUsage{},
 		eventCh:                 make(chan Event, 64),
@@ -224,6 +230,15 @@ func (s *Session) SetInjectedFiles(paths []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.injectedFilePaths = append([]string(nil), paths...)
+	// Keep snapshots for retained paths (cache stability); drop removed ones
+	// so toggling a file off and back on picks up its current content.
+	retained := make(map[string]string, len(paths))
+	for _, path := range paths {
+		if content, ok := s.injectedFilePathToContent[path]; ok {
+			retained[path] = content
+		}
+	}
+	s.injectedFilePathToContent = retained
 	store.SetFiles(s.chat, paths)
 }
 
@@ -458,16 +473,23 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 
 	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.injectedFilePaths)+len(s.chat.Metadata.Messages))
 	messages = append(messages, s.params.AdditionalMessages...)
-	// Files are re-read on every turn: runtime toggles (SetInjectedFiles) and
-	// on-disk edits are always reflected; a vanished file degrades to an
-	// inline note instead of killing the turn.
+	// Files are snapshotted on first send and reused verbatim afterwards: a
+	// stable prefix preserves provider prompt caches, and the model keeps
+	// seeing exactly the history it responded to (tool edits reach it via
+	// tool results, not by mutating earlier messages). A vanished file
+	// degrades to an inline note instead of killing the turn.
 	for _, path := range s.injectedFilePaths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: [unreadable: %v]", path, err))))
-			continue
+		content, ok := s.injectedFilePathToContent[path]
+		if !ok {
+			bytes, err := os.ReadFile(path)
+			if err != nil {
+				content = fmt.Sprintf("file %s: [unreadable: %v]", path, err)
+			} else {
+				content = fmt.Sprintf("file %s: `%s`", path, bytes)
+			}
+			s.injectedFilePathToContent[path] = content
 		}
-		messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(fmt.Sprintf("file %s: `%s`", path, content))))
+		messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(content)))
 	}
 	// Messages that errored are kept for display but never replayed to the
 	// model. Tool results whose originating call lives in an excluded message
