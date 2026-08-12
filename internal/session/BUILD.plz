@@ -9,6 +9,7 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//internal/debug",
+        "//internal/file",
         "//internal/store",
         "//internal/tool",
         "//sgpt/v1",

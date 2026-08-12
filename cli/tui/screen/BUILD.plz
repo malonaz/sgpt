@@ -11,6 +11,7 @@ go_library(
         "//cli/tui/styles",
         "//cli/tui/timeline",
         "//cli/tui/widget",
+        "//internal/file",
         "//internal/session",
         "//internal/tool",
         "//third_party/go:charm.land__bubbles__v2__key",

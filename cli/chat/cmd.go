@@ -89,13 +89,17 @@ func NewCmd(
 			cobra.CheckErr(err)
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
-			opts.FileInjection.Files = append(opts.FileInjection.Files, parsedRole.GetFiles()...)
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
-			filePaths := make([]string, len(files))
-			for i, parsedFile := range files {
-				filePaths[i] = parsedFile.Path
+			// Role files are curated in config: --ext is a convenience for
+			// ad-hoc directory injection and must never drop them.
+			roleFiles, err := file.Parse(&file.InjectionOpts{Files: parsedRole.GetFiles()})
+			cobra.CheckErr(err)
+			filePaths := make([]string, 0, len(files)+len(roleFiles))
+			for _, parsedFile := range append(files, roleFiles...) {
+				filePaths = append(filePaths, parsedFile.Path)
 			}
+			filePaths = file.Normalize(filePaths)
 
 			// Tag the chat with the GitHub repos its files belong to.
 			var tags []string

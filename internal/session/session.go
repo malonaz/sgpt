@@ -6,7 +6,6 @@ package session
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"github.com/malonaz/core/go/ai"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
@@ -104,17 +104,17 @@ func New(
 	params Params,
 ) *Session {
 	s := &Session{
-		ctx:                     ctx,
-		params:                  params,
-		store:                   chatStore,
-		registry:                registry,
-		chat:                    chat,
-		autoAcceptedToolNameSet: map[string]bool{},
-		injectedFilePaths:       append([]string(nil), params.InjectedFiles...),
+		ctx:                       ctx,
+		params:                    params,
+		store:                     chatStore,
+		registry:                  registry,
+		chat:                      chat,
+		autoAcceptedToolNameSet:   map[string]bool{},
+		injectedFilePaths:         file.Normalize(params.InjectedFiles),
 		injectedFilePathToContent: map[string]string{},
-		totalModelUsage:         &aipb.ModelUsage{},
-		lastModelUsage:          &aipb.ModelUsage{},
-		eventCh:                 make(chan Event, 64),
+		totalModelUsage:           &aipb.ModelUsage{},
+		lastModelUsage:            &aipb.ModelUsage{},
+		eventCh:                   make(chan Event, 64),
 	}
 	s.enabledUserToolNameSet = map[string]bool{}
 	s.enabledAdvertisedNameSet = map[string]bool{}
@@ -227,6 +227,7 @@ func (s *Session) InjectedFiles() []string {
 // SetInjectedFiles replaces the injected files; takes effect on the next
 // turn and is persisted (files annotation) on the next save.
 func (s *Session) SetInjectedFiles(paths []string) {
+	paths = file.Normalize(paths)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.injectedFilePaths = append([]string(nil), paths...)
@@ -481,11 +482,11 @@ func (s *Session) messagesForAPI() []*aipb.Message {
 	for _, path := range s.injectedFilePaths {
 		content, ok := s.injectedFilePathToContent[path]
 		if !ok {
-			bytes, err := os.ReadFile(path)
+			injectedFile, err := file.Read(path)
 			if err != nil {
 				content = fmt.Sprintf("file %s: [unreadable: %v]", path, err)
 			} else {
-				content = fmt.Sprintf("file %s: `%s`", path, bytes)
+				content = fmt.Sprintf("file %s: `%s`", path, injectedFile.Content)
 			}
 			s.injectedFilePathToContent[path] = content
 		}

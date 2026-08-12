@@ -2,6 +2,7 @@ package file
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -89,7 +90,14 @@ func ParseWithContext(opts *InjectionOpts) ([]*File, error) {
 // Parse files.
 func Parse(opts *InjectionOpts) ([]*File, error) {
 	files := []*File{}
+	filepathSet := map[string]struct{}{}
 	parseFileFn := func(filepath string) error {
+		// Paths are absolute by the time they get here, so this set catches
+		// the same file reached through different spellings (./x, ../pkg/x).
+		if _, ok := filepathSet[filepath]; ok {
+			return nil
+		}
+		filepathSet[filepath] = struct{}{}
 		// Apply filter
 		if !HasValidExtension(filepath, opts.FileExtensions) {
 			return nil
@@ -110,9 +118,54 @@ func Parse(opts *InjectionOpts) ([]*File, error) {
 	return files, nil
 }
 
+// Read a single file. Every disk read for context injection goes through
+// here so path expansion stays consistent across the codebase.
+func Read(path string) (*File, error) {
+	expandedPath, err := ExpandPath(path)
+	if err != nil {
+		return nil, fmt.Errorf("expanding path: %w", err)
+	}
+	bytes, err := os.ReadFile(expandedPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading file: %w", err)
+	}
+	return &File{Path: expandedPath, Content: bytes}, nil
+}
+
+// Discover walks root collecting up to limit absolute file paths, skipping
+// hidden files and directories (.git and friends). Used to offer candidates
+// for injection; paths are absolute so they compare equal to injected ones.
+func Discover(root string, limit int) []string {
+	expandedRoot, err := ExpandPath(root)
+	if err != nil {
+		return nil
+	}
+	var paths []string
+	filepath.WalkDir(expandedRoot, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if entry.IsDir() {
+			if name := entry.Name(); name != "." && strings.HasPrefix(name, ".") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(entry.Name(), ".") {
+			return nil
+		}
+		paths = append(paths, path)
+		if len(paths) >= limit {
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return paths
+}
+
 // smartParse understands '/...' logic.
 func smartParse(filepath string, parseFileFn func(filepath string) error) error {
-	// Expand the path to escape `~`.
+	// Expand the path to escape `~` and make it absolute.
 	filepath, err := ExpandPath(filepath)
 	if err != nil {
 		return fmt.Errorf("expanding path: %w", err)
@@ -177,16 +230,41 @@ func HasValidExtension(filename string, validExtensions []string) bool {
 	return false
 }
 
-// ExpandPath expands a path to avoid `~`.
+// ExpandPath expands a path to avoid `~` and resolves it to an absolute
+// path: absolute paths are the only reliable file identity, so injected
+// files can be deduped and displayed unambiguously.
 func ExpandPath(path string) (string, error) {
-	if !strings.HasPrefix(path, "~/") {
-		return path, nil
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("getting user home dir: %w", err)
+		}
+		path = filepath.Join(home, path[2:])
 	}
-	home, err := os.UserHomeDir()
+	absolutePath, err := filepath.Abs(path)
 	if err != nil {
-		return "", fmt.Errorf("getting user home dir: %w", err)
+		return "", fmt.Errorf("resolving absolute path: %w", err)
 	}
-	return filepath.Join(home, path[2:]), nil
+	return absolutePath, nil
+}
+
+// Normalize expands paths to absolute form and drops duplicates, preserving
+// order. Paths that fail to expand are kept as-is rather than dropped.
+func Normalize(paths []string) []string {
+	pathSet := make(map[string]struct{}, len(paths))
+	normalizedPaths := make([]string, 0, len(paths))
+	for _, path := range paths {
+		expandedPath, err := ExpandPath(path)
+		if err != nil {
+			expandedPath = path
+		}
+		if _, ok := pathSet[expandedPath]; ok {
+			continue
+		}
+		pathSet[expandedPath] = struct{}{}
+		normalizedPaths = append(normalizedPaths, expandedPath)
+	}
+	return normalizedPaths
 }
 
 // GetRootDir returns the root dir of a file.

@@ -2,8 +2,6 @@ package screen
 
 import (
 	"fmt"
-	"io/fs"
-	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -17,6 +15,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/timeline"
 	"github.com/malonaz/sgpt/cli/tui/widget"
+	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/tool"
 )
@@ -516,7 +515,7 @@ func (m *ChatScreen) openFilePicker() tea.Cmd {
 		injectedPathSet[path] = true
 		items = append(items, widget.PickerItem{Label: path, Selected: true})
 	}
-	for _, path := range discoverFiles(".", 2000) {
+	for _, path := range file.Discover(".", 2000) {
 		if !injectedPathSet[path] {
 			items = append(items, widget.PickerItem{Label: path})
 		}
@@ -530,32 +529,6 @@ func (m *ChatScreen) openFilePicker() tea.Cmd {
 		return nil
 	}
 	return nil
-}
-
-// discoverFiles walks root collecting up to limit file paths, skipping
-// hidden files and directories (.git and friends).
-func discoverFiles(root string, limit int) []string {
-	var paths []string
-	filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if entry.IsDir() {
-			if name := entry.Name(); name != "." && strings.HasPrefix(name, ".") {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if strings.HasPrefix(entry.Name(), ".") {
-			return nil
-		}
-		paths = append(paths, path)
-		if len(paths) >= limit {
-			return fs.SkipAll
-		}
-		return nil
-	})
-	return paths
 }
 
 func (m *ChatScreen) cycleFocus() tea.Cmd {

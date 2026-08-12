@@ -34,7 +34,7 @@ func GetGitHubRepo(filePath string) (string, error) {
 	configPath := filepath.Join(gitRoot, ".git", "config")
 	file, err := os.Open(configPath)
 	if err != nil {
-		return "", fmt.Errorf("opening git config: %%w", err)
+		return "", fmt.Errorf("opening git config: %w", err)
 	}
 	defer file.Close()
 
@@ -56,7 +56,7 @@ func GetGitHubRepo(filePath string) (string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("scanning git config: %%w", err)
+		return "", fmt.Errorf("scanning git config: %w", err)
 	}
 
 	return "", nil
