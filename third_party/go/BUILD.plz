@@ -854,7 +854,7 @@ go_mod_download(
     name = "github.com__anthropics__anthropic-sdk-go",
     _tag = "download",
     module = "github.com/anthropics/anthropic-sdk-go",
-    version = "v1.61.0",
+    version = "v1.63.0",
     visibility = ["PUBLIC"],
 )
 
@@ -887,6 +887,7 @@ go_module(
         ":github.com__pb33f__ordered-map__v2",
         ":github.com__standard-webhooks__standard-webhooks__libraries__go",
         ":github.com__tidwall__gjson",
+        ":github.com__tidwall__sjson",
         ":golang.org__x__sync__errgroup",
     ],
 )
@@ -4700,7 +4701,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260731103146-8336b7fa98fa",
+    version = "v0.0.0-20260812095038-6450259ab1cc",
     visibility = ["PUBLIC"],
 )
 
