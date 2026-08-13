@@ -10,30 +10,35 @@ option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
 // Configuration for the sgpt tool.
 message Configuration {
-  // gRPC client configuration for the AI service.
-  GrpcClient ai_service = 1;
+  // Named gRPC clients, referenced elsewhere by name.
+  repeated GrpcClient grpc_clients = 1;
+
+  // Name of the gRPC client to use for the AI service.
+  string ai_service = 2;
 
   // Model aliases.
-  repeated Model models = 2;
+  repeated Model models = 3;
 
   // Chat configuration.
-  ChatConfiguration chat = 3;
+  ChatConfiguration chat = 4;
 
-  // Tool engine configurations. Each entry defines a remote gRPC service
-  // that provides tool sets for AI interactions.
-  repeated ToolEngineConfiguration tool_engines = 4;
+  // Tool sets provided by remote gRPC tool engines.
+  repeated ToolSet tool_sets = 5;
 }
 
 // gRPC client configuration.
 message GrpcClient {
+  // Unique identifier for this client.
+  string name = 1 [(buf.validate.field).required = true];
+
   // Base URL of the gRPC service.
-  string base_url = 1 [(buf.validate.field).required = true];
+  string base_url = 2 [(buf.validate.field).required = true];
 
   // API key for authentication.
-  string api_key = 2;
+  string api_key = 3;
 
   // API key header for authentication.
-  string api_key_header = 3;
+  string api_key_header = 4;
 }
 
 // A model with an optional alias for convenience.
@@ -92,18 +97,18 @@ message Role {
   repeated string tools = 6;
 }
 
-// Configuration for a remote tool engine that provides tool sets via gRPC.
-message ToolEngineConfiguration {
-  // Human-readable name for this tool engine (e.g. "onikisu").
+// A remote tool engine that provides tool sets via gRPC.
+message ToolSet {
+  // Human-readable name for this tool set (e.g. "onikisu").
   string name = 1 [(buf.validate.field).required = true];
 
-  // gRPC client configuration for the engine service.
-  GrpcClient engine_service = 2 [(buf.validate.field).required = true];
+  // Name of the gRPC client to use for the engine service.
+  string engine_service = 2 [(buf.validate.field).required = true];
 
   // Tool set definitions to create from this engine.
   repeated malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest tool_sets = 3;
 
-  // Instructions on how to use this tool engine.
+  // Instructions on how to use this tool set.
   // Note that this is injected into the system prompt when enabled.
   string instructions = 4 [(buf.validate.field).required = true];
 }

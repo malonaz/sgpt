@@ -28,15 +28,16 @@ const (
 // Configuration for the sgpt tool.
 type Configuration struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// gRPC client configuration for the AI service.
-	AiService *GrpcClient `protobuf:"bytes,1,opt,name=ai_service,json=aiService,proto3" json:"ai_service,omitempty"`
+	// Named gRPC clients, referenced elsewhere by name.
+	GrpcClients []*GrpcClient `protobuf:"bytes,1,rep,name=grpc_clients,json=grpcClients,proto3" json:"grpc_clients,omitempty"`
+	// Name of the gRPC client to use for the AI service.
+	AiService string `protobuf:"bytes,2,opt,name=ai_service,json=aiService,proto3" json:"ai_service,omitempty"`
 	// Model aliases.
-	Models []*Model `protobuf:"bytes,2,rep,name=models,proto3" json:"models,omitempty"`
+	Models []*Model `protobuf:"bytes,3,rep,name=models,proto3" json:"models,omitempty"`
 	// Chat configuration.
-	Chat *ChatConfiguration `protobuf:"bytes,3,opt,name=chat,proto3" json:"chat,omitempty"`
-	// Tool engine configurations. Each entry defines a remote gRPC service
-	// that provides tool sets for AI interactions.
-	ToolEngines   []*ToolEngineConfiguration `protobuf:"bytes,4,rep,name=tool_engines,json=toolEngines,proto3" json:"tool_engines,omitempty"`
+	Chat *ChatConfiguration `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
+	// Tool sets provided by remote gRPC tool engines.
+	ToolSets      []*ToolSet `protobuf:"bytes,5,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -66,11 +67,18 @@ func (x *Configuration) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Configuration) GetAiService() *GrpcClient {
+func (x *Configuration) GetGrpcClients() []*GrpcClient {
+	if x != nil {
+		return x.GrpcClients
+	}
+	return nil
+}
+
+func (x *Configuration) GetAiService() string {
 	if x != nil {
 		return x.AiService
 	}
-	return nil
+	return ""
 }
 
 func (x *Configuration) GetModels() []*Model {
@@ -87,14 +95,18 @@ func (x *Configuration) GetChat() *ChatConfiguration {
 	return nil
 }
 
-func (x *Configuration) GetToolEngines() []*ToolEngineConfiguration {
+func (x *Configuration) GetToolSets() []*ToolSet {
 	if x != nil {
-		return x.ToolEngines
+		return x.ToolSets
 	}
 	return nil
 }
 
-func (x *Configuration) SetAiService(v *GrpcClient) {
+func (x *Configuration) SetGrpcClients(v []*GrpcClient) {
+	x.GrpcClients = v
+}
+
+func (x *Configuration) SetAiService(v string) {
 	x.AiService = v
 }
 
@@ -106,15 +118,8 @@ func (x *Configuration) SetChat(v *ChatConfiguration) {
 	x.Chat = v
 }
 
-func (x *Configuration) SetToolEngines(v []*ToolEngineConfiguration) {
-	x.ToolEngines = v
-}
-
-func (x *Configuration) HasAiService() bool {
-	if x == nil {
-		return false
-	}
-	return x.AiService != nil
+func (x *Configuration) SetToolSets(v []*ToolSet) {
+	x.ToolSets = v
 }
 
 func (x *Configuration) HasChat() bool {
@@ -124,10 +129,6 @@ func (x *Configuration) HasChat() bool {
 	return x.Chat != nil
 }
 
-func (x *Configuration) ClearAiService() {
-	x.AiService = nil
-}
-
 func (x *Configuration) ClearChat() {
 	x.Chat = nil
 }
@@ -135,37 +136,41 @@ func (x *Configuration) ClearChat() {
 type Configuration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// gRPC client configuration for the AI service.
-	AiService *GrpcClient
+	// Named gRPC clients, referenced elsewhere by name.
+	GrpcClients []*GrpcClient
+	// Name of the gRPC client to use for the AI service.
+	AiService string
 	// Model aliases.
 	Models []*Model
 	// Chat configuration.
 	Chat *ChatConfiguration
-	// Tool engine configurations. Each entry defines a remote gRPC service
-	// that provides tool sets for AI interactions.
-	ToolEngines []*ToolEngineConfiguration
+	// Tool sets provided by remote gRPC tool engines.
+	ToolSets []*ToolSet
 }
 
 func (b0 Configuration_builder) Build() *Configuration {
 	m0 := &Configuration{}
 	b, x := &b0, m0
 	_, _ = b, x
+	x.GrpcClients = b.GrpcClients
 	x.AiService = b.AiService
 	x.Models = b.Models
 	x.Chat = b.Chat
-	x.ToolEngines = b.ToolEngines
+	x.ToolSets = b.ToolSets
 	return m0
 }
 
 // gRPC client configuration.
 type GrpcClient struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Unique identifier for this client.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Base URL of the gRPC service.
-	BaseUrl string `protobuf:"bytes,1,opt,name=base_url,json=baseUrl,proto3" json:"base_url,omitempty"`
+	BaseUrl string `protobuf:"bytes,2,opt,name=base_url,json=baseUrl,proto3" json:"base_url,omitempty"`
 	// API key for authentication.
-	ApiKey string `protobuf:"bytes,2,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	ApiKey string `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
 	// API key header for authentication.
-	ApiKeyHeader  string `protobuf:"bytes,3,opt,name=api_key_header,json=apiKeyHeader,proto3" json:"api_key_header,omitempty"`
+	ApiKeyHeader  string `protobuf:"bytes,4,opt,name=api_key_header,json=apiKeyHeader,proto3" json:"api_key_header,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -195,6 +200,13 @@ func (x *GrpcClient) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+func (x *GrpcClient) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 func (x *GrpcClient) GetBaseUrl() string {
 	if x != nil {
 		return x.BaseUrl
@@ -216,6 +228,10 @@ func (x *GrpcClient) GetApiKeyHeader() string {
 	return ""
 }
 
+func (x *GrpcClient) SetName(v string) {
+	x.Name = v
+}
+
 func (x *GrpcClient) SetBaseUrl(v string) {
 	x.BaseUrl = v
 }
@@ -231,6 +247,8 @@ func (x *GrpcClient) SetApiKeyHeader(v string) {
 type GrpcClient_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// Unique identifier for this client.
+	Name string
 	// Base URL of the gRPC service.
 	BaseUrl string
 	// API key for authentication.
@@ -243,6 +261,7 @@ func (b0 GrpcClient_builder) Build() *GrpcClient {
 	m0 := &GrpcClient{}
 	b, x := &b0, m0
 	_, _ = b, x
+	x.Name = b.Name
 	x.BaseUrl = b.BaseUrl
 	x.ApiKey = b.ApiKey
 	x.ApiKeyHeader = b.ApiKeyHeader
@@ -599,36 +618,36 @@ func (b0 Role_builder) Build() *Role {
 	return m0
 }
 
-// Configuration for a remote tool engine that provides tool sets via gRPC.
-type ToolEngineConfiguration struct {
+// A remote tool engine that provides tool sets via gRPC.
+type ToolSet struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// Human-readable name for this tool engine (e.g. "onikisu").
+	// Human-readable name for this tool set (e.g. "onikisu").
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// gRPC client configuration for the engine service.
-	EngineService *GrpcClient `protobuf:"bytes,2,opt,name=engine_service,json=engineService,proto3" json:"engine_service,omitempty"`
+	// Name of the gRPC client to use for the engine service.
+	EngineService string `protobuf:"bytes,2,opt,name=engine_service,json=engineService,proto3" json:"engine_service,omitempty"`
 	// Tool set definitions to create from this engine.
 	ToolSets []*v1.CreateServiceToolSetRequest `protobuf:"bytes,3,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
-	// Instructions on how to use this tool engine.
+	// Instructions on how to use this tool set.
 	// Note that this is injected into the system prompt when enabled.
 	Instructions  string `protobuf:"bytes,4,opt,name=instructions,proto3" json:"instructions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ToolEngineConfiguration) Reset() {
-	*x = ToolEngineConfiguration{}
+func (x *ToolSet) Reset() {
+	*x = ToolSet{}
 	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ToolEngineConfiguration) String() string {
+func (x *ToolSet) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ToolEngineConfiguration) ProtoMessage() {}
+func (*ToolSet) ProtoMessage() {}
 
-func (x *ToolEngineConfiguration) ProtoReflect() protoreflect.Message {
+func (x *ToolSet) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -640,77 +659,66 @@ func (x *ToolEngineConfiguration) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ToolEngineConfiguration) GetName() string {
+func (x *ToolSet) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *ToolEngineConfiguration) GetEngineService() *GrpcClient {
+func (x *ToolSet) GetEngineService() string {
 	if x != nil {
 		return x.EngineService
 	}
-	return nil
+	return ""
 }
 
-func (x *ToolEngineConfiguration) GetToolSets() []*v1.CreateServiceToolSetRequest {
+func (x *ToolSet) GetToolSets() []*v1.CreateServiceToolSetRequest {
 	if x != nil {
 		return x.ToolSets
 	}
 	return nil
 }
 
-func (x *ToolEngineConfiguration) GetInstructions() string {
+func (x *ToolSet) GetInstructions() string {
 	if x != nil {
 		return x.Instructions
 	}
 	return ""
 }
 
-func (x *ToolEngineConfiguration) SetName(v string) {
+func (x *ToolSet) SetName(v string) {
 	x.Name = v
 }
 
-func (x *ToolEngineConfiguration) SetEngineService(v *GrpcClient) {
+func (x *ToolSet) SetEngineService(v string) {
 	x.EngineService = v
 }
 
-func (x *ToolEngineConfiguration) SetToolSets(v []*v1.CreateServiceToolSetRequest) {
+func (x *ToolSet) SetToolSets(v []*v1.CreateServiceToolSetRequest) {
 	x.ToolSets = v
 }
 
-func (x *ToolEngineConfiguration) SetInstructions(v string) {
+func (x *ToolSet) SetInstructions(v string) {
 	x.Instructions = v
 }
 
-func (x *ToolEngineConfiguration) HasEngineService() bool {
-	if x == nil {
-		return false
-	}
-	return x.EngineService != nil
-}
-
-func (x *ToolEngineConfiguration) ClearEngineService() {
-	x.EngineService = nil
-}
-
-type ToolEngineConfiguration_builder struct {
+type ToolSet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Human-readable name for this tool engine (e.g. "onikisu").
+	// Human-readable name for this tool set (e.g. "onikisu").
 	Name string
-	// gRPC client configuration for the engine service.
-	EngineService *GrpcClient
+	// Name of the gRPC client to use for the engine service.
+	EngineService string
 	// Tool set definitions to create from this engine.
 	ToolSets []*v1.CreateServiceToolSetRequest
-	// Instructions on how to use this tool engine.
+	// Instructions on how to use this tool set.
 	// Note that this is injected into the system prompt when enabled.
 	Instructions string
 }
 
-func (b0 ToolEngineConfiguration_builder) Build() *ToolEngineConfiguration {
-	m0 := &ToolEngineConfiguration{}
+func (b0 ToolSet_builder) Build() *ToolSet {
+	m0 := &ToolSet{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.Name = b.Name
@@ -724,18 +732,20 @@ var File_sgpt_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\xe0\x01\n" +
-	"\rConfiguration\x122\n" +
+	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\xed\x01\n" +
+	"\rConfiguration\x126\n" +
+	"\fgrpc_clients\x18\x01 \x03(\v2\x13.sgpt.v1.GrpcClientR\vgrpcClients\x12\x1d\n" +
 	"\n" +
-	"ai_service\x18\x01 \x01(\v2\x13.sgpt.v1.GrpcClientR\taiService\x12&\n" +
-	"\x06models\x18\x02 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
-	"\x04chat\x18\x03 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12C\n" +
-	"\ftool_engines\x18\x04 \x03(\v2 .sgpt.v1.ToolEngineConfigurationR\vtoolEngines\"n\n" +
+	"ai_service\x18\x02 \x01(\tR\taiService\x12&\n" +
+	"\x06models\x18\x03 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
+	"\x04chat\x18\x04 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12-\n" +
+	"\ttool_sets\x18\x05 \x03(\v2\x10.sgpt.v1.ToolSetR\btoolSets\"\x8a\x01\n" +
 	"\n" +
-	"GrpcClient\x12!\n" +
-	"\bbase_url\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\abaseUrl\x12\x17\n" +
-	"\aapi_key\x18\x02 \x01(\tR\x06apiKey\x12$\n" +
-	"\x0eapi_key_header\x18\x03 \x01(\tR\fapiKeyHeader\"R\n" +
+	"GrpcClient\x12\x1a\n" +
+	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12!\n" +
+	"\bbase_url\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\abaseUrl\x12\x17\n" +
+	"\aapi_key\x18\x03 \x01(\tR\x06apiKey\x12$\n" +
+	"\x0eapi_key_header\x18\x04 \x01(\tR\fapiKeyHeader\"R\n" +
 	"\x05Model\x123\n" +
 	"\x04name\x18\x01 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
@@ -756,10 +766,10 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05model\x18\x04 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
 	"\x05files\x18\x05 \x03(\tR\x05files\x12\x14\n" +
-	"\x05tools\x18\x06 \x03(\tR\x05tools\"\xf8\x01\n" +
-	"\x17ToolEngineConfiguration\x12\x1a\n" +
-	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12B\n" +
-	"\x0eengine_service\x18\x02 \x01(\v2\x13.sgpt.v1.GrpcClientB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +
+	"\x05tools\x18\x06 \x03(\tR\x05tools\"\xd3\x01\n" +
+	"\aToolSet\x12\x1a\n" +
+	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12-\n" +
+	"\x0eengine_service\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +
 	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSets\x12*\n" +
 	"\finstructions\x18\x04 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\finstructionsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
@@ -770,22 +780,21 @@ var file_sgpt_v1_configuration_proto_goTypes = []any{
 	(*Model)(nil),                          // 2: sgpt.v1.Model
 	(*ChatConfiguration)(nil),              // 3: sgpt.v1.ChatConfiguration
 	(*Role)(nil),                           // 4: sgpt.v1.Role
-	(*ToolEngineConfiguration)(nil),        // 5: sgpt.v1.ToolEngineConfiguration
+	(*ToolSet)(nil),                        // 5: sgpt.v1.ToolSet
 	(*v1.CreateServiceToolSetRequest)(nil), // 6: malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
 }
 var file_sgpt_v1_configuration_proto_depIdxs = []int32{
-	1, // 0: sgpt.v1.Configuration.ai_service:type_name -> sgpt.v1.GrpcClient
+	1, // 0: sgpt.v1.Configuration.grpc_clients:type_name -> sgpt.v1.GrpcClient
 	2, // 1: sgpt.v1.Configuration.models:type_name -> sgpt.v1.Model
 	3, // 2: sgpt.v1.Configuration.chat:type_name -> sgpt.v1.ChatConfiguration
-	5, // 3: sgpt.v1.Configuration.tool_engines:type_name -> sgpt.v1.ToolEngineConfiguration
+	5, // 3: sgpt.v1.Configuration.tool_sets:type_name -> sgpt.v1.ToolSet
 	4, // 4: sgpt.v1.ChatConfiguration.roles:type_name -> sgpt.v1.Role
-	1, // 5: sgpt.v1.ToolEngineConfiguration.engine_service:type_name -> sgpt.v1.GrpcClient
-	6, // 6: sgpt.v1.ToolEngineConfiguration.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	6, // 5: sgpt.v1.ToolSet.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_configuration_proto_init() }

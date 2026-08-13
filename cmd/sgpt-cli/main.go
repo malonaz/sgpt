@@ -12,7 +12,6 @@ import (
 
 	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
@@ -58,17 +57,8 @@ func run() error {
 		return fmt.Errorf("parsing config: %v", err)
 	}
 
-	baseURLToGRPCConnection := map[string]*grpc.Connection{}
-	grpcClients := []*sgptpb.GrpcClient{
-		config.GetAiService(),
-	}
-	for _, toolEngine := range config.GetToolEngines() {
-		grpcClients = append(grpcClients, toolEngine.GetEngineService())
-	}
-	for _, grpcClient := range grpcClients {
-		if _, ok := baseURLToGRPCConnection[grpcClient.GetBaseUrl()]; ok {
-			continue
-		}
+	clientNameToGRPCConnection := map[string]*grpc.Connection{}
+	for _, grpcClient := range config.GetGrpcClients() {
 		opts, err := grpc.ParseOpts(grpcClient.BaseUrl)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
@@ -83,12 +73,12 @@ func run() error {
 			return fmt.Errorf("connecting: %w", err)
 		}
 		defer conn.Close()
-		baseURLToGRPCConnection[grpcClient.GetBaseUrl()] = conn
+		clientNameToGRPCConnection[grpcClient.GetName()] = conn
 	}
 
-	aiClient := aiservicepb.NewAiServiceClient(baseURLToGRPCConnection[config.GetAiService().GetBaseUrl()].Get())
+	aiClient := aiservicepb.NewAiServiceClient(clientNameToGRPCConnection[config.GetAiService()].Get())
 
-	rootCmd.AddCommand(chat.NewCmd(config, aiClient, baseURLToGRPCConnection))
+	rootCmd.AddCommand(chat.NewCmd(config, aiClient, clientNameToGRPCConnection))
 	rootCmd.AddCommand(cache.NewCmd())
 	return rootCmd.Execute()
 }

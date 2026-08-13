@@ -4,6 +4,7 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//internal/cache",
+        "//internal/configuration",
         "//internal/debug",
         "//internal/tool",
         "//sgpt/v1",

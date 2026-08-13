@@ -33,7 +33,7 @@ import (
 func NewCmd(
 	config *sgptpb.Configuration,
 	aiClient aiservicepb.AiServiceClient,
-	baseURLToGRPCConnection map[string]*grpc.Connection,
+	clientNameToGRPCConnection map[string]*grpc.Connection,
 ) *cobra.Command {
 	chatStore := store.New(config, aiClient)
 
@@ -134,10 +134,10 @@ func NewCmd(
 			}
 			// Engines are listed (picker candidates) but NOT dialed here:
 			// initialization happens on first enablement, via resolveTool.
-			toolEngineManager := rpc.NewManager(config, baseURLToGRPCConnection)
+			toolEngineManager := rpc.NewManager(config, clientNameToGRPCConnection)
 			registry.Register(tool.HandlerIDEngine, toolEngineManager)
-			for _, toolEngineConfiguration := range config.GetToolEngines() {
-				availableToolNames = append(availableToolNames, toolEngineConfiguration.GetName())
+			for _, toolSetConfiguration := range config.GetToolSets() {
+				availableToolNames = append(availableToolNames, toolSetConfiguration.GetName())
 			}
 
 			// resolveTool maps a user-facing name to advertised tool/tool-set
@@ -185,9 +185,9 @@ func NewCmd(
 					enabledNameSet[name] = struct{}{}
 				}
 				var messages []*aipb.Message
-				for _, toolEngineConfiguration := range config.GetToolEngines() {
-					if _, ok := enabledNameSet[toolEngineConfiguration.GetName()]; ok && toolEngineConfiguration.GetInstructions() != "" {
-						messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(toolEngineConfiguration.GetInstructions())))
+				for _, toolSetConfiguration := range config.GetToolSets() {
+					if _, ok := enabledNameSet[toolSetConfiguration.GetName()]; ok && toolSetConfiguration.GetInstructions() != "" {
+						messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(toolSetConfiguration.GetInstructions())))
 					}
 				}
 				return messages
@@ -303,8 +303,8 @@ func NewCmd(
 	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		// Built-in tools complete alongside configured tool engines.
 		candidates := tool.BuiltinNames()
-		for _, toolEngineConfiguration := range config.GetToolEngines() {
-			candidates = append(candidates, toolEngineConfiguration.GetName())
+		for _, toolSetConfiguration := range config.GetToolSets() {
+			candidates = append(candidates, toolSetConfiguration.GetName())
 		}
 		var names []string
 		for _, name := range candidates {

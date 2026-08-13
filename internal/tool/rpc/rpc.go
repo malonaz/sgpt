@@ -26,6 +26,7 @@ import (
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/cache"
+	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tool"
 )
@@ -47,8 +48,8 @@ type engineConnection struct {
 // Manager connects to remote tool engines and implements tool.Tool for
 // the tool sets they expose.
 type Manager struct {
-	configuration           *sgptpb.Configuration
-	baseURLToGRPCConnection map[string]*grpc.Connection
+	configuration              *sgptpb.Configuration
+	clientNameToGRPCConnection map[string]*grpc.Connection
 
 	mu                  sync.Mutex
 	toolSets            []*aipb.ToolSet
@@ -67,13 +68,13 @@ func toolSetCacheKey(engineName string, index int) string {
 // EnsureEngine is called for it.
 func NewManager(
 	configuration *sgptpb.Configuration,
-	baseURLToGRPCConnection map[string]*grpc.Connection,
+	clientNameToGRPCConnection map[string]*grpc.Connection,
 ) *Manager {
 	return &Manager{
-		configuration:           configuration,
-		baseURLToGRPCConnection: baseURLToGRPCConnection,
-		toolSetNameToEngine:     map[string]*engineConnection{},
-		engineNameToToolSets:    map[string][]*aipb.ToolSet{},
+		configuration:              configuration,
+		clientNameToGRPCConnection: clientNameToGRPCConnection,
+		toolSetNameToEngine:        map[string]*engineConnection{},
+		engineNameToToolSets:       map[string][]*aipb.ToolSet{},
 	}
 }
 
@@ -86,8 +87,8 @@ func (m *Manager) EnsureEngine(ctx context.Context, engineName string) ([]*aipb.
 	if toolSets, ok := m.engineNameToToolSets[engineName]; ok {
 		return toolSets, nil
 	}
-	var toolEngine *sgptpb.ToolEngineConfiguration
-	for _, candidate := range m.configuration.GetToolEngines() {
+	var toolEngine *sgptpb.ToolSet
+	for _, candidate := range m.configuration.GetToolSets() {
 		if candidate.GetName() == engineName {
 			toolEngine = candidate
 			break
@@ -97,11 +98,15 @@ func (m *Manager) EnsureEngine(ctx context.Context, engineName string) ([]*aipb.
 		return nil, fmt.Errorf("unknown tool engine %q", engineName)
 	}
 
-	connection := m.baseURLToGRPCConnection[toolEngine.GetEngineService().GetBaseUrl()]
+	engineService, err := configuration.GrpcClient(m.configuration, toolEngine.GetEngineService())
+	if err != nil {
+		return nil, err
+	}
+	connection := m.clientNameToGRPCConnection[engineService.GetName()]
 	reflectionClient := reflectionpb.NewServerReflectionClient(connection.Get())
 	// Resolve and cache the schema for this engine.
 	schema, err := pbreflection.ResolveSchema(ctx, reflectionClient,
-		pbreflection.WithDiskCache(toolEngine.GetEngineService().GetBaseUrl(), cache.Dir(), schemaCacheMaxAge),
+		pbreflection.WithDiskCache(engineService.GetBaseUrl(), cache.Dir(), schemaCacheMaxAge),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("resolving schema for %s: %w", toolEngine.GetName(), err)

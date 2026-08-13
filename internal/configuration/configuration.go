@@ -63,7 +63,36 @@ func Parse(path string) (*sgptpb.Configuration, error) {
 		}
 		proto.Merge(configuration, overrideConfiguration)
 	}
+	if err := validateGrpcClientReferences(configuration); err != nil {
+		return nil, err
+	}
 	return configuration, nil
+}
+
+// GrpcClient resolves a gRPC client by name.
+func GrpcClient(configuration *sgptpb.Configuration, name string) (*sgptpb.GrpcClient, error) {
+	for _, grpcClient := range configuration.GetGrpcClients() {
+		if grpcClient.GetName() == name {
+			return grpcClient, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown grpc client: %q", name)
+}
+
+// validateGrpcClientReferences ensures every named reference resolves to a
+// declared gRPC client.
+func validateGrpcClientReferences(configuration *sgptpb.Configuration) error {
+	if aiService := configuration.GetAiService(); aiService != "" {
+		if _, err := GrpcClient(configuration, aiService); err != nil {
+			return fmt.Errorf("ai_service: %w", err)
+		}
+	}
+	for _, toolSet := range configuration.GetToolSets() {
+		if _, err := GrpcClient(configuration, toolSet.GetEngineService()); err != nil {
+			return fmt.Errorf("tool set %q: %w", toolSet.GetName(), err)
+		}
+	}
+	return nil
 }
 
 // ResolveModelAlias resolves a model name or alias to the full model name.
