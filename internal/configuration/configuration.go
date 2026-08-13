@@ -80,8 +80,14 @@ func GrpcClient(configuration *sgptpb.Configuration, name string) (*sgptpb.GrpcC
 }
 
 // validateGrpcClientReferences ensures every named reference resolves to a
-// declared gRPC client.
+// declared gRPC client, and that declared clients carry an API key (a
+// missing env variable silently evaluates to "").
 func validateGrpcClientReferences(configuration *sgptpb.Configuration) error {
+	for _, grpcClient := range configuration.GetGrpcClients() {
+		if grpcClient.GetApiKey() == "" {
+			return fmt.Errorf("grpc client %q: empty api_key (is the env variable set?)", grpcClient.GetName())
+		}
+	}
 	if aiService := configuration.GetAiService(); aiService != "" {
 		if _, err := GrpcClient(configuration, aiService); err != nil {
 			return fmt.Errorf("ai_service: %w", err)
@@ -194,7 +200,7 @@ func findOverrideConfigPaths() ([]string, error) {
 }
 
 func parseConfig(path string) (*sgptpb.Configuration, error) {
-	content, err := jsonnet.EvaluateFile(path)
+	content, err := jsonnet.EvaluateFile(path, jsonnet.WithEnvVariables())
 	if err != nil {
 		return nil, fmt.Errorf("evaluating config: %w", err)
 	}

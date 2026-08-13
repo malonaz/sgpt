@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"strings"
 	"text/template"
 	"time"
 
@@ -97,9 +98,9 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 
 	// If a role is specified, inject its prompt and copy other fields.
 	if o.RoleName != "" {
-		role, ok := o.roleNameToRole[o.RoleName]
-		if !ok {
-			return nil, errors.Errorf("unknown role (%s)", o.RoleName)
+		role, err := o.expand(o.RoleName, map[string]bool{})
+		if err != nil {
+			return nil, err
 		}
 		result.Name = role.Name
 		result.Alias = role.Alias
@@ -122,4 +123,62 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 
 	result.Prompt = buf.String()
 	return result, nil
+}
+
+// expand resolves a role and merges its included roles depth-first. Included
+// prompts are prepended so the outermost role's prompt has the last word.
+// visitedNameSet both breaks inclusion cycles and dedupes diamond includes.
+func (o *Opts) expand(name string, visitedNameSet map[string]bool) (*sgptpb.Role, error) {
+	role, ok := o.roleNameToRole[name]
+	if !ok {
+		return nil, errors.Errorf("unknown role (%s)", name)
+	}
+	if visitedNameSet[role.Name] {
+		return &sgptpb.Role{Name: role.Name, Alias: role.Alias}, nil
+	}
+	visitedNameSet[role.Name] = true
+
+	result := &sgptpb.Role{
+		Name:  role.Name,
+		Alias: role.Alias,
+		Model: role.Model,
+	}
+	var prompts []string
+	for _, includedName := range role.GetRoles() {
+		includedRole, err := o.expand(includedName, visitedNameSet)
+		if err != nil {
+			return nil, errors.Wrapf(err, "expanding role (%s)", name)
+		}
+		if includedRole.Prompt != "" {
+			prompts = append(prompts, includedRole.Prompt)
+		}
+		result.Files = append(result.Files, includedRole.Files...)
+		result.Tools = append(result.Tools, includedRole.Tools...)
+		// The outermost model wins; fall back to included roles' models.
+		if result.Model == "" {
+			result.Model = includedRole.Model
+		}
+	}
+	if role.Prompt != "" {
+		prompts = append(prompts, role.Prompt)
+	}
+	result.Prompt = strings.Join(prompts, "\n\n")
+	result.Files = append(result.Files, role.Files...)
+	result.Tools = append(result.Tools, role.Tools...)
+	result.Files = dedupe(result.Files)
+	result.Tools = dedupe(result.Tools)
+	return result, nil
+}
+
+func dedupe(values []string) []string {
+	valueSet := map[string]bool{}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if valueSet[value] {
+			continue
+		}
+		valueSet[value] = true
+		result = append(result, value)
+	}
+	return result
 }

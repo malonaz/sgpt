@@ -177,21 +177,6 @@ func NewCmd(
 				}
 				return nil
 			}
-			// engineInstructions returns the instruction messages of the
-			// engines enabled by name.
-			engineInstructions := func(names []string) []*aipb.Message {
-				enabledNameSet := map[string]struct{}{}
-				for _, name := range names {
-					enabledNameSet[name] = struct{}{}
-				}
-				var messages []*aipb.Message
-				for _, toolSetConfiguration := range config.GetToolSets() {
-					if _, ok := enabledNameSet[toolSetConfiguration.GetName()]; ok && toolSetConfiguration.GetInstructions() != "" {
-						messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(toolSetConfiguration.GetInstructions())))
-					}
-				}
-				return messages
-			}
 
 			toolNames := append(opts.Tools, parsedRole.GetTools()...)
 			if err := validateToolNames(toolNames); err != nil {
@@ -217,7 +202,6 @@ func NewCmd(
 			// File contents are NOT baked in here: the session injects them
 			// per turn from InjectedFiles, so they stay toggleable mid-chat.
 			additionalMessages := []*aipb.Message{ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt))}
-			additionalMessages = append(additionalMessages, engineInstructions(toolNames)...)
 
 			params := session.Params{
 				Model:              selectedModel,
@@ -255,7 +239,6 @@ func NewCmd(
 				}
 				// Mirror the CLI-launched chat context assembly exactly.
 				subMessages := []*aipb.Message{ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt))}
-				subMessages = append(subMessages, engineInstructions(request.Tools)...)
 				subChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
 				// Agent-provided title: skips auto-generation and labels the tab.
 				subChat.Title = request.Title

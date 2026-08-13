@@ -491,7 +491,10 @@ type Role struct {
 	// Files to include as context for this role.
 	Files []string `protobuf:"bytes,5,rep,name=files,proto3" json:"files,omitempty"`
 	// Tools to include as part of this role.
-	Tools         []string `protobuf:"bytes,6,rep,name=tools,proto3" json:"tools,omitempty"`
+	Tools []string `protobuf:"bytes,6,rep,name=tools,proto3" json:"tools,omitempty"`
+	// Names or aliases of other roles to include. Included roles are expanded
+	// depth-first: their prompts are prepended and their files/tools merged.
+	Roles         []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -563,6 +566,13 @@ func (x *Role) GetTools() []string {
 	return nil
 }
 
+func (x *Role) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
 func (x *Role) SetName(v string) {
 	x.Name = v
 }
@@ -587,6 +597,10 @@ func (x *Role) SetTools(v []string) {
 	x.Tools = v
 }
 
+func (x *Role) SetRoles(v []string) {
+	x.Roles = v
+}
+
 type Role_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -603,6 +617,9 @@ type Role_builder struct {
 	Files []string
 	// Tools to include as part of this role.
 	Tools []string
+	// Names or aliases of other roles to include. Included roles are expanded
+	// depth-first: their prompts are prepended and their files/tools merged.
+	Roles []string
 }
 
 func (b0 Role_builder) Build() *Role {
@@ -615,6 +632,7 @@ func (b0 Role_builder) Build() *Role {
 	x.Model = b.Model
 	x.Files = b.Files
 	x.Tools = b.Tools
+	x.Roles = b.Roles
 	return m0
 }
 
@@ -626,10 +644,7 @@ type ToolSet struct {
 	// Name of the gRPC client to use for the engine service.
 	EngineService string `protobuf:"bytes,2,opt,name=engine_service,json=engineService,proto3" json:"engine_service,omitempty"`
 	// Tool set definitions to create from this engine.
-	ToolSets []*v1.CreateServiceToolSetRequest `protobuf:"bytes,3,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
-	// Instructions on how to use this tool set.
-	// Note that this is injected into the system prompt when enabled.
-	Instructions  string `protobuf:"bytes,4,opt,name=instructions,proto3" json:"instructions,omitempty"`
+	ToolSets      []*v1.CreateServiceToolSetRequest `protobuf:"bytes,3,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -680,13 +695,6 @@ func (x *ToolSet) GetToolSets() []*v1.CreateServiceToolSetRequest {
 	return nil
 }
 
-func (x *ToolSet) GetInstructions() string {
-	if x != nil {
-		return x.Instructions
-	}
-	return ""
-}
-
 func (x *ToolSet) SetName(v string) {
 	x.Name = v
 }
@@ -699,10 +707,6 @@ func (x *ToolSet) SetToolSets(v []*v1.CreateServiceToolSetRequest) {
 	x.ToolSets = v
 }
 
-func (x *ToolSet) SetInstructions(v string) {
-	x.Instructions = v
-}
-
 type ToolSet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -712,9 +716,6 @@ type ToolSet_builder struct {
 	EngineService string
 	// Tool set definitions to create from this engine.
 	ToolSets []*v1.CreateServiceToolSetRequest
-	// Instructions on how to use this tool set.
-	// Note that this is injected into the system prompt when enabled.
-	Instructions string
 }
 
 func (b0 ToolSet_builder) Build() *ToolSet {
@@ -724,7 +725,6 @@ func (b0 ToolSet_builder) Build() *ToolSet {
 	x.Name = b.Name
 	x.EngineService = b.EngineService
 	x.ToolSets = b.ToolSets
-	x.Instructions = b.Instructions
 	return m0
 }
 
@@ -758,7 +758,7 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
 	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\x12#\n" +
-	"\x05roles\x18\x05 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xb5\x01\n" +
+	"\x05roles\x18\x05 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xcb\x01\n" +
 	"\x04Role\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1e\n" +
@@ -766,12 +766,12 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05model\x18\x04 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
 	"\x05files\x18\x05 \x03(\tR\x05files\x12\x14\n" +
-	"\x05tools\x18\x06 \x03(\tR\x05tools\"\xd3\x01\n" +
+	"\x05tools\x18\x06 \x03(\tR\x05tools\x12\x14\n" +
+	"\x05roles\x18\a \x03(\tR\x05roles\"\xa7\x01\n" +
 	"\aToolSet\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12-\n" +
 	"\x0eengine_service\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +
-	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSets\x12*\n" +
-	"\finstructions\x18\x04 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\finstructionsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
+	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSetsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
 var file_sgpt_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_sgpt_v1_configuration_proto_goTypes = []any{

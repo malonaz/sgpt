@@ -95,6 +95,10 @@ message Role {
 
   // Tools to include as part of this role.
   repeated string tools = 6;
+
+  // Names or aliases of other roles to include. Included roles are expanded
+  // depth-first: their prompts are prepended and their files/tools merged.
+  repeated string roles = 7;
 }
 
 // A remote tool engine that provides tool sets via gRPC.
@@ -107,8 +111,4 @@ message ToolSet {
 
   // Tool set definitions to create from this engine.
   repeated malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest tool_sets = 3;
-
-  // Instructions on how to use this tool set.
-  // Note that this is injected into the system prompt when enabled.
-  string instructions = 4 [(buf.validate.field).required = true];
 }
