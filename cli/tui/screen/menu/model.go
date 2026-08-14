@@ -23,6 +23,10 @@ const (
 	// loadMoreThreshold triggers a background fetch when the cursor gets
 	// within this many rows of the end of the loaded list.
 	loadMoreThreshold = 10
+	// previewCacheBudget bounds the per-chat preview caches (fetched message
+	// histories and their rendered markdown). Infinite scroll means an
+	// unbounded number of chats can be visited in one session.
+	previewCacheBudget = 64
 )
 
 type FocusTarget int
@@ -90,6 +94,9 @@ type Model struct {
 	// preview; loadingMessagesSet guards against duplicate fetches.
 	messagesCache      map[string][]*aipb.Message
 	loadingMessagesSet map[string]bool
+	// previewOrder is the MRU order of cached chat names, driving eviction of
+	// messagesCache/detailCache once previewCacheBudget is exceeded.
+	previewOrder []string
 
 	focusTarget      FocusTarget
 	selectedChatName string
@@ -309,6 +316,24 @@ func (m *Model) displayedFavoriteCount() int {
 	return m.displayedFavCount
 }
 
+// touchPreview records a chat as most-recently-used and evicts the coldest
+// previews once the budget is exceeded.
+func (m *Model) touchPreview(name string) {
+	for i, cached := range m.previewOrder {
+		if cached == name {
+			m.previewOrder = append(m.previewOrder[:i], m.previewOrder[i+1:]...)
+			break
+		}
+	}
+	m.previewOrder = append(m.previewOrder, name)
+	for len(m.previewOrder) > previewCacheBudget {
+		coldest := m.previewOrder[0]
+		m.previewOrder = m.previewOrder[1:]
+		delete(m.messagesCache, coldest)
+		delete(m.detailCache, coldest)
+	}
+}
+
 func (m *Model) applyFilter(chats []*aipb.Chat) []*aipb.Chat {
 	if m.filterText == "" {
 		return chats
@@ -355,6 +380,7 @@ func (m *Model) updateSelection() {
 		// placeholder must not stick.
 		if _, loaded := m.messagesCache[m.selectedChatName]; loaded && m.selectedChatName != "" {
 			m.detailCache[m.selectedChatName] = content
+			m.touchPreview(m.selectedChatName)
 		}
 	}
 	m.detailViewport.SetContent(content)
@@ -487,6 +513,8 @@ func (m *Model) recalculateLayout() {
 	// Width changes invalidate every cached preview and row (wrapping changed).
 	m.detailCache = map[string]string{}
 	m.rowCache = map[string]string{}
+	// messagesCache survives (fetches are width-independent), so previewOrder
+	// stays in sync with it rather than being cleared here.
 	m.rebuildListLines()
 	m.ensureCursorVisible()
 

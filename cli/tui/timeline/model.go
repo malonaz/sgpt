@@ -52,7 +52,16 @@ const (
 // and the visible-window assembly are map lookups + slicing.
 type renderEntry struct {
 	lines []string
+	// usedGeneration marks the last rerender pass that touched this entry;
+	// entries unused for a full pass are evicted once the cache grows past
+	// its budget.
+	usedGeneration uint64
 }
+
+// renderCacheBudget bounds the render cache. Entries are keyed by content
+// fingerprint + render state, so a long chat with changing selection would
+// otherwise grow it without limit.
+const renderCacheBudget = 512
 
 // Model owns items, a cursor (item ID + fence index), collapse state and a
 // virtualized scroll window: items are measured once (cached), and View only
@@ -73,6 +82,8 @@ type Model struct {
 	// renderCache holds rendered lines keyed by content fingerprint + render
 	// state (selection/collapse/focus/width).
 	renderCache map[string]renderEntry
+	// generation increments per rerender pass, driving cache eviction.
+	generation uint64
 	// volatileLines memoizes non-cacheable (streaming) items for the duration
 	// of one rerender pass so measure + View don't render twice.
 	volatileLines map[string][]string
@@ -402,6 +413,9 @@ func (m *Model) itemLines(item Item) []string {
 		key = fmt.Sprintf("%s|%t|%t|%t|%d",
 			cacheable.CacheKey(), ctx.Selected, ctx.Focused, ctx.Collapsed, ctx.SelectedSub)
 		if entry, ok := m.renderCache[key]; ok {
+			// Touch so the entry survives the next eviction sweep.
+			entry.usedGeneration = m.generation
+			m.renderCache[key] = entry
 			return entry.lines
 		}
 	} else if lines, ok := m.volatileLines[item.ID()]; ok {
@@ -409,7 +423,7 @@ func (m *Model) itemLines(item Item) []string {
 	}
 	lines := strings.Split(item.Render(m.renderContext(item)), "\n")
 	if key != "" {
-		m.renderCache[key] = renderEntry{lines: lines}
+		m.renderCache[key] = renderEntry{lines: lines, usedGeneration: m.generation}
 	} else {
 		m.volatileLines[item.ID()] = lines
 	}
@@ -422,6 +436,7 @@ func (m *Model) rerender() {
 	if !m.ready {
 		return
 	}
+	m.generation++
 	m.volatileLines = map[string][]string{}
 	m.offsets = make([]int, len(m.items))
 	m.heights = make([]int, len(m.items))
@@ -434,6 +449,21 @@ func (m *Model) rerender() {
 	}
 	m.totalLines = line
 	m.setYOffset(m.yOffset) // re-clamp if content shrank
+	m.evictStaleRenders()
+}
+
+// evictStaleRenders drops entries not touched by the current pass once the
+// cache exceeds its budget: the working set is the visible/measured items, so
+// anything older is a superseded render state.
+func (m *Model) evictStaleRenders() {
+	if len(m.renderCache) <= renderCacheBudget {
+		return
+	}
+	for key, entry := range m.renderCache {
+		if entry.usedGeneration != m.generation {
+			delete(m.renderCache, key)
+		}
+	}
 }
 
 // RenderItems renders items statically (no cursor, no cache) — used by

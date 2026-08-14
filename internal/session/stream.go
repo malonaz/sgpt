@@ -30,17 +30,20 @@ func (s *Session) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
 	s.cancelStream = cancel
 	s.mu.Unlock()
 
+	// Snapshot once: the UI goroutine mutates params (reasoning effort, tool
+	// selection) while this turn runs.
+	params := s.Params()
 	generateMessageRequest := &aiservicepb.GenerateMessageRequest{
 		Parent:   s.Chat().GetName(),
-		Model:    s.params.Model.Name,
+		Model:    params.Model.GetName(),
 		Messages: inputMessages,
 		// Filtered by the user's runtime tool selection (SetEnabledTools).
 		Tools:    s.advertisedTools(),
 		ToolSets: s.advertisedToolSets(),
 		Configuration: &aiservicepb.MessageGenerationConfiguration{
-			MaxTokens:       s.params.MaxTokens,
-			Temperature:     s.params.Temperature,
-			ReasoningEffort: s.params.ReasoningEffort,
+			MaxTokens:       params.MaxTokens,
+			Temperature:     params.Temperature,
+			ReasoningEffort: params.ReasoningEffort,
 			// Stream partial tool calls so the TUI can render them as they build.
 			StreamPartialToolCalls: true,
 		},
@@ -242,6 +245,7 @@ func (s *Session) finalizeStream(message *aipb.Message, err error) {
 		}
 		if len(message.GetBlocks()) > 0 || err != nil {
 			s.messages = append(s.messages, message)
+			s.invalidatePrice()
 		}
 	}
 

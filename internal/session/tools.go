@@ -119,6 +119,7 @@ func (s *Session) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*
 	s.messages = append(s.messages, toolMessage)
 	// The tool message is persisted server-side as input to the next turn.
 	s.pendingInputMessages = append(s.pendingInputMessages, toolMessage)
+	s.invalidatePrice()
 	s.mu.Unlock()
 	s.refresh()
 }
@@ -138,4 +139,70 @@ func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
 	default:
 		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("unresolved tool call"))
 	}
+}
+
+// ---- Review verdicts ----
+//
+// Tool call blocks are shared with the streaming/turn goroutines, so every
+// verdict mutation goes through the session lock. The TUI never writes to a
+// tool call proto itself.
+
+// AcceptToolCall marks a single call accepted.
+func (s *Session) AcceptToolCall(toolCall *aipb.ToolCall) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+}
+
+// RejectToolCall marks a single call rejected, recording the user's reason.
+func (s *Session) RejectToolCall(toolCall *aipb.ToolCall, reason string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tool.SetToolCallStatus(toolCall, tool.ToolCallStatusRejected)
+	tool.SetToolCallRejectionReason(toolCall, reason)
+}
+
+// AcceptAllPendingToolCalls accepts every call still awaiting a verdict.
+func (s *Session) AcceptAllPendingToolCalls() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, toolCall := range s.pendingToolCallsLocked() {
+		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+	}
+}
+
+// AlwaysAcceptTool whitelists the call's tool for the rest of the session and
+// accepts its pending siblings now.
+func (s *Session) AlwaysAcceptTool(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.autoAcceptedToolNameSet[name] = true
+	for _, toolCall := range s.pendingToolCallsLocked() {
+		if toolCall.GetName() == name {
+			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+		}
+	}
+}
+
+// ReopenToolCall returns an unexecuted call to pending so the user can change
+// a verdict before the turn resolves. Reports whether it was reopened.
+func (s *Session) ReopenToolCall(toolCall *aipb.ToolCall) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if toolCall.GetResult() != nil {
+		return false
+	}
+	switch tool.GetToolCallStatus(toolCall) {
+	case tool.ToolCallStatusAccepted, tool.ToolCallStatusRejected:
+		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusPending)
+		return true
+	}
+	return false
+}
+
+// ToolCallStatus reads a call's review status under the lock.
+func (s *Session) ToolCallStatus(toolCall *aipb.ToolCall) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return tool.GetToolCallStatus(toolCall)
 }

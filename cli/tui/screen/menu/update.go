@@ -77,6 +77,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		m.messagesCache[msg.name] = msg.messages
 		delete(m.detailCache, msg.name)
+		m.touchPreview(msg.name)
 		m.updateSelection()
 		return nil
 

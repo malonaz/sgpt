@@ -102,6 +102,14 @@ type Session struct {
 	totalModelUsage *aipb.ModelUsage
 	lastModelUsage  *aipb.ModelUsage
 
+	// pendingErrors queues non-fatal errors for the TUI. Errors are never
+	// dropped, so they are held here rather than in the lossy event channel.
+	pendingErrors []error
+
+	// price memoizes the sum of message prices; every render reads it.
+	price      float64
+	priceValid bool
+
 	// onTurnComplete fires when a turn reaches a terminal state: final answer
 	// (no tool calls), stream error, or tool-processing failure. It does NOT
 	// fire while awaiting review — the sub-agent launcher uses it to collect
@@ -133,6 +141,10 @@ func New(
 		lastModelUsage:                &aipb.ModelUsage{},
 		eventCh:                       make(chan Event, 64),
 	}
+	// Sort once (on a copy — the slice is shared across sessions via the
+	// app's default params): the tool picker reads this on every open.
+	s.params.AvailableToolNames = append([]string(nil), params.AvailableToolNames...)
+	sort.Strings(s.params.AvailableToolNames)
 	// Resuming a chat: context messages are already persisted server-side.
 	for _, message := range messages {
 		if path := store.InjectedFilePath(message); path != "" && message.GetDeleteTime() == nil {
@@ -146,7 +158,10 @@ func New(
 	s.enabledAdvertisedNameSet = map[string]bool{}
 	// Seed from --tool/role config. The CLI already resolved these names at
 	// launch (dialing their engines), so this is served from cache.
-	_ = s.SetEnabledTools(params.Tools)
+	// A failure here silently shrinks the toolset, so surface it as an alert.
+	if err := s.SetEnabledTools(params.Tools); err != nil {
+		s.pendingErrors = append(s.pendingErrors, fmt.Errorf("enabling configured tools: %w", err))
+	}
 	// Render the context (system prompt, injected files) immediately: it is
 	// only persisted on the first turn, but the user should see what the
 	// model will see the moment the chat opens.
@@ -195,8 +210,22 @@ func (s *Session) refresh() {
 }
 
 func (s *Session) emitError(err error) {
-	// Errors must always reach the TUI; block until delivered.
-	s.eventCh <- ErrorEvent{Err: err}
+	// Errors are queued, never dropped and never blocking: refreshes are
+	// coalescable (a lost one is harmless, another always follows) but an
+	// error is the only record of a failure.
+	s.mu.Lock()
+	s.pendingErrors = append(s.pendingErrors, err)
+	s.mu.Unlock()
+	s.emit(errorPendingEvent{})
+}
+
+// takePendingErrors drains the queued errors for the TUI to surface.
+func (s *Session) takePendingErrors() []error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	errors := s.pendingErrors
+	s.pendingErrors = nil
+	return errors
 }
 
 func (s *Session) Chat() *aipb.Chat {
@@ -260,6 +289,8 @@ func (s *Session) setExecutingToolCall(id string) {
 }
 
 func (s *Session) Params() Params {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.params
 }
 
@@ -280,14 +311,29 @@ func (s *Session) LastModelUsage() *aipb.ModelUsage {
 func (s *Session) Price() float64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var price float64
-	for _, message := range s.messages {
-		price += message.GetPrice()
+	if s.priceValid {
+		return s.price
 	}
-	return price
+	// Recomputed in full: messages are not strictly append-only (optimistic
+	// placeholders get swapped, injected files removed), so an incremental
+	// tally would drift. Memoized because every render asks for this.
+	s.price = 0
+	for _, message := range s.messages {
+		s.price += message.GetPrice()
+	}
+	s.priceValid = true
+	return s.price
+}
+
+// invalidatePrice must be called whenever s.messages changes. Caller holds
+// the lock.
+func (s *Session) invalidatePrice() {
+	s.priceValid = false
 }
 
 func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.params.ReasoningEffort = effort
 }
 
@@ -325,6 +371,7 @@ func (s *Session) SetInjectedFiles(paths []string) {
 		}
 		if index := s.optimisticInjectedFileIndex(path); index >= 0 {
 			s.messages = append(s.messages[:index], s.messages[index+1:]...)
+			s.invalidatePrice()
 		}
 	}
 	s.injectedFilePaths = append([]string(nil), paths...)
@@ -338,6 +385,7 @@ func (s *Session) SetInjectedFiles(paths []string) {
 			continue
 		}
 		s.messages = append(s.messages, store.NewInjectedFileMessage(path, injectedFileContent(path)))
+		s.invalidatePrice()
 	}
 	s.mu.Unlock()
 
@@ -354,6 +402,7 @@ func (s *Session) SetInjectedFiles(paths []string) {
 		for i, message := range s.messages {
 			if message.GetName() == messageName {
 				s.messages = append(s.messages[:i], s.messages[i+1:]...)
+				s.invalidatePrice()
 				break
 			}
 		}
@@ -391,7 +440,8 @@ func (s *Session) ensureContext() error {
 	chatName := s.Chat().GetName()
 
 	s.mu.Lock()
-	systemPromptPending := s.params.SystemPrompt != "" && !s.systemPromptSent
+	systemPrompt := s.params.SystemPrompt
+	systemPromptPending := systemPrompt != "" && !s.systemPromptSent
 	var newFilePaths []string
 	for _, path := range s.injectedFilePaths {
 		if _, ok := s.injectedFilePathToMessageName[path]; !ok {
@@ -401,7 +451,7 @@ func (s *Session) ensureContext() error {
 	s.mu.Unlock()
 
 	if systemPromptPending {
-		systemMessage := ai.NewSystemMessage(ai.NewTextBlock(s.params.SystemPrompt))
+		systemMessage := ai.NewSystemMessage(ai.NewTextBlock(systemPrompt))
 		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, systemMessage)
 		if err != nil {
 			return fmt.Errorf("persisting system prompt: %w", err)
@@ -415,6 +465,7 @@ func (s *Session) ensureContext() error {
 		} else {
 			s.messages = append(s.messages, createdMessage)
 		}
+		s.invalidatePrice()
 		s.mu.Unlock()
 	}
 
@@ -430,16 +481,17 @@ func (s *Session) ensureContext() error {
 		} else {
 			s.messages = append(s.messages, createdMessage)
 		}
+		s.invalidatePrice()
 		s.mu.Unlock()
 	}
 	return nil
 }
 
-// AvailableToolNames lists every selectable tool name, sorted.
+// AvailableToolNames lists every selectable tool name, sorted (in New).
 func (s *Session) AvailableToolNames() []string {
-	names := append([]string(nil), s.params.AvailableToolNames...)
-	sort.Strings(names)
-	return names
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.params.AvailableToolNames...)
 }
 
 // EnabledTools returns the user-facing tool names currently enabled.
@@ -458,6 +510,8 @@ func (s *Session) EnabledTools() map[string]bool {
 // tool engine — call it off the UI loop. Resolution happens outside the
 // session lock so renders never stall behind a dial.
 func (s *Session) SetEnabledTools(names []string) error {
+	// ResolveTool is set once in New and never mutated, so reading it without
+	// the lock is safe — and required, since resolution may dial.
 	resolve := s.params.ResolveTool
 	if resolve == nil {
 		// No resolver configured: names are advertised as-is.
@@ -510,13 +564,6 @@ func (s *Session) advertisedToolSets() []*aipb.ToolSet {
 		}
 	}
 	return toolSets
-}
-
-// AutoAcceptTool whitelists a tool: its future calls execute without review.
-func (s *Session) AutoAcceptTool(name string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.autoAcceptedToolNameSet[name] = true
 }
 
 // IsToolAutoAccepted reports whether the user whitelisted this tool.
@@ -594,6 +641,7 @@ func (s *Session) SendMessage(text string) {
 	s.streamError = nil
 	s.messages = append(s.messages, userMessage)
 	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
+	s.invalidatePrice()
 	s.mu.Unlock()
 	s.refresh()
 

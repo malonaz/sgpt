@@ -8,9 +8,15 @@ type RefreshEvent struct{}
 
 func (RefreshEvent) sessionEvent() {}
 
-// ErrorEvent signals a non-fatal error that should be shown as an alert.
-type ErrorEvent struct {
-	Err error
-}
+// errorPendingEvent notifies the TUI that queued errors are waiting; the
+// errors themselves are drained via TakePendingErrors so a dropped
+// notification can never lose one.
+type errorPendingEvent struct{}
 
-func (ErrorEvent) sessionEvent() {}
+func (errorPendingEvent) sessionEvent() {}
+
+// Errors drains and returns the queued non-fatal errors. Safe to call on any
+// event: it returns nil when there is nothing pending.
+func (s *Session) Errors() []error {
+	return s.takePendingErrors()
+}

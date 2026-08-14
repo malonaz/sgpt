@@ -214,22 +214,26 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
-	switch e := event.(type) {
-	case session.RefreshEvent:
+	// Drain on every event: error notifications share the lossy channel, so
+	// the queue — not the notification — is the source of truth.
+	var cmds []tea.Cmd
+	for _, err := range m.session.Errors() {
+		cmds = append(cmds, m.alert(err.Error()))
+	}
+	if _, ok := event.(session.RefreshEvent); ok {
 		m.refresh()
 		m.maybeJumpToReview()
-	case session.ErrorEvent:
-		return func() tea.Msg { return m.wrap(AlertMsg{Text: e.Err.Error()}) }
 	}
-	return nil
+	return tea.Batch(cmds...)
+}
+
+// alert surfaces text as an app-level alert.
+func (m *ChatScreen) alert(text string) tea.Cmd {
+	wrap := m.wrap
+	return func() tea.Msg { return wrap(AlertMsg{Text: text}) }
 }
 
 func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
-	wrap := m.wrap
-	alertFn := func(text string) tea.Cmd {
-		return func() tea.Msg { return wrap(AlertMsg{Text: text}) }
-	}
-
 	switch {
 	case key.Matches(msg, chatKeyCycleFocus.Key):
 		return m.cycleFocus()
@@ -271,7 +275,7 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 
 	// Timeline stays navigable at all times — including during tool review.
 	if m.focusedComponent == FocusViewport {
-		return m.timeline.HandleKey(msg, alertFn)
+		return m.timeline.HandleKey(msg, m.alert)
 	}
 
 	if cmd := m.input.HandleKey(msg); cmd != nil {
@@ -297,12 +301,14 @@ func (m *ChatScreen) submit() tea.Cmd {
 	}
 	m.timeline.ClearSelection()
 	sess := m.session
-	wrap := m.wrap
 	m.refresh()
 	m.timeline.GotoBottom()
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
 		sess.SendMessage(text)
-		return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+		// Refreshes arrive on the session event channel; emitting one here
+		// too would double-invoke maybeJumpToReview and can consume the
+		// idle→review edge it keys off.
+		return nil
 	})
 }
 
@@ -312,23 +318,16 @@ func (m *ChatScreen) submit() tea.Cmd {
 // resolves.
 func (m *ChatScreen) reviewToolCall(pending []*aipb.ToolCall) tea.Cmd {
 	if m.focusedComponent == FocusViewport {
-		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok && item.Result == nil {
-			switch tool.GetToolCallStatus(item.ToolCall) {
-			case tool.ToolCallStatusAccepted, tool.ToolCallStatusRejected:
-				tool.SetToolCallStatus(item.ToolCall, tool.ToolCallStatusPending)
-				m.refresh()
-				return nil
-			}
+		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok && m.session.ReopenToolCall(item.ToolCall) {
+			m.refresh()
+			return nil
 		}
 	}
 	// Never repurpose composed text as a rejection: a review pause can land
 	// mid-composition and a ctrl+j meant to send the message would silently
 	// reject the call with the message as its reason.
 	if m.input.Value() != "" {
-		wrap := m.wrap
-		return func() tea.Msg {
-			return wrap(AlertMsg{Text: "Tool call pending review — ctrl+j/alt+y: accept, alt+shift+r: reject (input = reason)"})
-		}
+		return m.alert("Tool call pending review — ctrl+j/alt+y: accept, alt+shift+r: reject (input = reason)")
 	}
 	return m.acceptToolCall(m.reviewTarget(pending))
 }
@@ -338,7 +337,7 @@ func (m *ChatScreen) reviewToolCall(pending []*aipb.ToolCall) tea.Cmd {
 func (m *ChatScreen) reviewTarget(pending []*aipb.ToolCall) *aipb.ToolCall {
 	if m.focusedComponent == FocusViewport {
 		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok &&
-			item.Result == nil && tool.GetToolCallStatus(item.ToolCall) == tool.ToolCallStatusPending {
+			item.Result == nil && m.session.ToolCallStatus(item.ToolCall) == tool.ToolCallStatusPending {
 			return item.ToolCall
 		}
 	}
@@ -355,24 +354,20 @@ func (m *ChatScreen) withReviewTarget(verdict func(*aipb.ToolCall) tea.Cmd) tea.
 }
 
 func (m *ChatScreen) acceptToolCall(target *aipb.ToolCall) tea.Cmd {
-	tool.SetToolCallStatus(target, tool.ToolCallStatusAccepted)
+	m.session.AcceptToolCall(target)
 	return m.afterVerdict()
 }
 
 func (m *ChatScreen) rejectToolCall(target *aipb.ToolCall, reason string) tea.Cmd {
-	tool.SetToolCallStatus(target, tool.ToolCallStatusRejected)
-	tool.SetToolCallRejectionReason(target, reason)
+	m.session.RejectToolCall(target, reason)
 	return m.afterVerdict()
 }
 
 func (m *ChatScreen) acceptAllToolCalls() tea.Cmd {
-	pending := m.session.PendingToolCalls()
-	if m.session.Busy() || len(pending) == 0 {
+	if m.session.Busy() || len(m.session.PendingToolCalls()) == 0 {
 		return nil
 	}
-	for _, toolCall := range pending {
-		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
-	}
+	m.session.AcceptAllPendingToolCalls()
 	return m.afterVerdict()
 }
 
@@ -383,13 +378,7 @@ func (m *ChatScreen) alwaysAcceptTool() tea.Cmd {
 	if m.session.Busy() || len(pending) == 0 {
 		return nil
 	}
-	target := m.reviewTarget(pending)
-	m.session.AutoAcceptTool(target.GetName())
-	for _, toolCall := range pending {
-		if toolCall.GetName() == target.GetName() {
-			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
-		}
-	}
+	m.session.AlwaysAcceptTool(m.reviewTarget(pending).GetName())
 	return m.afterVerdict()
 }
 
@@ -402,11 +391,10 @@ func (m *ChatScreen) afterVerdict() tea.Cmd {
 		return nil
 	}
 	sess := m.session
-	wrap := m.wrap
 	m.refresh()
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
 		sess.ResolveToolCalls()
-		return wrap(sessionEventMsg{event: session.RefreshEvent{}})
+		return nil
 	})
 }
 
@@ -474,8 +462,7 @@ func (m *ChatScreen) handlePickerKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m *ChatScreen) openToolPicker() tea.Cmd {
 	names := m.session.AvailableToolNames()
 	if len(names) == 0 {
-		wrap := m.wrap
-		return func() tea.Msg { return wrap(AlertMsg{Text: "No tools configured"}) }
+		return m.alert("No tools configured")
 	}
 	enabledToolNameSet := m.session.EnabledTools()
 	items := make([]widget.PickerItem, 0, len(names))
