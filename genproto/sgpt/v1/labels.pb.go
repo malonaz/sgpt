@@ -27,9 +27,11 @@ var File_sgpt_v1_labels_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_labels_proto_rawDesc = "" +
 	"\n" +
-	"\x14sgpt/v1/labels.proto\x12\asgpt.v1\x1a\"malonaz/codegen/aip/v1/label.protoB\xb3\x01\x92\x95\x150\n" +
+	"\x14sgpt/v1/labels.proto\x12\asgpt.v1\x1a\"malonaz/codegen/aip/v1/label.protoB\xcc\x03\x92\x95\x150\n" +
 	"\x11sgpt.com/favorite\x1a\x1bMarks a chat as a favorite.\x92\x95\x15Q\n" +
-	"\x14sgpt.com/parent-chat\x1a9ID segment of the chat that launched this sub-agent chat.Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
+	"\x14sgpt.com/parent-chat\x1a9ID segment of the chat that launched this sub-agent chat.\x92\x95\x15\x92\x01\n" +
+	"\x16sgpt.com/injected-file\x1axMarks a user message carrying the content of an injected file. The file path lives in the sgpt.com/file-path annotation.\x92\x95\x15~\n" +
+	"\x10sgpt.com/context\x1ajMarks a message injected by sgpt as context (system prompt, injected files) rather than typed by the user.Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
 var file_sgpt_v1_labels_proto_goTypes = []any{}
 var file_sgpt_v1_labels_proto_depIdxs = []int32{

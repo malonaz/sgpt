@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//internal/cache",
         "//internal/configuration",
-        "//internal/search",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__aip",

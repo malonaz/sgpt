@@ -1,6 +1,10 @@
 // Package session owns the chat lifecycle: streaming, tool handling and
 // persistence (via the store). All methods that mutate state are blocking and
 // sequential; the TUI drives the session from tea.Cmd goroutines.
+//
+// Messages are server-side resources: the session mirrors the chat's message
+// history locally for display, sends only *new* messages (user text, tool
+// results) with each generation, and lets the server persist everything.
 package session
 
 import (
@@ -43,10 +47,11 @@ type Params struct {
 	AvailableToolNames []string
 	// ResolveTool expands a user-facing tool name into the advertised
 	// tool/tool-set names, lazily initializing tool engines on first use.
-	ResolveTool        func(ctx context.Context, name string) ([]string, error)
-	Chat               string
-	AdditionalMessages []*aipb.Message
-	InjectedFiles      []string
+	ResolveTool func(ctx context.Context, name string) ([]string, error)
+	Chat        string
+	// SystemPrompt is persisted as a ROLE_SYSTEM message on the first turn.
+	SystemPrompt  string
+	InjectedFiles []string
 }
 
 // Session drives a single chat conversation.
@@ -56,8 +61,12 @@ type Session struct {
 	store    *store.Store
 	registry *tool.Registry
 
-	mu                sync.Mutex
-	chat              *aipb.Chat
+	mu   sync.Mutex
+	chat *aipb.Chat
+	// messages is the local mirror of the chat's server-side message
+	// history, oldest first. Input messages appended locally may lack a
+	// resource name (the server persists them without echoing them back).
+	messages          []*aipb.Message
 	streamingMessage  *aipb.Message
 	streamError       error
 	state             State
@@ -70,14 +79,20 @@ type Session struct {
 	// their calls skip manual review for the rest of the session.
 	autoAcceptedToolNameSet map[string]bool
 
-	// injectedFilePaths are the files in the model context; re-read on every
-	// turn and mutable at runtime via SetInjectedFiles.
-	injectedFilePaths []string
-	// injectedFilePathToContent snapshots each file's rendered message the
-	// first time it is sent. Re-reading on every turn silently rewrites the
-	// prompt prefix mid-conversation, which invalidates provider prompt
-	// caches and confuses the model (history no longer matches what it saw).
-	injectedFilePathToContent map[string]string
+	// injectedFilePaths are the files in the model context, mutable at
+	// runtime via SetInjectedFiles. Each path is persisted exactly once as a
+	// labeled user message; injectedFilePathToMessageName tracks which paths
+	// already live in the chat so re-toggling never re-sends content and the
+	// provider prompt cache stays stable.
+	injectedFilePaths             []string
+	injectedFilePathToMessageName map[string]string
+	// systemPromptSent guards the one-time persistence of the system message.
+	systemPromptSent bool
+
+	// pendingInputMessages queues the new messages (user text, tool results)
+	// consumed by the next generation request.
+	pendingInputMessages []*aipb.Message
+
 	// enabledUserToolNameSet is the user-facing tool selection;
 	// enabledAdvertisedNameSet is its expansion to the tool/tool-set names
 	// actually advertised to the model.
@@ -101,20 +116,31 @@ func New(
 	chatStore *store.Store,
 	registry *tool.Registry,
 	chat *aipb.Chat,
+	messages []*aipb.Message,
 	params Params,
 ) *Session {
 	s := &Session{
-		ctx:                       ctx,
-		params:                    params,
-		store:                     chatStore,
-		registry:                  registry,
-		chat:                      chat,
-		autoAcceptedToolNameSet:   map[string]bool{},
-		injectedFilePaths:         file.Normalize(params.InjectedFiles),
-		injectedFilePathToContent: map[string]string{},
-		totalModelUsage:           &aipb.ModelUsage{},
-		lastModelUsage:            &aipb.ModelUsage{},
-		eventCh:                   make(chan Event, 64),
+		ctx:                           ctx,
+		params:                        params,
+		store:                         chatStore,
+		registry:                      registry,
+		chat:                          chat,
+		messages:                      messages,
+		autoAcceptedToolNameSet:       map[string]bool{},
+		injectedFilePaths:             file.Normalize(params.InjectedFiles),
+		injectedFilePathToMessageName: map[string]string{},
+		totalModelUsage:               &aipb.ModelUsage{},
+		lastModelUsage:                &aipb.ModelUsage{},
+		eventCh:                       make(chan Event, 64),
+	}
+	// Resuming a chat: context messages are already persisted server-side.
+	for _, message := range messages {
+		if path := store.InjectedFilePath(message); path != "" && message.GetDeleteTime() == nil {
+			s.injectedFilePathToMessageName[path] = message.GetName()
+		}
+		if message.GetRole() == aipb.Role_ROLE_SYSTEM {
+			s.systemPromptSent = true
+		}
 	}
 	s.enabledUserToolNameSet = map[string]bool{}
 	s.enabledAdvertisedNameSet = map[string]bool{}
@@ -148,6 +174,13 @@ func (s *Session) Chat() *aipb.Chat {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.chat
+}
+
+// Messages returns the local mirror of the chat's message history.
+func (s *Session) Messages() []*aipb.Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]*aipb.Message(nil), s.messages...)
 }
 
 func (s *Session) StreamingMessage() *aipb.Message {
@@ -224,23 +257,98 @@ func (s *Session) InjectedFiles() []string {
 	return append([]string(nil), s.injectedFilePaths...)
 }
 
-// SetInjectedFiles replaces the injected files; takes effect on the next
-// turn and is persisted (files annotation) on the next save.
+// SetInjectedFiles replaces the injected files. Removed paths have their
+// messages soft-deleted (the server drops them from provider history); added
+// paths are persisted on the next turn. Blocking — call it off the UI loop.
 func (s *Session) SetInjectedFiles(paths []string) {
 	paths = file.Normalize(paths)
+
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.injectedFilePaths = append([]string(nil), paths...)
-	// Keep snapshots for retained paths (cache stability); drop removed ones
-	// so toggling a file off and back on picks up its current content.
-	retained := make(map[string]string, len(paths))
+	removedPathToMessageName := map[string]string{}
+	pathSet := make(map[string]bool, len(paths))
 	for _, path := range paths {
-		if content, ok := s.injectedFilePathToContent[path]; ok {
-			retained[path] = content
+		pathSet[path] = true
+	}
+	for path, messageName := range s.injectedFilePathToMessageName {
+		if !pathSet[path] {
+			removedPathToMessageName[path] = messageName
 		}
 	}
-	s.injectedFilePathToContent = retained
+	s.injectedFilePaths = append([]string(nil), paths...)
 	store.SetFiles(s.chat, paths)
+	s.mu.Unlock()
+
+	for path, messageName := range removedPathToMessageName {
+		if messageName == "" {
+			continue
+		}
+		if err := s.store.DeleteMessage(s.ctx, messageName); err != nil {
+			s.emitError(fmt.Errorf("removing injected file %s: %w", path, err))
+			continue
+		}
+		s.mu.Lock()
+		delete(s.injectedFilePathToMessageName, path)
+		for i, message := range s.messages {
+			if message.GetName() == messageName {
+				s.messages = append(s.messages[:i], s.messages[i+1:]...)
+				break
+			}
+		}
+		s.mu.Unlock()
+	}
+
+	if err := s.saveChat(); err != nil {
+		s.emitError(fmt.Errorf("saving chat files: %w", err))
+	}
+	s.refresh()
+}
+
+// ensureContext persists the one-time context messages (system prompt, newly
+// injected files) before a generation. Idempotent.
+func (s *Session) ensureContext() error {
+	chatName := s.Chat().GetName()
+
+	s.mu.Lock()
+	systemPromptPending := s.params.SystemPrompt != "" && !s.systemPromptSent
+	var newFilePaths []string
+	for _, path := range s.injectedFilePaths {
+		if _, ok := s.injectedFilePathToMessageName[path]; !ok {
+			newFilePaths = append(newFilePaths, path)
+		}
+	}
+	s.mu.Unlock()
+
+	if systemPromptPending {
+		systemMessage := ai.NewSystemMessage(ai.NewTextBlock(s.params.SystemPrompt))
+		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, systemMessage)
+		if err != nil {
+			return fmt.Errorf("persisting system prompt: %w", err)
+		}
+		s.mu.Lock()
+		s.systemPromptSent = true
+		s.messages = append(s.messages, createdMessage)
+		s.mu.Unlock()
+	}
+
+	for _, path := range newFilePaths {
+		var content string
+		injectedFile, err := file.Read(path)
+		if err != nil {
+			// A vanished file degrades to an inline note instead of killing the turn.
+			content = fmt.Sprintf("file %s: [unreadable: %v]", path, err)
+		} else {
+			content = fmt.Sprintf("file %s: `%s`", path, injectedFile.Content)
+		}
+		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, store.NewInjectedFileMessage(path, content))
+		if err != nil {
+			return fmt.Errorf("persisting injected file %s: %w", path, err)
+		}
+		s.mu.Lock()
+		s.injectedFilePathToMessageName[path] = createdMessage.GetName()
+		s.messages = append(s.messages, createdMessage)
+		s.mu.Unlock()
+	}
+	return nil
 }
 
 // AvailableToolNames lists every selectable tool name, sorted.
@@ -355,9 +463,8 @@ func (s *Session) notifyTurnComplete(finalText string, err error) {
 func (s *Session) lastAssistantText() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	messages := s.chat.GetMetadata().GetMessages()
-	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i]
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		message := s.messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
 			continue
 		}
@@ -377,9 +484,8 @@ func (s *Session) PendingToolCalls() []*aipb.ToolCall {
 }
 
 func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
-	messages := s.chat.GetMetadata().GetMessages()
-	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i]
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		message := s.messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
 			continue
 		}
@@ -395,12 +501,23 @@ func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
 }
 
 func (s *Session) SendMessage(text string) {
-	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
-
+	s.setState(StateStreaming)
 	s.mu.Lock()
-	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, userMessage)
-	s.state = StateStreaming
 	s.streamError = nil
+	s.mu.Unlock()
+	s.refresh()
+
+	if err := s.ensureContext(); err != nil {
+		s.setState(StateIdle)
+		s.emitError(err)
+		s.notifyTurnComplete("", err)
+		return
+	}
+
+	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
+	s.mu.Lock()
+	s.messages = append(s.messages, userMessage)
+	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
 	s.mu.Unlock()
 
 	s.refresh()
@@ -415,12 +532,22 @@ func (s *Session) CancelStream() {
 	}
 }
 
+// takePendingInputMessages drains the queue of new messages for the next
+// generation request.
+func (s *Session) takePendingInputMessages() []*aipb.Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	inputMessages := s.pendingInputMessages
+	s.pendingInputMessages = nil
+	return inputMessages
+}
+
 // runTurn executes a complete turn: stream → process tool calls → save.
 // Auto-execute tool calls run immediately (some already ran eagerly during
 // streaming). Manual ones pause the turn for user review.
 func (s *Session) runTurn() {
 	for {
-		blocks, err := s.stream()
+		generatedMessage, err := s.stream(s.takePendingInputMessages())
 
 		s.mu.Lock()
 		ai.AggregateModelUsage(s.totalModelUsage, s.lastModelUsage)
@@ -434,21 +561,18 @@ func (s *Session) runTurn() {
 		}
 
 		var toolCalls []*aipb.ToolCall
-		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
+		for _, block := range ai.FilterBlocks(generatedMessage.GetBlocks(), ai.BlockTypeToolCall) {
 			toolCalls = append(toolCalls, block.GetToolCall())
 		}
 
 		if len(toolCalls) == 0 {
-			if err := s.saveChat(); err != nil {
-				s.emitError(fmt.Errorf("saving chat: %w", err))
-			}
 			s.maybeGenerateTitle()
 			s.refresh()
 			s.notifyTurnComplete(s.lastAssistantText(), nil)
 			return
 		}
 
-		allAutoExecuted, err := s.processToolCallsAfterStream(toolCalls)
+		allAutoExecuted, err := s.processToolCallsAfterStream(generatedMessage, toolCalls)
 		if err != nil {
 			s.emitError(fmt.Errorf("processing tool calls: %w", err))
 			s.setState(StateIdle)
@@ -468,88 +592,26 @@ func (s *Session) runTurn() {
 	}
 }
 
-func (s *Session) messagesForAPI() []*aipb.Message {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	messages := make([]*aipb.Message, 0, len(s.params.AdditionalMessages)+len(s.injectedFilePaths)+len(s.chat.Metadata.Messages))
-	messages = append(messages, s.params.AdditionalMessages...)
-	// Files are snapshotted on first send and reused verbatim afterwards: a
-	// stable prefix preserves provider prompt caches, and the model keeps
-	// seeing exactly the history it responded to (tool edits reach it via
-	// tool results, not by mutating earlier messages). A vanished file
-	// degrades to an inline note instead of killing the turn.
-	for _, path := range s.injectedFilePaths {
-		content, ok := s.injectedFilePathToContent[path]
-		if !ok {
-			injectedFile, err := file.Read(path)
-			if err != nil {
-				content = fmt.Sprintf("file %s: [unreadable: %v]", path, err)
-			} else {
-				content = fmt.Sprintf("file %s: `%s`", path, injectedFile.Content)
-			}
-			s.injectedFilePathToContent[path] = content
-		}
-		messages = append(messages, ai.NewUserMessage(ai.NewTextBlock(content)))
-	}
-	// Messages that errored are kept for display but never replayed to the
-	// model. Tool results whose originating call lives in an excluded message
-	// must be dropped with it: orphaned results are invalid history and make
-	// the model re-issue the same call.
-	includedToolCallIDSet := map[string]bool{}
-	for _, message := range s.chat.Metadata.Messages {
-		if store.MessageError(message) != "" {
-			continue
-		}
-		switch message.GetRole() {
-		case aipb.Role_ROLE_ASSISTANT:
-			for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
-				includedToolCallIDSet[block.GetToolCall().GetId()] = true
-			}
-		case aipb.Role_ROLE_TOOL:
-			blocks := make([]*aipb.Block, 0, len(message.GetBlocks()))
-			for _, block := range message.GetBlocks() {
-				toolResult := block.GetToolResult()
-				if toolResult == nil || includedToolCallIDSet[toolResult.GetToolCallId()] {
-					blocks = append(blocks, block)
-				}
-			}
-			if len(blocks) == 0 {
-				continue
-			}
-			if len(blocks) != len(message.GetBlocks()) {
-				message = ai.NewToolMessage(blocks...)
-			}
-		}
-		messages = append(messages, message)
-	}
-	return messages
-}
-
+// saveChat persists the chat-level fields the session mutates locally.
 func (s *Session) saveChat() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	chat := s.chat
+	s.mu.Unlock()
 
-	if s.chat.GetName() == "" {
-		chat, err := s.store.CreateChat(s.ctx, s.chat)
-		if err != nil {
-			return err
-		}
-		s.chat = chat
-		return nil
-	}
-
-	chat, err := s.store.UpdateChat(s.ctx, s.chat, "metadata", "annotations", "labels", "title")
+	updatedChat, err := s.store.UpdateChat(s.ctx, chat, "annotations", "labels", "title")
 	if err != nil {
 		return err
 	}
-	s.chat = chat
+	s.mu.Lock()
+	s.chat = updatedChat
+	s.mu.Unlock()
 	return nil
 }
 
-// maybeGenerateTitle asynchronously titles a freshly persisted, untitled
-// chat. Only the user's own words are sent to the (cheap) summary model;
-// generation is skipped entirely when no summary model is configured.
+// maybeGenerateTitle asynchronously titles an untitled chat. Only the user's
+// own words are sent to the (cheap) summary model — context messages
+// (system prompt, injected files) are excluded; generation is skipped
+// entirely when no summary model is configured.
 func (s *Session) maybeGenerateTitle() {
 	s.mu.Lock()
 	if s.titleGenerating || s.chat.GetName() == "" || s.chat.GetTitle() != "" {
@@ -557,8 +619,8 @@ func (s *Session) maybeGenerateTitle() {
 		return
 	}
 	var parts []string
-	for _, message := range s.chat.GetMetadata().GetMessages() {
-		if message.GetRole() != aipb.Role_ROLE_USER {
+	for _, message := range s.messages {
+		if message.GetRole() != aipb.Role_ROLE_USER || store.IsContextMessage(message) {
 			continue
 		}
 		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
@@ -586,8 +648,6 @@ func (s *Session) maybeGenerateTitle() {
 		s.titleGenerating = false
 		discard := err != nil || title == "" || s.chat.GetTitle() != ""
 		if !discard {
-			// Set locally so subsequent full saves (which mask "title")
-			// don't clear it.
 			s.chat.Title = title
 		}
 		s.mu.Unlock()
@@ -597,8 +657,8 @@ func (s *Session) maybeGenerateTitle() {
 		if discard {
 			return
 		}
-		// Persist only the title: a full save here could clobber in-flight
-		// local edits from a turn running concurrently.
+		// Persist only the title (etag-less, masked): a wider save here could
+		// clobber in-flight local edits from a turn running concurrently.
 		if _, err := s.store.SetTitle(s.ctx, chatName, title); err != nil {
 			s.emitError(fmt.Errorf("saving title: %w", err))
 			return

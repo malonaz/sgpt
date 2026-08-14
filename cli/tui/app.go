@@ -102,6 +102,7 @@ func NewApp(
 	chatStore *store.Store,
 	registry *tool.Registry,
 	initialChat *aipb.Chat,
+	initialMessages []*aipb.Message,
 	params session.Params,
 ) *App {
 	app := &App{
@@ -114,7 +115,7 @@ func NewApp(
 	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
 
 	tabID := params.Chat
-	chatSession := session.New(ctx, chatStore, registry, initialChat, params)
+	chatSession := session.New(ctx, chatStore, registry, initialChat, initialMessages, params)
 	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, params.InjectedFiles)
 
 	app.tabs = []*tab{
@@ -413,7 +414,7 @@ func (a *App) addTab(id string, s screen.Screen) tea.Cmd {
 }
 
 func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
-	if !msg.Fork && msg.Chat != nil {
+	if msg.Chat != nil {
 		for i, t := range a.tabs {
 			if t.id == msg.Chat.Name {
 				return a.switchTab(i)
@@ -425,15 +426,8 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		chat := msg.Chat
 		var err error
 
-		if msg.Fork && chat != nil {
-			chat, err = a.store.ForkChat(a.ctx, chat)
-			if err != nil {
-				return screen.AlertMsg{Text: fmt.Sprintf("Fork failed: %v", err)}
-			}
-		}
-
 		if chat == nil {
-			newChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+			newChat := &aipb.Chat{}
 			store.SetCurrentModel(newChat, a.defaultParams.Model.Name)
 			chat, err = a.store.CreateChat(a.ctx, newChat)
 			if err != nil {
@@ -441,11 +435,17 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 			}
 		}
 
+		// Messages are server-side resources: load the history to seed the session.
+		messages, err := a.store.ListMessages(a.ctx, chat.Name)
+		if err != nil {
+			return screen.AlertMsg{Text: fmt.Sprintf("Loading messages failed: %v", err)}
+		}
+
 		params := a.defaultParams
 		params.Chat = chat.Name
 		tabID := chat.Name
 
-		chatSession := session.New(a.ctx, a.store, a.registry, chat, params)
+		chatSession := session.New(a.ctx, a.store, a.registry, chat, messages, params)
 		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, params.InjectedFiles)
 		return openTabMsg{id: tabID, screen: chatScreen}
 	}

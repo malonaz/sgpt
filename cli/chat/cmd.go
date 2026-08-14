@@ -10,7 +10,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/grpc"
 	"github.com/spf13/cobra"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/role"
-	"github.com/malonaz/sgpt/internal/search"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
@@ -57,21 +55,6 @@ func NewCmd(
 			if opts.Debug {
 				if _, err := debug.Init(ctx); err != nil {
 					return fmt.Errorf("starting debug server: %w", err)
-				}
-			}
-
-			// Search is disabled for now: bleve's bolt file lock is exclusive,
-			// so a second sgpt window would hang forever on startup waiting
-			// for it. Flip to true once multi-process access is solved.
-			if false {
-				// Best-effort search wiring: the menu falls back to substring
-				// filtering whenever the index is unavailable.
-				if searchPath, err := search.DefaultPath(); err == nil {
-					if searchIndex, err := search.Open(searchPath); err == nil {
-						chatStore.SetSearchIndex(searchIndex)
-						// Incrementally backfill chats modified since last run.
-						go chatStore.SyncSearchIndex(ctx)
-					}
 				}
 			}
 
@@ -193,15 +176,21 @@ func NewCmd(
 				cobra.CheckErr(err)
 				opts.Chat = chat.Name
 			default:
-				chat = &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
-				store.SetTags(chat, tags)
-				store.SetFiles(chat, filePaths)
-				store.SetCurrentModel(chat, selectedModel.Name)
+				// Chats are created eagerly: sessions need the resource name
+				// to persist messages and titles.
+				newChat := &aipb.Chat{}
+				store.SetTags(newChat, tags)
+				store.SetFiles(newChat, filePaths)
+				store.SetCurrentModel(newChat, selectedModel.Name)
+				chat, err = chatStore.CreateChat(ctx, newChat)
+				cobra.CheckErr(err)
+				opts.Chat = chat.Name
 			}
 
-			// File contents are NOT baked in here: the session injects them
-			// per turn from InjectedFiles, so they stay toggleable mid-chat.
-			additionalMessages := []*aipb.Message{ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt))}
+			// Messages are server-side resources: load the history to seed
+			// the session (empty for a fresh chat).
+			messages, err := chatStore.ListMessages(ctx, chat.Name)
+			cobra.CheckErr(err)
 
 			params := session.Params{
 				Model:              selectedModel,
@@ -209,14 +198,14 @@ func NewCmd(
 				MaxTokens:          opts.MaxTokens,
 				Temperature:        opts.Temperature,
 				Chat:               opts.Chat,
-				AdditionalMessages: additionalMessages,
+				SystemPrompt:       parsedRole.Prompt,
 				InjectedFiles:      filePaths,
 				Tools:              toolNames,
 				AvailableToolNames: availableToolNames,
 				ResolveTool:        resolveTool,
 			}
 
-			app := tui.NewApp(ctx, chatStore, registry, chat, params)
+			app := tui.NewApp(ctx, chatStore, registry, chat, messages, params)
 			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, []string, error) {
 				model := selectedModel
 				if request.Model != "" {
@@ -238,13 +227,17 @@ func NewCmd(
 					subFilePaths[i] = parsedFile.Path
 				}
 				// Mirror the CLI-launched chat context assembly exactly.
-				subMessages := []*aipb.Message{ai.NewSystemMessage(ai.NewTextBlock(parsedRole.Prompt))}
-				subChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+				subChat := &aipb.Chat{}
 				// Agent-provided title: skips auto-generation and labels the tab.
 				subChat.Title = request.Title
 				store.SetTags(subChat, []string{"agent"})
 				store.SetFiles(subChat, subFilePaths)
 				store.SetCurrentModel(subChat, model.Name)
+				store.SetParentChatID(subChat, chat.Name)
+				subChat, err = chatStore.CreateChat(ctx, subChat)
+				if err != nil {
+					return nil, nil, err
+				}
 				subParams := session.Params{
 					Model:              model,
 					Role:               parsedRole,
@@ -253,10 +246,11 @@ func NewCmd(
 					Tools:              request.Tools,
 					AvailableToolNames: availableToolNames,
 					ResolveTool:        resolveTool,
-					AdditionalMessages: subMessages,
+					Chat:               subChat.Name,
+					SystemPrompt:       parsedRole.Prompt,
 					InjectedFiles:      subFilePaths,
 				}
-				return session.New(ctx, chatStore, registry, subChat, subParams), subFilePaths, nil
+				return session.New(ctx, chatStore, registry, subChat, nil, subParams), subFilePaths, nil
 			})
 			agentTool.SetLauncher(app)
 			program := tea.NewProgram(app, tea.WithContext(ctx))

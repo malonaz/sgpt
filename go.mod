@@ -14,7 +14,7 @@ require (
 	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
 	github.com/blevesearch/bleve/v2 v2.6.0
 	github.com/golang/protobuf v1.5.4
-	github.com/malonaz/core v0.0.0-20260812095038-6450259ab1cc
+	github.com/malonaz/core v0.0.0-20260814101251-a14a3b87f6d6
 	github.com/pkg/errors v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.10.2

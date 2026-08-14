@@ -40,7 +40,6 @@ var (
 	chatKeyReject         = keymap.New("alt+shift+r", "Reject tool call under review (input text = reason)")
 	chatKeyCancel         = keymap.New("ctrl+c", "Cancel stream / close tab")
 	chatKeyCycleReasoning = keymap.New("alt+t", "Cycle reasoning effort")
-	chatKeyForkChat       = keymap.New("alt+=", "Fork chat")
 	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
 	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
 	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
@@ -128,7 +127,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 		{Name: "Chat", Bindings: []keymap.Binding{
 			chatKeySubmit, chatKeyAccept, chatKeyAcceptAll, chatKeyAlwaysAccept,
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
-			chatKeyCycleReasoning, chatKeyForkChat, chatKeyToggleFavorite,
+			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
 		}},
 		timeline.Keymap(),
@@ -252,12 +251,10 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, chatKeyCycleReasoning.Key):
 		m.cycleReasoningEffort()
 		return nil
-	case key.Matches(msg, chatKeyForkChat.Key):
-		return func() tea.Msg { return wrap(OpenChatMsg{Chat: m.session.Chat(), Fork: true}) }
 	case key.Matches(msg, chatKeyToggleFavorite.Key):
 		return m.toggleFavorite()
 	case key.Matches(msg, chatKeyOpenAll.Key):
-		return editor.Open(timeline.ConversationText(m.session.Chat().GetMetadata().GetMessages()), "md")
+		return editor.Open(timeline.ConversationText(m.session.Messages()), "md")
 	case key.Matches(msg, chatKeyPickTools.Key):
 		return m.openToolPicker()
 	case key.Matches(msg, chatKeyPickFiles.Key):
@@ -523,10 +520,14 @@ func (m *ChatScreen) openFilePicker() tea.Cmd {
 	m.picker = widget.NewPicker("📎 Files", items)
 	m.picker.SetSize(m.width, m.height)
 	m.pickerApply = func(selected []string) tea.Cmd {
-		m.session.SetInjectedFiles(selected)
 		m.injectedFiles = selected
-		m.refresh()
-		return nil
+		sess := m.session
+		// SetInjectedFiles performs RPCs (soft-deleting removed file
+		// messages) — run it off the UI loop.
+		return func() tea.Msg {
+			sess.SetInjectedFiles(selected)
+			return nil
+		}
 	}
 	return nil
 }
@@ -578,7 +579,7 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 		items = append(items, timeline.NewInjectedFilesItem(m.injectedFiles))
 	}
 	items = append(items, m.builder.Build(
-		m.session.Chat().GetMetadata().GetMessages(),
+		m.session.Messages(),
 		m.session.StreamingMessage(),
 		m.session.ExecutingToolCallID(),
 		m.session.Registry(),

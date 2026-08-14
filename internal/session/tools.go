@@ -14,7 +14,7 @@ import (
 // Auto-execute tool calls run immediately (read-only tools may already carry
 // a result from eager execution during streaming). Manual ones are left
 // pending for user review. Returns true if everything was auto-executed.
-func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool, error) {
+func (s *Session) processToolCallsAfterStream(assistantMessage *aipb.Message, toolCalls []*aipb.ToolCall) (bool, error) {
 	var executable []*aipb.ToolCall
 	hasManual := false
 	for _, toolCall := range toolCalls {
@@ -48,7 +48,7 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 		return false, nil
 	}
 
-	s.executeToolCalls(executable)
+	s.executeToolCalls(assistantMessage, executable)
 	return true, nil
 }
 
@@ -56,13 +56,14 @@ func (s *Session) processToolCallsAfterStream(toolCalls []*aipb.ToolCall) (bool,
 // accepted ones run, rejected ones get error results — then starts a new turn.
 func (s *Session) ResolveToolCalls() {
 	s.mu.Lock()
-	messages := s.chat.GetMetadata().GetMessages()
+	var assistantMessage *aipb.Message
 	var toolCalls []*aipb.ToolCall
-	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i]
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		message := s.messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
 			continue
 		}
+		assistantMessage = message
 		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
 			toolCalls = append(toolCalls, block.GetToolCall())
 		}
@@ -70,7 +71,7 @@ func (s *Session) ResolveToolCalls() {
 	}
 	s.mu.Unlock()
 
-	s.executeToolCalls(toolCalls)
+	s.executeToolCalls(assistantMessage, toolCalls)
 
 	s.setState(StateStreaming)
 	s.refresh()
@@ -80,7 +81,9 @@ func (s *Session) ResolveToolCalls() {
 // executeToolCalls resolves tool calls strictly sequentially, emitting a
 // refresh before and after each call so the UI shows the in-flight call and
 // renders each result the moment it lands — not all at once at the end.
-func (s *Session) executeToolCalls(toolCalls []*aipb.ToolCall) {
+// Verdicts and results are persisted back onto the assistant message, and the
+// tool results are queued as input for the next generation.
+func (s *Session) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*aipb.ToolCall) {
 	if len(toolCalls) == 0 {
 		return
 	}
@@ -102,7 +105,21 @@ func (s *Session) executeToolCalls(toolCalls []*aipb.ToolCall) {
 		}
 		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
 	}
-	s.appendToolMessage(resultBlocks)
+
+	// Persist the review state (statuses, results, metadata) living inside
+	// the assistant message's tool call blocks.
+	if assistantMessage.GetName() != "" {
+		if _, err := s.store.UpdateMessage(s.ctx, assistantMessage, "blocks"); err != nil {
+			s.emitError(fmt.Errorf("persisting tool call results: %w", err))
+		}
+	}
+
+	toolMessage := ai.NewToolMessage(resultBlocks...)
+	s.mu.Lock()
+	s.messages = append(s.messages, toolMessage)
+	// The tool message is persisted server-side as input to the next turn.
+	s.pendingInputMessages = append(s.pendingInputMessages, toolMessage)
+	s.mu.Unlock()
 	s.refresh()
 }
 
@@ -121,11 +138,4 @@ func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
 	default:
 		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("unresolved tool call"))
 	}
-}
-
-func (s *Session) appendToolMessage(resultBlocks []*aipb.Block) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	toolMessage := ai.NewToolMessage(resultBlocks...)
-	s.chat.Metadata.Messages = append(s.chat.Metadata.Messages, toolMessage)
 }

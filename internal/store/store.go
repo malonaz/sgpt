@@ -1,13 +1,12 @@
-// Package store is the single RPC boundary for chat and model operations.
-// All request construction, ID generation, field masks and caching live here
-// so the TUI and session layers never touch raw gRPC clients.
+// Package store is the single RPC boundary for chat, message and model
+// operations. All request construction, ID generation and field masks live
+// here so the TUI and session layers never touch raw gRPC clients.
 package store
 
 import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -17,7 +16,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/search"
 )
 
 // FavoriteFilter is the server-side filter matching favorite chats.
@@ -34,19 +32,15 @@ const (
 	FilesAnnotation = "sgpt.com/files"
 	// CurrentModelAnnotation stores the model resource name in use by the chat.
 	CurrentModelAnnotation = "sgpt.com/current-model"
-	// MessageErrorAnnotation records a message's generation error; messages
-	// carrying it are excluded from provider requests.
-	MessageErrorAnnotation = "sgpt.com/error"
+	// FilePathAnnotation stores, on an injected-file message, the path of the
+	// file whose content the message carries.
+	FilePathAnnotation = "sgpt.com/file-path"
 )
 
 // Store wraps the ai service client, which owns the chat data layer.
 type Store struct {
 	configuration   *sgptpb.Configuration
 	aiServiceClient aiservicepb.AiServiceClient
-
-	// searchIndex, when set, mirrors chat writes into the local search
-	// index. Optional and strictly best-effort: indexing never fails a save.
-	searchIndex *search.Index
 }
 
 // New instantiates a store.
@@ -60,71 +54,18 @@ func New(
 	}
 }
 
-// SetSearchIndex enables search-index mirroring of chat writes.
-func (s *Store) SetSearchIndex(searchIndex *search.Index) {
-	s.searchIndex = searchIndex
-}
-
-// SearchIndex returns the search index, or nil when search is disabled.
-func (s *Store) SearchIndex() *search.Index {
-	return s.searchIndex
-}
-
-// indexChat mirrors a chat into the search index. Errors are swallowed:
-// the startup backfill reconciles any missed writes.
-func (s *Store) indexChat(chat *aipb.Chat) {
-	if s.searchIndex == nil {
-		return
-	}
-	_ = s.searchIndex.IndexChat(chat)
-}
-
-// SyncSearchIndex reconciles the index with chats modified since the last
-// sync (persisted watermark). First run (zero watermark) = full backfill.
-func (s *Store) SyncSearchIndex(ctx context.Context) error {
-	if s.searchIndex == nil {
-		return nil
-	}
-	lastSyncTime := s.searchIndex.LastSyncTime()
-	filter := ""
-	if !lastSyncTime.IsZero() {
-		filter = fmt.Sprintf(`update_time > %q`, lastSyncTime.Format(time.RFC3339))
-	}
-	listChatsRequest := &aiservicepb.ListChatsRequest{
-		Parent:   s.parent(),
-		PageSize: 100,
-		Filter:   filter,
-		// Ascending update_time keeps pagination stable and makes the
-		// watermark resumable mid-backfill.
-		OrderBy: "update_time asc",
-	}
-	watermark := lastSyncTime
-	for chat, err := range aip.Iterator[*aipb.Chat](ctx, listChatsRequest, s.aiServiceClient.ListChats) {
-		if err != nil {
-			// Persist progress so the next run resumes from here.
-			_ = s.searchIndex.SetLastSyncTime(watermark)
-			return err
-		}
-		if err := s.searchIndex.IndexChat(chat); err != nil {
-			continue
-		}
-		watermark = chat.GetUpdateTime().AsTime()
-	}
-	return s.searchIndex.SetLastSyncTime(watermark)
-}
-
 // parent is the user resource that owns all chats.
 // Format: organizations/{organization}/users/{user}
 func (s *Store) parent() string {
 	return s.configuration.GetChat().GetUser()
 }
 
-// newChatID returns the last 8 characters of a v7 UUID. The first characters
-// of a v7 UUID are a timestamp prefix that collides for chats created within
-// the same ~65s window; the last ones are random.
-func newChatID() string {
-	chatID := uuid.MustNewV7().String()
-	return chatID[len(chatID)-8:]
+// newResourceID returns the last 8 characters of a v7 UUID. The first
+// characters of a v7 UUID are a timestamp prefix that collides for resources
+// created within the same ~65s window; the last ones are random.
+func newResourceID() string {
+	id := uuid.MustNewV7().String()
+	return id[len(id)-8:]
 }
 
 // CreateChat persists a new chat.
@@ -132,14 +73,13 @@ func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, er
 	createChatRequest := &aiservicepb.CreateChatRequest{
 		Parent:    s.parent(),
 		RequestId: uuid.MustNewV7().String(),
-		ChatId:    newChatID(),
+		ChatId:    newResourceID(),
 		Chat:      chat,
 	}
 	createdChat, err := s.aiServiceClient.CreateChat(ctx, createChatRequest)
 	if err != nil {
 		return nil, fmt.Errorf("creating chat: %w", err)
 	}
-	s.indexChat(createdChat)
 	return createdChat, nil
 }
 
@@ -160,7 +100,6 @@ func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string
 	if err != nil {
 		return nil, fmt.Errorf("updating chat: %w", err)
 	}
-	s.indexChat(updatedChat)
 	return updatedChat, nil
 }
 
@@ -186,20 +125,7 @@ func (s *Store) DeleteChat(ctx context.Context, name string) error {
 	if _, err := s.aiServiceClient.DeleteChat(ctx, deleteChatRequest); err != nil {
 		return fmt.Errorf("deleting chat: %w", err)
 	}
-	if s.searchIndex != nil {
-		// Best-effort: a leaked stale hit is dropped at search time when its
-		// GetChat fails.
-		_ = s.searchIndex.DeleteChat(name)
-	}
 	return nil
-}
-
-// ForkChat clones a chat into a new resource.
-func (s *Store) ForkChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, error) {
-	forkedChat := proto.Clone(chat).(*aipb.Chat)
-	forkedChat.Name = ""
-	forkedChat.Etag = ""
-	return s.CreateChat(ctx, forkedChat)
 }
 
 // ListChats returns a page of chats, most recent first.
@@ -241,6 +167,77 @@ func (s *Store) SetFavorite(ctx context.Context, chat *aipb.Chat, favorite bool)
 	SetFavoriteLabel(chat, favorite)
 	return s.UpdateChat(ctx, chat, "labels")
 }
+
+// ===================== Messages =====================
+
+// ListMessages returns the full message history of a chat, oldest first.
+// Messages carrying an error status are included — the caller decides how to
+// display them; the server already excludes them from generation.
+func (s *Store) ListMessages(ctx context.Context, chatName string) ([]*aipb.Message, error) {
+	listMessagesRequest := &aiservicepb.ListMessagesRequest{
+		Parent: chatName,
+		// create_time asc keeps the conversation in order and stable while paginating.
+		OrderBy: "create_time asc",
+	}
+	messages, err := aip.Paginate[*aipb.Message](ctx, listMessagesRequest, s.aiServiceClient.ListMessages)
+	if err != nil {
+		return nil, fmt.Errorf("listing messages: %w", err)
+	}
+	return messages, nil
+}
+
+// CreateMessage persists a message under a chat.
+func (s *Store) CreateMessage(ctx context.Context, chatName string, message *aipb.Message) (*aipb.Message, error) {
+	createMessageRequest := &aiservicepb.CreateMessageRequest{
+		Parent:    chatName,
+		RequestId: uuid.MustNewV7().String(),
+		Message:   message,
+	}
+	createdMessage, err := s.aiServiceClient.CreateMessage(ctx, createMessageRequest)
+	if err != nil {
+		return nil, fmt.Errorf("creating message: %w", err)
+	}
+	return createdMessage, nil
+}
+
+// UpdateMessage persists the given paths of a message.
+func (s *Store) UpdateMessage(ctx context.Context, message *aipb.Message, paths ...string) (*aipb.Message, error) {
+	// Etag-less for the same reason as UpdateChat: masked last-write-wins.
+	message = proto.CloneOf(message)
+	message.Etag = ""
+	updateMessageRequest := &aiservicepb.UpdateMessageRequest{
+		Message:    message,
+		UpdateMask: pbfieldmask.FromPaths(paths...).MustValidate(&aipb.Message{}).Proto(),
+	}
+	updatedMessage, err := s.aiServiceClient.UpdateMessage(ctx, updateMessageRequest)
+	if err != nil {
+		return nil, fmt.Errorf("updating message: %w", err)
+	}
+	return updatedMessage, nil
+}
+
+// DeleteMessage soft-deletes a message; the server excludes it from the
+// conversation history sent to providers.
+func (s *Store) DeleteMessage(ctx context.Context, name string) error {
+	deleteMessageRequest := &aiservicepb.DeleteMessageRequest{
+		Name:         name,
+		AllowMissing: true,
+	}
+	if _, err := s.aiServiceClient.DeleteMessage(ctx, deleteMessageRequest); err != nil {
+		return fmt.Errorf("deleting message: %w", err)
+	}
+	return nil
+}
+
+// StreamGenerateMessage opens a streaming generation against the AI service.
+func (s *Store) StreamGenerateMessage(
+	ctx context.Context,
+	generateMessageRequest *aiservicepb.GenerateMessageRequest,
+) (aiservicepb.AiService_StreamGenerateMessageClient, error) {
+	return s.aiServiceClient.StreamGenerateMessage(ctx, generateMessageRequest)
+}
+
+// ===================== Chat helpers =====================
 
 // IsFavorite reports whether a chat is marked as a favorite.
 func IsFavorite(chat *aipb.Chat) bool {
@@ -322,15 +319,42 @@ func setChatAnnotation(chat *aipb.Chat, key, value string) {
 	chat.Annotations[key] = value
 }
 
-// MessageError returns the generation error recorded on a message, if any.
-func MessageError(message *aipb.Message) string {
-	return message.GetAnnotations()[MessageErrorAnnotation]
+// ===================== Message helpers =====================
+
+// NewInjectedFileMessage builds a user message carrying a file's content,
+// labeled so the TUI can recognize and manage it.
+func NewInjectedFileMessage(path, content string) *aipb.Message {
+	message := &aipb.Message{
+		Role:   aipb.Role_ROLE_USER,
+		Blocks: []*aipb.Block{{Content: &aipb.Block_Text{Text: content}}},
+		Annotations: map[string]string{
+			FilePathAnnotation: path,
+		},
+	}
+	aip.SetLabel(message, sgptpb.Labels.InjectedFile.GetKey(), aip.LabelValueTrue)
+	aip.SetLabel(message, sgptpb.Labels.Context.GetKey(), aip.LabelValueTrue)
+	return message
 }
 
-// SetMessageError records a generation error on a message in place.
-func SetMessageError(message *aipb.Message, errText string) {
-	if message.Annotations == nil {
-		message.Annotations = map[string]string{}
+// InjectedFilePath returns the injected file path of a message, or "" when
+// the message is not an injected-file message.
+func InjectedFilePath(message *aipb.Message) string {
+	if value, _ := aip.GetLabel(message, sgptpb.Labels.InjectedFile.GetKey()); value != aip.LabelValueTrue {
+		return ""
 	}
-	message.Annotations[MessageErrorAnnotation] = errText
+	return message.GetAnnotations()[FilePathAnnotation]
+}
+
+// IsContextMessage reports whether a message was injected by sgpt as context
+// (system prompt, injected files) rather than typed by the user.
+func IsContextMessage(message *aipb.Message) bool {
+	value, _ := aip.GetLabel(message, sgptpb.Labels.Context.GetKey())
+	return value == aip.LabelValueTrue
+}
+
+// MessageError returns the generation error recorded on a message, if any.
+// The server sets `status` on the input (and partial assistant) messages of
+// a failed generation and excludes them from future generations.
+func MessageError(message *aipb.Message) string {
+	return message.GetStatus().GetMessage()
 }

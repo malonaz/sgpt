@@ -16,3 +16,14 @@ option (malonaz.codegen.aip.v1.label) = {
   key: "sgpt.com/parent-chat"
   description: "ID segment of the chat that launched this sub-agent chat."
 };
+// ---------------------------------------------------------------------------
+// Message
+// ---------------------------------------------------------------------------
+option (malonaz.codegen.aip.v1.label) = {
+  key: "sgpt.com/injected-file"
+  description: "Marks a user message carrying the content of an injected file. The file path lives in the sgpt.com/file-path annotation."
+};
+option (malonaz.codegen.aip.v1.label) = {
+  key: "sgpt.com/context"
+  description: "Marks a message injected by sgpt as context (system prompt, injected files) rather than typed by the user."
+};

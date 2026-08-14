@@ -561,6 +561,7 @@
         "google.golang.org/genproto/googleapis/rpc/errdetails": "//third_party/proto:google__rpc__errdetails",
         "google.golang.org/genproto/googleapis/rpc/status": "//third_party/proto:google__rpc__status",
         "google.golang.org/genproto/googleapis/type/date": "//third_party/proto:google__type__date",
+        "google.golang.org/genproto/googleapis/type/decimal": "//third_party/go:google.golang.org__genproto__googleapis__type__decimal",
         "google.golang.org/genproto/googleapis/type/money": "//third_party/go:google.golang.org__genproto__googleapis__type__money",
         "google.golang.org/genproto/googleapis/type/postaladdress": "//third_party/proto:google__type__postaladdress",
         "google.golang.org/genproto/googleapis/type/timeofday": "//third_party/proto:google__type__timeofday",
