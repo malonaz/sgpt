@@ -126,6 +126,8 @@ func (m *Model) SetSize(width, height int) {
 		m.renderer.SetWidth(width - styles.MessageHorizontalFrameSize() - 2)
 		// Wrapping changed — every cached render is stale.
 		m.renderCache = map[string]renderEntry{}
+		// Volatile (streaming) memos were measured at the old width too.
+		m.volatileLines = map[string][]string{}
 	}
 	m.width = width
 	m.height = height
@@ -191,6 +193,13 @@ func (m *Model) View() string {
 	visible := make([]string, 0, m.height)
 	top, bottom := m.yOffset, m.yOffset+m.height
 	for i, item := range m.items {
+		// Measurement (rerender) and assembly are separate passes; a resize or
+		// an item mutated between them leaves offsets/heights describing a
+		// different render than itemLines returns now. Clamp instead of
+		// trusting the cached geometry.
+		if i >= len(m.offsets) || i >= len(m.heights) {
+			break
+		}
 		start := m.offsets[i]
 		if start >= bottom {
 			break
@@ -199,8 +208,8 @@ func (m *Model) View() string {
 			continue
 		}
 		lines := m.itemLines(item)
-		from := max(0, top-start)
-		to := min(len(lines), bottom-start)
+		from := min(max(0, top-start), len(lines))
+		to := min(len(lines), max(bottom-start, from))
 		visible = append(visible, lines[from:to]...)
 	}
 	// Pad so the input stays pinned at the bottom of the layout.
