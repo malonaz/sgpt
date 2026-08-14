@@ -180,6 +180,9 @@ type ToolCallItem struct {
 	ToolCall  *aipb.ToolCall
 	Result    *aipb.ToolResult
 	Executing bool
+	// Pending marks a call awaiting the user's verdict: the turn goroutine is
+	// blocked on it right now.
+	Pending bool
 	// Partial marks a call still streaming in; arguments may be incomplete.
 	Partial bool
 	// RequestRenderer, when set, overrides the raw-JSON request rendering.
@@ -198,7 +201,7 @@ func (i *ToolCallItem) CacheKey() string {
 	if i.Partial {
 		return ""
 	}
-	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall))
+	return fmt.Sprintf("%s|r%t|e%t|p%t", i.id, i.Result != nil, i.Executing, i.Pending)
 }
 
 // Resolved calls fold to a one-line summary; pending/executing stay expanded.
@@ -238,16 +241,11 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ streaming...")
 	case i.Executing:
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ running...")
-	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusPending:
+	case i.Pending:
 		suffix = " " + styles.ErrorStyle.Render("▶ pending review")
-	// Verdicts stay editable until the turn resolves — say so.
-	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusAccepted:
-		suffix = " " + styles.DimTextStyle.Render("✓ accepted — runs once review completes")
-	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusRejected:
-		suffix = " " + styles.DimTextStyle.Render("✗ rejected")
 	}
 	header := fmt.Sprintf("%s %s%s",
-		toolCallStatusIndicator(i.ToolCall),
+		i.statusIndicator(),
 		i.headerContent(ctx),
 		suffix,
 	)
@@ -321,15 +319,17 @@ func toolResultText(toolResult *aipb.ToolResult) string {
 	return toolResult.GetContent()
 }
 
-func toolCallStatusIndicator(toolCall *aipb.ToolCall) string {
-	switch tool.GetToolCallStatus(toolCall) {
-	case tool.ToolCallStatusAccepted:
-		return lipgloss.NewStyle().Foreground(styles.SuccessColor).Render("●")
-	case tool.ToolCallStatusRejected:
-		return lipgloss.NewStyle().Foreground(styles.ErrorColor).Render("●")
-	default:
-		return lipgloss.NewStyle().Foreground(styles.MutedColor).Render("●")
+// statusIndicator colours the leading dot: a result is terminal (green, or red
+// when it carries an error), anything else is still in flight.
+func (i *ToolCallItem) statusIndicator() string {
+	color := styles.MutedColor
+	switch {
+	case i.Result.GetError() != nil:
+		color = styles.ErrorColor
+	case i.Result != nil:
+		color = styles.SuccessColor
 	}
+	return lipgloss.NewStyle().Foreground(color).Render("●")
 }
 
 // ---- LineItem: single-line entries (system, errors) ----
@@ -508,7 +508,6 @@ func (i *InjectedFileItem) SubOffsets(ctx RenderContext) []int {
 	return offsets
 }
 
-
 // ---- Builder ----
 
 // Builder memoizes per-message item construction so a streaming refresh costs
@@ -541,7 +540,13 @@ func NewBuilder() *Builder {
 // into timeline items, reusing cached items for unchanged messages. Every tool
 // result is paired with its originating call so request/response render
 // adjacently, in call order.
-func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
+func (b *Builder) Build(
+	messages []*aipb.Message,
+	streamingMessage *aipb.Message,
+	executingToolCallID string,
+	pendingToolCallIDs map[string]bool,
+	requestRenderer RequestRenderer,
+) []Item {
 	if b.scannedMessageCount > len(messages) {
 		// History shrank (chat replaced) — every cache is invalid.
 		b.messageIndexToEntry = map[int]builderEntry{}
@@ -567,7 +572,7 @@ func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message
 		entry, ok := b.messageIndexToEntry[messageIndex]
 		if !ok || entry.message != message {
 			var messageItems []Item
-			messageItems = appendMessageItems(messageItems, message, messageIndex, true, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
+			messageItems = appendMessageItems(messageItems, message, messageIndex, true, b.toolCallIDToResult, requestRenderer, b.toolCallIDToLastGoodRequest)
 			if errText := store.MessageError(message); errText != "" {
 				messageItems = append(messageItems, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), errText))
 			}
@@ -588,13 +593,15 @@ func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message
 					toolCallItem.Result = b.toolCallIDToResult[toolCallItem.ToolCall.GetId()]
 				}
 			}
-			toolCallItem.Executing = executingToolCallID != "" && toolCallItem.ToolCall.GetId() == executingToolCallID
+			toolCallID := toolCallItem.ToolCall.GetId()
+			toolCallItem.Executing = executingToolCallID != "" && toolCallID == executingToolCallID
+			toolCallItem.Pending = pendingToolCallIDs[toolCallID]
 		}
 		items = append(items, entry.items...)
 	}
 	if streamingMessage != nil {
 		// Still mutating — never cached; finalization lands it in messages.
-		items = appendMessageItems(items, streamingMessage, len(messages), false, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
+		items = appendMessageItems(items, streamingMessage, len(messages), false, b.toolCallIDToResult, requestRenderer, b.toolCallIDToLastGoodRequest)
 	}
 	return groupInjectedFiles(items)
 }
@@ -626,8 +633,8 @@ func groupInjectedFiles(items []Item) []Item {
 
 // BuildChatItems is the uncached one-shot variant — used by read-only
 // previews (menu detail pane). Stateful callers should hold a Builder.
-func BuildChatItems(messages []*aipb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
-	return NewBuilder().Build(messages, streamingMessage, executingToolCallID, requestRenderer)
+func BuildChatItems(messages []*aipb.Message, requestRenderer RequestRenderer) []Item {
+	return NewBuilder().Build(messages, nil, "", nil, requestRenderer)
 }
 
 func appendMessageItems(
@@ -636,7 +643,6 @@ func appendMessageItems(
 	messageIndex int,
 	finalized bool,
 	toolCallIDToResult map[string]*aipb.ToolResult,
-	executingToolCallID string,
 	requestRenderer RequestRenderer,
 	toolCallIDToLastGoodRequest map[string]string,
 ) []Item {
@@ -702,7 +708,6 @@ func appendMessageItems(
 					seq:              seq,
 					ToolCall:         toolCall,
 					Result:           result,
-					Executing:        executingToolCallID != "" && toolCall.GetId() == executingToolCallID,
 					RequestRenderer:  requestRenderer,
 					lastGoodRequests: toolCallIDToLastGoodRequest,
 				})

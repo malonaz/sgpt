@@ -34,6 +34,19 @@ const (
 	StateAwaitingReview
 )
 
+// verdict is the user's answer to a tool call review.
+type verdict struct {
+	approved bool
+	reason   string
+}
+
+// pendingReview is a tool call awaiting a verdict: the tool's name (so the
+// user can whitelist it) and the channel its turn goroutine is blocked on.
+type pendingReview struct {
+	toolName  string
+	verdictCh chan verdict
+}
+
 // Params bundles per-chat parameters for a session.
 type Params struct {
 	Model           *aipb.Model
@@ -78,6 +91,13 @@ type Session struct {
 	// autoAcceptedToolNameSet holds tools the user marked "always accept";
 	// their calls skip manual review for the rest of the session.
 	autoAcceptedToolNameSet map[string]bool
+
+	// pendingReviews holds one entry per tool call currently awaiting user
+	// review. The turn goroutine blocks on the channel; the UI answers by
+	// tool call ID. This *is* the review state — there is nothing else to
+	// track, since a reviewed call executes immediately and its result is
+	// terminal.
+	pendingReviews map[string]pendingReview
 
 	// injectedFilePaths are the files in the model context, mutable at
 	// runtime via SetInjectedFiles. Each path is persisted exactly once as a
@@ -135,6 +155,7 @@ func New(
 		chat:                          chat,
 		messages:                      messages,
 		autoAcceptedToolNameSet:       map[string]bool{},
+		pendingReviews:                map[string]pendingReview{},
 		injectedFilePaths:             file.Normalize(params.InjectedFiles),
 		injectedFilePathToMessageName: map[string]string{},
 		totalModelUsage:               &aipb.ModelUsage{},
@@ -608,29 +629,6 @@ func (s *Session) lastAssistantText() string {
 	return ""
 }
 
-func (s *Session) PendingToolCalls() []*aipb.ToolCall {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.pendingToolCallsLocked()
-}
-
-func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
-	for i := len(s.messages) - 1; i >= 0; i-- {
-		message := s.messages[i]
-		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
-			continue
-		}
-		var pending []*aipb.ToolCall
-		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
-			if tool.GetToolCallStatus(block.GetToolCall()) == tool.ToolCallStatusPending {
-				pending = append(pending, block.GetToolCall())
-			}
-		}
-		return pending
-	}
-	return nil
-}
-
 func (s *Session) SendMessage(text string) {
 	s.setState(StateStreaming)
 	// Optimistic render: the user's message must appear immediately. The
@@ -725,23 +723,10 @@ func (s *Session) runTurn() {
 			return
 		}
 
-		allAutoExecuted, err := s.processToolCallsAfterStream(generatedMessage, toolCalls)
-		if err != nil {
-			s.emitError(fmt.Errorf("processing tool calls: %w", err))
-			s.setState(StateIdle)
-			s.refresh()
-			s.notifyTurnComplete("", err)
-			return
-		}
-
-		if !allAutoExecuted {
-			// Manual tool calls remain pending for user accept/reject.
-			s.refresh()
-			return
-		}
-
-		// All auto-executed — loop: the top-of-loop flush persists the tool
-		// side effects before the next generation.
+		// Blocks on user review where required; every call ends up with a
+		// terminal result. Loop: the top-of-loop flush persists the tool side
+		// effects before the next generation.
+		s.executeToolCalls(generatedMessage, toolCalls)
 		s.setState(StateStreaming)
 	}
 }

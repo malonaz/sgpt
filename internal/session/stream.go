@@ -167,14 +167,12 @@ func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 		// Feed the failure back to the model as a tool result instead of
 		// aborting the turn; leaving the call unresolved poisons the history.
 		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusFailed)
 		s.refresh()
 		return
 	}
 	// Review can attach a result directly (e.g. discovery tools); executing
 	// those through the registry would fail with a parse-type mismatch.
 	if toolCall.GetResult() != nil {
-		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
 		s.refresh()
 		return
 	}
@@ -187,7 +185,6 @@ func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
 		return
 	}
 
-	tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
 	s.setExecutingToolCall(toolCall.GetId())
 	s.refresh()
 	toolResult, err := s.registry.Execute(s.ctx, toolCall)
@@ -220,22 +217,11 @@ func (s *Session) finalizeStream(message *aipb.Message, err error) {
 
 		for _, block := range ai.FilterBlocks(blocks, ai.BlockTypeToolCall) {
 			toolCall := block.GetToolCall()
-			// Don't clobber statuses set during streaming (e.g. failed).
-			if tool.GetToolCallStatus(toolCall) != "" {
-				continue
-			}
-			switch {
-			case toolCall.GetResult() != nil:
-				tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
-			case err != nil:
-				// The stream died: the server excluded this message from
-				// provider history, so a review verdict could never reach the
-				// model. Resolve as failed instead of leaving an unreviewable
-				// pending call.
+			// The stream died: the server excluded this message from provider
+			// history, so a verdict could never reach the model. Resolve as
+			// failed rather than leaving an unreviewable call.
+			if err != nil && toolCall.GetResult() == nil {
 				toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-				tool.SetToolCallStatus(toolCall, tool.ToolCallStatusFailed)
-			default:
-				tool.SetToolCallStatus(toolCall, tool.ToolCallStatusPending)
 			}
 		}
 

@@ -171,7 +171,7 @@ func (m *Model) renderDetail() string {
 		b.WriteString(styles.DimTextStyle.Render(" Loading messages..."))
 		return b.String()
 	}
-	items := timeline.BuildChatItems(messages, nil, "", nil)
+	items := timeline.BuildChatItems(messages, nil)
 	if len(items) == 0 {
 		b.WriteString(styles.DimTextStyle.Render(" No messages in this chat"))
 		return b.String()

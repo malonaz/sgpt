@@ -14,16 +14,6 @@ import (
 const (
 	ToolCallMetadataAnnotationKey   = "sgpt.com/tool-call-metadata"
 	ToolResultMetadataAnnotationKey = "sgpt.com/tool-result-metadata"
-
-	ToolCallStatusAnnotation = "sgpt.com/tool-status"
-	ToolCallStatusPending    = "pending"
-	ToolCallStatusAccepted   = "accepted"
-	ToolCallStatusRejected   = "rejected"
-	// ToolCallStatusFailed marks calls that never reached user review
-	// (e.g. unparseable arguments); the error result is attached directly.
-	ToolCallStatusFailed = "failed"
-
-	ToolCallRejectionReasonAnnotation = "sgpt.com/tool-rejection-reason"
 )
 
 // annotationsMu guards tool call/result annotation maps: the session
@@ -40,21 +30,6 @@ func SnapshotToolCall(toolCall *aipb.ToolCall) *aipb.ToolCall {
 	return proto.Clone(toolCall).(*aipb.ToolCall)
 }
 
-func SetToolCallStatus(toolCall *aipb.ToolCall, status string) {
-	annotationsMu.Lock()
-	defer annotationsMu.Unlock()
-	if toolCall.Annotations == nil {
-		toolCall.Annotations = map[string]string{}
-	}
-	toolCall.Annotations[ToolCallStatusAnnotation] = status
-}
-
-func GetToolCallStatus(toolCall *aipb.ToolCall) string {
-	annotationsMu.RLock()
-	defer annotationsMu.RUnlock()
-	return toolCall.GetAnnotations()[ToolCallStatusAnnotation]
-}
-
 // GetToolCallAnnotation reads an arbitrary tool call annotation under the
 // annotations lock. Any read of the annotations map outside this package's
 // accessors races with the session goroutine's status/metadata writes.
@@ -62,21 +37,6 @@ func GetToolCallAnnotation(toolCall *aipb.ToolCall, key string) string {
 	annotationsMu.RLock()
 	defer annotationsMu.RUnlock()
 	return toolCall.GetAnnotations()[key]
-}
-
-func SetToolCallRejectionReason(toolCall *aipb.ToolCall, reason string) {
-	annotationsMu.Lock()
-	defer annotationsMu.Unlock()
-	if toolCall.Annotations == nil {
-		toolCall.Annotations = map[string]string{}
-	}
-	toolCall.Annotations[ToolCallRejectionReasonAnnotation] = reason
-}
-
-func GetToolCallRejectionReason(toolCall *aipb.ToolCall) string {
-	annotationsMu.RLock()
-	defer annotationsMu.RUnlock()
-	return toolCall.GetAnnotations()[ToolCallRejectionReasonAnnotation]
 }
 
 func SetToolCallMetadata(toolCall *aipb.ToolCall, metadata *sgptpb.ToolCallMetadata) error {

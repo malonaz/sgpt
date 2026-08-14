@@ -10,104 +10,33 @@ import (
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
-// processToolCallsAfterStream handles tool calls after the stream completes.
-// Auto-execute tool calls run immediately (read-only tools may already carry
-// a result from eager execution during streaming). Manual ones are left
-// pending for user review. Returns true if everything was auto-executed.
-func (s *Session) processToolCallsAfterStream(assistantMessage *aipb.Message, toolCalls []*aipb.ToolCall) (bool, error) {
-	var executable []*aipb.ToolCall
-	hasManual := false
-	for _, toolCall := range toolCalls {
-		debug.LogProto(toolCall.GetName(), toolCall)
-		if toolCall.GetResult() != nil {
-			// Already executed — eagerly during streaming, or server-side.
-			executable = append(executable, toolCall)
-			continue
-		}
-		metadata, err := tool.ParseToolCallMetadata(toolCall)
-		if err != nil {
-			// Review failed or never ran; resolve with an error result so the
-			// model can react rather than killing the turn.
-			toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusFailed)
-			executable = append(executable, toolCall)
-			continue
-		}
-		if metadata.GetAutoExecute() || s.IsToolAutoAccepted(toolCall.GetName()) {
-			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
-			executable = append(executable, toolCall)
-		} else {
-			hasManual = true
-		}
-	}
-
-	if hasManual {
-		// Pre-accepted auto calls execute alongside the manual ones once the
-		// user resolves every pending review.
-		s.setState(StateAwaitingReview)
-		return false, nil
-	}
-
-	s.executeToolCalls(assistantMessage, executable)
-	return true, nil
-}
-
-// ResolveToolCalls executes ALL tool calls of the last assistant message —
-// accepted ones run, rejected ones get error results — then starts a new turn.
-func (s *Session) ResolveToolCalls() {
-	s.mu.Lock()
-	var assistantMessage *aipb.Message
-	var toolCalls []*aipb.ToolCall
-	for i := len(s.messages) - 1; i >= 0; i-- {
-		message := s.messages[i]
-		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
-			continue
-		}
-		assistantMessage = message
-		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
-			toolCalls = append(toolCalls, block.GetToolCall())
-		}
-		break
-	}
-	s.mu.Unlock()
-
-	s.executeToolCalls(assistantMessage, toolCalls)
-
-	s.setState(StateStreaming)
-	s.refresh()
-	s.runTurn()
-}
-
-// executeToolCalls resolves tool calls strictly sequentially, emitting a
-// refresh before and after each call so the UI shows the in-flight call and
-// renders each result the moment it lands — not all at once at the end.
-// Verdicts and results are persisted back onto the assistant message, and the
-// tool results are queued as input for the next generation.
+// executeToolCalls resolves every tool call of the assistant message strictly
+// sequentially, then queues the results as input for the next generation.
+//
+// Review is a blocking await inside this loop: a call needing approval parks
+// the turn goroutine until the user answers (see awaitVerdict). There is no
+// review state to track — a call is "pending" precisely while the loop is
+// waiting on it, and a verdict produces a terminal result immediately.
 func (s *Session) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*aipb.ToolCall) {
 	if len(toolCalls) == 0 {
 		return
 	}
-	s.setState(StateExecutingTools)
-	s.refresh()
 
 	resultBlocks := make([]*aipb.Block, 0, len(toolCalls))
 	for _, toolCall := range toolCalls {
+		debug.LogProto(toolCall.GetName(), toolCall)
 		toolResult := toolCall.GetResult()
 		if toolResult == nil {
-			s.setExecutingToolCall(toolCall.GetId())
-			s.refresh()
 			toolResult = s.resolveToolCall(toolCall)
 			// Attach the result to its call so the UI renders the
 			// request/response pair adjacently and the pairing persists.
 			toolCall.Result = toolResult
-			s.setExecutingToolCall("")
 			s.refresh()
 		}
 		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
 	}
 
-	// Persist the review state (statuses, results, metadata) living inside
-	// the assistant message's tool call blocks.
+	// Persist the results living inside the assistant message's tool call blocks.
 	if assistantMessage.GetName() != "" {
 		if _, err := s.store.UpdateMessage(s.ctx, assistantMessage, "blocks"); err != nil {
 			s.emitError(fmt.Errorf("persisting tool call results: %w", err))
@@ -124,85 +53,128 @@ func (s *Session) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*
 	s.refresh()
 }
 
-// resolveToolCall produces a result for a reviewed tool call based on its status.
+// resolveToolCall produces the terminal result for one tool call: it awaits
+// user approval when required, then executes. Never returns nil.
 func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
-	switch tool.GetToolCallStatus(toolCall) {
-	case tool.ToolCallStatusRejected:
-		reason := tool.GetToolCallRejectionReason(toolCall)
-		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("rejected by user: %s", reason))
-	case tool.ToolCallStatusAccepted:
-		toolResult, err := s.registry.Execute(s.ctx, toolCall)
-		if err != nil {
-			return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+	metadata, err := tool.ParseToolCallMetadata(toolCall)
+	if err != nil {
+		// Review never ran (e.g. unparseable arguments); feed the failure back
+		// to the model rather than killing the turn.
+		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+	}
+
+	if !metadata.GetAutoExecute() && !s.IsToolAutoAccepted(toolCall.GetName()) {
+		approved, reason := s.awaitVerdict(toolCall)
+		if !approved {
+			return ai.NewErrorToolResult(toolCall.Name, toolCall.Id,
+				fmt.Errorf("rejected by user: %s", reason))
 		}
-		return toolResult
-	default:
-		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, fmt.Errorf("unresolved tool call"))
+	}
+
+	s.setState(StateExecutingTools)
+	s.setExecutingToolCall(toolCall.GetId())
+	s.refresh()
+	defer func() {
+		s.setExecutingToolCall("")
+		s.refresh()
+	}()
+
+	toolResult, err := s.registry.Execute(s.ctx, toolCall)
+	if err != nil {
+		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+	}
+	return toolResult
+}
+
+// awaitVerdict blocks the turn goroutine until the user answers for this tool
+// call, or the session is cancelled (treated as a rejection so the call still
+// resolves and the history stays valid).
+func (s *Session) awaitVerdict(toolCall *aipb.ToolCall) (approved bool, reason string) {
+	toolCallID := toolCall.GetId()
+	verdictCh := make(chan verdict, 1)
+
+	s.mu.Lock()
+	s.pendingReviews[toolCallID] = pendingReview{
+		toolName:  toolCall.GetName(),
+		verdictCh: verdictCh,
+	}
+	s.state = StateAwaitingReview
+	s.mu.Unlock()
+	s.refresh()
+
+	defer func() {
+		s.mu.Lock()
+		delete(s.pendingReviews, toolCallID)
+		s.mu.Unlock()
+	}()
+
+	select {
+	case answer := <-verdictCh:
+		return answer.approved, answer.reason
+	case <-s.ctx.Done():
+		return false, "session cancelled"
 	}
 }
 
-// ---- Review verdicts ----
-//
-// Tool call blocks are shared with the streaming/turn goroutines, so every
-// verdict mutation goes through the session lock. The TUI never writes to a
-// tool call proto itself.
-
-// AcceptToolCall marks a single call accepted.
-func (s *Session) AcceptToolCall(toolCall *aipb.ToolCall) {
+// answerVerdict delivers a verdict to the awaiting turn goroutine. Reports
+// whether a review was actually waiting on this ID.
+func (s *Session) answerVerdict(toolCallID string, answer verdict) bool {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+	review, ok := s.pendingReviews[toolCallID]
+	if ok {
+		// Buffered channel, and awaitVerdict is the only receiver, so this
+		// never blocks the caller (the UI goroutine).
+		review.verdictCh <- answer
+		delete(s.pendingReviews, toolCallID)
+	}
+	s.mu.Unlock()
+	return ok
 }
 
-// RejectToolCall marks a single call rejected, recording the user's reason.
-func (s *Session) RejectToolCall(toolCall *aipb.ToolCall, reason string) {
+// ---- Review API (called from the UI goroutine) ----
+
+// PendingToolCallIDs returns the tool calls currently awaiting a verdict.
+func (s *Session) PendingToolCallIDs() map[string]bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	tool.SetToolCallStatus(toolCall, tool.ToolCallStatusRejected)
-	tool.SetToolCallRejectionReason(toolCall, reason)
+	pending := make(map[string]bool, len(s.pendingReviews))
+	for toolCallID := range s.pendingReviews {
+		pending[toolCallID] = true
+	}
+	return pending
 }
 
-// AcceptAllPendingToolCalls accepts every call still awaiting a verdict.
-func (s *Session) AcceptAllPendingToolCalls() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, toolCall := range s.pendingToolCallsLocked() {
-		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+// ApproveToolCall approves a call awaiting review; it executes immediately.
+func (s *Session) ApproveToolCall(toolCallID string) {
+	s.answerVerdict(toolCallID, verdict{approved: true})
+}
+
+// RejectToolCall rejects a call awaiting review, recording the user's reason.
+func (s *Session) RejectToolCall(toolCallID, reason string) {
+	s.answerVerdict(toolCallID, verdict{reason: reason})
+}
+
+// ApproveAllToolCalls approves every call currently awaiting review. Calls are
+// executed one at a time by the turn goroutine, in call order.
+func (s *Session) ApproveAllToolCalls() {
+	for toolCallID := range s.PendingToolCallIDs() {
+		s.ApproveToolCall(toolCallID)
 	}
 }
 
-// AlwaysAcceptTool whitelists the call's tool for the rest of the session and
-// accepts its pending siblings now.
-func (s *Session) AlwaysAcceptTool(name string) {
+// AlwaysApproveTool whitelists a tool for the rest of the session, so its
+// future calls skip review, and approves any call awaiting review right now.
+func (s *Session) AlwaysApproveTool(name string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.autoAcceptedToolNameSet[name] = true
-	for _, toolCall := range s.pendingToolCallsLocked() {
-		if toolCall.GetName() == name {
-			tool.SetToolCallStatus(toolCall, tool.ToolCallStatusAccepted)
+	var toolCallIDs []string
+	for toolCallID, review := range s.pendingReviews {
+		if review.toolName == name {
+			toolCallIDs = append(toolCallIDs, toolCallID)
 		}
 	}
-}
-
-// ReopenToolCall returns an unexecuted call to pending so the user can change
-// a verdict before the turn resolves. Reports whether it was reopened.
-func (s *Session) ReopenToolCall(toolCall *aipb.ToolCall) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if toolCall.GetResult() != nil {
-		return false
+	s.mu.Unlock()
+	for _, toolCallID := range toolCallIDs {
+		s.ApproveToolCall(toolCallID)
 	}
-	switch tool.GetToolCallStatus(toolCall) {
-	case tool.ToolCallStatusAccepted, tool.ToolCallStatusRejected:
-		tool.SetToolCallStatus(toolCall, tool.ToolCallStatusPending)
-		return true
-	}
-	return false
-}
-
-// ToolCallStatus reads a call's review status under the lock.
-func (s *Session) ToolCallStatus(toolCall *aipb.ToolCall) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return tool.GetToolCallStatus(toolCall)
 }

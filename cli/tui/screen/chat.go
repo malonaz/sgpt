@@ -17,7 +17,6 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/session"
-	"github.com/malonaz/sgpt/internal/tool"
 )
 
 type FocusedComponent int
@@ -238,16 +237,24 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, chatKeyCycleFocus.Key):
 		return m.cycleFocus()
 	case key.Matches(msg, chatKeyAccept.Key):
-		return m.withReviewTarget(m.acceptToolCall)
+		return m.withReviewTarget(func(toolCallID string) tea.Cmd {
+			m.session.ApproveToolCall(toolCallID)
+			return nil
+		})
 	case key.Matches(msg, chatKeyAcceptAll.Key):
-		return m.acceptAllToolCalls()
+		m.session.ApproveAllToolCalls()
+		return nil
 	case key.Matches(msg, chatKeyAlwaysAccept.Key):
-		return m.alwaysAcceptTool()
+		return m.withReviewTarget(func(toolCallID string) tea.Cmd {
+			m.session.AlwaysApproveTool(m.toolNameForCall(toolCallID))
+			return nil
+		})
 	case key.Matches(msg, chatKeyReject.Key):
-		return m.withReviewTarget(func(target *aipb.ToolCall) tea.Cmd {
+		return m.withReviewTarget(func(toolCallID string) tea.Cmd {
 			reason := m.input.Value()
 			m.input.Reset()
-			return m.rejectToolCall(target, reason)
+			m.session.RejectToolCall(toolCallID, reason)
+			return nil
 		})
 	case key.Matches(msg, chatKeyCycleReasoning.Key):
 		m.cycleReasoningEffort()
@@ -288,11 +295,13 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *ChatScreen) submit() tea.Cmd {
+	// Review takes precedence: a pending call means the turn is parked
+	// waiting on this keystroke.
+	if pendingToolCallID := m.reviewTarget(); pendingToolCallID != "" {
+		return m.confirmReview(pendingToolCallID)
+	}
 	if m.session.Busy() {
 		return nil
-	}
-	if pending := m.session.PendingToolCalls(); len(pending) > 0 {
-		return m.reviewToolCall(pending)
 	}
 
 	text := m.input.Submit()
@@ -312,94 +321,62 @@ func (m *ChatScreen) submit() tea.Cmd {
 	})
 }
 
-// reviewToolCall handles ctrl+j during review: it accepts the target;
-// rejection is explicit (alt+shift+r). Landing on an already-reviewed but
-// unexecuted call re-opens it so verdicts can be changed until the turn
-// resolves.
-func (m *ChatScreen) reviewToolCall(pending []*aipb.ToolCall) tea.Cmd {
-	if m.focusedComponent == FocusViewport {
-		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok && m.session.ReopenToolCall(item.ToolCall) {
-			m.refresh()
-			return nil
-		}
-	}
-	// Never repurpose composed text as a rejection: a review pause can land
-	// mid-composition and a ctrl+j meant to send the message would silently
-	// reject the call with the message as its reason.
+// confirmReview handles ctrl+j during review: it approves the target.
+// Rejection is explicit (alt+shift+r) so composed text is never silently
+// repurposed as a rejection reason.
+func (m *ChatScreen) confirmReview(toolCallID string) tea.Cmd {
 	if m.input.Value() != "" {
 		return m.alert("Tool call pending review — ctrl+j/alt+y: accept, alt+shift+r: reject (input = reason)")
 	}
-	return m.acceptToolCall(m.reviewTarget(pending))
+	m.session.ApproveToolCall(toolCallID)
+	return nil
 }
 
-// reviewTarget returns the call a verdict applies to: the selected pending
-// call when navigating the timeline, otherwise the first pending one.
-func (m *ChatScreen) reviewTarget(pending []*aipb.ToolCall) *aipb.ToolCall {
+// reviewTarget returns the tool call a verdict applies to: the selected one
+// when navigating the timeline, otherwise any pending call. Empty when nothing
+// is awaiting review.
+func (m *ChatScreen) reviewTarget() string {
+	pending := m.session.PendingToolCallIDs()
+	if len(pending) == 0 {
+		return ""
+	}
 	if m.focusedComponent == FocusViewport {
-		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok &&
-			item.Result == nil && m.session.ToolCallStatus(item.ToolCall) == tool.ToolCallStatusPending {
-			return item.ToolCall
+		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok {
+			if toolCallID := item.ToolCall.GetId(); pending[toolCallID] {
+				return toolCallID
+			}
 		}
 	}
-	return pending[0]
+	// Map iteration is unordered, but reviews are awaited one at a time, so
+	// there is normally exactly one pending call.
+	for toolCallID := range pending {
+		return toolCallID
+	}
+	return ""
 }
 
 // withReviewTarget applies a verdict to the current review target, if any.
-func (m *ChatScreen) withReviewTarget(verdict func(*aipb.ToolCall) tea.Cmd) tea.Cmd {
-	pending := m.session.PendingToolCalls()
-	if m.session.Busy() || len(pending) == 0 {
+func (m *ChatScreen) withReviewTarget(verdict func(toolCallID string) tea.Cmd) tea.Cmd {
+	toolCallID := m.reviewTarget()
+	if toolCallID == "" {
 		return nil
 	}
-	return verdict(m.reviewTarget(pending))
+	return verdict(toolCallID)
 }
 
-func (m *ChatScreen) acceptToolCall(target *aipb.ToolCall) tea.Cmd {
-	m.session.AcceptToolCall(target)
-	return m.afterVerdict()
-}
-
-func (m *ChatScreen) rejectToolCall(target *aipb.ToolCall, reason string) tea.Cmd {
-	m.session.RejectToolCall(target, reason)
-	return m.afterVerdict()
-}
-
-func (m *ChatScreen) acceptAllToolCalls() tea.Cmd {
-	if m.session.Busy() || len(m.session.PendingToolCalls()) == 0 {
-		return nil
+// toolNameForCall resolves a tool call ID to its tool name via the timeline.
+func (m *ChatScreen) toolNameForCall(toolCallID string) string {
+	for _, item := range m.buildItems() {
+		if toolCallItem, ok := item.(*timeline.ToolCallItem); ok &&
+			toolCallItem.ToolCall.GetId() == toolCallID {
+			return toolCallItem.ToolCall.GetName()
+		}
 	}
-	m.session.AcceptAllPendingToolCalls()
-	return m.afterVerdict()
+	return ""
 }
 
-// alwaysAcceptTool accepts the target's tool for the rest of the session:
-// pending siblings are accepted now, future calls execute without review.
-func (m *ChatScreen) alwaysAcceptTool() tea.Cmd {
-	pending := m.session.PendingToolCalls()
-	if m.session.Busy() || len(pending) == 0 {
-		return nil
-	}
-	m.session.AlwaysAcceptTool(m.reviewTarget(pending).GetName())
-	return m.afterVerdict()
-}
-
-// afterVerdict advances review: jump to the next pending call, or resolve
-// the turn once every call has a verdict.
-func (m *ChatScreen) afterVerdict() tea.Cmd {
-	if pending := m.session.PendingToolCalls(); len(pending) > 0 {
-		m.refresh()
-		m.focusToolCall(pending[0])
-		return nil
-	}
-	sess := m.session
-	m.refresh()
-	return tea.Batch(m.spinner.Tick, func() tea.Msg {
-		sess.ResolveToolCalls()
-		return nil
-	})
-}
-
-// maybeJumpToReview focuses the first pending tool call when a turn pauses
-// for review, so the user lands directly on what needs their verdict.
+// maybeJumpToReview focuses a pending tool call when a turn pauses for review,
+// so the user lands directly on what needs their verdict.
 func (m *ChatScreen) maybeJumpToReview() {
 	state := m.session.State()
 	entered := state == session.StateAwaitingReview && m.lastState != session.StateAwaitingReview
@@ -412,19 +389,19 @@ func (m *ChatScreen) maybeJumpToReview() {
 	if m.input.Value() != "" {
 		return
 	}
-	if pending := m.session.PendingToolCalls(); len(pending) > 0 {
-		m.focusToolCall(pending[0])
+	if toolCallID := m.reviewTarget(); toolCallID != "" {
+		m.focusToolCall(toolCallID)
 	}
 }
 
 // focusToolCall moves timeline focus onto the given call's item.
-func (m *ChatScreen) focusToolCall(toolCall *aipb.ToolCall) {
+func (m *ChatScreen) focusToolCall(toolCallID string) {
 	m.focusedComponent = FocusViewport
 	m.input.Blur()
 	m.timeline.SetFocused(true)
 	m.timeline.SelectFunc(func(item timeline.Item) bool {
 		toolCallItem, ok := item.(*timeline.ToolCallItem)
-		return ok && toolCallItem.ToolCall.GetId() == toolCall.GetId()
+		return ok && toolCallItem.ToolCall.GetId() == toolCallID
 	})
 }
 
@@ -563,6 +540,7 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 		m.session.Messages(),
 		m.session.StreamingMessage(),
 		m.session.ExecutingToolCallID(),
+		m.session.PendingToolCallIDs(),
 		m.session.Registry(),
 	)
 	if err := m.session.StreamError(); err != nil {
@@ -583,14 +561,14 @@ func (m *ChatScreen) refresh() {
 }
 
 func (m *ChatScreen) refreshPlaceholder() {
-	pending := m.session.PendingToolCalls()
-	if len(pending) == 0 {
+	toolCallID := m.reviewTarget()
+	if toolCallID == "" {
 		m.input.Textarea.Placeholder = "Type your message... (ctrl+j: send, tab: navigate, alt+h: help)"
 		return
 	}
 	m.input.Textarea.Placeholder = fmt.Sprintf(
-		"reviewing %s (%d pending) — ctrl+j: accept, alt+shift+r: reject (input = reason), alt+shift+y: all, alt+shift+a: always",
-		m.reviewTarget(pending).GetName(), len(pending))
+		"reviewing %s — ctrl+j: accept, alt+shift+r: reject (input = reason), alt+shift+a: always accept this tool",
+		m.toolNameForCall(toolCallID))
 }
 
 func (m *ChatScreen) refreshTitle() {
