@@ -116,7 +116,7 @@ func NewApp(
 
 	tabID := params.Chat
 	chatSession := session.New(ctx, chatStore, registry, initialChat, initialMessages, params)
-	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, params.InjectedFiles)
+	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession)
 
 	app.tabs = []*tab{
 		{id: menuTabID, screen: menuScreen},
@@ -140,7 +140,7 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (st
 	if a.agentSessionFactory == nil {
 		return "", fmt.Errorf("sub-agent launching is not configured")
 	}
-	chatSession, injectedFiles, err := a.agentSessionFactory(ctx, request)
+	chatSession, _, err := a.agentSessionFactory(ctx, request)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +158,7 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (st
 	// Chat names are assigned lazily on first save; use a local counter for a
 	// unique tab ID.
 	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
-	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, injectedFiles)
+	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
 	a.program.Send(openTabMsg{id: tabID, screen: chatScreen})
 
 	// SendMessage blocks for the whole turn; run it off this goroutine so we
@@ -446,7 +446,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		tabID := chat.Name
 
 		chatSession := session.New(a.ctx, a.store, a.registry, chat, messages, params)
-		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, params.InjectedFiles)
+		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
 		return openTabMsg{id: tabID, screen: chatScreen}
 	}
 }

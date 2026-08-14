@@ -147,7 +147,36 @@ func New(
 	// Seed from --tool/role config. The CLI already resolved these names at
 	// launch (dialing their engines), so this is served from cache.
 	_ = s.SetEnabledTools(params.Tools)
+	// Render the context (system prompt, injected files) immediately: it is
+	// only persisted on the first turn, but the user should see what the
+	// model will see the moment the chat opens.
+	s.seedOptimisticContext()
 	return s
+}
+
+// seedOptimisticContext mirrors the not-yet-persisted context messages into
+// the local history so they render before the first turn. ensureContext
+// replaces these placeholders with the server-persisted messages.
+func (s *Session) seedOptimisticContext() {
+	if s.params.SystemPrompt != "" && !s.systemPromptSent {
+		s.messages = append(s.messages, ai.NewSystemMessage(ai.NewTextBlock(s.params.SystemPrompt)))
+	}
+	for _, path := range s.injectedFilePaths {
+		if _, ok := s.injectedFilePathToMessageName[path]; ok {
+			continue
+		}
+		s.messages = append(s.messages, store.NewInjectedFileMessage(path, injectedFileContent(path)))
+	}
+}
+
+// injectedFileContent formats a file for injection; a vanished file degrades
+// to an inline note instead of killing the turn.
+func injectedFileContent(path string) string {
+	injectedFile, err := file.Read(path)
+	if err != nil {
+		return fmt.Sprintf("file %s: [unreadable: %v]", path, err)
+	}
+	return fmt.Sprintf("file %s: `%s`", path, injectedFile.Content)
 }
 
 func (s *Session) Events() <-chan Event {
@@ -246,6 +275,18 @@ func (s *Session) LastModelUsage() *aipb.ModelUsage {
 	return s.lastModelUsage
 }
 
+// Price sums the server-priced messages of the chat: each message carries its
+// own authoritative cost, so no client-side pricing math is needed.
+func (s *Session) Price() float64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var price float64
+	for _, message := range s.messages {
+		price += message.GetPrice()
+	}
+	return price
+}
+
 func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
 	s.params.ReasoningEffort = effort
 }
@@ -259,7 +300,9 @@ func (s *Session) InjectedFiles() []string {
 
 // SetInjectedFiles replaces the injected files. Removed paths have their
 // messages soft-deleted (the server drops them from provider history); added
-// paths are persisted on the next turn. Blocking — call it off the UI loop.
+// paths are persisted on the next turn, appended to the history like any
+// other message — no chat update, so the provider prompt cache stays intact.
+// Blocking — call it off the UI loop.
 func (s *Session) SetInjectedFiles(paths []string) {
 	paths = file.Normalize(paths)
 
@@ -274,8 +317,28 @@ func (s *Session) SetInjectedFiles(paths []string) {
 			removedPathToMessageName[path] = messageName
 		}
 	}
+	// Drop optimistic (never persisted) file messages outright — there is
+	// nothing server-side to soft-delete.
+	for _, path := range s.injectedFilePaths {
+		if pathSet[path] {
+			continue
+		}
+		if index := s.optimisticInjectedFileIndex(path); index >= 0 {
+			s.messages = append(s.messages[:index], s.messages[index+1:]...)
+		}
+	}
 	s.injectedFilePaths = append([]string(nil), paths...)
-	store.SetFiles(s.chat, paths)
+	// Newly added paths render immediately; ensureContext persists them on
+	// the next turn and swaps in the server copy.
+	for _, path := range paths {
+		if _, ok := s.injectedFilePathToMessageName[path]; ok {
+			continue
+		}
+		if s.optimisticInjectedFileIndex(path) >= 0 {
+			continue
+		}
+		s.messages = append(s.messages, store.NewInjectedFileMessage(path, injectedFileContent(path)))
+	}
 	s.mu.Unlock()
 
 	for path, messageName := range removedPathToMessageName {
@@ -297,10 +360,29 @@ func (s *Session) SetInjectedFiles(paths []string) {
 		s.mu.Unlock()
 	}
 
-	if err := s.saveChat(); err != nil {
-		s.emitError(fmt.Errorf("saving chat files: %w", err))
-	}
 	s.refresh()
+}
+
+// optimisticInjectedFileIndex locates a not-yet-persisted injected-file
+// message for path (no resource name yet). Caller holds the lock.
+func (s *Session) optimisticInjectedFileIndex(path string) int {
+	for i, message := range s.messages {
+		if message.GetName() == "" && store.InjectedFilePath(message) == path {
+			return i
+		}
+	}
+	return -1
+}
+
+// optimisticSystemPromptIndex locates the not-yet-persisted system message.
+// Caller holds the lock.
+func (s *Session) optimisticSystemPromptIndex() int {
+	for i, message := range s.messages {
+		if message.GetName() == "" && message.GetRole() == aipb.Role_ROLE_SYSTEM {
+			return i
+		}
+	}
+	return -1
 }
 
 // ensureContext persists the one-time context messages (system prompt, newly
@@ -326,26 +408,28 @@ func (s *Session) ensureContext() error {
 		}
 		s.mu.Lock()
 		s.systemPromptSent = true
-		s.messages = append(s.messages, createdMessage)
+		// Swap the optimistic placeholder for the persisted message so the
+		// timeline position (and its item cache) stays stable.
+		if index := s.optimisticSystemPromptIndex(); index >= 0 {
+			s.messages[index] = createdMessage
+		} else {
+			s.messages = append(s.messages, createdMessage)
+		}
 		s.mu.Unlock()
 	}
 
 	for _, path := range newFilePaths {
-		var content string
-		injectedFile, err := file.Read(path)
-		if err != nil {
-			// A vanished file degrades to an inline note instead of killing the turn.
-			content = fmt.Sprintf("file %s: [unreadable: %v]", path, err)
-		} else {
-			content = fmt.Sprintf("file %s: `%s`", path, injectedFile.Content)
-		}
-		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, store.NewInjectedFileMessage(path, content))
+		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, store.NewInjectedFileMessage(path, injectedFileContent(path)))
 		if err != nil {
 			return fmt.Errorf("persisting injected file %s: %w", path, err)
 		}
 		s.mu.Lock()
 		s.injectedFilePathToMessageName[path] = createdMessage.GetName()
-		s.messages = append(s.messages, createdMessage)
+		if index := s.optimisticInjectedFileIndex(path); index >= 0 {
+			s.messages[index] = createdMessage
+		} else {
+			s.messages = append(s.messages, createdMessage)
+		}
 		s.mu.Unlock()
 	}
 	return nil
@@ -502,26 +586,42 @@ func (s *Session) pendingToolCallsLocked() []*aipb.ToolCall {
 
 func (s *Session) SendMessage(text string) {
 	s.setState(StateStreaming)
+	// Optimistic render: the user's message must appear immediately. The
+	// context RPCs below (system prompt, injected files) are a network round
+	// trip that would otherwise leave the timeline empty.
+	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
 	s.mu.Lock()
 	s.streamError = nil
+	s.messages = append(s.messages, userMessage)
+	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
 	s.mu.Unlock()
 	s.refresh()
 
 	if err := s.ensureContext(); err != nil {
 		s.setState(StateIdle)
+		// The turn never ran: drop the optimistic message from the queue so a
+		// retry doesn't send it twice.
+		s.rollbackPendingInput(userMessage)
 		s.emitError(err)
 		s.notifyTurnComplete("", err)
 		return
 	}
 
-	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
-	s.mu.Lock()
-	s.messages = append(s.messages, userMessage)
-	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
-	s.mu.Unlock()
-
 	s.refresh()
 	s.runTurn()
+}
+
+// rollbackPendingInput removes an optimistically appended message after the
+// turn failed before reaching the model.
+func (s *Session) rollbackPendingInput(message *aipb.Message) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, pendingMessage := range s.pendingInputMessages {
+		if pendingMessage == message {
+			s.pendingInputMessages = append(s.pendingInputMessages[:i], s.pendingInputMessages[i+1:]...)
+			break
+		}
+	}
 }
 
 func (s *Session) CancelStream() {
@@ -546,7 +646,12 @@ func (s *Session) takePendingInputMessages() []*aipb.Message {
 // Auto-execute tool calls run immediately (some already ran eagerly during
 // streaming). Manual ones pause the turn for user review.
 func (s *Session) runTurn() {
+	// A turn never leaves unpersisted chat state behind, and a generation
+	// never starts on top of it: every loop iteration flushes before
+	// streaming, and the turn flushes once more on exit.
+	defer s.flushChat()
 	for {
+		s.flushChat()
 		generatedMessage, err := s.stream(s.takePendingInputMessages())
 
 		s.mu.Lock()
@@ -587,13 +692,27 @@ func (s *Session) runTurn() {
 			return
 		}
 
-		// All auto-executed — loop to stream again with tool results.
+		// All auto-executed — loop: the top-of-loop flush persists the tool
+		// side effects before the next generation.
 		s.setState(StateStreaming)
 	}
 }
 
-// saveChat persists the chat-level fields the session mutates locally.
+// saveChat persists local chat mutations from user actions (favorite, files).
+// Ordering is already guaranteed — runTurn flushes before every generation
+// and on turn exit — so mid-turn this is a no-op purely to avoid an RPC
+// racing the open stream; the turn's own flush picks the mutation up.
 func (s *Session) saveChat() error {
+	if s.Busy() {
+		return nil
+	}
+	return s.updateChat()
+}
+
+// updateChat is the single chat write: one masked update carrying every
+// locally-owned field (title included). The server returns the full payload,
+// adopted as the new local chat — no cloning, no local re-patching.
+func (s *Session) updateChat() error {
 	s.mu.Lock()
 	chat := s.chat
 	s.mu.Unlock()
@@ -606,6 +725,13 @@ func (s *Session) saveChat() error {
 	s.chat = updatedChat
 	s.mu.Unlock()
 	return nil
+}
+
+// flushChat is the end-of-turn chat write; errors surface as alerts.
+func (s *Session) flushChat() {
+	if err := s.updateChat(); err != nil {
+		s.emitError(fmt.Errorf("saving chat: %w", err))
+	}
 }
 
 // maybeGenerateTitle asynchronously titles an untitled chat. Only the user's
@@ -633,7 +759,6 @@ func (s *Session) maybeGenerateTitle() {
 		return
 	}
 	s.titleGenerating = true
-	chatName := s.chat.GetName()
 	s.mu.Unlock()
 
 	go func() {
@@ -657,9 +782,9 @@ func (s *Session) maybeGenerateTitle() {
 		if discard {
 			return
 		}
-		// Persist only the title (etag-less, masked): a wider save here could
-		// clobber in-flight local edits from a turn running concurrently.
-		if _, err := s.store.SetTitle(s.ctx, chatName, title); err != nil {
+		// Flush now if idle; if a turn is in flight, its end-of-turn flush
+		// persists the title (the mask always includes it).
+		if err := s.saveChat(); err != nil {
 			s.emitError(fmt.Errorf("saving title: %w", err))
 			return
 		}

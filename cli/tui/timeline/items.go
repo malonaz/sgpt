@@ -338,14 +338,13 @@ type LineItem struct {
 	id    string
 	text  string
 	style lipgloss.Style
+	// summary, when set, makes the item collapsible: it folds to this single
+	// line by default (system prompts are long and rarely re-read).
+	summary string
 }
 
 func NewErrorItem(id, text string) *LineItem {
 	return &LineItem{id: id, text: "Error: " + text, style: styles.MessageErrorStyle}
-}
-
-func NewSystemItem(id, text string) *LineItem {
-	return &LineItem{id: id, text: "System: " + styles.Truncate(text, styles.TruncateLength), style: styles.SystemStyle}
 }
 
 func (i *LineItem) ID() string                { return i.id }
@@ -355,60 +354,160 @@ func (i *LineItem) Content() (string, string) { return i.text, "" }
 // different messages over time.
 func (i *LineItem) CacheKey() string { return i.id + "|" + i.text }
 
+// DefaultCollapsed folds summarizable items (system prompts) out of the way;
+// items without a summary aren't collapsible at all.
+func (i *LineItem) DefaultCollapsed() bool { return i.summary != "" }
+
 func (i *LineItem) Render(ctx RenderContext) string {
 	prefix := "  "
 	if ctx.Selected {
 		prefix = styles.BlockIndicatorSelectedStyle.Render(styles.BlockIndicatorChar) + " "
 	}
-	return prefix + i.style.Render(i.text)
+	text := i.text
+	if ctx.Collapsed && i.summary != "" {
+		text = i.summary
+	}
+	return prefix + i.style.Render(text)
 }
 
-// ---- InjectedFilesItem: one navigable entry for ALL injected files ----
-// Opening it in $EDITOR shows the list of paths.
-
-type InjectedFilesItem struct {
-	paths []string
+// flatten collapses whitespace so a multi-line prompt fits on one line.
+func flatten(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
-func NewInjectedFilesItem(paths []string) *InjectedFilesItem {
-	return &InjectedFilesItem{paths: paths}
+// ---- SystemItem: the system prompt, as a regular bordered block ----
+
+type SystemItem struct {
+	id   string
+	seq  int
+	text string
 }
 
-func (i *InjectedFilesItem) ID() string { return "injected-files" }
-
-// CacheKey: paths are fixed for the lifetime of a session.
-func (i *InjectedFilesItem) CacheKey() string { return i.ID() }
-
-func (i *InjectedFilesItem) Content() (string, string) {
-	return i.numberedList(), "txt"
+func NewSystemItem(id string, seq int, text string) *SystemItem {
+	return &SystemItem{id: id, seq: seq, text: text}
 }
-func (i *InjectedFilesItem) numberedList() string {
+
+func (i *SystemItem) ID() string                { return i.id }
+func (i *SystemItem) Content() (string, string) { return i.text, "md" }
+
+// CacheKey includes the text: a chat's system prompt can change between runs.
+func (i *SystemItem) CacheKey() string { return i.id + "|" + i.text }
+
+// The prompt is long and rarely re-read: fold it away by default.
+func (i *SystemItem) DefaultCollapsed() bool { return true }
+
+func (i *SystemItem) Render(ctx RenderContext) string {
+	// Grey border keeps it visually subordinate to user/assistant messages.
+	style := styles.AIMessageStyle.BorderForeground(styles.BorderColor)
+	label := styles.SystemStyle.Render("⚙ system prompt")
+	if ctx.Collapsed {
+		summary := fmt.Sprintf("%s %s", label,
+			styles.DimTextStyle.Render(styles.Truncate(flatten(i.text), styles.TruncateLength)))
+		return frame(ctx, style, summary)
+	}
+	body := renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(i.text)...)
+	return frame(ctx, style, label+"\n"+body)
+}
+
+// ---- InjectedFileItem: an injected-file message, rendered in-place ----
+// An ordinary timeline entry (position = injection order); only the
+// rendering differs: file-colored border, filename instead of content.
+
+type InjectedFileItem struct {
+	id      string
+	path    string
+	content string
+	// paths/contents hold every file of a consecutive injection run; path and
+	// content are the first one (kept for the single-file case).
+	paths    []string
+	contents []string
+}
+
+func NewInjectedFileItem(id, path, content string) *InjectedFileItem {
+	return &InjectedFileItem{id: id, path: path, content: content, paths: []string{path}, contents: []string{content}}
+}
+
+// add folds a consecutively injected file into this group so a large
+// injection costs a few lines of vertical space instead of one box each.
+func (i *InjectedFileItem) add(path, content string) {
+	i.paths = append(i.paths, path)
+	i.contents = append(i.contents, content)
+}
+
+func (i *InjectedFileItem) ID() string { return i.id }
+
+// CacheKey: injected-file messages are immutable, but the group grows as
+// consecutive files are folded in.
+func (i *InjectedFileItem) CacheKey() string {
+	return fmt.Sprintf("%s|%d|%s", i.id, len(i.paths), strings.Join(i.paths, ","))
+}
+
+// Content exposes the injected content for copy / open-in-editor; a group
+// concatenates its files.
+func (i *InjectedFileItem) Content() (string, string) {
+	if len(i.paths) > 1 {
+		return strings.Join(i.contents, "\n\n"), "md"
+	}
+	return i.content, strings.TrimPrefix(filepath.Ext(i.path), ".")
+}
+
+// Groups are navigable file-by-file (alt+[ / alt+]).
+func (i *InjectedFileItem) SubCount() int { return len(i.paths) }
+
+func (i *InjectedFileItem) SubContent(index int) (string, string) {
+	if index < 0 || index >= len(i.paths) {
+		return i.Content()
+	}
+	return i.contents[index], strings.TrimPrefix(filepath.Ext(i.paths[index]), ".")
+}
+
+// A group of files collapses to a one-line count; a lone file is already one line.
+func (i *InjectedFileItem) DefaultCollapsed() bool { return len(i.paths) > 1 }
+
+func (i *InjectedFileItem) Render(ctx RenderContext) string {
+	style := styles.AIMessageStyle.BorderForeground(styles.FileColor)
+	fileNameStyle := lipgloss.NewStyle().Foreground(styles.FileColor).Bold(true)
+	if ctx.Collapsed && len(i.paths) > 1 {
+		summary := fileNameStyle.Render(fmt.Sprintf("📎 %d files", len(i.paths))) + " " +
+			styles.DimTextStyle.Render(styles.Truncate(strings.Join(basenames(i.paths), ", "), styles.TruncateLength))
+		return frame(ctx, style, summary)
+	}
 	var b strings.Builder
 	for index, path := range i.paths {
 		if index > 0 {
 			b.WriteString("\n")
 		}
-		b.WriteString(fmt.Sprintf("%d. %s", index+1, path))
-	}
-	return b.String()
-}
-func (i *InjectedFilesItem) Render(ctx RenderContext) string {
-	// Rendered as a regular bordered block, like every other timeline item.
-	style := styles.AIMessageStyle.BorderForeground(styles.FileColor)
-	fileNameStyle := lipgloss.NewStyle().Foreground(styles.FileColor).Bold(true)
-
-	var b strings.Builder
-	b.WriteString(fileNameStyle.Render(fmt.Sprintf("📎 Injected Files (%d)", len(i.paths))))
-	for index, path := range i.paths {
-		b.WriteString("\n")
-		// Dim number + directory, bold pink basename — the part that matters pops.
+		// Dim directory, bold basename — the part that matters pops.
 		directory, name := filepath.Split(path)
-		b.WriteString(styles.DimTextStyle.Render(fmt.Sprintf("%2d. ", index+1)))
-		b.WriteString(styles.FileStyle.Render(directory))
-		b.WriteString(fileNameStyle.Render(name))
+		prefix := "📎 "
+		if ctx.Selected && ctx.SelectedSub >= 0 && len(i.paths) > 1 {
+			indicatorStyle := styles.BlockIndicatorStyle
+			if index == ctx.SelectedSub {
+				indicatorStyle = styles.BlockIndicatorSelectedStyle
+			}
+			prefix = indicatorStyle.Render(styles.BlockIndicatorChar) + " 📎 "
+		}
+		b.WriteString(fileNameStyle.Render(prefix) + styles.FileStyle.Render(directory) + fileNameStyle.Render(name))
 	}
 	return frame(ctx, style, b.String())
 }
+
+func basenames(paths []string) []string {
+	names := make([]string, 0, len(paths))
+	for _, path := range paths {
+		names = append(names, filepath.Base(path))
+	}
+	return names
+}
+
+func (i *InjectedFileItem) SubOffsets(ctx RenderContext) []int {
+	offsets := make([]int, len(i.paths))
+	for index := range i.paths {
+		offsets[index] = index + 1 // account for the frame's top border
+	}
+	return offsets
+}
+
 
 // ---- Builder ----
 
@@ -497,7 +596,32 @@ func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message
 		// Still mutating — never cached; finalization lands it in messages.
 		items = appendMessageItems(items, streamingMessage, len(messages), false, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
 	}
-	return items
+	return groupInjectedFiles(items)
+}
+
+// groupInjectedFiles folds runs of consecutive injected-file items into a
+// single collapsible group: injecting 30 files must not cost 30 boxes of
+// vertical space. Grouping happens here (not in appendMessageItems) because
+// each file is its own message and items are cached per message.
+func groupInjectedFiles(items []Item) []Item {
+	grouped := make([]Item, 0, len(items))
+	var current *InjectedFileItem
+	for _, item := range items {
+		fileItem, ok := item.(*InjectedFileItem)
+		if !ok {
+			current = nil
+			grouped = append(grouped, item)
+			continue
+		}
+		if current != nil {
+			current.add(fileItem.path, fileItem.content)
+			continue
+		}
+		// Copy: the cached per-message item must not accumulate siblings.
+		current = NewInjectedFileItem(fileItem.id, fileItem.path, fileItem.content)
+		grouped = append(grouped, current)
+	}
+	return grouped
 }
 
 // BuildChatItems is the uncached one-shot variant — used by read-only
@@ -519,6 +643,19 @@ func appendMessageItems(
 	baseSeq := messageIndex * 1000
 	switch message.GetRole() {
 	case aipb.Role_ROLE_USER:
+		// Injected files render in-place (injection order), label-detected:
+		// same message as any other, only the presentation differs.
+		if path := store.InjectedFilePath(message); path != "" {
+			var content string
+			for _, block := range message.GetBlocks() {
+				if text := block.GetText(); text != "" {
+					content = text
+					break
+				}
+			}
+			items = append(items, NewInjectedFileItem(fmt.Sprintf("m%d-file", messageIndex), path, content))
+			return items
+		}
 		// One rectangle per user message; fences navigable within it.
 		var mdBlocks []markdown.Block
 		for _, block := range message.GetBlocks() {
@@ -589,7 +726,7 @@ func appendMessageItems(
 	case aipb.Role_ROLE_SYSTEM:
 		for _, block := range message.GetBlocks() {
 			if text := block.GetText(); text != "" {
-				items = append(items, NewSystemItem(fmt.Sprintf("m%d-system", messageIndex), text))
+				items = append(items, NewSystemItem(fmt.Sprintf("m%d-system", messageIndex), baseSeq, text))
 				break
 			}
 		}

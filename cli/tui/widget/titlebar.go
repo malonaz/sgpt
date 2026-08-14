@@ -30,7 +30,8 @@ func (t *TitleBar) Height() int {
 }
 
 // Refresh rebuilds the title string from session state.
-func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.ModelUsage) {
+// price is the sum of the chat's server-priced messages.
+func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.ModelUsage, price float64) {
 	roleName := "anon"
 	if params.Role != nil {
 		roleName = params.Role.Name
@@ -53,13 +54,7 @@ func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.Mo
 
 	totalInputTokens := totalUsage.GetInputToken().GetQuantity() + totalUsage.GetInputTokenCacheRead().GetQuantity()
 	totalOutputTokens := totalUsage.GetOutputToken().GetQuantity() + totalUsage.GetOutputReasoningToken().GetQuantity()
-	totalPrice := totalUsage.GetInputToken().GetPrice() +
-		totalUsage.GetOutputToken().GetPrice() +
-		totalUsage.GetOutputReasoningToken().GetPrice() +
-		totalUsage.GetInputTokenCacheRead().GetPrice() +
-		totalUsage.GetInputTokenCacheWrite().GetPrice()
-
-	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), totalPrice)
+	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), price)
 
 	contextStr := ""
 	if contextLimit := params.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {

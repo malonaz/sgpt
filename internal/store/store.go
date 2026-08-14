@@ -13,7 +13,6 @@ import (
 	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"github.com/malonaz/core/go/uuid"
-	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
@@ -38,6 +37,9 @@ const (
 )
 
 // Store wraps the ai service client, which owns the chat data layer.
+// The store holds no locks: write sequencing is structural — the session
+// only calls UpdateChat at the end of a stream turn (or while idle), so
+// writes can never race a generation.
 type Store struct {
 	configuration   *sgptpb.Configuration
 	aiServiceClient aiservicepb.AiServiceClient
@@ -84,13 +86,11 @@ func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, er
 }
 
 // UpdateChat persists the given paths of a chat.
+// Writes are masked and etag-less; the server returns the full chat payload,
+// which callers should adopt as their new local state.
 func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string) (*aipb.Chat, error) {
-	// Drop the etag: the server updates the chat during streaming, so the
-	// local etag is stale after every turn and optimistic locking only
-	// produces spurious ABORTED saves. Updates are masked, which bounds the
-	// blast radius of last-write-wins to the listed paths. Cloned so the
-	// caller's in-memory chat is left untouched.
-	chat = proto.CloneOf(chat)
+	// The server bumps the chat during generation (price, update_time), so a
+	// local etag is always stale; masked writes bound last-write-wins anyway.
 	chat.Etag = ""
 	updateChatRequest := &aiservicepb.UpdateChatRequest{
 		Chat:       chat,
@@ -101,12 +101,6 @@ func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string
 		return nil, fmt.Errorf("updating chat: %w", err)
 	}
 	return updatedChat, nil
-}
-
-// SetTitle persists a chat's title without touching any other field — safe
-// to call while a session is mid-turn on the same chat.
-func (s *Store) SetTitle(ctx context.Context, name, title string) (*aipb.Chat, error) {
-	return s.UpdateChat(ctx, &aipb.Chat{Name: name, Title: title}, "title")
 }
 
 // GetChat fetches a chat by resource name.
@@ -203,7 +197,6 @@ func (s *Store) CreateMessage(ctx context.Context, chatName string, message *aip
 // UpdateMessage persists the given paths of a message.
 func (s *Store) UpdateMessage(ctx context.Context, message *aipb.Message, paths ...string) (*aipb.Message, error) {
 	// Etag-less for the same reason as UpdateChat: masked last-write-wins.
-	message = proto.CloneOf(message)
 	message.Etag = ""
 	updateMessageRequest := &aiservicepb.UpdateMessageRequest{
 		Message:    message,

@@ -57,7 +57,6 @@ type ChatScreen struct {
 	input    *widget.Input
 	spinner  spinner.Model
 
-	injectedFiles   []string
 	lastInputHeight int
 
 	// picker, when non-nil, is a modal fuzzy multi-select that captures all
@@ -78,7 +77,6 @@ func NewChatScreen(
 	wrap WrapFunc,
 	send SendFunc,
 	chatSession *session.Session,
-	injectedFiles []string,
 ) *ChatScreen {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -93,7 +91,6 @@ func NewChatScreen(
 		builder:          timeline.NewBuilder(),
 		input:            widget.NewInput(),
 		spinner:          sp,
-		injectedFiles:    injectedFiles,
 		focusedComponent: FocusTextarea,
 	}
 	cs.refreshTitle()
@@ -520,7 +517,6 @@ func (m *ChatScreen) openFilePicker() tea.Cmd {
 	m.picker = widget.NewPicker("📎 Files", items)
 	m.picker.SetSize(m.width, m.height)
 	m.pickerApply = func(selected []string) tea.Cmd {
-		m.injectedFiles = selected
 		sess := m.session
 		// SetInjectedFiles performs RPCs (soft-deleting removed file
 		// messages) — run it off the UI loop.
@@ -574,16 +570,14 @@ func (m *ChatScreen) updateInput(msg tea.Msg) tea.Cmd {
 }
 
 func (m *ChatScreen) buildItems() []timeline.Item {
-	var items []timeline.Item
-	if len(m.injectedFiles) > 0 {
-		items = append(items, timeline.NewInjectedFilesItem(m.injectedFiles))
-	}
-	items = append(items, m.builder.Build(
+	// Injected files render as regular timeline entries (label-detected by
+	// the builder), so there is no dedicated aggregate item here.
+	items := m.builder.Build(
 		m.session.Messages(),
 		m.session.StreamingMessage(),
 		m.session.ExecutingToolCallID(),
 		m.session.Registry(),
-	)...)
+	)
 	if err := m.session.StreamError(); err != nil {
 		items = append(items, timeline.NewErrorItem("stream-error", err.Error()))
 	}
@@ -613,7 +607,7 @@ func (m *ChatScreen) refreshPlaceholder() {
 }
 
 func (m *ChatScreen) refreshTitle() {
-	m.titlebar.Refresh(m.session.Params(), m.session.TotalModelUsage(), m.session.LastModelUsage())
+	m.titlebar.Refresh(m.session.Params(), m.session.TotalModelUsage(), m.session.LastModelUsage(), m.session.Price())
 }
 
 func (m *ChatScreen) recalculateLayout() {
