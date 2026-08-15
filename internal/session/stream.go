@@ -1,7 +1,6 @@
 package session
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"time"
@@ -23,12 +22,9 @@ const renderThrottleInterval = 66 * time.Millisecond
 // generated assistant message. Blocks until the stream completes or errors.
 // Returns the persisted assistant message.
 func (s *Session) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
-	streamCtx, cancel := context.WithCancel(s.ctx)
-	defer cancel()
-
-	s.mu.Lock()
-	s.cancelStream = cancel
-	s.mu.Unlock()
+	// The turn context is armed in SendMessage, before any network work, so
+	// cancellation covers the whole turn — not just the open stream.
+	streamCtx := s.turnContext()
 
 	// Snapshot once: the UI goroutine mutates params (reasoning effort, tool
 	// selection) while this turn runs.
@@ -237,6 +233,5 @@ func (s *Session) finalizeStream(message *aipb.Message, err error) {
 
 	s.streamingMessage = nil
 	s.state = StateIdle
-	s.cancelStream = nil
 	s.streamError = err
 }

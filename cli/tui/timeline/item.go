@@ -63,3 +63,11 @@ type Interactive interface {
 	Item
 	HandleKey(msg tea.KeyPressMsg) tea.Cmd
 }
+
+// MessageOwned items know the chat message they were built from, so the UI can
+// act on the underlying resource (e.g. delete it). Returns "" for items with
+// no persisted message behind them (stream errors, optimistic context).
+type MessageOwned interface {
+	Item
+	MessageName() string
+}

@@ -3,6 +3,8 @@ package chat
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -15,8 +17,11 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/configuration"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/file"
+	gograph "github.com/malonaz/sgpt/internal/graph"
+	goignore "github.com/malonaz/sgpt/internal/ignore"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
@@ -24,6 +29,7 @@ import (
 	"github.com/malonaz/sgpt/internal/tool/agent"
 	"github.com/malonaz/sgpt/internal/tool/diff"
 	toolio "github.com/malonaz/sgpt/internal/tool/io"
+	"github.com/malonaz/sgpt/internal/tool/nodes"
 	"github.com/malonaz/sgpt/internal/tool/rpc"
 	"github.com/malonaz/sgpt/internal/tool/shell"
 )
@@ -35,6 +41,22 @@ func NewCmd(
 ) *cobra.Command {
 	chatStore := store.New(config, aiClient)
 
+	// Discover the enclosing repo's .sgpt artifacts (nodes, roles, tool
+	// sets) plus imports. Outside a graph, discovery is empty — chat still
+	// works, just without roles/nodes/tool sets.
+	buildForest := func() (*gograph.Forest, error) {
+		root, err := gograph.FindRoot(".")
+		if err != nil {
+			return gograph.NewForest(&gograph.Tree{PathToDir: map[string]*gograph.Dir{}}, config.GetImports(), configuration.LoadIgnore), nil
+		}
+		tree, err := gograph.Scan(root, config.GetIgnore())
+		if err != nil {
+			return nil, err
+		}
+		return gograph.NewForest(tree, config.GetImports(), configuration.LoadIgnore), nil
+	}
+	forest, forestErr := buildForest()
+
 	var opts struct {
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
@@ -44,6 +66,7 @@ func NewCmd(
 		Chat          string
 		Continue      bool
 		Tools         []string
+		Graph         []string
 		Debug         bool
 	}
 
@@ -52,6 +75,23 @@ func NewCmd(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 365*24*time.Hour)
 			defer cancel()
+			// File discovery (the picker) honors the configuration's ignore
+			// patterns plus .gitignore files, rooted at the cwd.
+			if cwd, err := os.Getwd(); err == nil {
+				matcher := goignore.NewMatcher(cwd, config.GetIgnore())
+				file.SetDiscoverFilter(func(path string, isDirectory bool) bool {
+					relativePath, err := filepath.Rel(cwd, path)
+					if err != nil || strings.HasPrefix(relativePath, "..") {
+						return false
+					}
+					if isDirectory {
+						// Parse the directory's .gitignore before its children
+						// are judged (walk order guarantees parent-first).
+						matcher.LoadDirectory(relativePath)
+					}
+					return matcher.Ignored(relativePath, isDirectory)
+				})
+			}
 			if opts.Debug {
 				if _, err := debug.Init(ctx); err != nil {
 					return fmt.Errorf("starting debug server: %w", err)
@@ -72,17 +112,32 @@ func NewCmd(
 			cobra.CheckErr(err)
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
+			var filePaths []string
+			var injectedFileContents map[string]string
+			// Graph selections and regular file injection are independent
+			// and combinable: nodes are virtual injections, files are real.
+			graphSelectors := append(append([]string(nil), opts.Graph...), parsedRole.GetGraphNodes()...)
+			if len(graphSelectors) > 0 {
+				cobra.CheckErr(forestErr)
+				injections, err := forest.Select(graphSelectors)
+				cobra.CheckErr(err)
+				injectedFileContents = make(map[string]string, len(injections))
+				for _, injection := range injections {
+					filePaths = append(filePaths, injection.Path)
+					injectedFileContents[injection.Path] = injection.Content
+				}
+			}
 			files, err := file.Parse(opts.FileInjection)
 			cobra.CheckErr(err)
 			// Role files are curated in config: --ext is a convenience for
 			// ad-hoc directory injection and must never drop them.
 			roleFiles, err := file.Parse(&file.InjectionOpts{Files: parsedRole.GetFiles()})
 			cobra.CheckErr(err)
-			filePaths := make([]string, 0, len(files)+len(roleFiles))
+			realFilePaths := make([]string, 0, len(files)+len(roleFiles))
 			for _, parsedFile := range append(files, roleFiles...) {
-				filePaths = append(filePaths, parsedFile.Path)
+				realFilePaths = append(realFilePaths, parsedFile.Path)
 			}
-			filePaths = file.Normalize(filePaths)
+			filePaths = append(filePaths, file.Normalize(realFilePaths)...)
 
 			// Tag the chat with the GitHub repos its files belong to.
 			var tags []string
@@ -109,6 +164,8 @@ func NewCmd(
 			registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
 			// Same instance everywhere: sub-agents can spawn sub-agents.
 			registry.Register(tool.HandlerIDAgent, agentTool)
+			// read_nodes lets any chat pull knowledge-graph nodes on demand.
+			registry.Register(tool.HandlerIDReadNodes, &nodes.Tool{IgnorePatterns: config.GetIgnore(), Imports: config.GetImports()})
 
 			availableToolNames := tool.BuiltinNames()
 			for _, name := range tool.BuiltinNames() {
@@ -117,9 +174,10 @@ func NewCmd(
 			}
 			// Engines are listed (picker candidates) but NOT dialed here:
 			// initialization happens on first enablement, via resolveTool.
-			toolEngineManager := rpc.NewManager(config, clientNameToGRPCConnection)
+			toolSetConfigurations := forest.ToolSets()
+			toolEngineManager := rpc.NewManager(config, clientNameToGRPCConnection, toolSetConfigurations)
 			registry.Register(tool.HandlerIDEngine, toolEngineManager)
-			for _, toolSetConfiguration := range config.GetToolSets() {
+			for _, toolSetConfiguration := range toolSetConfigurations {
 				availableToolNames = append(availableToolNames, toolSetConfiguration.GetName())
 			}
 
@@ -162,6 +220,12 @@ func NewCmd(
 			}
 
 			toolNames := append(opts.Tools, parsedRole.GetTools()...)
+			// Graph selections imply the read_nodes tool: injected nodes
+			// reference their parents/children, which the model must be able
+			// to follow.
+			if len(graphSelectors) > 0 {
+				toolNames = append(toolNames, "read_nodes")
+			}
 			if err := validateToolNames(toolNames); err != nil {
 				return err
 			}
@@ -193,16 +257,17 @@ func NewCmd(
 			cobra.CheckErr(err)
 
 			params := session.Params{
-				Model:              selectedModel,
-				Role:               parsedRole,
-				MaxTokens:          opts.MaxTokens,
-				Temperature:        opts.Temperature,
-				Chat:               opts.Chat,
-				SystemPrompt:       parsedRole.Prompt,
-				InjectedFiles:      filePaths,
-				Tools:              toolNames,
-				AvailableToolNames: availableToolNames,
-				ResolveTool:        resolveTool,
+				Model:                selectedModel,
+				Role:                 parsedRole,
+				MaxTokens:            opts.MaxTokens,
+				Temperature:          opts.Temperature,
+				Chat:                 opts.Chat,
+				SystemPrompt:         parsedRole.Prompt,
+				InjectedFiles:        filePaths,
+				InjectedFileContents: injectedFileContents,
+				Tools:                toolNames,
+				AvailableToolNames:   availableToolNames,
+				ResolveTool:          resolveTool,
 			}
 
 			app := tui.NewApp(ctx, chatStore, registry, chat, messages, params)
@@ -263,13 +328,14 @@ func NewCmd(
 	}
 
 	opts.FileInjection = file.GetOpts(cmd)
-	opts.Role = role.GetOpts(cmd, config.Chat.DefaultRole, config.Chat.Roles)
+	opts.Role = role.GetOpts(cmd, config.Chat.GetDefaultRole(), forest.Roles())
 	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias")
 	cmd.Flags().Int32Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
 	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringSliceVar(&opts.Tools, "tool", nil, "Enable a specific tool engine by name (repeatable)")
+	cmd.Flags().StringSliceVarP(&opts.Graph, "graph", "g", nil, "Inject knowledge-graph nodes: //dir, //dir:title, //dir/... for a subtree, @import//dir:title for imported repos (repeatable)")
 	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -278,9 +344,14 @@ func NewCmd(
 	})
 
 	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// Built-in tools complete alongside configured tool engines.
+		// Built-in tools complete alongside discovered tool engines;
+		// imports are only offered once the user types "@".
 		candidates := tool.BuiltinNames()
-		for _, toolSetConfiguration := range config.GetToolSets() {
+		toolSetConfigurations := forest.PrimaryToolSets()
+		if strings.HasPrefix(toComplete, "@") {
+			toolSetConfigurations = forest.ToolSets()
+		}
+		for _, toolSetConfiguration := range toolSetConfigurations {
 			candidates = append(candidates, toolSetConfiguration.GetName())
 		}
 		var names []string
@@ -292,18 +363,35 @@ func NewCmd(
 		return names, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	cmd.RegisterFlagCompletionFunc("graph", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// Imports are only offered (and scanned) once the user types "@".
+		candidateSelectors := forest.Primary.Selectors()
+		if strings.HasPrefix(toComplete, "@") {
+			candidateSelectors = forest.Selectors()
+		}
+		var selectors []string
+		for _, selector := range candidateSelectors {
+			if toComplete == "" || strings.HasPrefix(selector, toComplete) {
+				selectors = append(selectors, selector)
+			}
+		}
+		return selectors, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	cmd.RegisterFlagCompletionFunc("role", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// Imports are only offered once the user types "@".
+		completableRoles := forest.PrimaryRoles()
+		if strings.HasPrefix(toComplete, "@") {
+			completableRoles = forest.Roles()
+		}
 		var names []string
-		for _, configuredRole := range config.Chat.GetRoles() {
+		for _, configuredRole := range completableRoles {
 			name := configuredRole.GetName()
 			if toComplete == "" || strings.Contains(strings.ToLower(name), strings.ToLower(toComplete)) {
 				names = append(names, name)
 			}
-			if alias := configuredRole.GetAlias(); alias != "" {
-				if toComplete == "" || strings.Contains(strings.ToLower(alias), strings.ToLower(toComplete)) {
-					names = append(names, alias)
-				}
-			}
+			// Aliases are accepted as input but never offered: completion
+			// always shows the canonical selector.
 		}
 		return names, cobra.ShellCompDirectiveNoFileComp
 	})

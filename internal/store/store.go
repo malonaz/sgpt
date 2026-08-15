@@ -351,3 +351,54 @@ func IsContextMessage(message *aipb.Message) bool {
 func MessageError(message *aipb.Message) string {
 	return message.GetStatus().GetMessage()
 }
+
+// OrphanedToolCalls returns the tool calls of the history that never received
+// a result, in call order.
+//
+// Providers reject a conversation whose assistant `tool_use` block has no
+// matching `tool_result` immediately after it (Anthropic answers 400
+// "tool_use ids were found without tool_result blocks"). The history can end
+// up in that state whenever a turn dies between persisting the assistant
+// message and persisting its tool message — a crash, a killed process, or a
+// tab closed while a call awaited review.
+//
+// Soft-deleted messages are skipped: the server already excludes them from
+// the provider history, so their calls need no result.
+func OrphanedToolCalls(messages []*aipb.Message) []*aipb.ToolCall {
+	toolCallIDToToolCall := map[string]*aipb.ToolCall{}
+	var orderedToolCallIDs []string
+	resolvedToolCallIDSet := map[string]bool{}
+	for _, message := range messages {
+		if message.GetDeleteTime() != nil {
+			continue
+		}
+		// A message the server flagged as failed is excluded from the
+		// provider history, so its calls can never need answering.
+		if MessageError(message) != "" {
+			continue
+		}
+		for _, block := range message.GetBlocks() {
+			if toolCall := block.GetToolCall(); toolCall != nil {
+				toolCallIDToToolCall[toolCall.GetId()] = toolCall
+				orderedToolCallIDs = append(orderedToolCallIDs, toolCall.GetId())
+				// A result attached to the call itself still has to be
+				// mirrored into a tool message to reach the provider.
+				continue
+			}
+			if toolResult := block.GetToolResult(); toolResult != nil {
+				resolvedToolCallIDSet[toolResult.GetToolCallId()] = true
+			}
+		}
+	}
+
+	var orphanedToolCalls []*aipb.ToolCall
+	for _, toolCallID := range orderedToolCallIDs {
+		if resolvedToolCallIDSet[toolCallID] {
+			continue
+		}
+		orphanedToolCalls = append(orphanedToolCalls, toolCallIDToToolCall[toolCallID])
+		// Guard against a call id repeated across the history.
+		resolvedToolCallIDSet[toolCallID] = true
+	}
+	return orphanedToolCalls
+}

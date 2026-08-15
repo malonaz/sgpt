@@ -50,6 +50,9 @@ type engineConnection struct {
 type Manager struct {
 	configuration              *sgptpb.Configuration
 	clientNameToGRPCConnection map[string]*grpc.Connection
+	// engineNameToConfiguration indexes the discovered tool set files
+	// (selector-named) this manager can initialize.
+	engineNameToConfiguration map[string]*sgptpb.ToolSet
 
 	mu                  sync.Mutex
 	toolSets            []*aipb.ToolSet
@@ -61,7 +64,10 @@ type Manager struct {
 }
 
 func toolSetCacheKey(engineName string, index int) string {
-	return fmt.Sprintf("%s%s_%d.pb", toolSetCacheKeyPrefix, engineName, index)
+	// Engine names are selectors ("//dir:title", "@import//dir:title");
+	// flatten them into a safe file name.
+	sanitized := strings.NewReplacer("/", "_", ":", "_", "@", "_").Replace(engineName)
+	return fmt.Sprintf("%s%s_%d.pb", toolSetCacheKeyPrefix, sanitized, index)
 }
 
 // NewManager creates a lazy manager: no engine is contacted until
@@ -69,10 +75,16 @@ func toolSetCacheKey(engineName string, index int) string {
 func NewManager(
 	configuration *sgptpb.Configuration,
 	clientNameToGRPCConnection map[string]*grpc.Connection,
+	toolSetConfigurations []*sgptpb.ToolSet,
 ) *Manager {
+	engineNameToConfiguration := map[string]*sgptpb.ToolSet{}
+	for _, toolSetConfiguration := range toolSetConfigurations {
+		engineNameToConfiguration[toolSetConfiguration.GetName()] = toolSetConfiguration
+	}
 	return &Manager{
 		configuration:              configuration,
 		clientNameToGRPCConnection: clientNameToGRPCConnection,
+		engineNameToConfiguration:  engineNameToConfiguration,
 		toolSetNameToEngine:        map[string]*engineConnection{},
 		engineNameToToolSets:       map[string][]*aipb.ToolSet{},
 	}
@@ -87,14 +99,8 @@ func (m *Manager) EnsureEngine(ctx context.Context, engineName string) ([]*aipb.
 	if toolSets, ok := m.engineNameToToolSets[engineName]; ok {
 		return toolSets, nil
 	}
-	var toolEngine *sgptpb.ToolSet
-	for _, candidate := range m.configuration.GetToolSets() {
-		if candidate.GetName() == engineName {
-			toolEngine = candidate
-			break
-		}
-	}
-	if toolEngine == nil {
+	toolEngine, ok := m.engineNameToConfiguration[engineName]
+	if !ok {
 		return nil, fmt.Errorf("unknown tool engine %q", engineName)
 	}
 

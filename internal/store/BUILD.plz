@@ -18,3 +18,15 @@ go_library(
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
+
+go_test(
+    name = "test",
+    srcs = ["store_test.go"],
+    deps = [
+        ":store",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:google__rpc__status",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)

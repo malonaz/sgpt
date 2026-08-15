@@ -65,6 +65,10 @@ type Params struct {
 	// SystemPrompt is persisted as a ROLE_SYSTEM message on the first turn.
 	SystemPrompt  string
 	InjectedFiles []string
+	// InjectedFileContents maps an injected path to preloaded content
+	// (virtual injections, e.g. knowledge-graph nodes). Paths present here
+	// are used verbatim — never normalized, never read from disk.
+	InjectedFileContents map[string]string
 }
 
 // Session drives a single chat conversation.
@@ -84,7 +88,11 @@ type Session struct {
 	streamError       error
 	state             State
 	executingToolCall string
-	cancelStream      context.CancelFunc
+	// turnCtx scopes one full turn (context RPCs, streams, tool loops); it
+	// exists exactly while a turn runs and cancelTurn aborts it wherever it
+	// is — including before the first stream opens.
+	turnCtx    context.Context
+	cancelTurn context.CancelFunc
 	// titleGenerating guards against launching concurrent title generations.
 	titleGenerating bool
 
@@ -156,12 +164,12 @@ func New(
 		messages:                      messages,
 		autoAcceptedToolNameSet:       map[string]bool{},
 		pendingReviews:                map[string]pendingReview{},
-		injectedFilePaths:             file.Normalize(params.InjectedFiles),
 		injectedFilePathToMessageName: map[string]string{},
 		totalModelUsage:               &aipb.ModelUsage{},
 		lastModelUsage:                &aipb.ModelUsage{},
 		eventCh:                       make(chan Event, 64),
 	}
+	s.injectedFilePaths = s.normalizeInjectedPaths(params.InjectedFiles)
 	// Sort once (on a copy — the slice is shared across sessions via the
 	// app's default params): the tool picker reads this on every open.
 	s.params.AvailableToolNames = append([]string(nil), params.AvailableToolNames...)
@@ -190,6 +198,57 @@ func New(
 	return s
 }
 
+// RepairHistory resolves tool calls left unanswered by a previous run so the
+// chat can be resumed at all.
+//
+// A provider rejects the whole conversation when an assistant `tool_use`
+// block has no matching `tool_result` (Anthropic: 400 "tool_use ids were
+// found without tool_result blocks"), which makes the chat permanently
+// unusable — every turn fails before reaching the model. The gap appears
+// whenever a turn dies after the assistant message was persisted but before
+// its tool message was: a crash, a kill, or a tab closed mid-review.
+//
+// Synthesizing an error result per orphan is the only recovery that keeps the
+// history valid *and* honest: the model is told the call did not run, instead
+// of being fed a fabricated success.
+//
+// Blocking (one RPC) — call it off the UI loop. Idempotent: a repaired
+// history has no orphans left.
+func (s *Session) RepairHistory() error {
+	s.mu.Lock()
+	orphanedToolCalls := store.OrphanedToolCalls(s.messages)
+	s.mu.Unlock()
+	if len(orphanedToolCalls) == 0 {
+		return nil
+	}
+
+	resultBlocks := make([]*aipb.Block, 0, len(orphanedToolCalls))
+	for _, toolCall := range orphanedToolCalls {
+		toolResult := toolCall.GetResult()
+		if toolResult == nil {
+			toolResult = ai.NewErrorToolResult(toolCall.GetName(), toolCall.GetId(),
+				fmt.Errorf("interrupted: this tool call never ran"))
+		}
+		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
+	}
+
+	toolMessage := ai.NewToolMessage(resultBlocks...)
+	// Persisted eagerly rather than queued as pending input: the gap is a
+	// property of the stored history, so leaving the repair unsent would let
+	// the very next resume hit the same wall.
+	createdMessage, err := s.store.CreateMessage(s.ctx, s.Chat().GetName(), toolMessage)
+	if err != nil {
+		return fmt.Errorf("repairing %d unanswered tool call(s): %w", len(orphanedToolCalls), err)
+	}
+
+	s.mu.Lock()
+	s.messages = append(s.messages, createdMessage)
+	s.invalidatePrice()
+	s.mu.Unlock()
+	s.refresh()
+	return nil
+}
+
 // seedOptimisticContext mirrors the not-yet-persisted context messages into
 // the local history so they render before the first turn. ensureContext
 // replaces these placeholders with the server-persisted messages.
@@ -201,18 +260,39 @@ func (s *Session) seedOptimisticContext() {
 		if _, ok := s.injectedFilePathToMessageName[path]; ok {
 			continue
 		}
-		s.messages = append(s.messages, store.NewInjectedFileMessage(path, injectedFileContent(path)))
+		s.messages = append(s.messages, store.NewInjectedFileMessage(path, s.injectedFileContent(path)))
 	}
 }
 
 // injectedFileContent formats a file for injection; a vanished file degrades
 // to an inline note instead of killing the turn.
-func injectedFileContent(path string) string {
+func (s *Session) injectedFileContent(path string) string {
+	// Virtual injections carry their content; there is no file behind them.
+	if content, ok := s.params.InjectedFileContents[path]; ok {
+		return content
+	}
 	injectedFile, err := file.Read(path)
 	if err != nil {
 		return fmt.Sprintf("file %s: [unreadable: %v]", path, err)
 	}
 	return fmt.Sprintf("file %s: `%s`", path, injectedFile.Content)
+}
+
+// normalizeInjectedPaths normalizes real file paths but keeps virtual
+// (content-overridden) paths verbatim, so they keep matching their override.
+func (s *Session) normalizeInjectedPaths(paths []string) []string {
+	normalized := make([]string, 0, len(paths))
+	seen := map[string]bool{}
+	for _, path := range paths {
+		if _, ok := s.params.InjectedFileContents[path]; !ok {
+			path = file.Normalize([]string{path})[0]
+		}
+		if !seen[path] {
+			seen[path] = true
+			normalized = append(normalized, path)
+		}
+	}
+	return normalized
 }
 
 func (s *Session) Events() <-chan Event {
@@ -371,7 +451,7 @@ func (s *Session) InjectedFiles() []string {
 // other message — no chat update, so the provider prompt cache stays intact.
 // Blocking — call it off the UI loop.
 func (s *Session) SetInjectedFiles(paths []string) {
-	paths = file.Normalize(paths)
+	paths = s.normalizeInjectedPaths(paths)
 
 	s.mu.Lock()
 	removedPathToMessageName := map[string]string{}
@@ -405,7 +485,7 @@ func (s *Session) SetInjectedFiles(paths []string) {
 		if s.optimisticInjectedFileIndex(path) >= 0 {
 			continue
 		}
-		s.messages = append(s.messages, store.NewInjectedFileMessage(path, injectedFileContent(path)))
+		s.messages = append(s.messages, store.NewInjectedFileMessage(path, s.injectedFileContent(path)))
 		s.invalidatePrice()
 	}
 	s.mu.Unlock()
@@ -444,6 +524,102 @@ func (s *Session) optimisticInjectedFileIndex(path string) int {
 	return -1
 }
 
+// DeleteMessage soft-deletes a message and drops it from the local history.
+// The server excludes deleted messages from the provider history, so this is
+// the escape hatch for a message that breaks generation (an oversized paste, a
+// poisoned tool result).
+//
+// Deleting an assistant message that carries tool calls would orphan them, so
+// the paired tool results are deleted with it — a lone `tool_use` block makes
+// the provider reject the entire conversation.
+//
+// Blocking (one RPC per message) — call it off the UI loop.
+func (s *Session) DeleteMessage(messageName string) error {
+	if messageName == "" {
+		// Optimistic, never-persisted messages (queued context) have no
+		// server-side resource to delete.
+		return fmt.Errorf("message is not persisted yet")
+	}
+
+	s.mu.Lock()
+	messageNamesToDelete := append([]string{messageName}, s.pairedMessageNames(messageName)...)
+	s.mu.Unlock()
+
+	for _, name := range messageNamesToDelete {
+		if err := s.store.DeleteMessage(s.ctx, name); err != nil {
+			return fmt.Errorf("deleting message: %w", err)
+		}
+	}
+
+	deletedNameSet := make(map[string]bool, len(messageNamesToDelete))
+	for _, name := range messageNamesToDelete {
+		deletedNameSet[name] = true
+	}
+
+	s.mu.Lock()
+	remainingMessages := make([]*aipb.Message, 0, len(s.messages))
+	for _, message := range s.messages {
+		if deletedNameSet[message.GetName()] {
+			// Keep the injected-file bookkeeping in step, so re-selecting the
+			// path re-injects it instead of silently doing nothing.
+			if path := store.InjectedFilePath(message); path != "" {
+				delete(s.injectedFilePathToMessageName, path)
+				s.injectedFilePaths = removePath(s.injectedFilePaths, path)
+			}
+			continue
+		}
+		remainingMessages = append(remainingMessages, message)
+	}
+	s.messages = remainingMessages
+	s.invalidatePrice()
+	s.mu.Unlock()
+	s.refresh()
+	return nil
+}
+
+// removePath drops the first occurrence of path from paths.
+func removePath(paths []string, path string) []string {
+	for i, candidate := range paths {
+		if candidate == path {
+			return append(paths[:i], paths[i+1:]...)
+		}
+	}
+	return paths
+}
+
+// pairedMessageNames returns the messages that must be deleted alongside
+// messageName to keep the history valid: the tool messages answering its tool
+// calls. Caller holds the lock.
+func (s *Session) pairedMessageNames(messageName string) []string {
+	toolCallIDSet := map[string]bool{}
+	for _, message := range s.messages {
+		if message.GetName() != messageName {
+			continue
+		}
+		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolCall) {
+			toolCallIDSet[block.GetToolCall().GetId()] = true
+		}
+		break
+	}
+	if len(toolCallIDSet) == 0 {
+		return nil
+	}
+
+	var pairedNames []string
+	for _, message := range s.messages {
+		if message.GetName() == "" || message.GetName() == messageName {
+			continue
+		}
+		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeToolResult) {
+			if toolCallIDSet[block.GetToolResult().GetToolCallId()] {
+				pairedNames = append(pairedNames, message.GetName())
+				break
+			}
+		}
+	}
+	return pairedNames
+}
+
 // optimisticSystemPromptIndex locates the not-yet-persisted system message.
 // Caller holds the lock.
 func (s *Session) optimisticSystemPromptIndex() int {
@@ -473,7 +649,7 @@ func (s *Session) ensureContext() error {
 
 	if systemPromptPending {
 		systemMessage := ai.NewSystemMessage(ai.NewTextBlock(systemPrompt))
-		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, systemMessage)
+		createdMessage, err := s.store.CreateMessage(s.turnContext(), chatName, systemMessage)
 		if err != nil {
 			return fmt.Errorf("persisting system prompt: %w", err)
 		}
@@ -491,7 +667,7 @@ func (s *Session) ensureContext() error {
 	}
 
 	for _, path := range newFilePaths {
-		createdMessage, err := s.store.CreateMessage(s.ctx, chatName, store.NewInjectedFileMessage(path, injectedFileContent(path)))
+		createdMessage, err := s.store.CreateMessage(s.turnContext(), chatName, store.NewInjectedFileMessage(path, s.injectedFileContent(path)))
 		if err != nil {
 			return fmt.Errorf("persisting injected file %s: %w", path, err)
 		}
@@ -630,6 +806,8 @@ func (s *Session) lastAssistantText() string {
 }
 
 func (s *Session) SendMessage(text string) {
+	s.beginTurn()
+	defer s.endTurn()
 	s.setState(StateStreaming)
 	// Optimistic render: the user's message must appear immediately. The
 	// context RPCs below (system prompt, injected files) are a network round
@@ -670,11 +848,43 @@ func (s *Session) rollbackPendingInput(message *aipb.Message) {
 	}
 }
 
-func (s *Session) CancelStream() {
+// beginTurn arms the turn-scoped context; from here on CancelTurn aborts any
+// turn work, network round trips included.
+func (s *Session) beginTurn() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.cancelStream != nil {
-		s.cancelStream()
+	s.turnCtx, s.cancelTurn = context.WithCancel(s.ctx)
+}
+
+// endTurn releases the turn context; outside a turn there is nothing to cancel.
+func (s *Session) endTurn() {
+	s.mu.Lock()
+	cancelTurn := s.cancelTurn
+	s.turnCtx, s.cancelTurn = nil, nil
+	s.mu.Unlock()
+	if cancelTurn != nil {
+		cancelTurn()
+	}
+}
+
+// turnContext returns the running turn's context, falling back to the
+// session context outside a turn.
+func (s *Session) turnContext() context.Context {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.turnCtx != nil {
+		return s.turnCtx
+	}
+	return s.ctx
+}
+
+// CancelTurn aborts the running turn, if any.
+func (s *Session) CancelTurn() {
+	s.mu.Lock()
+	cancelTurn := s.cancelTurn
+	s.mu.Unlock()
+	if cancelTurn != nil {
+		cancelTurn()
 	}
 }
 

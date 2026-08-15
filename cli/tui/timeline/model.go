@@ -185,6 +185,25 @@ func (m *Model) SelectFunc(match func(Item) bool) bool {
 	return false
 }
 
+// SelectedMessageName returns the chat message behind the selection, or "" when
+// nothing selected-and-message-backed is under the cursor. Grouped
+// injected-file items resolve to the file the sub-cursor is on, so a delete
+// targets exactly what is highlighted.
+func (m *Model) SelectedMessageName() string {
+	item := m.SelectedItem()
+	if item == nil {
+		return ""
+	}
+	if fileItem, ok := item.(*InjectedFileItem); ok && m.navMode == NavModeFence {
+		return fileItem.MessageNameAt(m.cursorSub)
+	}
+	owned, ok := item.(MessageOwned)
+	if !ok {
+		return ""
+	}
+	return owned.MessageName()
+}
+
 // View assembles only the visible window — O(viewport height), not O(chat).
 func (m *Model) View() string {
 	if !m.ready {

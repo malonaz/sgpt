@@ -36,8 +36,16 @@ type Configuration struct {
 	Models []*Model `protobuf:"bytes,3,rep,name=models,proto3" json:"models,omitempty"`
 	// Chat configuration.
 	Chat *ChatConfiguration `protobuf:"bytes,4,opt,name=chat,proto3" json:"chat,omitempty"`
-	// Tool sets provided by remote gRPC tool engines.
-	ToolSets      []*ToolSet `protobuf:"bytes,5,rep,name=tool_sets,json=toolSets,proto3" json:"tool_sets,omitempty"`
+	// Ignore patterns (gitignore syntax) applied on top of .gitignore files
+	// whenever sgpt walks directory trees (graph scans, file discovery).
+	Ignore []string `protobuf:"bytes,6,rep,name=ignore,proto3" json:"ignore,omitempty"`
+	// Human-readable title: a few lines about the repo this configuration
+	// (or configuration override) belongs to.
+	Title string `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
+	// External repos whose graph nodes and roles are addressable as
+	// "@{name}@{selector}" (e.g. "@github.com/malonaz/core@go/grpc:architecture"
+	// or --role "@github.com/malonaz/core@reviewer").
+	Imports       []*Import `protobuf:"bytes,8,rep,name=imports,proto3" json:"imports,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -95,9 +103,23 @@ func (x *Configuration) GetChat() *ChatConfiguration {
 	return nil
 }
 
-func (x *Configuration) GetToolSets() []*ToolSet {
+func (x *Configuration) GetIgnore() []string {
 	if x != nil {
-		return x.ToolSets
+		return x.Ignore
+	}
+	return nil
+}
+
+func (x *Configuration) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Configuration) GetImports() []*Import {
+	if x != nil {
+		return x.Imports
 	}
 	return nil
 }
@@ -118,8 +140,16 @@ func (x *Configuration) SetChat(v *ChatConfiguration) {
 	x.Chat = v
 }
 
-func (x *Configuration) SetToolSets(v []*ToolSet) {
-	x.ToolSets = v
+func (x *Configuration) SetIgnore(v []string) {
+	x.Ignore = v
+}
+
+func (x *Configuration) SetTitle(v string) {
+	x.Title = v
+}
+
+func (x *Configuration) SetImports(v []*Import) {
+	x.Imports = v
 }
 
 func (x *Configuration) HasChat() bool {
@@ -144,8 +174,16 @@ type Configuration_builder struct {
 	Models []*Model
 	// Chat configuration.
 	Chat *ChatConfiguration
-	// Tool sets provided by remote gRPC tool engines.
-	ToolSets []*ToolSet
+	// Ignore patterns (gitignore syntax) applied on top of .gitignore files
+	// whenever sgpt walks directory trees (graph scans, file discovery).
+	Ignore []string
+	// Human-readable title: a few lines about the repo this configuration
+	// (or configuration override) belongs to.
+	Title string
+	// External repos whose graph nodes and roles are addressable as
+	// "@{name}@{selector}" (e.g. "@github.com/malonaz/core@go/grpc:architecture"
+	// or --role "@github.com/malonaz/core@reviewer").
+	Imports []*Import
 }
 
 func (b0 Configuration_builder) Build() *Configuration {
@@ -156,7 +194,85 @@ func (b0 Configuration_builder) Build() *Configuration {
 	x.AiService = b.AiService
 	x.Models = b.Models
 	x.Chat = b.Chat
-	x.ToolSets = b.ToolSets
+	x.Ignore = b.Ignore
+	x.Title = b.Title
+	x.Imports = b.Imports
+	return m0
+}
+
+// An external repo, imported by local path.
+type Import struct {
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Name of the import (e.g. "github.com/malonaz/core").
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Absolute path (or ~-prefixed) of the repo's root directory.
+	Path          string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Import) Reset() {
+	*x = Import{}
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Import) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Import) ProtoMessage() {}
+
+func (x *Import) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *Import) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Import) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *Import) SetName(v string) {
+	x.Name = v
+}
+
+func (x *Import) SetPath(v string) {
+	x.Path = v
+}
+
+type Import_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Name of the import (e.g. "github.com/malonaz/core").
+	Name string
+	// Absolute path (or ~-prefixed) of the repo's root directory.
+	Path string
+}
+
+func (b0 Import_builder) Build() *Import {
+	m0 := &Import{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.Name = b.Name
+	x.Path = b.Path
 	return m0
 }
 
@@ -177,7 +293,7 @@ type GrpcClient struct {
 
 func (x *GrpcClient) Reset() {
 	*x = GrpcClient{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[1]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -189,7 +305,7 @@ func (x *GrpcClient) String() string {
 func (*GrpcClient) ProtoMessage() {}
 
 func (x *GrpcClient) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[1]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -282,7 +398,7 @@ type Model struct {
 
 func (x *Model) Reset() {
 	*x = Model{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[2]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +410,7 @@ func (x *Model) String() string {
 func (*Model) ProtoMessage() {}
 
 func (x *Model) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[2]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -358,17 +474,15 @@ type ChatConfiguration struct {
 	// The resource name of the default model.
 	// Format: providers/{provider}/models/{model}
 	DefaultModel string `protobuf:"bytes,3,opt,name=default_model,json=defaultModel,proto3" json:"default_model,omitempty"`
-	// The default role alias or name.
-	DefaultRole string `protobuf:"bytes,4,opt,name=default_role,json=defaultRole,proto3" json:"default_role,omitempty"`
-	// User-defined roles.
-	Roles         []*Role `protobuf:"bytes,5,rep,name=roles,proto3" json:"roles,omitempty"`
+	// The default role selector (e.g. "//path/to:role" or a root role title).
+	DefaultRole   string `protobuf:"bytes,4,opt,name=default_role,json=defaultRole,proto3" json:"default_role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ChatConfiguration) Reset() {
 	*x = ChatConfiguration{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[3]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -380,7 +494,7 @@ func (x *ChatConfiguration) String() string {
 func (*ChatConfiguration) ProtoMessage() {}
 
 func (x *ChatConfiguration) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[3]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -419,13 +533,6 @@ func (x *ChatConfiguration) GetDefaultRole() string {
 	return ""
 }
 
-func (x *ChatConfiguration) GetRoles() []*Role {
-	if x != nil {
-		return x.Roles
-	}
-	return nil
-}
-
 func (x *ChatConfiguration) SetUser(v string) {
 	x.User = v
 }
@@ -442,10 +549,6 @@ func (x *ChatConfiguration) SetDefaultRole(v string) {
 	x.DefaultRole = v
 }
 
-func (x *ChatConfiguration) SetRoles(v []*Role) {
-	x.Roles = v
-}
-
 type ChatConfiguration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -458,10 +561,8 @@ type ChatConfiguration_builder struct {
 	// The resource name of the default model.
 	// Format: providers/{provider}/models/{model}
 	DefaultModel string
-	// The default role alias or name.
+	// The default role selector (e.g. "//path/to:role" or a root role title).
 	DefaultRole string
-	// User-defined roles.
-	Roles []*Role
 }
 
 func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
@@ -472,14 +573,16 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 	x.SummaryModel = b.SummaryModel
 	x.DefaultModel = b.DefaultModel
 	x.DefaultRole = b.DefaultRole
-	x.Roles = b.Roles
 	return m0
 }
 
-// A role defines a persona with a system prompt.
+// A role defines a persona with a system prompt. Persisted as a
+// `.sgpt/{title}.role` file; discovered and addressed like graph nodes
+// ("//dir:title", "@import//dir:title").
 type Role struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// Name of this role.
+	// Name of this role: its selector ("//dir:title"). Maintained by sgpt,
+	// never read from the file.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Short alias for this role.
 	Alias string `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`
@@ -494,14 +597,17 @@ type Role struct {
 	Tools []string `protobuf:"bytes,6,rep,name=tools,proto3" json:"tools,omitempty"`
 	// Names or aliases of other roles to include. Included roles are expanded
 	// depth-first: their prompts are prepended and their files/tools merged.
-	Roles         []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
+	Roles []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
+	// Knowledge-graph nodes to inject as context for this role, using --graph
+	// selector syntax (dir, dir:title, dir/..., @import@dir:title).
+	GraphNodes    []string `protobuf:"bytes,8,rep,name=graph_nodes,json=graphNodes,proto3" json:"graph_nodes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Role) Reset() {
 	*x = Role{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[4]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -513,7 +619,7 @@ func (x *Role) String() string {
 func (*Role) ProtoMessage() {}
 
 func (x *Role) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[4]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -573,6 +679,13 @@ func (x *Role) GetRoles() []string {
 	return nil
 }
 
+func (x *Role) GetGraphNodes() []string {
+	if x != nil {
+		return x.GraphNodes
+	}
+	return nil
+}
+
 func (x *Role) SetName(v string) {
 	x.Name = v
 }
@@ -601,10 +714,15 @@ func (x *Role) SetRoles(v []string) {
 	x.Roles = v
 }
 
+func (x *Role) SetGraphNodes(v []string) {
+	x.GraphNodes = v
+}
+
 type Role_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Name of this role.
+	// Name of this role: its selector ("//dir:title"). Maintained by sgpt,
+	// never read from the file.
 	Name string
 	// Short alias for this role.
 	Alias string
@@ -620,6 +738,9 @@ type Role_builder struct {
 	// Names or aliases of other roles to include. Included roles are expanded
 	// depth-first: their prompts are prepended and their files/tools merged.
 	Roles []string
+	// Knowledge-graph nodes to inject as context for this role, using --graph
+	// selector syntax (dir, dir:title, dir/..., @import@dir:title).
+	GraphNodes []string
 }
 
 func (b0 Role_builder) Build() *Role {
@@ -633,13 +754,17 @@ func (b0 Role_builder) Build() *Role {
 	x.Files = b.Files
 	x.Tools = b.Tools
 	x.Roles = b.Roles
+	x.GraphNodes = b.GraphNodes
 	return m0
 }
 
-// A remote tool engine that provides tool sets via gRPC.
+// A remote tool engine that provides tool sets via gRPC. Persisted as a
+// `.sgpt/{title}.toolset` file; discovered and addressed like graph nodes
+// ("//dir:title", "@import//dir:title").
 type ToolSet struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// Human-readable name for this tool set (e.g. "onikisu").
+	// Name of this tool set: its selector ("//dir:title"). Maintained by
+	// sgpt, never read from the file.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Name of the gRPC client to use for the engine service.
 	EngineService string `protobuf:"bytes,2,opt,name=engine_service,json=engineService,proto3" json:"engine_service,omitempty"`
@@ -651,7 +776,7 @@ type ToolSet struct {
 
 func (x *ToolSet) Reset() {
 	*x = ToolSet{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -663,7 +788,7 @@ func (x *ToolSet) String() string {
 func (*ToolSet) ProtoMessage() {}
 
 func (x *ToolSet) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -710,7 +835,8 @@ func (x *ToolSet) SetToolSets(v []*v1.CreateServiceToolSetRequest) {
 type ToolSet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Human-readable name for this tool set (e.g. "onikisu").
+	// Name of this tool set: its selector ("//dir:title"). Maintained by
+	// sgpt, never read from the file.
 	Name string
 	// Name of the gRPC client to use for the engine service.
 	EngineService string
@@ -732,14 +858,19 @@ var File_sgpt_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\xed\x01\n" +
+	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\x97\x02\n" +
 	"\rConfiguration\x126\n" +
 	"\fgrpc_clients\x18\x01 \x03(\v2\x13.sgpt.v1.GrpcClientR\vgrpcClients\x12\x1d\n" +
 	"\n" +
 	"ai_service\x18\x02 \x01(\tR\taiService\x12&\n" +
 	"\x06models\x18\x03 \x03(\v2\x0e.sgpt.v1.ModelR\x06models\x12.\n" +
-	"\x04chat\x18\x04 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12-\n" +
-	"\ttool_sets\x18\x05 \x03(\v2\x10.sgpt.v1.ToolSetR\btoolSets\"\x8a\x01\n" +
+	"\x04chat\x18\x04 \x01(\v2\x1a.sgpt.v1.ChatConfigurationR\x04chat\x12\x16\n" +
+	"\x06ignore\x18\x06 \x03(\tR\x06ignore\x12\x14\n" +
+	"\x05title\x18\a \x01(\tR\x05title\x12)\n" +
+	"\aimports\x18\b \x03(\v2\x0f.sgpt.v1.ImportR\aimports\"@\n" +
+	"\x06Import\x12\x1a\n" +
+	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12\x1a\n" +
+	"\x04path\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04path\"\x8a\x01\n" +
 	"\n" +
 	"GrpcClient\x12\x1a\n" +
 	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12!\n" +
@@ -749,7 +880,7 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05Model\x123\n" +
 	"\x04name\x18\x01 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\"\x89\x02\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\"\xe4\x01\n" +
 	"\x11ChatConfiguration\x12,\n" +
 	"\x04user\x18\x01 \x01(\tB\x18\xfaA\x15\n" +
 	"\x13ai.malonaz.com/UserR\x04user\x12>\n" +
@@ -757,44 +888,45 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x14ai.malonaz.com/ModelR\fsummaryModel\x12>\n" +
 	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
-	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\x12#\n" +
-	"\x05roles\x18\x05 \x03(\v2\r.sgpt.v1.RoleR\x05roles\"\xcb\x01\n" +
-	"\x04Role\x12\x1a\n" +
-	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
+	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\"\xe4\x01\n" +
+	"\x04Role\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1e\n" +
 	"\x06prompt\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x06prompt\x12/\n" +
 	"\x05model\x18\x04 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
 	"\x05files\x18\x05 \x03(\tR\x05files\x12\x14\n" +
 	"\x05tools\x18\x06 \x03(\tR\x05tools\x12\x14\n" +
-	"\x05roles\x18\a \x03(\tR\x05roles\"\xa7\x01\n" +
-	"\aToolSet\x12\x1a\n" +
-	"\x04name\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04name\x12-\n" +
+	"\x05roles\x18\a \x03(\tR\x05roles\x12\x1f\n" +
+	"\vgraph_nodes\x18\b \x03(\tR\n" +
+	"graphNodes\"\x9f\x01\n" +
+	"\aToolSet\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12-\n" +
 	"\x0eengine_service\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +
 	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSetsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_sgpt_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_sgpt_v1_configuration_proto_goTypes = []any{
 	(*Configuration)(nil),                  // 0: sgpt.v1.Configuration
-	(*GrpcClient)(nil),                     // 1: sgpt.v1.GrpcClient
-	(*Model)(nil),                          // 2: sgpt.v1.Model
-	(*ChatConfiguration)(nil),              // 3: sgpt.v1.ChatConfiguration
-	(*Role)(nil),                           // 4: sgpt.v1.Role
-	(*ToolSet)(nil),                        // 5: sgpt.v1.ToolSet
-	(*v1.CreateServiceToolSetRequest)(nil), // 6: malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
+	(*Import)(nil),                         // 1: sgpt.v1.Import
+	(*GrpcClient)(nil),                     // 2: sgpt.v1.GrpcClient
+	(*Model)(nil),                          // 3: sgpt.v1.Model
+	(*ChatConfiguration)(nil),              // 4: sgpt.v1.ChatConfiguration
+	(*Role)(nil),                           // 5: sgpt.v1.Role
+	(*ToolSet)(nil),                        // 6: sgpt.v1.ToolSet
+	(*v1.CreateServiceToolSetRequest)(nil), // 7: malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
 }
 var file_sgpt_v1_configuration_proto_depIdxs = []int32{
-	1, // 0: sgpt.v1.Configuration.grpc_clients:type_name -> sgpt.v1.GrpcClient
-	2, // 1: sgpt.v1.Configuration.models:type_name -> sgpt.v1.Model
-	3, // 2: sgpt.v1.Configuration.chat:type_name -> sgpt.v1.ChatConfiguration
-	5, // 3: sgpt.v1.Configuration.tool_sets:type_name -> sgpt.v1.ToolSet
-	4, // 4: sgpt.v1.ChatConfiguration.roles:type_name -> sgpt.v1.Role
-	6, // 5: sgpt.v1.ToolSet.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	2, // 0: sgpt.v1.Configuration.grpc_clients:type_name -> sgpt.v1.GrpcClient
+	3, // 1: sgpt.v1.Configuration.models:type_name -> sgpt.v1.Model
+	4, // 2: sgpt.v1.Configuration.chat:type_name -> sgpt.v1.ChatConfiguration
+	1, // 3: sgpt.v1.Configuration.imports:type_name -> sgpt.v1.Import
+	7, // 4: sgpt.v1.ToolSet.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_configuration_proto_init() }
@@ -808,7 +940,7 @@ func file_sgpt_v1_configuration_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_configuration_proto_rawDesc), len(file_sgpt_v1_configuration_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

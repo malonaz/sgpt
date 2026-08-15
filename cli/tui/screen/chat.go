@@ -43,6 +43,7 @@ var (
 	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
 	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
 	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
+	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
 )
 
 type ChatScreen struct {
@@ -98,7 +99,24 @@ func NewChatScreen(
 }
 
 func (m *ChatScreen) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, m.spinner.Tick, m.listenForSessionEvents())
+	return tea.Batch(textarea.Blink, m.spinner.Tick, m.listenForSessionEvents(), m.repairHistory())
+}
+
+// repairHistory heals a history left with unanswered tool calls by a previous
+// run (crash, kill, tab closed mid-review). Such a chat is otherwise dead on
+// arrival: providers reject the whole conversation over a `tool_use` block
+// with no matching `tool_result`, so every turn would fail before reaching the
+// model. Runs once per screen, off the UI loop (it performs an RPC), and is a
+// no-op for the overwhelmingly common healthy history.
+func (m *ChatScreen) repairHistory() tea.Cmd {
+	sess := m.session
+	wrap := m.wrap
+	return func() tea.Msg {
+		if err := sess.RepairHistory(); err != nil {
+			return wrap(AlertMsg{Text: fmt.Sprintf("Repairing interrupted tool calls failed: %v", err)})
+		}
+		return nil
+	}
 }
 
 func (m *ChatScreen) Title() string {
@@ -125,6 +143,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
+			chatKeyDeleteMessage,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -267,12 +286,16 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openToolPicker()
 	case key.Matches(msg, chatKeyPickFiles.Key):
 		return m.openFilePicker()
+	case key.Matches(msg, chatKeyDeleteMessage.Key):
+		return m.deleteSelectedMessage()
 	}
 
 	switch msg.String() {
 	case "ctrl+c":
-		if m.session.IsStreaming() {
-			m.session.CancelStream()
+		// Busy() covers the whole turn, including the pre-stream window;
+		// CancelTurn aborts it wherever it is.
+		if m.session.Busy() {
+			m.session.CancelTurn()
 			return nil
 		}
 		return func() tea.Msg { return CloseTabMsg{} }
@@ -373,6 +396,37 @@ func (m *ChatScreen) toolNameForCall(toolCallID string) string {
 		}
 	}
 	return ""
+}
+
+// deleteSelectedMessage soft-deletes the message under the timeline cursor,
+// dropping it from the conversation sent to the model. The escape hatch for a
+// message that breaks generation — an oversized paste, a poisoned tool result,
+// or the tool call whose missing result makes the provider reject the chat.
+func (m *ChatScreen) deleteSelectedMessage() tea.Cmd {
+	if m.focusedComponent != FocusViewport {
+		return m.alert("Deleting a message needs timeline focus — tab to navigate, then alt+d")
+	}
+	// A turn in flight is still appending to (and persisting) the history;
+	// deleting underneath it would race those writes.
+	if m.session.Busy() {
+		return m.alert("Cannot delete while the turn is running — ctrl+c to cancel first")
+	}
+	messageName := m.timeline.SelectedMessageName()
+	if messageName == "" {
+		return m.alert("No deletable message selected")
+	}
+
+	sess := m.session
+	wrap := m.wrap
+	// Selection points at an item that is about to vanish; clear it so the
+	// cursor doesn't dangle on a stale ID after the rebuild.
+	m.timeline.ClearSelection()
+	return func() tea.Msg {
+		if err := sess.DeleteMessage(messageName); err != nil {
+			return wrap(AlertMsg{Text: fmt.Sprintf("Delete failed: %v", err)})
+		}
+		return wrap(AlertMsg{Text: "Message deleted"})
+	}
 }
 
 // maybeJumpToReview focuses a pending tool call when a turn pauses for review,

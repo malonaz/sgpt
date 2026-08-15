@@ -21,6 +21,7 @@ const (
 	HandlerIDDiff      = "diff"
 	HandlerIDReplace   = "replace"
 	HandlerIDAgent     = "agent"
+	HandlerIDReadNodes = "read_nodes"
 )
 
 // Tool reviews and executes tool calls.

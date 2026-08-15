@@ -45,9 +45,13 @@ type TextItem struct {
 	style     lipgloss.Style
 	blocks    []markdown.Block
 	finalized bool
+	// messageName is the resource name of the message this item renders.
+	messageName string
 }
 
 func (i *TextItem) ID() string { return i.id }
+
+func (i *TextItem) MessageName() string { return i.messageName }
 
 // CacheKey opts out while streaming: content is still mutating.
 func (i *TextItem) CacheKey() string {
@@ -136,10 +140,13 @@ type ThoughtItem struct {
 	seq       int
 	text      string
 	finalized bool
+	// messageName is the resource name of the message this item renders.
+	messageName string
 }
 
 func (i *ThoughtItem) ID() string                { return i.id }
 func (i *ThoughtItem) Content() (string, string) { return i.text, "md" }
+func (i *ThoughtItem) MessageName() string       { return i.messageName }
 
 // CacheKey opts out while streaming: content is still mutating.
 func (i *ThoughtItem) CacheKey() string {
@@ -191,9 +198,14 @@ type ToolCallItem struct {
 	// keyed by tool call ID — streaming items are reconstructed every tick,
 	// so this state must live outside the item (owned by the Builder).
 	lastGoodRequests map[string]string
+	// messageName is the resource name of the assistant message this call
+	// belongs to.
+	messageName string
 }
 
 func (i *ToolCallItem) ID() string { return i.id }
+
+func (i *ToolCallItem) MessageName() string { return i.messageName }
 
 // CacheKey: result attachment, execution and review status all change the render.
 func (i *ToolCallItem) CacheKey() string {
@@ -381,14 +393,17 @@ type SystemItem struct {
 	id   string
 	seq  int
 	text string
+	// messageName is the resource name of the message this item renders.
+	messageName string
 }
 
-func NewSystemItem(id string, seq int, text string) *SystemItem {
-	return &SystemItem{id: id, seq: seq, text: text}
+func NewSystemItem(id string, seq int, text, messageName string) *SystemItem {
+	return &SystemItem{id: id, seq: seq, text: text, messageName: messageName}
 }
 
 func (i *SystemItem) ID() string                { return i.id }
 func (i *SystemItem) Content() (string, string) { return i.text, "md" }
+func (i *SystemItem) MessageName() string       { return i.messageName }
 
 // CacheKey includes the text: a chat's system prompt can change between runs.
 func (i *SystemItem) CacheKey() string { return i.id + "|" + i.text }
@@ -421,20 +436,50 @@ type InjectedFileItem struct {
 	// content are the first one (kept for the single-file case).
 	paths    []string
 	contents []string
+	// messageNames parallels paths: each injected file is its own message, so
+	// a grouped item owns several.
+	messageNames []string
 }
 
-func NewInjectedFileItem(id, path, content string) *InjectedFileItem {
-	return &InjectedFileItem{id: id, path: path, content: content, paths: []string{path}, contents: []string{content}}
+func NewInjectedFileItem(id, path, content, messageName string) *InjectedFileItem {
+	return &InjectedFileItem{
+		id:           id,
+		path:         path,
+		content:      content,
+		paths:        []string{path},
+		contents:     []string{content},
+		messageNames: []string{messageName},
+	}
 }
 
 // add folds a consecutively injected file into this group so a large
 // injection costs a few lines of vertical space instead of one box each.
-func (i *InjectedFileItem) add(path, content string) {
+func (i *InjectedFileItem) add(path, content, messageName string) {
 	i.paths = append(i.paths, path)
 	i.contents = append(i.contents, content)
+	i.messageNames = append(i.messageNames, messageName)
 }
 
 func (i *InjectedFileItem) ID() string { return i.id }
+
+// MessageName returns the first file's message: a group has no single owner,
+// so deleting the item targets the file the cursor landed on (see
+// MessageNameAt).
+func (i *InjectedFileItem) MessageName() string {
+	if len(i.messageNames) == 0 {
+		return ""
+	}
+	return i.messageNames[0]
+}
+
+// MessageNameAt returns the message of the file at the given sub-index, so
+// alt+d removes exactly the file the cursor is on inside a grouped item.
+func (i *InjectedFileItem) MessageNameAt(index int) string {
+	if index < 0 || index >= len(i.messageNames) {
+		return i.MessageName()
+	}
+	return i.messageNames[index]
+}
 
 // CacheKey: injected-file messages are immutable, but the group grows as
 // consecutive files are folded in.
@@ -621,11 +666,11 @@ func groupInjectedFiles(items []Item) []Item {
 			continue
 		}
 		if current != nil {
-			current.add(fileItem.path, fileItem.content)
+			current.add(fileItem.path, fileItem.content, fileItem.MessageName())
 			continue
 		}
 		// Copy: the cached per-message item must not accumulate siblings.
-		current = NewInjectedFileItem(fileItem.id, fileItem.path, fileItem.content)
+		current = NewInjectedFileItem(fileItem.id, fileItem.path, fileItem.content, fileItem.MessageName())
 		grouped = append(grouped, current)
 	}
 	return grouped
@@ -647,6 +692,7 @@ func appendMessageItems(
 	toolCallIDToLastGoodRequest map[string]string,
 ) []Item {
 	baseSeq := messageIndex * 1000
+	messageName := message.GetName()
 	switch message.GetRole() {
 	case aipb.Role_ROLE_USER:
 		// Injected files render in-place (injection order), label-detected:
@@ -659,7 +705,7 @@ func appendMessageItems(
 					break
 				}
 			}
-			items = append(items, NewInjectedFileItem(fmt.Sprintf("m%d-file", messageIndex), path, content))
+			items = append(items, NewInjectedFileItem(fmt.Sprintf("m%d-file", messageIndex), path, content, messageName))
 			return items
 		}
 		// One rectangle per user message; fences navigable within it.
@@ -671,11 +717,12 @@ func appendMessageItems(
 		}
 		if len(mdBlocks) > 0 {
 			items = append(items, &TextItem{
-				id:        fmt.Sprintf("m%d-user", messageIndex),
-				seq:       baseSeq,
-				style:     styles.UserMessageStyle,
-				blocks:    mdBlocks,
-				finalized: finalized,
+				id:          fmt.Sprintf("m%d-user", messageIndex),
+				seq:         baseSeq,
+				style:       styles.UserMessageStyle,
+				blocks:      mdBlocks,
+				finalized:   finalized,
+				messageName: messageName,
 			})
 		}
 
@@ -684,19 +731,21 @@ func appendMessageItems(
 			seq := baseSeq + blockIndex*20
 			if thought := block.GetThought(); thought != "" {
 				items = append(items, &ThoughtItem{
-					id:        fmt.Sprintf("m%d-b%d-thought", messageIndex, blockIndex),
-					seq:       seq,
-					text:      thought,
-					finalized: finalized,
+					id:          fmt.Sprintf("m%d-b%d-thought", messageIndex, blockIndex),
+					seq:         seq,
+					text:        thought,
+					finalized:   finalized,
+					messageName: messageName,
 				})
 			} else if text := block.GetText(); text != "" {
 				// One rectangle per API text block; fences navigable within it.
 				items = append(items, &TextItem{
-					id:        fmt.Sprintf("m%d-b%d-text", messageIndex, blockIndex),
-					seq:       seq,
-					style:     styles.AIMessageStyle,
-					blocks:    markdown.ParseBlocks(text),
-					finalized: finalized,
+					id:          fmt.Sprintf("m%d-b%d-text", messageIndex, blockIndex),
+					seq:         seq,
+					style:       styles.AIMessageStyle,
+					blocks:      markdown.ParseBlocks(text),
+					finalized:   finalized,
+					messageName: messageName,
 				})
 			} else if toolCall := block.GetToolCall(); toolCall != nil {
 				result := toolCall.GetResult()
@@ -710,6 +759,7 @@ func appendMessageItems(
 					Result:           result,
 					RequestRenderer:  requestRenderer,
 					lastGoodRequests: toolCallIDToLastGoodRequest,
+					messageName:      messageName,
 				})
 			} else if partialToolCall := block.GetPartialToolCall(); partialToolCall != nil {
 				// Same ID as the completed call so collapse/selection state
@@ -721,6 +771,7 @@ func appendMessageItems(
 					Partial:          true,
 					RequestRenderer:  requestRenderer,
 					lastGoodRequests: toolCallIDToLastGoodRequest,
+					messageName:      messageName,
 				})
 			}
 		}
@@ -731,7 +782,7 @@ func appendMessageItems(
 	case aipb.Role_ROLE_SYSTEM:
 		for _, block := range message.GetBlocks() {
 			if text := block.GetText(); text != "" {
-				items = append(items, NewSystemItem(fmt.Sprintf("m%d-system", messageIndex), baseSeq, text))
+				items = append(items, NewSystemItem(fmt.Sprintf("m%d-system", messageIndex), baseSeq, text, messageName))
 				break
 			}
 		}
