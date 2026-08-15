@@ -269,7 +269,9 @@ func qualifyRole(tree *Tree, roleFile *RoleFile) *sgptpb.Role {
 		}
 	}
 	for i, filePath := range role.GetFiles() {
-		if !filepath.IsAbs(filePath) {
+		// "~" and absolute paths point outside the repo; only root-relative
+		// paths are anchored to it.
+		if !filepath.IsAbs(filePath) && !strings.HasPrefix(filePath, "~") {
 			role.Files[i] = filepath.Join(tree.Root, filePath)
 		}
 	}
