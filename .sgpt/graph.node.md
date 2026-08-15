@@ -1,7 +1,3 @@
-@instructions(
-Explain the .sgpt artifact system end to end: graphs (.sgpt.json), knowledge nodes (*.node), roles (*.role) and tool sets (*.toolset). Cover field ownership, selector addressing (//dir:title, root shorthands, /..., @import// prefixes), how sgpt chat consumes each artifact kind (-g and role graph_nodes for nodes, --role for roles, --tool for builtins and tool sets, the read_nodes tool), the standardized node rendering, and the implementation map. Precise enough that an agent can implement against it.
-)
-
 @summary(
 The .sgpt artifact system: knowledge nodes (*.node), roles (*.role) and tool sets (*.toolset) discovered in .sgpt/ directories, addressed please-style (//dir:title, @import//dir:title), injected via -g/--role/--tool and explored via the read_nodes tool.
 )

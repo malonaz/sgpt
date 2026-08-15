@@ -184,6 +184,7 @@ func (f *Forest) ResolveRole(name string) (*sgptpb.Role, error) {
 
 // Roles returns every role across the forest, qualified. Imports that fail
 // to load are skipped silently (completion must never error).
+// Nil-safe: a nil forest (failed construction) has no roles.
 func (f *Forest) Roles() []*sgptpb.Role {
 	return rolesOf(f.trees())
 }
@@ -191,6 +192,9 @@ func (f *Forest) Roles() []*sgptpb.Role {
 // PrimaryRoles returns the enclosing repo's roles only — completion offers
 // imports only once the user reaches for them ("@...").
 func (f *Forest) PrimaryRoles() []*sgptpb.Role {
+	if f == nil {
+		return nil
+	}
 	return rolesOf([]*Tree{f.Primary})
 }
 
@@ -211,6 +215,9 @@ func (f *Forest) ToolSets() []*sgptpb.ToolSet {
 
 // PrimaryToolSets returns the enclosing repo's tool sets only.
 func (f *Forest) PrimaryToolSets() []*sgptpb.ToolSet {
+	if f == nil {
+		return nil
+	}
 	return toolSetsOf([]*Tree{f.Primary})
 }
 
@@ -227,7 +234,11 @@ func toolSetsOf(trees []*Tree) []*sgptpb.ToolSet {
 }
 
 // trees returns the primary tree plus every loadable import, sorted.
+// Nil-safe: construction failures leave callers with a nil forest.
 func (f *Forest) trees() []*Tree {
+	if f == nil {
+		return nil
+	}
 	trees := []*Tree{f.Primary}
 	importNames := make([]string, 0, len(f.importNameToPath))
 	for importName := range f.importNameToPath {

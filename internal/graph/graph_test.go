@@ -22,7 +22,7 @@ func write(t *testing.T, root, path, content string) {
 
 func writeNode(t *testing.T, root, dir, title, summary string) {
 	t.Helper()
-	content := "@instructions(\ninstructions\n)\n@summary(" + summary + ")\n\ncontent of " + title + "\n"
+	content := "@summary(" + summary + ")\n\ncontent of " + title + "\n"
 	write(t, root, filepath.Join(dir, ArtifactDirName, title+NodeExtension), content)
 }
 
@@ -347,7 +347,7 @@ func TestArtifactMarkdownErrors(t *testing.T) {
 
 	for name, content := range map[string]string{
 		"unknown directive":   "@bogus(\"x\")\n",
-		"unterminated":        "@instructions(\nnever closed\n",
+		"unterminated":        "@summary(\nnever closed\n",
 		"label arity":         "@label(\"only-key\")\n",
 		"text form for alias": "@summary(fine)\n@file(unquoted)\n",
 		"duplicate summary":   "@summary(a)\n@summary(b)\n",

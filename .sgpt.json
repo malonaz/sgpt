@@ -1,5 +1,8 @@
 {
   "title": "sgpt: a CLI for AI chat with tool use, built on a proto-based, service-oriented architecture.",
+  imports: [
+    { name: "core", path: "~/core" },
+  ],
   "ignore": [
     "plz-out/",
     ".plz-cache/",

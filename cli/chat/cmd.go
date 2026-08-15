@@ -98,7 +98,15 @@ func NewCmd(
 				}
 			}
 
+			// Discoverable tool engines warrant the discovery-protocol
+			// section of the system prompt.
+			opts.Role.ToolDiscovery = forestErr == nil && len(forest.ToolSets()) > 0
 			parsedRole, err := opts.Role.Parse()
+			// A failed graph discovery empties the role registry, making the
+			// resulting "unknown role" misleading — surface the real cause.
+			if err != nil && forestErr != nil {
+				err = fmt.Errorf("%v — likely because graph discovery failed: %w", err, forestErr)
+			}
 			cobra.CheckErr(err)
 
 			if opts.Model == "" {

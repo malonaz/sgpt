@@ -30,17 +30,16 @@ const (
 // is the content. The graph is rooted wherever a `.sgpt.json` configuration
 // lives.
 type Node struct {
-	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Name         string                 `protobuf:"bytes,1,opt,name=name,proto3"`
-	xxx_hidden_Instructions string                 `protobuf:"bytes,3,opt,name=instructions,proto3"`
-	xxx_hidden_Summary      string                 `protobuf:"bytes,4,opt,name=summary,proto3"`
-	xxx_hidden_Content      string                 `protobuf:"bytes,5,opt,name=content,proto3"`
-	xxx_hidden_Labels       map[string]string      `protobuf:"bytes,6,rep,name=labels,proto3" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	xxx_hidden_Files        []string               `protobuf:"bytes,9,rep,name=files,proto3"`
-	xxx_hidden_CreateTime   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_time,json=createTime,proto3"`
-	xxx_hidden_UpdateTime   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=update_time,json=updateTime,proto3"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name       string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_Summary    string                 `protobuf:"bytes,4,opt,name=summary,proto3"`
+	xxx_hidden_Content    string                 `protobuf:"bytes,5,opt,name=content,proto3"`
+	xxx_hidden_Labels     map[string]string      `protobuf:"bytes,6,rep,name=labels,proto3" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Files      []string               `protobuf:"bytes,9,rep,name=files,proto3"`
+	xxx_hidden_CreateTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_time,json=createTime,proto3"`
+	xxx_hidden_UpdateTime *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=update_time,json=updateTime,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Node) Reset() {
@@ -71,13 +70,6 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 func (x *Node) GetName() string {
 	if x != nil {
 		return x.xxx_hidden_Name
-	}
-	return ""
-}
-
-func (x *Node) GetInstructions() string {
-	if x != nil {
-		return x.xxx_hidden_Instructions
 	}
 	return ""
 }
@@ -126,10 +118,6 @@ func (x *Node) GetUpdateTime() *timestamppb.Timestamp {
 
 func (x *Node) SetName(v string) {
 	x.xxx_hidden_Name = v
-}
-
-func (x *Node) SetInstructions(v string) {
-	x.xxx_hidden_Instructions = v
 }
 
 func (x *Node) SetSummary(v string) {
@@ -184,9 +172,6 @@ type Node_builder struct {
 	// Name of the node: "//{path/to/dir}:{title}", derived from the file
 	// location. Never written in the file.
 	Name string
-	// Human-written prompt dictating what this node should capture
-	// (`@instructions(...)`).
-	Instructions string
 	// A one-or-two-line summary of content (`@summary(...)`).
 	Summary string
 	// The full text of the node: the markdown body.
@@ -209,7 +194,6 @@ func (b0 Node_builder) Build() *Node {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Name = b.Name
-	x.xxx_hidden_Instructions = b.Instructions
 	x.xxx_hidden_Summary = b.Summary
 	x.xxx_hidden_Content = b.Content
 	x.xxx_hidden_Labels = b.Labels
@@ -223,10 +207,9 @@ var File_sgpt_v1_graph_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_graph_proto_rawDesc = "" +
 	"\n" +
-	"\x13sgpt/v1/graph.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x02\n" +
+	"\x13sgpt/v1/graph.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe1\x02\n" +
 	"\x04Node\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x03R\x04name\x12\"\n" +
-	"\finstructions\x18\x03 \x01(\tR\finstructions\x12\x18\n" +
+	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x03R\x04name\x12\x18\n" +
 	"\asummary\x18\x04 \x01(\tR\asummary\x12\x18\n" +
 	"\acontent\x18\x05 \x01(\tR\acontent\x121\n" +
 	"\x06labels\x18\x06 \x03(\v2\x19.sgpt.v1.Node.LabelsEntryR\x06labels\x12\x14\n" +
@@ -237,7 +220,7 @@ const file_sgpt_v1_graph_proto_rawDesc = "" +
 	"updateTime\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x03\x10\x04B*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
 var file_sgpt_v1_graph_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_sgpt_v1_graph_proto_goTypes = []any{

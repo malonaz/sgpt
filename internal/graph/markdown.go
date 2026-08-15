@@ -19,7 +19,7 @@ import (
 //     @label("key", "value")
 //   - text form, inline or multiline (terminated by a lone `)` line):
 //     @summary(one line)
-//     @instructions(
+//     @summary(
 //     free text...
 //     )
 //
@@ -137,7 +137,7 @@ func (d *directive) textContent() (string, error) {
 }
 
 // parseNodeMarkdown builds a Node from a .node.md file: body = content;
-// directives: @instructions, @summary (text), @label("k","v"), @file("path").
+// directives: @summary (text), @label("k","v"), @file("path").
 func parseNodeMarkdown(data []byte) (*sgptpb.Node, error) {
 	directives, body, err := parseArtifactMarkdown(string(data))
 	if err != nil {
@@ -147,15 +147,6 @@ func parseNodeMarkdown(data []byte) (*sgptpb.Node, error) {
 	node.SetContent(body)
 	for _, parsed := range directives {
 		switch parsed.name {
-		case "instructions":
-			text, err := parsed.textContent()
-			if err != nil {
-				return nil, err
-			}
-			if node.GetInstructions() != "" {
-				return nil, fmt.Errorf("@instructions declared twice")
-			}
-			node.SetInstructions(text)
 		case "summary":
 			text, err := parsed.textContent()
 			if err != nil {
@@ -181,7 +172,7 @@ func parseNodeMarkdown(data []byte) (*sgptpb.Node, error) {
 			}
 			node.SetFiles(append(node.GetFiles(), args[0]))
 		default:
-			return nil, fmt.Errorf("unknown node directive @%s (want @instructions, @summary, @label, @file)", parsed.name)
+			return nil, fmt.Errorf("unknown node directive @%s (want @summary, @label, @file)", parsed.name)
 		}
 	}
 	return node, nil

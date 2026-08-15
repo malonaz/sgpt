@@ -471,7 +471,9 @@ func (m *Model) listWidth() int {
 }
 
 func (m *Model) detailWidth() int {
-	return m.width - m.listWidth() - 1
+	// Never negative: a zero-size terminal (headless, pre-first-resize)
+	// must not crash renderers doing strings.Repeat(width).
+	return max(0, m.width-m.listWidth()-1)
 }
 
 func (m *Model) recalculateLayout() {

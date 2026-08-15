@@ -31,11 +31,17 @@ type TemplateData struct {
 	Term       string
 	RolePrompt string
 	Time       string
+	// ToolDiscovery gates the tool-discovery guidance: only rendered when
+	// discoverable tool engines exist in the forest.
+	ToolDiscovery bool
 }
 
 // Opts for a role.
 type Opts struct {
-	RoleName       string
+	RoleName string
+	// ToolDiscovery indicates discoverable tool engines are present; the
+	// system prompt then explains the discovery protocol.
+	ToolDiscovery  bool
 	roleNameToRole map[string]*sgptpb.Role
 }
 
@@ -82,14 +88,15 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 	}
 
 	data := TemplateData{
-		Username: username,
-		OS:       runtime.GOOS,
-		Arch:     runtime.GOARCH,
-		Shell:    os.Getenv("SHELL"),
-		Home:     home,
-		CWD:      cwd,
-		Term:     os.Getenv("TERM"),
-		Time:     time.Now().Format("Mon Jan 2 3PM MST 2006"), // Hour resolution to allow for prompt caching.
+		Username:      username,
+		OS:            runtime.GOOS,
+		Arch:          runtime.GOARCH,
+		Shell:         os.Getenv("SHELL"),
+		Home:          home,
+		CWD:           cwd,
+		Term:          os.Getenv("TERM"),
+		Time:          time.Now().Format("Mon Jan 2 3PM MST 2006"), // Hour resolution to allow for prompt caching.
+		ToolDiscovery: o.ToolDiscovery,
 	}
 
 	// Build the result role.

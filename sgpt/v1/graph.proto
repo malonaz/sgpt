@@ -13,13 +13,12 @@ option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 // is the content. The graph is rooted wherever a `.sgpt.json` configuration
 // lives.
 message Node {
+  // Field 3 was `instructions`, removed.
+  reserved 3;
+
   // Name of the node: "//{path/to/dir}:{title}", derived from the file
   // location. Never written in the file.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-
-  // Human-written prompt dictating what this node should capture
-  // (`@instructions(...)`).
-  string instructions = 3;
 
   // A one-or-two-line summary of content (`@summary(...)`).
   string summary = 4;
