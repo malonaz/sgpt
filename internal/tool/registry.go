@@ -15,13 +15,13 @@ import (
 const ToolHandlerIDAnnotation = "sgpt.com/tool-handler-id"
 
 const (
-	HandlerIDShell     = "shell"
-	HandlerIDReadFiles = "read_files"
-	HandlerIDEngine    = "engine"
-	HandlerIDDiff      = "diff"
-	HandlerIDReplace   = "replace"
-	HandlerIDAgent     = "agent"
-	HandlerIDReadNodes = "read_nodes"
+	HandlerIDShell       = "shell"
+	HandlerIDReadFiles   = "read_files"
+	HandlerIDEngine      = "engine"
+	HandlerIDDiff        = "diff"
+	HandlerIDReplace     = "replace"
+	HandlerIDAgent       = "agent"
+	HandlerIDSearchLores = "search_lores"
 )
 
 // Tool reviews and executes tool calls.
@@ -171,6 +171,29 @@ func (r *Registry) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 		return "", false
 	}
 	return renderer.RenderRequest(toolCall)
+}
+
+// ResultRenderer is implemented by tools that dictate how their result
+// renders in the timeline (e.g. search_lores renders highlighted matches).
+type ResultRenderer interface {
+	Tool
+	// RenderResult returns markdown for the result; returning false falls
+	// back to the default raw-JSON rendering.
+	RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool)
+}
+
+// RenderResult returns tool-provided result markdown for a call, if its
+// tool implements ResultRenderer.
+func (r *Registry) RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return "", false
+	}
+	renderer, ok := tool.(ResultRenderer)
+	if !ok {
+		return "", false
+	}
+	return renderer.RenderResult(toolCall, toolResult)
 }
 
 // HeaderRenderer is implemented by tools that render their calls' header in

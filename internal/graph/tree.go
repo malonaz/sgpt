@@ -17,14 +17,13 @@ type Dir struct {
 	Files []string
 	// Children in name order.
 	Children []*Dir
-	// Nodes, Roles and ToolSets are the directory's artifacts, in name order.
-	Nodes    []*NodeFile
+	// Roles and ToolSets are the directory's artifacts, in name order.
 	Roles    []*RoleFile
 	ToolSets []*ToolSetFile
 }
 
-// Tree is a walked graph tree: every non-ignored directory with its nodes
-// loaded.
+// Tree is a walked graph tree: every non-ignored directory with its
+// artifacts loaded.
 type Tree struct {
 	// Root is the absolute path of the graph root.
 	Root string
@@ -37,9 +36,9 @@ type Tree struct {
 	PathToDir map[string]*Dir
 }
 
-// Scan builds the tree without hashing: BFS, honoring .gitignore files and
-// the extra patterns, loading every node file. Cheap — used for selection
-// and completion.
+// Scan builds the tree: BFS, honoring .gitignore files and the extra
+// patterns, loading every artifact. Cheap — used for selection and
+// completion.
 func Scan(root string, extraIgnorePatterns []string) (*Tree, error) {
 	matcher := ignore.NewMatcher(root, extraIgnorePatterns)
 	tree := &Tree{Root: root, PathToDir: map[string]*Dir{}}
@@ -86,12 +85,6 @@ func Scan(root string, extraIgnorePatterns []string) (*Tree, error) {
 // deterministic identity fields — never trusted from the files themselves.
 func (d *Dir) loadArtifacts(root string) error {
 	var err error
-	if d.Nodes, err = loadFiles(root, d.Path, NodeExtension, parseNodeMarkdown); err != nil {
-		return err
-	}
-	for _, nodeFile := range d.Nodes {
-		nodeFile.Message.SetName(nodeFile.Selector())
-	}
 	if d.Roles, err = loadFiles(root, d.Path, RoleExtension, parseRoleMarkdown); err != nil {
 		return err
 	}

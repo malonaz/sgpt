@@ -179,6 +179,12 @@ type HeaderRenderer interface {
 	RenderHeader(toolCall *aipb.ToolCall) (string, bool)
 }
 
+// ResultRenderer lets a tool dictate how its result renders in the
+// timeline; unset (or declining) falls back to raw JSON.
+type ResultRenderer interface {
+	RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool)
+}
+
 // ---- ToolCallItem: request/response pair rendered adjacently ----
 
 type ToolCallItem struct {
@@ -315,6 +321,13 @@ func (i *ToolCallItem) response(ctx RenderContext) string {
 	body := toolResultText(i.Result)
 	if i.Result.GetError() != nil {
 		return label + "\n" + styles.ErrorStyle.Render(body)
+	}
+	// Tools may dictate their own result presentation (e.g. search_lores
+	// renders matches with highlights).
+	if renderer, ok := i.RequestRenderer.(ResultRenderer); ok {
+		if md, ok := renderer.RenderResult(i.ToolCall, i.Result); ok {
+			return label + "\n" + renderMarkdown(ctx, i.seq+1, true, markdown.ParseBlocks(md)...)
+		}
 	}
 	fenced := fmt.Sprintf("```json\n%s\n```", body)
 	return label + "\n" + renderMarkdown(ctx, i.seq+1, true, markdown.ParseBlocks(fenced)...)

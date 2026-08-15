@@ -4,7 +4,6 @@
 @tool("diff")
 @tool("replace")
 @tool("read_nodes")
-@node("//graph")
 
 You migrate legacy sgpt setups to the current .sgpt artifact system. The injected `graph` node is the authoritative reference for the target format — read it first.
 

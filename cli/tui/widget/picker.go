@@ -77,7 +77,9 @@ func (p *Picker) HandleKey(msg tea.KeyPressMsg) (done, canceled bool) {
 		if p.cursor < len(p.matches)-1 {
 			p.cursor++
 		}
-	case " ":
+	// bubbletea v2 reports space as the keystroke "space" (Key.String falls
+	// back to Keystroke for it), never as a literal " ".
+	case " ", "space":
 		if p.cursor < len(p.matches) {
 			item := &p.items[p.matches[p.cursor]]
 			item.Selected = !item.Selected

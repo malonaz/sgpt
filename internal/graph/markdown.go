@@ -10,7 +10,7 @@ import (
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
-// Artifact markdown format (.node.md, .role.md): lines starting with
+// Artifact markdown format (.role.md): lines starting with
 // `@directive(...)` carry the structured fields; everything else is the
 // body (a node's content, a role's prompt).
 //
@@ -136,48 +136,6 @@ func (d *directive) textContent() (string, error) {
 	return d.text, nil
 }
 
-// parseNodeMarkdown builds a Node from a .node.md file: body = content;
-// directives: @summary (text), @label("k","v"), @file("path").
-func parseNodeMarkdown(data []byte) (*sgptpb.Node, error) {
-	directives, body, err := parseArtifactMarkdown(string(data))
-	if err != nil {
-		return nil, err
-	}
-	node := &sgptpb.Node{}
-	node.SetContent(body)
-	for _, parsed := range directives {
-		switch parsed.name {
-		case "summary":
-			text, err := parsed.textContent()
-			if err != nil {
-				return nil, err
-			}
-			if node.GetSummary() != "" {
-				return nil, fmt.Errorf("@summary declared twice")
-			}
-			node.SetSummary(text)
-		case "label":
-			args, err := parsed.arguments(2)
-			if err != nil {
-				return nil, err
-			}
-			if node.GetLabels() == nil {
-				node.SetLabels(map[string]string{})
-			}
-			node.GetLabels()[args[0]] = args[1]
-		case "file":
-			args, err := parsed.arguments(1)
-			if err != nil {
-				return nil, err
-			}
-			node.SetFiles(append(node.GetFiles(), args[0]))
-		default:
-			return nil, fmt.Errorf("unknown node directive @%s (want @summary, @label, @file)", parsed.name)
-		}
-	}
-	return node, nil
-}
-
 // parseToolSetJSON parses a .toolset file (strict JSON).
 func parseToolSetJSON(data []byte) (*sgptpb.ToolSet, error) {
 	toolSet := &sgptpb.ToolSet{}
@@ -188,7 +146,7 @@ func parseToolSetJSON(data []byte) (*sgptpb.ToolSet, error) {
 }
 
 // parseRoleMarkdown builds a Role from a .role.md file: body = prompt;
-// directives: @alias, @model, @tool, @role, @node, @file (all quoted-arg).
+// directives: @alias, @model, @tool, @role, @file (all quoted-arg).
 func parseRoleMarkdown(data []byte) (*sgptpb.Role, error) {
 	directives, body, err := parseArtifactMarkdown(string(data))
 	if err != nil {
@@ -227,12 +185,6 @@ func parseRoleMarkdown(data []byte) (*sgptpb.Role, error) {
 				return nil, err
 			}
 			role.Roles = append(role.Roles, args[0])
-		case "node":
-			args, err := parsed.arguments(1)
-			if err != nil {
-				return nil, err
-			}
-			role.GraphNodes = append(role.GraphNodes, args[0])
 		case "file":
 			args, err := parsed.arguments(1)
 			if err != nil {
@@ -240,7 +192,7 @@ func parseRoleMarkdown(data []byte) (*sgptpb.Role, error) {
 			}
 			role.Files = append(role.Files, args[0])
 		default:
-			return nil, fmt.Errorf("unknown role directive @%s (want @alias, @model, @tool, @role, @node, @file)", parsed.name)
+			return nil, fmt.Errorf("unknown role directive @%s (want @alias, @model, @tool, @role, @file)", parsed.name)
 		}
 	}
 	return role, nil

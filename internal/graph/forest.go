@@ -101,63 +101,6 @@ func (f *Forest) importTree(importName string) (*Tree, error) {
 	return tree, nil
 }
 
-// Select resolves selectors across the forest, deduplicating by label.
-func (f *Forest) Select(selectors []string) ([]Injection, error) {
-	var injections []Injection
-	seen := map[string]bool{}
-	for _, selector := range selectors {
-		tree, localSelector, err := f.tree(selector)
-		if err != nil {
-			return nil, err
-		}
-		treeInjections, err := tree.Select([]string{localSelector})
-		if err != nil {
-			return nil, err
-		}
-		for _, injection := range treeInjections {
-			if seen[injection.Path] {
-				continue
-			}
-			seen[injection.Path] = true
-			injections = append(injections, injection)
-		}
-	}
-	return injections, nil
-}
-
-// Resolve maps a (possibly import-prefixed) node name to its tree and node.
-func (f *Forest) Resolve(name string) (*Tree, *NodeFile, error) {
-	tree, localName, err := f.tree(name)
-	if err != nil {
-		return nil, nil, err
-	}
-	nodeFile, err := tree.Resolve(localName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return tree, nodeFile, nil
-}
-
-// Selectors lists every selectable spelling across the forest, for shell
-// completion. Imports that fail to load are skipped silently: completion
-// must never error.
-func (f *Forest) Selectors() []string {
-	selectors := f.Primary.Selectors()
-	importNames := make([]string, 0, len(f.importNameToPath))
-	for importName := range f.importNameToPath {
-		importNames = append(importNames, importName)
-	}
-	sort.Strings(importNames)
-	for _, importName := range importNames {
-		tree, err := f.importTree(importName)
-		if err != nil {
-			continue
-		}
-		selectors = append(selectors, tree.Selectors()...)
-	}
-	return selectors
-}
-
 func expandHome(path string) string {
 	if strings.HasPrefix(path, "~/") {
 		if home, err := os.UserHomeDir(); err == nil {
@@ -168,7 +111,7 @@ func expandHome(path string) string {
 }
 
 // ResolveRole maps a (possibly import-prefixed) role selector to its role,
-// qualified for use by the importer: name/includes/graph_nodes/tools carry
+// qualified for use by the importer: name/includes/tools carry
 // the import prefix and files are made absolute against the role's own repo.
 func (f *Forest) ResolveRole(name string) (*sgptpb.Role, error) {
 	tree, localName, err := f.tree(name)
@@ -256,8 +199,7 @@ func (f *Forest) trees() []*Tree {
 }
 
 // qualifyRole rewrites a role for use outside its home repo: its name and
-// every selector it carries (includes, graph nodes, tool sets) gain the
-// import prefix, and its files — root-relative in the file — become
+// every selector it carries (includes, tool sets) gain the import prefix, and its files — root-relative in the file — become
 // absolute paths under the repo's root.
 func qualifyRole(tree *Tree, roleFile *RoleFile) *sgptpb.Role {
 	role := proto.CloneOf(roleFile.Message)
@@ -269,9 +211,6 @@ func qualifyRole(tree *Tree, roleFile *RoleFile) *sgptpb.Role {
 	}
 	for i, includedName := range role.GetRoles() {
 		role.Roles[i] = tree.qualifySelector(includedName)
-	}
-	for i, graphNode := range role.GetGraphNodes() {
-		role.GraphNodes[i] = tree.qualifySelector(graphNode)
 	}
 	for i, toolName := range role.GetTools() {
 		// Tool entries may be builtins ("diff") or tool set selectors.

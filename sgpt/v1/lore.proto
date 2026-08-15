@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package sgpt.v1;
+
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
+
+// A lore: one piece of unstructured knowledge, persisted as a JSON file
+// under a repo's `.sgpt/lores/{lore}.json`, where `{lore}` may contain `/`
+// segments — the agent is free to organize lores into subdirectories.
+// Committed with the repo, lore is shared from repo to repo via the
+// configuration's imports. Lore files are written solely by the agent; each
+// repo's label vocabulary is persisted in its `.sgpt/labels`.
+message Lore {
+  option (google.api.resource) = {
+    type: "sgpt.com/Lore"
+    pattern: "lores/{lore}"
+    singular: "lore"
+    plural: "lores"
+  };
+
+  // Resource name of this lore: "lores/{lore}", derived from the file
+  // location. Never written in the file.
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // Short human-readable title, shown alongside search matches.
+  string title = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // One-or-two-line description of the content, shown alongside search
+  // matches.
+  string description = 3;
+
+  // The unstructured content of the lore.
+  google.protobuf.Value content = 4;
+
+  // Arbitrary user metadata.
+  map<string, string> labels = 5;
+
+  // Creation time of this resource.
+  google.protobuf.Timestamp create_time = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Last update time of this resource.
+  google.protobuf.Timestamp update_time = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+}

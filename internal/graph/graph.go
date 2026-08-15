@@ -1,7 +1,7 @@
 // Package graph implements discovery of the repository's `.sgpt/` artifacts:
-// a tree rooted by a `graph.sgpt` descriptor where any directory can hold
-// knowledge nodes (`{title}.node`), roles (`{title}.role`) and tool sets
-// (`{title}.toolset`), all addressed please-style ("//dir:title").
+// a tree rooted by a `.sgpt.json` configuration where any directory can hold
+// roles (`{title}.role.md`) and tool sets (`{title}.toolset`), all addressed
+// please-style ("//dir:title").
 package graph
 
 import (
@@ -23,8 +23,6 @@ const (
 	// ArtifactDirName is the per-directory directory holding sgpt artifacts.
 	ArtifactDirName = ".sgpt"
 
-	// NodeExtension is the extension of knowledge node files (markdown).
-	NodeExtension = ".node.md"
 	// RoleExtension is the extension of role files (markdown).
 	RoleExtension = ".role.md"
 	// ToolSetExtension is the extension of tool set files (JSON).
@@ -60,9 +58,8 @@ type File[T proto.Message] struct {
 	Message T
 }
 
-// Aliases for the three artifact kinds.
+// Aliases for the artifact kinds.
 type (
-	NodeFile    = File[*sgptpb.Node]
 	RoleFile    = File[*sgptpb.Role]
 	ToolSetFile = File[*sgptpb.ToolSet]
 )

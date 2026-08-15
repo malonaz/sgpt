@@ -2,8 +2,8 @@ filegroup(
     name = "proto",
     srcs = [
         "configuration.proto",
-        "graph.proto",
         "labels.proto",
+        "lore.proto",
         "tool.proto",
         "tools.proto",
     ],
@@ -30,8 +30,8 @@ proto_library(
     name = "v1",
     srcs = [
         "configuration.proto",
-        "graph.proto",
         "labels.proto",
+        "lore.proto",
         "tool.proto",
         "tools.proto",
     ],

@@ -35,10 +35,13 @@ service ToolService {
   // asks you to run commands, create files, or perform system operations.
   rpc ExecShell(ExecShellRequest) returns (ExecShellResponse);
 
-  // Read knowledge-graph nodes by name ("path/to/dir:title"). Returns each
-  // node's content plus the names and summaries of its parent and child
-  // nodes, for further exploration.
-  rpc ReadNodes(ReadNodesRequest) returns (ReadNodesResponse) {
+  // Search the selected lore libraries (the agent-curated knowledge base,
+  // stored under each repo's .sgpt/lores) with a grep-style regular
+  // expression. Returns the top matching lores with their title,
+  // description and matching snippets; read a full lore via its file at
+  // {repo}/.sgpt/lores/{id}.json (ids may contain "/" subdirectory
+  // segments; "@import//" prefixes name an imported repo's library).
+  rpc SearchLores(SearchLoresRequest) returns (SearchLoresResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
@@ -122,46 +125,41 @@ message ReadFilesResponse {
   repeated File files = 1;
 }
 
-// Request for the `read_nodes` tool.
-message ReadNodesRequest {
-  // Node names, each "path/to/dir:title" relative to the graph root.
-  repeated string names = 1 [(google.api.field_behavior) = REQUIRED];
+// Request for the `search_lores` tool.
+message SearchLoresRequest {
+  // Case-insensitive regular expression (Go/RE2 syntax), run over every
+  // lore's title, description, labels and content, grep-style.
+  string query = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Maximum number of lores to return; defaults to 10.
+  int32 top_n = 2;
 }
 
-// Result of the `read_nodes` tool.
-message ReadNodesResponse {
-  // A related node, offered for further reading.
-  message Related {
-    // Name of the node ("path/to/dir:title").
+// Result of the `search_lores` tool.
+message SearchLoresResponse {
+  // One matching lore.
+  message Match {
+    // Resource name of the lore ("lores/{lore}").
     string name = 1;
 
-    // The node's summary.
-    string summary = 2;
+    // The lore's title.
+    string title = 2;
+
+    // The lore's description.
+    string description = 3;
+
+    // The lore's labels.
+    map<string, string> labels = 4;
+
+    // Matching content lines (grep-style snippets).
+    repeated string snippets = 5;
+
+    // Total number of matching lines in the lore's content.
+    int32 match_count = 6;
   }
 
-  // A single node read attempt.
-  message Node {
-    // Name of the node ("path/to/dir:title").
-    string name = 1;
-
-    // The node's full content; empty if the read failed.
-    string content = 2;
-
-    // Nodes of ancestor directories.
-    repeated Related parents = 3;
-
-    // Nodes of the nearest node-bearing descendant directories.
-    repeated Related children = 4;
-
-    // Read error, if any; other nodes are still returned.
-    string error = 5;
-
-    // Files the node pulls in verbatim (its `files` field).
-    repeated ReadFilesResponse.File files = 6;
-  }
-
-  // One entry per requested name, in request order.
-  repeated Node nodes = 1;
+  // Matching lores, best first, capped at top_n.
+  repeated Match matches = 1;
 }
 
 // Request for the `exec_shell` tool.

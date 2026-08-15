@@ -42,7 +42,7 @@ type Configuration struct {
 	// Human-readable title: a few lines about the repo this configuration
 	// (or configuration override) belongs to.
 	Title string `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
-	// External repos whose graph nodes and roles are addressable as
+	// External repos whose roles and tool sets are addressable as
 	// "@{name}@{selector}" (e.g. "@github.com/malonaz/core@go/grpc:architecture"
 	// or --role "@github.com/malonaz/core@reviewer").
 	Imports       []*Import `protobuf:"bytes,8,rep,name=imports,proto3" json:"imports,omitempty"`
@@ -180,7 +180,7 @@ type Configuration_builder struct {
 	// Human-readable title: a few lines about the repo this configuration
 	// (or configuration override) belongs to.
 	Title string
-	// External repos whose graph nodes and roles are addressable as
+	// External repos whose roles and tool sets are addressable as
 	// "@{name}@{selector}" (e.g. "@github.com/malonaz/core@go/grpc:architecture"
 	// or --role "@github.com/malonaz/core@reviewer").
 	Imports []*Import
@@ -578,8 +578,8 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 
 // A role defines a persona with a system prompt. Persisted as a
 // `.sgpt/{title}.role.md` markdown file — `@directive(...)` lines carry the
-// structured fields, the body is the prompt — and addressed like graph
-// nodes ("//dir:title", "@import//dir:title").
+// structured fields, the body is the prompt — and addressed please-style
+// ("//dir:title", "@import//dir:title").
 type Role struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
 	// Name of this role: its selector ("//dir:title"), derived from the file
@@ -598,11 +598,8 @@ type Role struct {
 	Tools []string `protobuf:"bytes,6,rep,name=tools,proto3" json:"tools,omitempty"`
 	// Selectors of other roles to include (`@role("//dir:title")`). Included
 	// roles are expanded depth-first: their prompts are prepended and their
-	// files/tools/nodes merged.
-	Roles []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
-	// Knowledge-graph nodes to inject as context for this role
-	// (`@node("//dir:title")`), using -g selector syntax.
-	GraphNodes    []string `protobuf:"bytes,8,rep,name=graph_nodes,json=graphNodes,proto3" json:"graph_nodes,omitempty"`
+	// files/tools merged.
+	Roles         []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -681,13 +678,6 @@ func (x *Role) GetRoles() []string {
 	return nil
 }
 
-func (x *Role) GetGraphNodes() []string {
-	if x != nil {
-		return x.GraphNodes
-	}
-	return nil
-}
-
 func (x *Role) SetName(v string) {
 	x.Name = v
 }
@@ -716,10 +706,6 @@ func (x *Role) SetRoles(v []string) {
 	x.Roles = v
 }
 
-func (x *Role) SetGraphNodes(v []string) {
-	x.GraphNodes = v
-}
-
 type Role_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -739,11 +725,8 @@ type Role_builder struct {
 	Tools []string
 	// Selectors of other roles to include (`@role("//dir:title")`). Included
 	// roles are expanded depth-first: their prompts are prepended and their
-	// files/tools/nodes merged.
+	// files/tools merged.
 	Roles []string
-	// Knowledge-graph nodes to inject as context for this role
-	// (`@node("//dir:title")`), using -g selector syntax.
-	GraphNodes []string
 }
 
 func (b0 Role_builder) Build() *Role {
@@ -757,12 +740,11 @@ func (b0 Role_builder) Build() *Role {
 	x.Files = b.Files
 	x.Tools = b.Tools
 	x.Roles = b.Roles
-	x.GraphNodes = b.GraphNodes
 	return m0
 }
 
 // A remote tool engine that provides tool sets via gRPC. Persisted as a
-// `.sgpt/{title}.toolset` file; discovered and addressed like graph nodes
+// `.sgpt/{title}.toolset` file; discovered and addressed please-style
 // ("//dir:title", "@import//dir:title").
 type ToolSet struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
@@ -891,7 +873,7 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x14ai.malonaz.com/ModelR\fsummaryModel\x12>\n" +
 	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
-	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\"\xdc\x01\n" +
+	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\"\xc1\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +
@@ -900,9 +882,7 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
 	"\x05files\x18\x05 \x03(\tR\x05files\x12\x14\n" +
 	"\x05tools\x18\x06 \x03(\tR\x05tools\x12\x14\n" +
-	"\x05roles\x18\a \x03(\tR\x05roles\x12\x1f\n" +
-	"\vgraph_nodes\x18\b \x03(\tR\n" +
-	"graphNodes\"\x9f\x01\n" +
+	"\x05roles\x18\a \x03(\tR\x05rolesJ\x04\b\b\x10\t\"\x9f\x01\n" +
 	"\aToolSet\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12-\n" +
 	"\x0eengine_service\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +

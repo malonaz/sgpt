@@ -530,28 +530,29 @@ func (b0 ReadFilesResponse_builder) Build() *ReadFilesResponse {
 	return m0
 }
 
-// Request for the `read_nodes` tool.
-type ReadNodesRequest struct {
+// Request for the `search_lores` tool.
+type SearchLoresRequest struct {
 	state            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Names []string               `protobuf:"bytes,1,rep,name=names,proto3"`
+	xxx_hidden_Query string                 `protobuf:"bytes,1,opt,name=query,proto3"`
+	xxx_hidden_TopN  int32                  `protobuf:"varint,2,opt,name=top_n,json=topN,proto3"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
-func (x *ReadNodesRequest) Reset() {
-	*x = ReadNodesRequest{}
+func (x *SearchLoresRequest) Reset() {
+	*x = SearchLoresRequest{}
 	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReadNodesRequest) String() string {
+func (x *SearchLoresRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReadNodesRequest) ProtoMessage() {}
+func (*SearchLoresRequest) ProtoMessage() {}
 
-func (x *ReadNodesRequest) ProtoReflect() protoreflect.Message {
+func (x *SearchLoresRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -563,54 +564,69 @@ func (x *ReadNodesRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ReadNodesRequest) GetNames() []string {
+func (x *SearchLoresRequest) GetQuery() string {
 	if x != nil {
-		return x.xxx_hidden_Names
+		return x.xxx_hidden_Query
 	}
-	return nil
+	return ""
 }
 
-func (x *ReadNodesRequest) SetNames(v []string) {
-	x.xxx_hidden_Names = v
+func (x *SearchLoresRequest) GetTopN() int32 {
+	if x != nil {
+		return x.xxx_hidden_TopN
+	}
+	return 0
 }
 
-type ReadNodesRequest_builder struct {
+func (x *SearchLoresRequest) SetQuery(v string) {
+	x.xxx_hidden_Query = v
+}
+
+func (x *SearchLoresRequest) SetTopN(v int32) {
+	x.xxx_hidden_TopN = v
+}
+
+type SearchLoresRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Node names, each "path/to/dir:title" relative to the graph root.
-	Names []string
+	// Case-insensitive regular expression (Go/RE2 syntax), run over every
+	// lore's title, description, labels and content, grep-style.
+	Query string
+	// Maximum number of lores to return; defaults to 10.
+	TopN int32
 }
 
-func (b0 ReadNodesRequest_builder) Build() *ReadNodesRequest {
-	m0 := &ReadNodesRequest{}
+func (b0 SearchLoresRequest_builder) Build() *SearchLoresRequest {
+	m0 := &SearchLoresRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Names = b.Names
+	x.xxx_hidden_Query = b.Query
+	x.xxx_hidden_TopN = b.TopN
 	return m0
 }
 
-// Result of the `read_nodes` tool.
-type ReadNodesResponse struct {
-	state            protoimpl.MessageState     `protogen:"opaque.v1"`
-	xxx_hidden_Nodes *[]*ReadNodesResponse_Node `protobuf:"bytes,1,rep,name=nodes,proto3"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+// Result of the `search_lores` tool.
+type SearchLoresResponse struct {
+	state              protoimpl.MessageState        `protogen:"opaque.v1"`
+	xxx_hidden_Matches *[]*SearchLoresResponse_Match `protobuf:"bytes,1,rep,name=matches,proto3"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
-func (x *ReadNodesResponse) Reset() {
-	*x = ReadNodesResponse{}
+func (x *SearchLoresResponse) Reset() {
+	*x = SearchLoresResponse{}
 	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReadNodesResponse) String() string {
+func (x *SearchLoresResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReadNodesResponse) ProtoMessage() {}
+func (*SearchLoresResponse) ProtoMessage() {}
 
-func (x *ReadNodesResponse) ProtoReflect() protoreflect.Message {
+func (x *SearchLoresResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -622,31 +638,31 @@ func (x *ReadNodesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ReadNodesResponse) GetNodes() []*ReadNodesResponse_Node {
+func (x *SearchLoresResponse) GetMatches() []*SearchLoresResponse_Match {
 	if x != nil {
-		if x.xxx_hidden_Nodes != nil {
-			return *x.xxx_hidden_Nodes
+		if x.xxx_hidden_Matches != nil {
+			return *x.xxx_hidden_Matches
 		}
 	}
 	return nil
 }
 
-func (x *ReadNodesResponse) SetNodes(v []*ReadNodesResponse_Node) {
-	x.xxx_hidden_Nodes = &v
+func (x *SearchLoresResponse) SetMatches(v []*SearchLoresResponse_Match) {
+	x.xxx_hidden_Matches = &v
 }
 
-type ReadNodesResponse_builder struct {
+type SearchLoresResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// One entry per requested name, in request order.
-	Nodes []*ReadNodesResponse_Node
+	// Matching lores, best first, capped at top_n.
+	Matches []*SearchLoresResponse_Match
 }
 
-func (b0 ReadNodesResponse_builder) Build() *ReadNodesResponse {
-	m0 := &ReadNodesResponse{}
+func (b0 SearchLoresResponse_builder) Build() *SearchLoresResponse {
+	m0 := &SearchLoresResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Nodes = &b.Nodes
+	x.xxx_hidden_Matches = &b.Matches
 	return m0
 }
 
@@ -1081,29 +1097,33 @@ func (b0 ReadFilesResponse_File_builder) Build() *ReadFilesResponse_File {
 	return m0
 }
 
-// A related node, offered for further reading.
-type ReadNodesResponse_Related struct {
-	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Name    string                 `protobuf:"bytes,1,opt,name=name,proto3"`
-	xxx_hidden_Summary string                 `protobuf:"bytes,2,opt,name=summary,proto3"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+// One matching lore.
+type SearchLoresResponse_Match struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name        string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_Title       string                 `protobuf:"bytes,2,opt,name=title,proto3"`
+	xxx_hidden_Description string                 `protobuf:"bytes,3,opt,name=description,proto3"`
+	xxx_hidden_Labels      map[string]string      `protobuf:"bytes,4,rep,name=labels,proto3" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Snippets    []string               `protobuf:"bytes,5,rep,name=snippets,proto3"`
+	xxx_hidden_MatchCount  int32                  `protobuf:"varint,6,opt,name=match_count,json=matchCount,proto3"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
-func (x *ReadNodesResponse_Related) Reset() {
-	*x = ReadNodesResponse_Related{}
+func (x *SearchLoresResponse_Match) Reset() {
+	*x = SearchLoresResponse_Match{}
 	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReadNodesResponse_Related) String() string {
+func (x *SearchLoresResponse_Match) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReadNodesResponse_Related) ProtoMessage() {}
+func (*SearchLoresResponse_Match) ProtoMessage() {}
 
-func (x *ReadNodesResponse_Related) ProtoReflect() protoreflect.Message {
+func (x *SearchLoresResponse_Match) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1115,183 +1135,99 @@ func (x *ReadNodesResponse_Related) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ReadNodesResponse_Related) GetName() string {
+func (x *SearchLoresResponse_Match) GetName() string {
 	if x != nil {
 		return x.xxx_hidden_Name
 	}
 	return ""
 }
 
-func (x *ReadNodesResponse_Related) GetSummary() string {
+func (x *SearchLoresResponse_Match) GetTitle() string {
 	if x != nil {
-		return x.xxx_hidden_Summary
+		return x.xxx_hidden_Title
 	}
 	return ""
 }
 
-func (x *ReadNodesResponse_Related) SetName(v string) {
+func (x *SearchLoresResponse_Match) GetDescription() string {
+	if x != nil {
+		return x.xxx_hidden_Description
+	}
+	return ""
+}
+
+func (x *SearchLoresResponse_Match) GetLabels() map[string]string {
+	if x != nil {
+		return x.xxx_hidden_Labels
+	}
+	return nil
+}
+
+func (x *SearchLoresResponse_Match) GetSnippets() []string {
+	if x != nil {
+		return x.xxx_hidden_Snippets
+	}
+	return nil
+}
+
+func (x *SearchLoresResponse_Match) GetMatchCount() int32 {
+	if x != nil {
+		return x.xxx_hidden_MatchCount
+	}
+	return 0
+}
+
+func (x *SearchLoresResponse_Match) SetName(v string) {
 	x.xxx_hidden_Name = v
 }
 
-func (x *ReadNodesResponse_Related) SetSummary(v string) {
-	x.xxx_hidden_Summary = v
+func (x *SearchLoresResponse_Match) SetTitle(v string) {
+	x.xxx_hidden_Title = v
 }
 
-type ReadNodesResponse_Related_builder struct {
+func (x *SearchLoresResponse_Match) SetDescription(v string) {
+	x.xxx_hidden_Description = v
+}
+
+func (x *SearchLoresResponse_Match) SetLabels(v map[string]string) {
+	x.xxx_hidden_Labels = v
+}
+
+func (x *SearchLoresResponse_Match) SetSnippets(v []string) {
+	x.xxx_hidden_Snippets = v
+}
+
+func (x *SearchLoresResponse_Match) SetMatchCount(v int32) {
+	x.xxx_hidden_MatchCount = v
+}
+
+type SearchLoresResponse_Match_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Name of the node ("path/to/dir:title").
+	// Resource name of the lore ("lores/{lore}").
 	Name string
-	// The node's summary.
-	Summary string
+	// The lore's title.
+	Title string
+	// The lore's description.
+	Description string
+	// The lore's labels.
+	Labels map[string]string
+	// Matching content lines (grep-style snippets).
+	Snippets []string
+	// Total number of matching lines in the lore's content.
+	MatchCount int32
 }
 
-func (b0 ReadNodesResponse_Related_builder) Build() *ReadNodesResponse_Related {
-	m0 := &ReadNodesResponse_Related{}
+func (b0 SearchLoresResponse_Match_builder) Build() *SearchLoresResponse_Match {
+	m0 := &SearchLoresResponse_Match{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Name = b.Name
-	x.xxx_hidden_Summary = b.Summary
-	return m0
-}
-
-// A single node read attempt.
-type ReadNodesResponse_Node struct {
-	state               protoimpl.MessageState        `protogen:"opaque.v1"`
-	xxx_hidden_Name     string                        `protobuf:"bytes,1,opt,name=name,proto3"`
-	xxx_hidden_Content  string                        `protobuf:"bytes,2,opt,name=content,proto3"`
-	xxx_hidden_Parents  *[]*ReadNodesResponse_Related `protobuf:"bytes,3,rep,name=parents,proto3"`
-	xxx_hidden_Children *[]*ReadNodesResponse_Related `protobuf:"bytes,4,rep,name=children,proto3"`
-	xxx_hidden_Error    string                        `protobuf:"bytes,5,opt,name=error,proto3"`
-	xxx_hidden_Files    *[]*ReadFilesResponse_File    `protobuf:"bytes,6,rep,name=files,proto3"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
-}
-
-func (x *ReadNodesResponse_Node) Reset() {
-	*x = ReadNodesResponse_Node{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ReadNodesResponse_Node) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ReadNodesResponse_Node) ProtoMessage() {}
-
-func (x *ReadNodesResponse_Node) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *ReadNodesResponse_Node) GetName() string {
-	if x != nil {
-		return x.xxx_hidden_Name
-	}
-	return ""
-}
-
-func (x *ReadNodesResponse_Node) GetContent() string {
-	if x != nil {
-		return x.xxx_hidden_Content
-	}
-	return ""
-}
-
-func (x *ReadNodesResponse_Node) GetParents() []*ReadNodesResponse_Related {
-	if x != nil {
-		if x.xxx_hidden_Parents != nil {
-			return *x.xxx_hidden_Parents
-		}
-	}
-	return nil
-}
-
-func (x *ReadNodesResponse_Node) GetChildren() []*ReadNodesResponse_Related {
-	if x != nil {
-		if x.xxx_hidden_Children != nil {
-			return *x.xxx_hidden_Children
-		}
-	}
-	return nil
-}
-
-func (x *ReadNodesResponse_Node) GetError() string {
-	if x != nil {
-		return x.xxx_hidden_Error
-	}
-	return ""
-}
-
-func (x *ReadNodesResponse_Node) GetFiles() []*ReadFilesResponse_File {
-	if x != nil {
-		if x.xxx_hidden_Files != nil {
-			return *x.xxx_hidden_Files
-		}
-	}
-	return nil
-}
-
-func (x *ReadNodesResponse_Node) SetName(v string) {
-	x.xxx_hidden_Name = v
-}
-
-func (x *ReadNodesResponse_Node) SetContent(v string) {
-	x.xxx_hidden_Content = v
-}
-
-func (x *ReadNodesResponse_Node) SetParents(v []*ReadNodesResponse_Related) {
-	x.xxx_hidden_Parents = &v
-}
-
-func (x *ReadNodesResponse_Node) SetChildren(v []*ReadNodesResponse_Related) {
-	x.xxx_hidden_Children = &v
-}
-
-func (x *ReadNodesResponse_Node) SetError(v string) {
-	x.xxx_hidden_Error = v
-}
-
-func (x *ReadNodesResponse_Node) SetFiles(v []*ReadFilesResponse_File) {
-	x.xxx_hidden_Files = &v
-}
-
-type ReadNodesResponse_Node_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// Name of the node ("path/to/dir:title").
-	Name string
-	// The node's full content; empty if the read failed.
-	Content string
-	// Nodes of ancestor directories.
-	Parents []*ReadNodesResponse_Related
-	// Nodes of the nearest node-bearing descendant directories.
-	Children []*ReadNodesResponse_Related
-	// Read error, if any; other nodes are still returned.
-	Error string
-	// Files the node pulls in verbatim (its `files` field).
-	Files []*ReadFilesResponse_File
-}
-
-func (b0 ReadNodesResponse_Node_builder) Build() *ReadNodesResponse_Node {
-	m0 := &ReadNodesResponse_Node{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Name = b.Name
-	x.xxx_hidden_Content = b.Content
-	x.xxx_hidden_Parents = &b.Parents
-	x.xxx_hidden_Children = &b.Children
-	x.xxx_hidden_Error = b.Error
-	x.xxx_hidden_Files = &b.Files
+	x.xxx_hidden_Title = b.Title
+	x.xxx_hidden_Description = b.Description
+	x.xxx_hidden_Labels = b.Labels
+	x.xxx_hidden_Snippets = b.Snippets
+	x.xxx_hidden_MatchCount = b.MatchCount
 	return m0
 }
 
@@ -1324,21 +1260,23 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x04File\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"-\n" +
-	"\x10ReadNodesRequest\x12\x19\n" +
-	"\x05names\x18\x01 \x03(\tB\x03\xe0A\x02R\x05names\"\x85\x03\n" +
-	"\x11ReadNodesResponse\x125\n" +
-	"\x05nodes\x18\x01 \x03(\v2\x1f.sgpt.v1.ReadNodesResponse.NodeR\x05nodes\x1a7\n" +
-	"\aRelated\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
-	"\asummary\x18\x02 \x01(\tR\asummary\x1a\xff\x01\n" +
-	"\x04Node\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\x12<\n" +
-	"\aparents\x18\x03 \x03(\v2\".sgpt.v1.ReadNodesResponse.RelatedR\aparents\x12>\n" +
-	"\bchildren\x18\x04 \x03(\v2\".sgpt.v1.ReadNodesResponse.RelatedR\bchildren\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\x125\n" +
-	"\x05files\x18\x06 \x03(\v2\x1f.sgpt.v1.ReadFilesResponse.FileR\x05files\"^\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"D\n" +
+	"\x12SearchLoresRequest\x12\x19\n" +
+	"\x05query\x18\x01 \x01(\tB\x03\xe0A\x02R\x05query\x12\x13\n" +
+	"\x05top_n\x18\x02 \x01(\x05R\x04topN\"\xe9\x02\n" +
+	"\x13SearchLoresResponse\x12<\n" +
+	"\amatches\x18\x01 \x03(\v2\".sgpt.v1.SearchLoresResponse.MatchR\amatches\x1a\x93\x02\n" +
+	"\x05Match\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12F\n" +
+	"\x06labels\x18\x04 \x03(\v2..sgpt.v1.SearchLoresResponse.Match.LabelsEntryR\x06labels\x12\x1a\n" +
+	"\bsnippets\x18\x05 \x03(\tR\bsnippets\x12\x1f\n" +
+	"\vmatch_count\x18\x06 \x01(\x05R\n" +
+	"matchCount\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"^\n" +
 	"\x10ExecShellRequest\x12\x1d\n" +
 	"\acommand\x18\x01 \x01(\tB\x03\xe0A\x02R\acommand\x12+\n" +
 	"\x11working_directory\x18\x02 \x01(\tR\x10workingDirectory\"^\n" +
@@ -1353,13 +1291,13 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x05tools\x18\x03 \x03(\tR\x05tools\x12\x14\n" +
 	"\x05model\x18\x04 \x01(\tR\x05model\"+\n" +
 	"\rAgentResponse\x12\x1a\n" +
-	"\bresponse\x18\x01 \x01(\tR\bresponse2\x8e\x03\n" +
+	"\bresponse\x18\x01 \x01(\tR\bresponse2\x94\x03\n" +
 	"\vToolService\x123\n" +
 	"\x04Diff\x12\x14.sgpt.v1.DiffRequest\x1a\x15.sgpt.v1.DiffResponse\x12<\n" +
 	"\aReplace\x12\x17.sgpt.v1.ReplaceRequest\x1a\x18.sgpt.v1.ReplaceResponse\x12G\n" +
 	"\tReadFiles\x12\x19.sgpt.v1.ReadFilesRequest\x1a\x1a.sgpt.v1.ReadFilesResponse\"\x03\x90\x02\x01\x12B\n" +
-	"\tExecShell\x12\x19.sgpt.v1.ExecShellRequest\x1a\x1a.sgpt.v1.ExecShellResponse\x12G\n" +
-	"\tReadNodes\x12\x19.sgpt.v1.ReadNodesRequest\x1a\x1a.sgpt.v1.ReadNodesResponse\"\x03\x90\x02\x01\x126\n" +
+	"\tExecShell\x12\x19.sgpt.v1.ExecShellRequest\x1a\x1a.sgpt.v1.ExecShellResponse\x12M\n" +
+	"\vSearchLores\x12\x1b.sgpt.v1.SearchLoresRequest\x1a\x1c.sgpt.v1.SearchLoresResponse\"\x03\x90\x02\x01\x126\n" +
 	"\x05Agent\x12\x15.sgpt.v1.AgentRequest\x1a\x16.sgpt.v1.AgentResponseB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
 var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
@@ -1371,40 +1309,38 @@ var file_sgpt_v1_tools_proto_goTypes = []any{
 	(*ReplaceResponse)(nil),           // 4: sgpt.v1.ReplaceResponse
 	(*ReadFilesRequest)(nil),          // 5: sgpt.v1.ReadFilesRequest
 	(*ReadFilesResponse)(nil),         // 6: sgpt.v1.ReadFilesResponse
-	(*ReadNodesRequest)(nil),          // 7: sgpt.v1.ReadNodesRequest
-	(*ReadNodesResponse)(nil),         // 8: sgpt.v1.ReadNodesResponse
+	(*SearchLoresRequest)(nil),        // 7: sgpt.v1.SearchLoresRequest
+	(*SearchLoresResponse)(nil),       // 8: sgpt.v1.SearchLoresResponse
 	(*ExecShellRequest)(nil),          // 9: sgpt.v1.ExecShellRequest
 	(*ExecShellResponse)(nil),         // 10: sgpt.v1.ExecShellResponse
 	(*AgentRequest)(nil),              // 11: sgpt.v1.AgentRequest
 	(*AgentResponse)(nil),             // 12: sgpt.v1.AgentResponse
 	(*ReadFilesResponse_File)(nil),    // 13: sgpt.v1.ReadFilesResponse.File
-	(*ReadNodesResponse_Related)(nil), // 14: sgpt.v1.ReadNodesResponse.Related
-	(*ReadNodesResponse_Node)(nil),    // 15: sgpt.v1.ReadNodesResponse.Node
+	(*SearchLoresResponse_Match)(nil), // 14: sgpt.v1.SearchLoresResponse.Match
+	nil,                               // 15: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
 }
 var file_sgpt_v1_tools_proto_depIdxs = []int32{
 	3,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
 	13, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
-	15, // 2: sgpt.v1.ReadNodesResponse.nodes:type_name -> sgpt.v1.ReadNodesResponse.Node
-	14, // 3: sgpt.v1.ReadNodesResponse.Node.parents:type_name -> sgpt.v1.ReadNodesResponse.Related
-	14, // 4: sgpt.v1.ReadNodesResponse.Node.children:type_name -> sgpt.v1.ReadNodesResponse.Related
-	13, // 5: sgpt.v1.ReadNodesResponse.Node.files:type_name -> sgpt.v1.ReadFilesResponse.File
-	0,  // 6: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
-	2,  // 7: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
-	5,  // 8: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
-	9,  // 9: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
-	7,  // 10: sgpt.v1.ToolService.ReadNodes:input_type -> sgpt.v1.ReadNodesRequest
-	11, // 11: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
-	1,  // 12: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
-	4,  // 13: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
-	6,  // 14: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
-	10, // 15: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
-	8,  // 16: sgpt.v1.ToolService.ReadNodes:output_type -> sgpt.v1.ReadNodesResponse
-	12, // 17: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	14, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
+	15, // 3: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	0,  // 4: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
+	2,  // 5: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
+	5,  // 6: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
+	9,  // 7: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
+	7,  // 8: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
+	11, // 9: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
+	1,  // 10: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
+	4,  // 11: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
+	6,  // 12: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
+	10, // 13: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
+	8,  // 14: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
+	12, // 15: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
+	10, // [10:16] is the sub-list for method output_type
+	4,  // [4:10] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_tools_proto_init() }

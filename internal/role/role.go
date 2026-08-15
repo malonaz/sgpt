@@ -113,7 +113,6 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 		result.Model = role.Model
 		result.Files = role.Files
 		result.Tools = role.Tools
-		result.GraphNodes = role.GraphNodes
 		data.RolePrompt = role.Prompt
 	}
 
@@ -161,7 +160,6 @@ func (o *Opts) expand(name string, visitedNameSet map[string]bool) (*sgptpb.Role
 		}
 		result.Files = append(result.Files, includedRole.Files...)
 		result.Tools = append(result.Tools, includedRole.Tools...)
-		result.GraphNodes = append(result.GraphNodes, includedRole.GraphNodes...)
 		// The outermost model wins; fall back to included roles' models.
 		if result.Model == "" {
 			result.Model = includedRole.Model
@@ -173,10 +171,8 @@ func (o *Opts) expand(name string, visitedNameSet map[string]bool) (*sgptpb.Role
 	result.Prompt = strings.Join(prompts, "\n\n")
 	result.Files = append(result.Files, role.Files...)
 	result.Tools = append(result.Tools, role.Tools...)
-	result.GraphNodes = append(result.GraphNodes, role.GraphNodes...)
 	result.Files = dedupe(result.Files)
 	result.Tools = dedupe(result.Tools)
-	result.GraphNodes = dedupe(result.GraphNodes)
 	return result, nil
 }
 

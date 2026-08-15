@@ -30,7 +30,7 @@ message Configuration {
   // (or configuration override) belongs to.
   string title = 7;
 
-  // External repos whose graph nodes and roles are addressable as
+  // External repos whose roles and tool sets are addressable as
   // "@{name}@{selector}" (e.g. "@github.com/malonaz/core@go/grpc:architecture"
   // or --role "@github.com/malonaz/core@reviewer").
   repeated Import imports = 8;
@@ -93,8 +93,8 @@ message ChatConfiguration {
 
 // A role defines a persona with a system prompt. Persisted as a
 // `.sgpt/{title}.role.md` markdown file — `@directive(...)` lines carry the
-// structured fields, the body is the prompt — and addressed like graph
-// nodes ("//dir:title", "@import//dir:title").
+// structured fields, the body is the prompt — and addressed please-style
+// ("//dir:title", "@import//dir:title").
 message Role {
   // Name of this role: its selector ("//dir:title"), derived from the file
   // location. Never written in the file.
@@ -118,16 +118,15 @@ message Role {
 
   // Selectors of other roles to include (`@role("//dir:title")`). Included
   // roles are expanded depth-first: their prompts are prepended and their
-  // files/tools/nodes merged.
+  // files/tools merged.
   repeated string roles = 7;
 
-  // Knowledge-graph nodes to inject as context for this role
-  // (`@node("//dir:title")`), using -g selector syntax.
-  repeated string graph_nodes = 8;
+  // Field 8 was `graph_nodes`, removed.
+  reserved 8;
 }
 
 // A remote tool engine that provides tool sets via gRPC. Persisted as a
-// `.sgpt/{title}.toolset` file; discovered and addressed like graph nodes
+// `.sgpt/{title}.toolset` file; discovered and addressed please-style
 // ("//dir:title", "@import//dir:title").
 message ToolSet {
   // Name of this tool set: its selector ("//dir:title"). Maintained by

@@ -4,7 +4,6 @@ go_library(
         "forest.go",
         "graph.go",
         "markdown.go",
-        "related.go",
         "select.go",
         "tree.go",
     ],
