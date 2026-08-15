@@ -2,11 +2,9 @@ package menu
 
 import (
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
@@ -49,7 +47,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		m.applyChats(&msg)
-		return nil
+		return m.maybeLoadMessages()
 
 	case chatDeletedMsg:
 		if msg.Err != nil {
@@ -72,26 +70,15 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		return tea.Batch(m.fetchChats("", false), m.wrapCmd(screen.AlertMsg{Text: "Chat " + label + " favorites"}))
 
-	case searchDebounceMsg:
-		if msg.seq != m.searchSeq {
-			return nil
-		}
-		return m.runSearch(msg.seq)
-
-	case searchResultsMsg:
-		if msg.seq != m.searchSeq || m.filterText == "" {
-			return nil
-		}
+	case chatMessagesLoadedMsg:
+		delete(m.loadingMessagesSet, msg.name)
 		if msg.err != nil {
-			// Substring filtering stays in effect; just surface the failure.
-			return m.wrapCmd(screen.AlertMsg{Text: "Search failed: " + msg.err.Error()})
+			return m.wrapCmd(screen.AlertMsg{Text: "Loading preview failed: " + msg.err.Error()})
 		}
-		m.searchResults = msg.results
-		m.searchFetchedChats = map[string]*aipb.Chat{}
-		for _, chat := range msg.fetched {
-			m.searchFetchedChats[chat.GetName()] = chat
-		}
-		m.refreshList()
+		m.messagesCache[msg.name] = msg.messages
+		delete(m.detailCache, msg.name)
+		m.touchPreview(msg.name)
+		m.updateSelection()
 		return nil
 
 	case tea.KeyPressMsg:
@@ -131,7 +118,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.updateSelection()
 			m.ensureCursorVisible()
 		}
-		return m.applyFocus()
+		return tea.Batch(m.applyFocus(), m.maybeLoadMessages())
 
 	case key.Matches(msg, keyUp.Key):
 		return m.navigateUp()
@@ -183,7 +170,7 @@ func (m *Model) navigateUp() tea.Cmd {
 			m.chatCursor--
 			m.updateSelection()
 			m.ensureCursorVisible()
-			return nil
+			return m.maybeLoadMessages()
 		}
 		m.focusTarget = FocusFilter
 		m.listYOffset = 0
@@ -201,7 +188,7 @@ func (m *Model) navigateDown() tea.Cmd {
 			m.chatCursor = 0
 			m.updateSelection()
 			m.ensureCursorVisible()
-			return m.applyFocus()
+			return tea.Batch(m.applyFocus(), m.maybeLoadMessages())
 		}
 		return nil
 	case FocusChatList:
@@ -212,7 +199,7 @@ func (m *Model) navigateDown() tea.Cmd {
 			m.ensureCursorVisible()
 		}
 		// Infinite scroll: top up the list before the cursor hits the end.
-		return m.maybeLoadMore()
+		return tea.Batch(m.maybeLoadMore(), m.maybeLoadMessages())
 	}
 	return nil
 }
@@ -227,19 +214,8 @@ func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
 	}
 	m.filterText = newFilter
 	m.chatCursor = 0
-	// Drop stale ranked results; substring filtering covers the gap until
-	// the debounced index query lands.
-	m.searchResults = nil
 	m.refreshList()
-	if newFilter == "" || m.store.SearchIndex() == nil {
-		return cmd
-	}
-	m.searchSeq++
-	seq := m.searchSeq
-	wrap := m.wrap
-	return tea.Batch(cmd, tea.Tick(searchDebounceInterval, func(time.Time) tea.Msg {
-		return wrap(searchDebounceMsg{seq: seq})
-	}))
+	return cmd
 }
 
 func (m *Model) wrapCmd(msg tea.Msg) tea.Cmd {

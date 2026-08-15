@@ -1,0 +1,11 @@
+go_library(
+    name = "ignore",
+    srcs = ["ignore.go"],
+    visibility = ["//..."],
+)
+
+go_test(
+    name = "test",
+    srcs = ["ignore_test.go"],
+    deps = [":ignore"],
+)

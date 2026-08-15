@@ -8,15 +8,25 @@ go_library(
     deps = [
         "//internal/cache",
         "//internal/configuration",
-        "//internal/search",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__aip",
         "//third_party/go:github.com__malonaz__core__go__grpc__middleware",
         "//third_party/go:github.com__malonaz__core__go__pbutil__pbfieldmask",
         "//third_party/go:github.com__malonaz__core__go__uuid",
-        "//third_party/go:google.golang.org__protobuf__proto",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)
+
+go_test(
+    name = "test",
+    srcs = ["store_test.go"],
+    deps = [
+        ":store",
+        "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:google.golang.org__protobuf__types__known__timestamppb",
+        "//third_party/proto:google__rpc__status",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

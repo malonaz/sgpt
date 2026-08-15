@@ -15,7 +15,7 @@ import (
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-const defaultConfigFilepath = "~/.config/sgpt/config.json"
+const defaultConfigFilepath = "~/.config/sgpt/.sgpt.json"
 
 func main() {
 	if err := run(); err != nil {

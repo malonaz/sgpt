@@ -3,7 +3,6 @@ package role
 import (
 	"bytes"
 	_ "embed"
-	"fmt"
 	"os"
 	"os/user"
 	"runtime"
@@ -32,27 +31,33 @@ type TemplateData struct {
 	Term       string
 	RolePrompt string
 	Time       string
+	// ToolDiscovery gates the tool-discovery guidance: only rendered when
+	// discoverable tool engines exist in the forest.
+	ToolDiscovery bool
 }
 
 // Opts for a role.
 type Opts struct {
-	RoleName       string
+	RoleName string
+	// ToolDiscovery indicates discoverable tool engines are present; the
+	// system prompt then explains the discovery protocol.
+	ToolDiscovery  bool
 	roleNameToRole map[string]*sgptpb.Role
 }
 
 // GetOpts on the given command.
 func GetOpts(cmd *cobra.Command, defaultRole string, roles []*sgptpb.Role) *Opts {
+	// Names are selectors (unique by construction); aliases are a
+	// convenience and may collide across directories — first one wins.
 	roleNameToRole := map[string]*sgptpb.Role{}
 	for _, role := range roles {
-		if _, ok := roleNameToRole[role.Name]; ok {
-			panic(fmt.Sprintf("Duplicate role name (%s)", role.Name))
+		if _, ok := roleNameToRole[role.Name]; !ok {
+			roleNameToRole[role.Name] = role
 		}
-		roleNameToRole[role.Name] = role
 		if role.Alias != "" {
-			if _, ok := roleNameToRole[role.Alias]; ok {
-				panic(fmt.Sprintf("Duplicate role alias (%s)", role.Alias))
+			if _, ok := roleNameToRole[role.Alias]; !ok {
+				roleNameToRole[role.Alias] = role
 			}
-			roleNameToRole[role.Alias] = role
 		}
 	}
 	opts := &Opts{roleNameToRole: roleNameToRole}
@@ -83,14 +88,15 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 	}
 
 	data := TemplateData{
-		Username: username,
-		OS:       runtime.GOOS,
-		Arch:     runtime.GOARCH,
-		Shell:    os.Getenv("SHELL"),
-		Home:     home,
-		CWD:      cwd,
-		Term:     os.Getenv("TERM"),
-		Time:     time.Now().Format("Mon Jan 2 3PM MST 2006"), // Hour resolution to allow for prompt caching.
+		Username:      username,
+		OS:            runtime.GOOS,
+		Arch:          runtime.GOARCH,
+		Shell:         os.Getenv("SHELL"),
+		Home:          home,
+		CWD:           cwd,
+		Term:          os.Getenv("TERM"),
+		Time:          time.Now().Format("Mon Jan 2 3PM MST 2006"), // Hour resolution to allow for prompt caching.
+		ToolDiscovery: o.ToolDiscovery,
 	}
 
 	// Build the result role.
@@ -107,6 +113,7 @@ func (o *Opts) Parse() (*sgptpb.Role, error) {
 		result.Model = role.Model
 		result.Files = role.Files
 		result.Tools = role.Tools
+		result.GraphNodes = role.GraphNodes
 		data.RolePrompt = role.Prompt
 	}
 
@@ -154,6 +161,7 @@ func (o *Opts) expand(name string, visitedNameSet map[string]bool) (*sgptpb.Role
 		}
 		result.Files = append(result.Files, includedRole.Files...)
 		result.Tools = append(result.Tools, includedRole.Tools...)
+		result.GraphNodes = append(result.GraphNodes, includedRole.GraphNodes...)
 		// The outermost model wins; fall back to included roles' models.
 		if result.Model == "" {
 			result.Model = includedRole.Model
@@ -165,8 +173,10 @@ func (o *Opts) expand(name string, visitedNameSet map[string]bool) (*sgptpb.Role
 	result.Prompt = strings.Join(prompts, "\n\n")
 	result.Files = append(result.Files, role.Files...)
 	result.Tools = append(result.Tools, role.Tools...)
+	result.GraphNodes = append(result.GraphNodes, role.GraphNodes...)
 	result.Files = dedupe(result.Files)
 	result.Tools = dedupe(result.Tools)
+	result.GraphNodes = dedupe(result.GraphNodes)
 	return result, nil
 }
 

@@ -110,11 +110,13 @@ github_proto_library(
     additional_context = {
         GO_IMPORT_PATH: "github.com/malonaz/core/genproto/ai/v1",
         GENERATE_GO_AIP: True,
+        GENERATE_GO_AIP_LABEL: True,
     },
     dir = "malonaz/ai/v1",
     files = [
         "chat.proto",
         "errors.proto",
+        "labels.proto",
         "message.proto",
         "metrics.proto",
         "model.proto",
@@ -127,6 +129,7 @@ github_proto_library(
         ":google__api__annotations",
         ":google__rpc__status",
         ":malonaz__core__genproto__audio__v1",
+        ":malonaz__core__genproto__codegen__aip__v1",
         ":malonaz__core__genproto__codegen__model__v1",
         ":malonaz__core__genproto__json__v1",
         ":validate",
@@ -158,10 +161,10 @@ github_grpc_library(
     files = [
         "ai_service.proto",
         "chat.proto",
+        "message.proto",
         "model.proto",
         "speech_to_text.proto",
         "text_to_speech.proto",
-        "text_to_text.proto",
         "voice.proto",
     ],
     repo = "malonaz/core",

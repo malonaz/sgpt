@@ -1,0 +1,27 @@
+go_library(
+    name = "graph",
+    srcs = [
+        "forest.go",
+        "graph.go",
+        "markdown.go",
+        "related.go",
+        "select.go",
+        "tree.go",
+    ],
+    visibility = ["//..."],
+    deps = [
+        "//internal/ignore",
+        "//sgpt/v1",
+        "//third_party/go:github.com__malonaz__core__go__pbutil",
+        "//third_party/go:google.golang.org__protobuf__proto",
+    ],
+)
+
+go_test(
+    name = "test",
+    srcs = ["graph_test.go"],
+    deps = [
+        ":graph",
+        "//sgpt/v1",
+    ],
+)

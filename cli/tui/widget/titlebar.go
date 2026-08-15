@@ -12,9 +12,12 @@ import (
 )
 
 type TitleBar struct {
-	width  int
-	title  string
-	height int
+	width int
+	title string
+	// rendered is the memoized view; height derives from it so layout is
+	// correct before the first View() call.
+	rendered string
+	height   int
 }
 
 func NewTitleBar() *TitleBar {
@@ -22,15 +25,28 @@ func NewTitleBar() *TitleBar {
 }
 
 func (t *TitleBar) SetWidth(width int) {
+	if width == t.width {
+		return
+	}
 	t.width = width
+	t.render()
 }
 
 func (t *TitleBar) Height() int {
 	return t.height
 }
 
+// render memoizes the styled title and its height; called on every width or
+// title change so Height() is always valid — recalculateLayout needs it
+// before the first View().
+func (t *TitleBar) render() {
+	t.rendered = styles.TitleStyle.Width(t.width).Render(t.title)
+	t.height = lipgloss.Height(t.rendered)
+}
+
 // Refresh rebuilds the title string from session state.
-func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.ModelUsage) {
+// price is the sum of the chat's server-priced messages.
+func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.ModelUsage, price float64) {
 	roleName := "anon"
 	if params.Role != nil {
 		roleName = params.Role.Name
@@ -53,13 +69,7 @@ func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.Mo
 
 	totalInputTokens := totalUsage.GetInputToken().GetQuantity() + totalUsage.GetInputTokenCacheRead().GetQuantity()
 	totalOutputTokens := totalUsage.GetOutputToken().GetQuantity() + totalUsage.GetOutputReasoningToken().GetQuantity()
-	totalPrice := totalUsage.GetInputToken().GetPrice() +
-		totalUsage.GetOutputToken().GetPrice() +
-		totalUsage.GetOutputReasoningToken().GetPrice() +
-		totalUsage.GetInputTokenCacheRead().GetPrice() +
-		totalUsage.GetInputTokenCacheWrite().GetPrice()
-
-	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), totalPrice)
+	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), price)
 
 	contextStr := ""
 	if contextLimit := params.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
@@ -76,12 +86,11 @@ func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.Mo
 		" 🤖 %s │ 👤 %s │ 🧠 %s │ 📊 %s%s%s ",
 		modelStr, roleName, reasoningStr, tokenStr, contextStr, toolsStr,
 	)
+	t.render()
 }
 
 func (t *TitleBar) View() string {
-	rendered := styles.TitleStyle.Width(t.width).Render(t.title)
-	t.height = lipgloss.Height(rendered)
-	return rendered
+	return t.rendered
 }
 
 func formatTokenCount(count int32) string {

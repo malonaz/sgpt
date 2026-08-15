@@ -102,6 +102,7 @@ func NewApp(
 	chatStore *store.Store,
 	registry *tool.Registry,
 	initialChat *aipb.Chat,
+	initialMessages []*aipb.Message,
 	params session.Params,
 ) *App {
 	app := &App{
@@ -114,8 +115,8 @@ func NewApp(
 	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
 
 	tabID := params.Chat
-	chatSession := session.New(ctx, chatStore, registry, initialChat, params)
-	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, params.InjectedFiles)
+	chatSession := session.New(ctx, chatStore, registry, initialChat, initialMessages, params)
+	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession)
 
 	app.tabs = []*tab{
 		{id: menuTabID, screen: menuScreen},
@@ -139,7 +140,7 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (st
 	if a.agentSessionFactory == nil {
 		return "", fmt.Errorf("sub-agent launching is not configured")
 	}
-	chatSession, injectedFiles, err := a.agentSessionFactory(ctx, request)
+	chatSession, _, err := a.agentSessionFactory(ctx, request)
 	if err != nil {
 		return "", err
 	}
@@ -157,7 +158,7 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (st
 	// Chat names are assigned lazily on first save; use a local counter for a
 	// unique tab ID.
 	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
-	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, injectedFiles)
+	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
 	a.program.Send(openTabMsg{id: tabID, screen: chatScreen})
 
 	// SendMessage blocks for the whole turn; run it off this goroutine so we
@@ -413,7 +414,7 @@ func (a *App) addTab(id string, s screen.Screen) tea.Cmd {
 }
 
 func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
-	if !msg.Fork && msg.Chat != nil {
+	if msg.Chat != nil {
 		for i, t := range a.tabs {
 			if t.id == msg.Chat.Name {
 				return a.switchTab(i)
@@ -425,15 +426,8 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		chat := msg.Chat
 		var err error
 
-		if msg.Fork && chat != nil {
-			chat, err = a.store.ForkChat(a.ctx, chat)
-			if err != nil {
-				return screen.AlertMsg{Text: fmt.Sprintf("Fork failed: %v", err)}
-			}
-		}
-
 		if chat == nil {
-			newChat := &aipb.Chat{Metadata: &aipb.ChatMetadata{}}
+			newChat := &aipb.Chat{}
 			store.SetCurrentModel(newChat, a.defaultParams.Model.Name)
 			chat, err = a.store.CreateChat(a.ctx, newChat)
 			if err != nil {
@@ -441,12 +435,18 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 			}
 		}
 
+		// Messages are server-side resources: load the history to seed the session.
+		messages, err := a.store.ListMessages(a.ctx, chat.Name)
+		if err != nil {
+			return screen.AlertMsg{Text: fmt.Sprintf("Loading messages failed: %v", err)}
+		}
+
 		params := a.defaultParams
 		params.Chat = chat.Name
 		tabID := chat.Name
 
-		chatSession := session.New(a.ctx, a.store, a.registry, chat, params)
-		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, params.InjectedFiles)
+		chatSession := session.New(a.ctx, a.store, a.registry, chat, messages, params)
+		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
 		return openTabMsg{id: tabID, screen: chatScreen}
 	}
 }

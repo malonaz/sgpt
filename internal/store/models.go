@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -64,17 +63,12 @@ func (s *Store) ResolveModel(ctx context.Context, nameOrAlias string) (*aipb.Mod
 	return nil, fmt.Errorf("model not found: %s", modelName)
 }
 
-// TextToTextStream opens a streaming completion against the AI service.
-func (s *Store) TextToTextStream(
-	ctx context.Context,
-	textToTextStreamRequest *aiservicepb.TextToTextStreamRequest,
-) (aiservicepb.AiService_TextToTextStreamClient, error) {
-	return s.aiServiceClient.TextToTextStream(ctx, textToTextStreamRequest)
-}
-
 // GenerateTitle produces a short chat title from user-authored text using the
 // configured (cheap) summary model. Returns "" when no summary model is
 // configured — title generation is strictly optional.
+//
+// Generation requires a parent chat, so the prompt runs in a throwaway chat
+// that is deleted afterwards; the caller persists the title on the real chat.
 func (s *Store) GenerateTitle(ctx context.Context, userText string) (string, error) {
 	summaryModelName := s.configuration.GetChat().GetSummaryModel()
 	if summaryModelName == "" {
@@ -84,34 +78,30 @@ func (s *Store) GenerateTitle(ctx context.Context, userText string) (string, err
 	if err != nil {
 		return "", err
 	}
+
+	throwawayChat, err := s.CreateChat(ctx, &aipb.Chat{})
+	if err != nil {
+		return "", fmt.Errorf("creating title chat: %w", err)
+	}
+	// Best-effort cleanup: a leaked, empty, untitled chat is harmless.
+	defer func() { _ = s.DeleteChat(ctx, throwawayChat.GetName()) }()
+
 	prompt := fmt.Sprintf(
 		"Generate a short title (at most 8 words) for a conversation opened by the user message below. "+
 			"Respond with the title only — no quotes, no trailing punctuation.\n\n%s",
 		userText,
 	)
-	textToTextStreamRequest := &aiservicepb.TextToTextStreamRequest{
+	generateMessageRequest := &aiservicepb.GenerateMessageRequest{
+		Parent:   throwawayChat.GetName(),
 		Model:    model.Name,
 		Messages: []*aipb.Message{ai.NewUserMessage(ai.NewTextBlock(prompt))},
 	}
-	stream, err := s.aiServiceClient.TextToTextStream(ctx, textToTextStreamRequest)
+	generateMessageResponse, err := s.aiServiceClient.GenerateMessage(ctx, generateMessageRequest)
 	if err != nil {
-		return "", fmt.Errorf("opening title stream: %w", err)
-	}
-	accumulator := ai.NewTextToTextAccumulator()
-	for {
-		response, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return "", fmt.Errorf("receiving title stream: %w", err)
-		}
-		if err := accumulator.Add(response); err != nil {
-			return "", fmt.Errorf("accumulating title stream: %w", err)
-		}
+		return "", fmt.Errorf("generating title: %w", err)
 	}
 	var parts []string
-	for _, block := range ai.FilterBlocks(accumulator.Message.GetBlocks(), ai.BlockTypeText) {
+	for _, block := range ai.FilterBlocks(generateMessageResponse.GetGeneratedMessage().GetBlocks(), ai.BlockTypeText) {
 		parts = append(parts, block.GetText())
 	}
 	return strings.Trim(strings.TrimSpace(strings.Join(parts, " ")), `"`), nil

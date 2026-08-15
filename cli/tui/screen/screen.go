@@ -26,7 +26,6 @@ type TabMsg struct {
 
 type OpenChatMsg struct {
 	Chat *aipb.Chat
-	Fork bool
 }
 
 type OpenMenuMsg struct{}

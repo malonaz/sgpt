@@ -2,6 +2,7 @@ go_library(
     name = "v1",
     srcs = [
         "configuration.pb.go",
+        "graph.pb.go",
         "labels.pb.go",
         "labels_aip_label.pb.go",
         "tool.pb.go",
@@ -11,6 +12,7 @@ go_library(
     deps = [
         "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
         "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",
+        "//third_party/go:google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",

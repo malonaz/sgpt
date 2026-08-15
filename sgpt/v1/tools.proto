@@ -35,6 +35,13 @@ service ToolService {
   // asks you to run commands, create files, or perform system operations.
   rpc ExecShell(ExecShellRequest) returns (ExecShellResponse);
 
+  // Read knowledge-graph nodes by name ("path/to/dir:title"). Returns each
+  // node's content plus the names and summaries of its parent and child
+  // nodes, for further exploration.
+  rpc ReadNodes(ReadNodesRequest) returns (ReadNodesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // Launch a sub-agent in a new chat tab to work on a self-contained task.
   // The sub-agent receives the query, optional injected files and tools,
   // runs until it produces a final answer, and that answer is returned as
@@ -113,6 +120,48 @@ message ReadFilesResponse {
 
   // One entry per requested path, in request order.
   repeated File files = 1;
+}
+
+// Request for the `read_nodes` tool.
+message ReadNodesRequest {
+  // Node names, each "path/to/dir:title" relative to the graph root.
+  repeated string names = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `read_nodes` tool.
+message ReadNodesResponse {
+  // A related node, offered for further reading.
+  message Related {
+    // Name of the node ("path/to/dir:title").
+    string name = 1;
+
+    // The node's summary.
+    string summary = 2;
+  }
+
+  // A single node read attempt.
+  message Node {
+    // Name of the node ("path/to/dir:title").
+    string name = 1;
+
+    // The node's full content; empty if the read failed.
+    string content = 2;
+
+    // Nodes of ancestor directories.
+    repeated Related parents = 3;
+
+    // Nodes of the nearest node-bearing descendant directories.
+    repeated Related children = 4;
+
+    // Read error, if any; other nodes are still returned.
+    string error = 5;
+
+    // Files the node pulls in verbatim (its `files` field).
+    repeated ReadFilesResponse.File files = 6;
+  }
+
+  // One entry per requested name, in request order.
+  repeated Node nodes = 1;
 }
 
 // Request for the `exec_shell` tool.

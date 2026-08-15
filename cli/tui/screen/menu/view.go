@@ -113,11 +113,12 @@ func (m *Model) renderChatRow(chat *aipb.Chat, globalIndex int) string {
 		titleWidth = 20
 	}
 	title := styles.Truncate(chat.GetTitle(), titleWidth)
-	messageCount := len(chat.GetMetadata().GetMessages())
 	updated := relativeTime(chat.GetUpdateTime().AsTime())
 	tags := styles.Truncate(strings.Join(store.Tags(chat), ","), tagWidth)
 
-	line := fmt.Sprintf("%-*s %-5d %-10s", titleWidth, title, messageCount, updated)
+	// Price replaces the old message count: messages are no longer embedded
+	// in the chat resource.
+	line := fmt.Sprintf("%-*s $%-5.2f %-10s", titleWidth, title, chat.GetPrice(), updated)
 	coloredTags := styles.MenuTagStyle.Render(tags)
 
 	style := styles.MenuItemStyle
@@ -165,29 +166,17 @@ func (m *Model) renderDetail() string {
 	b.WriteString(styles.DividerStyle.Render(strings.Repeat("─", detailWidth)))
 	b.WriteString("\n")
 
-	items := timeline.BuildChatItems(chat.GetMetadata().GetMessages(), nil, "", nil)
+	messages, loaded := m.messagesCache[chat.GetName()]
+	if !loaded {
+		b.WriteString(styles.DimTextStyle.Render(" Loading messages..."))
+		return b.String()
+	}
+	items := timeline.BuildChatItems(messages, nil)
 	if len(items) == 0 {
 		b.WriteString(styles.DimTextStyle.Render(" No messages in this chat"))
 		return b.String()
 	}
 	b.WriteString(timeline.RenderItems(items, m.renderer, detailWidth))
-	return b.String()
-}
-
-// renderFragments shows why the selected chat matched the search query,
-// above the regular preview. Fragments carry ANSI highlighting from bleve.
-func (m *Model) renderFragments(fragments []string) string {
-	detailWidth := m.detailWidth()
-	var b strings.Builder
-	b.WriteString(styles.MenuTitleStyle.Render(" 🔍 Matches"))
-	b.WriteString("\n")
-	for _, fragment := range fragments {
-		// Flatten: multi-line fragments would blow up the pane.
-		b.WriteString(" " + strings.Join(strings.Fields(fragment), " "))
-		b.WriteString("\n")
-	}
-	b.WriteString(styles.DividerStyle.Render(strings.Repeat("─", detailWidth)))
-	b.WriteString("\n")
 	return b.String()
 }
 

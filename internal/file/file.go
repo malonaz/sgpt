@@ -135,6 +135,16 @@ func Read(path string) (*File, error) {
 // Discover walks root collecting up to limit absolute file paths, skipping
 // hidden files and directories (.git and friends). Used to offer candidates
 // for injection; paths are absolute so they compare equal to injected ones.
+// discoverFilter, when set, hides paths from Discover (true = skip). Wired
+// by the CLI to honor the configuration's ignore patterns and .gitignore
+// files.
+var discoverFilter func(path string, isDirectory bool) bool
+
+// SetDiscoverFilter installs the Discover skip predicate.
+func SetDiscoverFilter(filter func(path string, isDirectory bool) bool) {
+	discoverFilter = filter
+}
+
 func Discover(root string, limit int) []string {
 	expandedRoot, err := ExpandPath(root)
 	if err != nil {
@@ -149,9 +159,15 @@ func Discover(root string, limit int) []string {
 			if name := entry.Name(); name != "." && strings.HasPrefix(name, ".") {
 				return fs.SkipDir
 			}
+			if discoverFilter != nil && path != expandedRoot && discoverFilter(path, true) {
+				return fs.SkipDir
+			}
 			return nil
 		}
 		if strings.HasPrefix(entry.Name(), ".") {
+			return nil
+		}
+		if discoverFilter != nil && discoverFilter(path, false) {
 			return nil
 		}
 		paths = append(paths, path)

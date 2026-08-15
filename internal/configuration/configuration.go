@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/malonaz/core/go/jsonnet"
 	"github.com/malonaz/core/go/pbutil"
@@ -24,9 +23,6 @@ var defaultConfig = &sgptpb.Configuration{
 	Chat: &sgptpb.ChatConfiguration{
 		DefaultModel: "providers/openai/models/gpt-4o",
 		SummaryModel: "providers/openai/models/gpt-3.5-turbo",
-		Roles: []*sgptpb.Role{
-			{Name: "CustomRole", Alias: "cr", Prompt: "Focus on this or that"},
-		},
 	},
 }
 
@@ -44,10 +40,6 @@ func Parse(path string) (*sgptpb.Configuration, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing config %s: %w", path, err)
 	}
-	if err := resolveRoleFilePaths(configuration, filepath.Dir(path)); err != nil {
-		return nil, fmt.Errorf("resolving role file paths in %s: %w", path, err)
-	}
-
 	overrideConfigPaths, err := findOverrideConfigPaths()
 	if err != nil {
 		return nil, fmt.Errorf("finding override config paths: %w", err)
@@ -57,9 +49,6 @@ func Parse(path string) (*sgptpb.Configuration, error) {
 		overrideConfiguration, err := parseConfig(overrideConfigPaths[i])
 		if err != nil {
 			return nil, fmt.Errorf("parsing override config %s: %w", overrideConfigPaths[i], err)
-		}
-		if err := resolveRoleFilePaths(overrideConfiguration, filepath.Dir(overrideConfigPaths[i])); err != nil {
-			return nil, fmt.Errorf("resolving role file paths in %s: %w", overrideConfigPaths[i], err)
 		}
 		proto.Merge(configuration, overrideConfiguration)
 	}
@@ -93,11 +82,6 @@ func validateGrpcClientReferences(configuration *sgptpb.Configuration) error {
 			return fmt.Errorf("ai_service: %w", err)
 		}
 	}
-	for _, toolSet := range configuration.GetToolSets() {
-		if _, err := GrpcClient(configuration, toolSet.GetEngineService()); err != nil {
-			return fmt.Errorf("tool set %q: %w", toolSet.GetName(), err)
-		}
-	}
 	return nil
 }
 
@@ -120,29 +104,6 @@ func ResolveModelAlias(configuration *sgptpb.Configuration, nameOrAlias string) 
 	}
 
 	return "", fmt.Errorf("unknown model alias or name: %s", nameOrAlias)
-}
-
-// resolveRoleFilePaths converts relative paths in role files to absolute paths
-// relative to the config directory that defined them. Returns an error if any
-// path does not exist.
-func resolveRoleFilePaths(configuration *sgptpb.Configuration, configDir string) error {
-	for _, r := range configuration.GetChat().GetRoles() {
-		for i, f := range r.GetFiles() {
-			expanded, err := file.ExpandPath(f)
-			if err != nil {
-				return fmt.Errorf("role %q: expanding path %q: %w", r.GetName(), f, err)
-			}
-			r.Files[i] = expanded
-			if !filepath.IsAbs(r.Files[i]) {
-				r.Files[i] = filepath.Join(configDir, r.Files[i])
-			}
-			checkPath := strings.TrimSuffix(r.Files[i], "/...")
-			if _, err := os.Stat(checkPath); err != nil {
-				return fmt.Errorf("role %q references non-existent path %q: %w", r.GetName(), r.Files[i], err)
-			}
-		}
-	}
-	return nil
 }
 
 func save(configuration *sgptpb.Configuration, path string) error {
@@ -172,7 +133,7 @@ func initializeIfNotPresent(path string) error {
 	return nil
 }
 
-// findOverrideConfigPaths walks up from cwd collecting all sgpt.json files.
+// findOverrideConfigPaths walks up from cwd collecting all .sgpt.json files.
 // Returns them ordered from cwd-most to root-most.
 func findOverrideConfigPaths() ([]string, error) {
 	currentDir, err := os.Getwd()
@@ -182,7 +143,7 @@ func findOverrideConfigPaths() ([]string, error) {
 
 	var paths []string
 	for {
-		overrideConfigPath := filepath.Join(currentDir, "sgpt.json")
+		overrideConfigPath := filepath.Join(currentDir, ".sgpt.json")
 		ok, err := file.Exists(overrideConfigPath)
 		if err != nil {
 			return nil, fmt.Errorf("checking override config existence: %w", err)
@@ -206,8 +167,25 @@ func parseConfig(path string) (*sgptpb.Configuration, error) {
 	}
 
 	configuration := &sgptpb.Configuration{}
-	if err := pbutil.JSONUnmarshal(content, configuration); err != nil {
+	// Strict: unknown fields (e.g. the removed role/tool-set formats) are
+	// errors, never silently dropped.
+	if err := pbutil.JSONUnmarshalStrict(content, configuration); err != nil {
 		return nil, fmt.Errorf("unmarshaling into config: %w", err)
 	}
 	return configuration, nil
+}
+
+// LoadIgnore returns the top-level ignore patterns of the repo-local
+// configuration at root, if any. Used when scanning imported repos: an
+// import obeys its own ignores, never the importer's.
+func LoadIgnore(root string) []string {
+	configPath := filepath.Join(root, ".sgpt.json")
+	if _, err := os.Stat(configPath); err != nil {
+		return nil
+	}
+	configuration, err := parseConfig(configPath)
+	if err != nil {
+		return nil
+	}
+	return configuration.GetIgnore()
 }

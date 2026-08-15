@@ -530,6 +530,126 @@ func (b0 ReadFilesResponse_builder) Build() *ReadFilesResponse {
 	return m0
 }
 
+// Request for the `read_nodes` tool.
+type ReadNodesRequest struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Names []string               `protobuf:"bytes,1,rep,name=names,proto3"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ReadNodesRequest) Reset() {
+	*x = ReadNodesRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadNodesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadNodesRequest) ProtoMessage() {}
+
+func (x *ReadNodesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReadNodesRequest) GetNames() []string {
+	if x != nil {
+		return x.xxx_hidden_Names
+	}
+	return nil
+}
+
+func (x *ReadNodesRequest) SetNames(v []string) {
+	x.xxx_hidden_Names = v
+}
+
+type ReadNodesRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Node names, each "path/to/dir:title" relative to the graph root.
+	Names []string
+}
+
+func (b0 ReadNodesRequest_builder) Build() *ReadNodesRequest {
+	m0 := &ReadNodesRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Names = b.Names
+	return m0
+}
+
+// Result of the `read_nodes` tool.
+type ReadNodesResponse struct {
+	state            protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_Nodes *[]*ReadNodesResponse_Node `protobuf:"bytes,1,rep,name=nodes,proto3"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ReadNodesResponse) Reset() {
+	*x = ReadNodesResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadNodesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadNodesResponse) ProtoMessage() {}
+
+func (x *ReadNodesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReadNodesResponse) GetNodes() []*ReadNodesResponse_Node {
+	if x != nil {
+		if x.xxx_hidden_Nodes != nil {
+			return *x.xxx_hidden_Nodes
+		}
+	}
+	return nil
+}
+
+func (x *ReadNodesResponse) SetNodes(v []*ReadNodesResponse_Node) {
+	x.xxx_hidden_Nodes = &v
+}
+
+type ReadNodesResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// One entry per requested name, in request order.
+	Nodes []*ReadNodesResponse_Node
+}
+
+func (b0 ReadNodesResponse_builder) Build() *ReadNodesResponse {
+	m0 := &ReadNodesResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Nodes = &b.Nodes
+	return m0
+}
+
 // Request for the `exec_shell` tool.
 type ExecShellRequest struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
@@ -541,7 +661,7 @@ type ExecShellRequest struct {
 
 func (x *ExecShellRequest) Reset() {
 	*x = ExecShellRequest{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +673,7 @@ func (x *ExecShellRequest) String() string {
 func (*ExecShellRequest) ProtoMessage() {}
 
 func (x *ExecShellRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +737,7 @@ type ExecShellResponse struct {
 
 func (x *ExecShellResponse) Reset() {
 	*x = ExecShellResponse{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -629,7 +749,7 @@ func (x *ExecShellResponse) String() string {
 func (*ExecShellResponse) ProtoMessage() {}
 
 func (x *ExecShellResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -708,7 +828,7 @@ type AgentRequest struct {
 
 func (x *AgentRequest) Reset() {
 	*x = AgentRequest{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -720,7 +840,7 @@ func (x *AgentRequest) String() string {
 func (*AgentRequest) ProtoMessage() {}
 
 func (x *AgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -823,7 +943,7 @@ type AgentResponse struct {
 
 func (x *AgentResponse) Reset() {
 	*x = AgentResponse{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -835,7 +955,7 @@ func (x *AgentResponse) String() string {
 func (*AgentResponse) ProtoMessage() {}
 
 func (x *AgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +1004,7 @@ type ReadFilesResponse_File struct {
 
 func (x *ReadFilesResponse_File) Reset() {
 	*x = ReadFilesResponse_File{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +1016,7 @@ func (x *ReadFilesResponse_File) String() string {
 func (*ReadFilesResponse_File) ProtoMessage() {}
 
 func (x *ReadFilesResponse_File) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,6 +1081,220 @@ func (b0 ReadFilesResponse_File_builder) Build() *ReadFilesResponse_File {
 	return m0
 }
 
+// A related node, offered for further reading.
+type ReadNodesResponse_Related struct {
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name    string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_Summary string                 `protobuf:"bytes,2,opt,name=summary,proto3"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ReadNodesResponse_Related) Reset() {
+	*x = ReadNodesResponse_Related{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadNodesResponse_Related) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadNodesResponse_Related) ProtoMessage() {}
+
+func (x *ReadNodesResponse_Related) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReadNodesResponse_Related) GetName() string {
+	if x != nil {
+		return x.xxx_hidden_Name
+	}
+	return ""
+}
+
+func (x *ReadNodesResponse_Related) GetSummary() string {
+	if x != nil {
+		return x.xxx_hidden_Summary
+	}
+	return ""
+}
+
+func (x *ReadNodesResponse_Related) SetName(v string) {
+	x.xxx_hidden_Name = v
+}
+
+func (x *ReadNodesResponse_Related) SetSummary(v string) {
+	x.xxx_hidden_Summary = v
+}
+
+type ReadNodesResponse_Related_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Name of the node ("path/to/dir:title").
+	Name string
+	// The node's summary.
+	Summary string
+}
+
+func (b0 ReadNodesResponse_Related_builder) Build() *ReadNodesResponse_Related {
+	m0 := &ReadNodesResponse_Related{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Name = b.Name
+	x.xxx_hidden_Summary = b.Summary
+	return m0
+}
+
+// A single node read attempt.
+type ReadNodesResponse_Node struct {
+	state               protoimpl.MessageState        `protogen:"opaque.v1"`
+	xxx_hidden_Name     string                        `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_Content  string                        `protobuf:"bytes,2,opt,name=content,proto3"`
+	xxx_hidden_Parents  *[]*ReadNodesResponse_Related `protobuf:"bytes,3,rep,name=parents,proto3"`
+	xxx_hidden_Children *[]*ReadNodesResponse_Related `protobuf:"bytes,4,rep,name=children,proto3"`
+	xxx_hidden_Error    string                        `protobuf:"bytes,5,opt,name=error,proto3"`
+	xxx_hidden_Files    *[]*ReadFilesResponse_File    `protobuf:"bytes,6,rep,name=files,proto3"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ReadNodesResponse_Node) Reset() {
+	*x = ReadNodesResponse_Node{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadNodesResponse_Node) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadNodesResponse_Node) ProtoMessage() {}
+
+func (x *ReadNodesResponse_Node) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReadNodesResponse_Node) GetName() string {
+	if x != nil {
+		return x.xxx_hidden_Name
+	}
+	return ""
+}
+
+func (x *ReadNodesResponse_Node) GetContent() string {
+	if x != nil {
+		return x.xxx_hidden_Content
+	}
+	return ""
+}
+
+func (x *ReadNodesResponse_Node) GetParents() []*ReadNodesResponse_Related {
+	if x != nil {
+		if x.xxx_hidden_Parents != nil {
+			return *x.xxx_hidden_Parents
+		}
+	}
+	return nil
+}
+
+func (x *ReadNodesResponse_Node) GetChildren() []*ReadNodesResponse_Related {
+	if x != nil {
+		if x.xxx_hidden_Children != nil {
+			return *x.xxx_hidden_Children
+		}
+	}
+	return nil
+}
+
+func (x *ReadNodesResponse_Node) GetError() string {
+	if x != nil {
+		return x.xxx_hidden_Error
+	}
+	return ""
+}
+
+func (x *ReadNodesResponse_Node) GetFiles() []*ReadFilesResponse_File {
+	if x != nil {
+		if x.xxx_hidden_Files != nil {
+			return *x.xxx_hidden_Files
+		}
+	}
+	return nil
+}
+
+func (x *ReadNodesResponse_Node) SetName(v string) {
+	x.xxx_hidden_Name = v
+}
+
+func (x *ReadNodesResponse_Node) SetContent(v string) {
+	x.xxx_hidden_Content = v
+}
+
+func (x *ReadNodesResponse_Node) SetParents(v []*ReadNodesResponse_Related) {
+	x.xxx_hidden_Parents = &v
+}
+
+func (x *ReadNodesResponse_Node) SetChildren(v []*ReadNodesResponse_Related) {
+	x.xxx_hidden_Children = &v
+}
+
+func (x *ReadNodesResponse_Node) SetError(v string) {
+	x.xxx_hidden_Error = v
+}
+
+func (x *ReadNodesResponse_Node) SetFiles(v []*ReadFilesResponse_File) {
+	x.xxx_hidden_Files = &v
+}
+
+type ReadNodesResponse_Node_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Name of the node ("path/to/dir:title").
+	Name string
+	// The node's full content; empty if the read failed.
+	Content string
+	// Nodes of ancestor directories.
+	Parents []*ReadNodesResponse_Related
+	// Nodes of the nearest node-bearing descendant directories.
+	Children []*ReadNodesResponse_Related
+	// Read error, if any; other nodes are still returned.
+	Error string
+	// Files the node pulls in verbatim (its `files` field).
+	Files []*ReadFilesResponse_File
+}
+
+func (b0 ReadNodesResponse_Node_builder) Build() *ReadNodesResponse_Node {
+	m0 := &ReadNodesResponse_Node{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Name = b.Name
+	x.xxx_hidden_Content = b.Content
+	x.xxx_hidden_Parents = &b.Parents
+	x.xxx_hidden_Children = &b.Children
+	x.xxx_hidden_Error = b.Error
+	x.xxx_hidden_Files = &b.Files
+	return m0
+}
+
 var File_sgpt_v1_tools_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_tools_proto_rawDesc = "" +
@@ -990,7 +1324,21 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x04File\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"^\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"-\n" +
+	"\x10ReadNodesRequest\x12\x19\n" +
+	"\x05names\x18\x01 \x03(\tB\x03\xe0A\x02R\x05names\"\x85\x03\n" +
+	"\x11ReadNodesResponse\x125\n" +
+	"\x05nodes\x18\x01 \x03(\v2\x1f.sgpt.v1.ReadNodesResponse.NodeR\x05nodes\x1a7\n" +
+	"\aRelated\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\asummary\x18\x02 \x01(\tR\asummary\x1a\xff\x01\n" +
+	"\x04Node\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12<\n" +
+	"\aparents\x18\x03 \x03(\v2\".sgpt.v1.ReadNodesResponse.RelatedR\aparents\x12>\n" +
+	"\bchildren\x18\x04 \x03(\v2\".sgpt.v1.ReadNodesResponse.RelatedR\bchildren\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x125\n" +
+	"\x05files\x18\x06 \x03(\v2\x1f.sgpt.v1.ReadFilesResponse.FileR\x05files\"^\n" +
 	"\x10ExecShellRequest\x12\x1d\n" +
 	"\acommand\x18\x01 \x01(\tB\x03\xe0A\x02R\acommand\x12+\n" +
 	"\x11working_directory\x18\x02 \x01(\tR\x10workingDirectory\"^\n" +
@@ -1005,47 +1353,58 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x05tools\x18\x03 \x03(\tR\x05tools\x12\x14\n" +
 	"\x05model\x18\x04 \x01(\tR\x05model\"+\n" +
 	"\rAgentResponse\x12\x1a\n" +
-	"\bresponse\x18\x01 \x01(\tR\bresponse2\xc5\x02\n" +
+	"\bresponse\x18\x01 \x01(\tR\bresponse2\x8e\x03\n" +
 	"\vToolService\x123\n" +
 	"\x04Diff\x12\x14.sgpt.v1.DiffRequest\x1a\x15.sgpt.v1.DiffResponse\x12<\n" +
 	"\aReplace\x12\x17.sgpt.v1.ReplaceRequest\x1a\x18.sgpt.v1.ReplaceResponse\x12G\n" +
 	"\tReadFiles\x12\x19.sgpt.v1.ReadFilesRequest\x1a\x1a.sgpt.v1.ReadFilesResponse\"\x03\x90\x02\x01\x12B\n" +
-	"\tExecShell\x12\x19.sgpt.v1.ExecShellRequest\x1a\x1a.sgpt.v1.ExecShellResponse\x126\n" +
+	"\tExecShell\x12\x19.sgpt.v1.ExecShellRequest\x1a\x1a.sgpt.v1.ExecShellResponse\x12G\n" +
+	"\tReadNodes\x12\x19.sgpt.v1.ReadNodesRequest\x1a\x1a.sgpt.v1.ReadNodesResponse\"\x03\x90\x02\x01\x126\n" +
 	"\x05Agent\x12\x15.sgpt.v1.AgentRequest\x1a\x16.sgpt.v1.AgentResponseB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_sgpt_v1_tools_proto_goTypes = []any{
-	(*DiffRequest)(nil),            // 0: sgpt.v1.DiffRequest
-	(*DiffResponse)(nil),           // 1: sgpt.v1.DiffResponse
-	(*ReplaceRequest)(nil),         // 2: sgpt.v1.ReplaceRequest
-	(*Patch)(nil),                  // 3: sgpt.v1.Patch
-	(*ReplaceResponse)(nil),        // 4: sgpt.v1.ReplaceResponse
-	(*ReadFilesRequest)(nil),       // 5: sgpt.v1.ReadFilesRequest
-	(*ReadFilesResponse)(nil),      // 6: sgpt.v1.ReadFilesResponse
-	(*ExecShellRequest)(nil),       // 7: sgpt.v1.ExecShellRequest
-	(*ExecShellResponse)(nil),      // 8: sgpt.v1.ExecShellResponse
-	(*AgentRequest)(nil),           // 9: sgpt.v1.AgentRequest
-	(*AgentResponse)(nil),          // 10: sgpt.v1.AgentResponse
-	(*ReadFilesResponse_File)(nil), // 11: sgpt.v1.ReadFilesResponse.File
+	(*DiffRequest)(nil),               // 0: sgpt.v1.DiffRequest
+	(*DiffResponse)(nil),              // 1: sgpt.v1.DiffResponse
+	(*ReplaceRequest)(nil),            // 2: sgpt.v1.ReplaceRequest
+	(*Patch)(nil),                     // 3: sgpt.v1.Patch
+	(*ReplaceResponse)(nil),           // 4: sgpt.v1.ReplaceResponse
+	(*ReadFilesRequest)(nil),          // 5: sgpt.v1.ReadFilesRequest
+	(*ReadFilesResponse)(nil),         // 6: sgpt.v1.ReadFilesResponse
+	(*ReadNodesRequest)(nil),          // 7: sgpt.v1.ReadNodesRequest
+	(*ReadNodesResponse)(nil),         // 8: sgpt.v1.ReadNodesResponse
+	(*ExecShellRequest)(nil),          // 9: sgpt.v1.ExecShellRequest
+	(*ExecShellResponse)(nil),         // 10: sgpt.v1.ExecShellResponse
+	(*AgentRequest)(nil),              // 11: sgpt.v1.AgentRequest
+	(*AgentResponse)(nil),             // 12: sgpt.v1.AgentResponse
+	(*ReadFilesResponse_File)(nil),    // 13: sgpt.v1.ReadFilesResponse.File
+	(*ReadNodesResponse_Related)(nil), // 14: sgpt.v1.ReadNodesResponse.Related
+	(*ReadNodesResponse_Node)(nil),    // 15: sgpt.v1.ReadNodesResponse.Node
 }
 var file_sgpt_v1_tools_proto_depIdxs = []int32{
 	3,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
-	11, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
-	0,  // 2: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
-	2,  // 3: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
-	5,  // 4: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
-	7,  // 5: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
-	9,  // 6: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
-	1,  // 7: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
-	4,  // 8: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
-	6,  // 9: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
-	8,  // 10: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
-	10, // 11: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
-	7,  // [7:12] is the sub-list for method output_type
-	2,  // [2:7] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	13, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
+	15, // 2: sgpt.v1.ReadNodesResponse.nodes:type_name -> sgpt.v1.ReadNodesResponse.Node
+	14, // 3: sgpt.v1.ReadNodesResponse.Node.parents:type_name -> sgpt.v1.ReadNodesResponse.Related
+	14, // 4: sgpt.v1.ReadNodesResponse.Node.children:type_name -> sgpt.v1.ReadNodesResponse.Related
+	13, // 5: sgpt.v1.ReadNodesResponse.Node.files:type_name -> sgpt.v1.ReadFilesResponse.File
+	0,  // 6: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
+	2,  // 7: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
+	5,  // 8: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
+	9,  // 9: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
+	7,  // 10: sgpt.v1.ToolService.ReadNodes:input_type -> sgpt.v1.ReadNodesRequest
+	11, // 11: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
+	1,  // 12: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
+	4,  // 13: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
+	6,  // 14: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
+	10, // 15: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
+	8,  // 16: sgpt.v1.ToolService.ReadNodes:output_type -> sgpt.v1.ReadNodesResponse
+	12, // 17: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_tools_proto_init() }
@@ -1059,7 +1418,7 @@ func file_sgpt_v1_tools_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_tools_proto_rawDesc), len(file_sgpt_v1_tools_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

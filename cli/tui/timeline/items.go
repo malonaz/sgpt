@@ -45,9 +45,13 @@ type TextItem struct {
 	style     lipgloss.Style
 	blocks    []markdown.Block
 	finalized bool
+	// messageName is the resource name of the message this item renders.
+	messageName string
 }
 
 func (i *TextItem) ID() string { return i.id }
+
+func (i *TextItem) MessageName() string { return i.messageName }
 
 // CacheKey opts out while streaming: content is still mutating.
 func (i *TextItem) CacheKey() string {
@@ -136,10 +140,13 @@ type ThoughtItem struct {
 	seq       int
 	text      string
 	finalized bool
+	// messageName is the resource name of the message this item renders.
+	messageName string
 }
 
 func (i *ThoughtItem) ID() string                { return i.id }
 func (i *ThoughtItem) Content() (string, string) { return i.text, "md" }
+func (i *ThoughtItem) MessageName() string       { return i.messageName }
 
 // CacheKey opts out while streaming: content is still mutating.
 func (i *ThoughtItem) CacheKey() string {
@@ -180,6 +187,9 @@ type ToolCallItem struct {
 	ToolCall  *aipb.ToolCall
 	Result    *aipb.ToolResult
 	Executing bool
+	// Pending marks a call awaiting the user's verdict: the turn goroutine is
+	// blocked on it right now.
+	Pending bool
 	// Partial marks a call still streaming in; arguments may be incomplete.
 	Partial bool
 	// RequestRenderer, when set, overrides the raw-JSON request rendering.
@@ -188,9 +198,14 @@ type ToolCallItem struct {
 	// keyed by tool call ID — streaming items are reconstructed every tick,
 	// so this state must live outside the item (owned by the Builder).
 	lastGoodRequests map[string]string
+	// messageName is the resource name of the assistant message this call
+	// belongs to.
+	messageName string
 }
 
 func (i *ToolCallItem) ID() string { return i.id }
+
+func (i *ToolCallItem) MessageName() string { return i.messageName }
 
 // CacheKey: result attachment, execution and review status all change the render.
 func (i *ToolCallItem) CacheKey() string {
@@ -198,7 +213,7 @@ func (i *ToolCallItem) CacheKey() string {
 	if i.Partial {
 		return ""
 	}
-	return fmt.Sprintf("%s|r%t|e%t|s%v", i.id, i.Result != nil, i.Executing, tool.GetToolCallStatus(i.ToolCall))
+	return fmt.Sprintf("%s|r%t|e%t|p%t", i.id, i.Result != nil, i.Executing, i.Pending)
 }
 
 // Resolved calls fold to a one-line summary; pending/executing stay expanded.
@@ -238,16 +253,11 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ streaming...")
 	case i.Executing:
 		suffix = " " + styles.ThoughtLabelStyle.Render("⏳ running...")
-	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusPending:
+	case i.Pending:
 		suffix = " " + styles.ErrorStyle.Render("▶ pending review")
-	// Verdicts stay editable until the turn resolves — say so.
-	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusAccepted:
-		suffix = " " + styles.DimTextStyle.Render("✓ accepted — runs once review completes")
-	case i.Result == nil && tool.GetToolCallStatus(i.ToolCall) == tool.ToolCallStatusRejected:
-		suffix = " " + styles.DimTextStyle.Render("✗ rejected")
 	}
 	header := fmt.Sprintf("%s %s%s",
-		toolCallStatusIndicator(i.ToolCall),
+		i.statusIndicator(),
 		i.headerContent(ctx),
 		suffix,
 	)
@@ -321,15 +331,17 @@ func toolResultText(toolResult *aipb.ToolResult) string {
 	return toolResult.GetContent()
 }
 
-func toolCallStatusIndicator(toolCall *aipb.ToolCall) string {
-	switch tool.GetToolCallStatus(toolCall) {
-	case tool.ToolCallStatusAccepted:
-		return lipgloss.NewStyle().Foreground(styles.SuccessColor).Render("●")
-	case tool.ToolCallStatusRejected:
-		return lipgloss.NewStyle().Foreground(styles.ErrorColor).Render("●")
-	default:
-		return lipgloss.NewStyle().Foreground(styles.MutedColor).Render("●")
+// statusIndicator colours the leading dot: a result is terminal (green, or red
+// when it carries an error), anything else is still in flight.
+func (i *ToolCallItem) statusIndicator() string {
+	color := styles.MutedColor
+	switch {
+	case i.Result.GetError() != nil:
+		color = styles.ErrorColor
+	case i.Result != nil:
+		color = styles.SuccessColor
 	}
+	return lipgloss.NewStyle().Foreground(color).Render("●")
 }
 
 // ---- LineItem: single-line entries (system, errors) ----
@@ -338,14 +350,13 @@ type LineItem struct {
 	id    string
 	text  string
 	style lipgloss.Style
+	// summary, when set, makes the item collapsible: it folds to this single
+	// line by default (system prompts are long and rarely re-read).
+	summary string
 }
 
 func NewErrorItem(id, text string) *LineItem {
 	return &LineItem{id: id, text: "Error: " + text, style: styles.MessageErrorStyle}
-}
-
-func NewSystemItem(id, text string) *LineItem {
-	return &LineItem{id: id, text: "System: " + styles.Truncate(text, styles.TruncateLength), style: styles.SystemStyle}
 }
 
 func (i *LineItem) ID() string                { return i.id }
@@ -355,59 +366,191 @@ func (i *LineItem) Content() (string, string) { return i.text, "" }
 // different messages over time.
 func (i *LineItem) CacheKey() string { return i.id + "|" + i.text }
 
+// DefaultCollapsed folds summarizable items (system prompts) out of the way;
+// items without a summary aren't collapsible at all.
+func (i *LineItem) DefaultCollapsed() bool { return i.summary != "" }
+
 func (i *LineItem) Render(ctx RenderContext) string {
 	prefix := "  "
 	if ctx.Selected {
 		prefix = styles.BlockIndicatorSelectedStyle.Render(styles.BlockIndicatorChar) + " "
 	}
-	return prefix + i.style.Render(i.text)
+	text := i.text
+	if ctx.Collapsed && i.summary != "" {
+		text = i.summary
+	}
+	return prefix + i.style.Render(text)
 }
 
-// ---- InjectedFilesItem: one navigable entry for ALL injected files ----
-// Opening it in $EDITOR shows the list of paths.
-
-type InjectedFilesItem struct {
-	paths []string
+// flatten collapses whitespace so a multi-line prompt fits on one line.
+func flatten(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
-func NewInjectedFilesItem(paths []string) *InjectedFilesItem {
-	return &InjectedFilesItem{paths: paths}
+// ---- SystemItem: the system prompt, as a regular bordered block ----
+
+type SystemItem struct {
+	id   string
+	seq  int
+	text string
+	// messageName is the resource name of the message this item renders.
+	messageName string
 }
 
-func (i *InjectedFilesItem) ID() string { return "injected-files" }
-
-// CacheKey: paths are fixed for the lifetime of a session.
-func (i *InjectedFilesItem) CacheKey() string { return i.ID() }
-
-func (i *InjectedFilesItem) Content() (string, string) {
-	return i.numberedList(), "txt"
+func NewSystemItem(id string, seq int, text, messageName string) *SystemItem {
+	return &SystemItem{id: id, seq: seq, text: text, messageName: messageName}
 }
-func (i *InjectedFilesItem) numberedList() string {
+
+func (i *SystemItem) ID() string                { return i.id }
+func (i *SystemItem) Content() (string, string) { return i.text, "md" }
+func (i *SystemItem) MessageName() string       { return i.messageName }
+
+// CacheKey includes the text: a chat's system prompt can change between runs.
+func (i *SystemItem) CacheKey() string { return i.id + "|" + i.text }
+
+// The prompt is long and rarely re-read: fold it away by default.
+func (i *SystemItem) DefaultCollapsed() bool { return true }
+
+func (i *SystemItem) Render(ctx RenderContext) string {
+	// Grey border keeps it visually subordinate to user/assistant messages.
+	style := styles.AIMessageStyle.BorderForeground(styles.BorderColor)
+	label := styles.SystemStyle.Render("⚙ system prompt")
+	if ctx.Collapsed {
+		summary := fmt.Sprintf("%s %s", label,
+			styles.DimTextStyle.Render(styles.Truncate(flatten(i.text), styles.TruncateLength)))
+		return frame(ctx, style, summary)
+	}
+	body := renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(i.text)...)
+	return frame(ctx, style, label+"\n"+body)
+}
+
+// ---- InjectedFileItem: an injected-file message, rendered in-place ----
+// An ordinary timeline entry (position = injection order); only the
+// rendering differs: file-colored border, filename instead of content.
+
+type InjectedFileItem struct {
+	id      string
+	path    string
+	content string
+	// paths/contents hold every file of a consecutive injection run; path and
+	// content are the first one (kept for the single-file case).
+	paths    []string
+	contents []string
+	// messageNames parallels paths: each injected file is its own message, so
+	// a grouped item owns several.
+	messageNames []string
+}
+
+func NewInjectedFileItem(id, path, content, messageName string) *InjectedFileItem {
+	return &InjectedFileItem{
+		id:           id,
+		path:         path,
+		content:      content,
+		paths:        []string{path},
+		contents:     []string{content},
+		messageNames: []string{messageName},
+	}
+}
+
+// add folds a consecutively injected file into this group so a large
+// injection costs a few lines of vertical space instead of one box each.
+func (i *InjectedFileItem) add(path, content, messageName string) {
+	i.paths = append(i.paths, path)
+	i.contents = append(i.contents, content)
+	i.messageNames = append(i.messageNames, messageName)
+}
+
+func (i *InjectedFileItem) ID() string { return i.id }
+
+// MessageName returns the first file's message: a group has no single owner,
+// so deleting the item targets the file the cursor landed on (see
+// MessageNameAt).
+func (i *InjectedFileItem) MessageName() string {
+	if len(i.messageNames) == 0 {
+		return ""
+	}
+	return i.messageNames[0]
+}
+
+// MessageNameAt returns the message of the file at the given sub-index, so
+// alt+d removes exactly the file the cursor is on inside a grouped item.
+func (i *InjectedFileItem) MessageNameAt(index int) string {
+	if index < 0 || index >= len(i.messageNames) {
+		return i.MessageName()
+	}
+	return i.messageNames[index]
+}
+
+// CacheKey: injected-file messages are immutable, but the group grows as
+// consecutive files are folded in.
+func (i *InjectedFileItem) CacheKey() string {
+	return fmt.Sprintf("%s|%d|%s", i.id, len(i.paths), strings.Join(i.paths, ","))
+}
+
+// Content exposes the injected content for copy / open-in-editor; a group
+// concatenates its files.
+func (i *InjectedFileItem) Content() (string, string) {
+	if len(i.paths) > 1 {
+		return strings.Join(i.contents, "\n\n"), "md"
+	}
+	return i.content, strings.TrimPrefix(filepath.Ext(i.path), ".")
+}
+
+// Groups are navigable file-by-file (alt+[ / alt+]).
+func (i *InjectedFileItem) SubCount() int { return len(i.paths) }
+
+func (i *InjectedFileItem) SubContent(index int) (string, string) {
+	if index < 0 || index >= len(i.paths) {
+		return i.Content()
+	}
+	return i.contents[index], strings.TrimPrefix(filepath.Ext(i.paths[index]), ".")
+}
+
+// A group of files collapses to a one-line count; a lone file is already one line.
+func (i *InjectedFileItem) DefaultCollapsed() bool { return len(i.paths) > 1 }
+
+func (i *InjectedFileItem) Render(ctx RenderContext) string {
+	style := styles.AIMessageStyle.BorderForeground(styles.FileColor)
+	fileNameStyle := lipgloss.NewStyle().Foreground(styles.FileColor).Bold(true)
+	if ctx.Collapsed && len(i.paths) > 1 {
+		summary := fileNameStyle.Render(fmt.Sprintf("📎 %d files", len(i.paths))) + " " +
+			styles.DimTextStyle.Render(styles.Truncate(strings.Join(basenames(i.paths), ", "), styles.TruncateLength))
+		return frame(ctx, style, summary)
+	}
 	var b strings.Builder
 	for index, path := range i.paths {
 		if index > 0 {
 			b.WriteString("\n")
 		}
-		b.WriteString(fmt.Sprintf("%d. %s", index+1, path))
-	}
-	return b.String()
-}
-func (i *InjectedFilesItem) Render(ctx RenderContext) string {
-	// Rendered as a regular bordered block, like every other timeline item.
-	style := styles.AIMessageStyle.BorderForeground(styles.FileColor)
-	fileNameStyle := lipgloss.NewStyle().Foreground(styles.FileColor).Bold(true)
-
-	var b strings.Builder
-	b.WriteString(fileNameStyle.Render(fmt.Sprintf("📎 Injected Files (%d)", len(i.paths))))
-	for index, path := range i.paths {
-		b.WriteString("\n")
-		// Dim number + directory, bold pink basename — the part that matters pops.
+		// Dim directory, bold basename — the part that matters pops.
 		directory, name := filepath.Split(path)
-		b.WriteString(styles.DimTextStyle.Render(fmt.Sprintf("%2d. ", index+1)))
-		b.WriteString(styles.FileStyle.Render(directory))
-		b.WriteString(fileNameStyle.Render(name))
+		prefix := "📎 "
+		if ctx.Selected && ctx.SelectedSub >= 0 && len(i.paths) > 1 {
+			indicatorStyle := styles.BlockIndicatorStyle
+			if index == ctx.SelectedSub {
+				indicatorStyle = styles.BlockIndicatorSelectedStyle
+			}
+			prefix = indicatorStyle.Render(styles.BlockIndicatorChar) + " 📎 "
+		}
+		b.WriteString(fileNameStyle.Render(prefix) + styles.FileStyle.Render(directory) + fileNameStyle.Render(name))
 	}
 	return frame(ctx, style, b.String())
+}
+
+func basenames(paths []string) []string {
+	names := make([]string, 0, len(paths))
+	for _, path := range paths {
+		names = append(names, filepath.Base(path))
+	}
+	return names
+}
+
+func (i *InjectedFileItem) SubOffsets(ctx RenderContext) []int {
+	offsets := make([]int, len(i.paths))
+	for index := range i.paths {
+		offsets[index] = index + 1 // account for the frame's top border
+	}
+	return offsets
 }
 
 // ---- Builder ----
@@ -442,7 +585,13 @@ func NewBuilder() *Builder {
 // into timeline items, reusing cached items for unchanged messages. Every tool
 // result is paired with its originating call so request/response render
 // adjacently, in call order.
-func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
+func (b *Builder) Build(
+	messages []*aipb.Message,
+	streamingMessage *aipb.Message,
+	executingToolCallID string,
+	pendingToolCallIDs map[string]bool,
+	requestRenderer RequestRenderer,
+) []Item {
 	if b.scannedMessageCount > len(messages) {
 		// History shrank (chat replaced) — every cache is invalid.
 		b.messageIndexToEntry = map[int]builderEntry{}
@@ -468,7 +617,7 @@ func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message
 		entry, ok := b.messageIndexToEntry[messageIndex]
 		if !ok || entry.message != message {
 			var messageItems []Item
-			messageItems = appendMessageItems(messageItems, message, messageIndex, true, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
+			messageItems = appendMessageItems(messageItems, message, messageIndex, true, b.toolCallIDToResult, requestRenderer, b.toolCallIDToLastGoodRequest)
 			if errText := store.MessageError(message); errText != "" {
 				messageItems = append(messageItems, NewErrorItem(fmt.Sprintf("m%d-error", messageIndex), errText))
 			}
@@ -489,21 +638,48 @@ func (b *Builder) Build(messages []*aipb.Message, streamingMessage *aipb.Message
 					toolCallItem.Result = b.toolCallIDToResult[toolCallItem.ToolCall.GetId()]
 				}
 			}
-			toolCallItem.Executing = executingToolCallID != "" && toolCallItem.ToolCall.GetId() == executingToolCallID
+			toolCallID := toolCallItem.ToolCall.GetId()
+			toolCallItem.Executing = executingToolCallID != "" && toolCallID == executingToolCallID
+			toolCallItem.Pending = pendingToolCallIDs[toolCallID]
 		}
 		items = append(items, entry.items...)
 	}
 	if streamingMessage != nil {
 		// Still mutating — never cached; finalization lands it in messages.
-		items = appendMessageItems(items, streamingMessage, len(messages), false, b.toolCallIDToResult, executingToolCallID, requestRenderer, b.toolCallIDToLastGoodRequest)
+		items = appendMessageItems(items, streamingMessage, len(messages), false, b.toolCallIDToResult, requestRenderer, b.toolCallIDToLastGoodRequest)
 	}
-	return items
+	return groupInjectedFiles(items)
+}
+
+// groupInjectedFiles folds runs of consecutive injected-file items into a
+// single collapsible group: injecting 30 files must not cost 30 boxes of
+// vertical space. Grouping happens here (not in appendMessageItems) because
+// each file is its own message and items are cached per message.
+func groupInjectedFiles(items []Item) []Item {
+	grouped := make([]Item, 0, len(items))
+	var current *InjectedFileItem
+	for _, item := range items {
+		fileItem, ok := item.(*InjectedFileItem)
+		if !ok {
+			current = nil
+			grouped = append(grouped, item)
+			continue
+		}
+		if current != nil {
+			current.add(fileItem.path, fileItem.content, fileItem.MessageName())
+			continue
+		}
+		// Copy: the cached per-message item must not accumulate siblings.
+		current = NewInjectedFileItem(fileItem.id, fileItem.path, fileItem.content, fileItem.MessageName())
+		grouped = append(grouped, current)
+	}
+	return grouped
 }
 
 // BuildChatItems is the uncached one-shot variant — used by read-only
 // previews (menu detail pane). Stateful callers should hold a Builder.
-func BuildChatItems(messages []*aipb.Message, streamingMessage *aipb.Message, executingToolCallID string, requestRenderer RequestRenderer) []Item {
-	return NewBuilder().Build(messages, streamingMessage, executingToolCallID, requestRenderer)
+func BuildChatItems(messages []*aipb.Message, requestRenderer RequestRenderer) []Item {
+	return NewBuilder().Build(messages, nil, "", nil, requestRenderer)
 }
 
 func appendMessageItems(
@@ -512,13 +688,26 @@ func appendMessageItems(
 	messageIndex int,
 	finalized bool,
 	toolCallIDToResult map[string]*aipb.ToolResult,
-	executingToolCallID string,
 	requestRenderer RequestRenderer,
 	toolCallIDToLastGoodRequest map[string]string,
 ) []Item {
 	baseSeq := messageIndex * 1000
+	messageName := message.GetName()
 	switch message.GetRole() {
 	case aipb.Role_ROLE_USER:
+		// Injected files render in-place (injection order), label-detected:
+		// same message as any other, only the presentation differs.
+		if path := store.InjectedFilePath(message); path != "" {
+			var content string
+			for _, block := range message.GetBlocks() {
+				if text := block.GetText(); text != "" {
+					content = text
+					break
+				}
+			}
+			items = append(items, NewInjectedFileItem(fmt.Sprintf("m%d-file", messageIndex), path, content, messageName))
+			return items
+		}
 		// One rectangle per user message; fences navigable within it.
 		var mdBlocks []markdown.Block
 		for _, block := range message.GetBlocks() {
@@ -528,11 +717,12 @@ func appendMessageItems(
 		}
 		if len(mdBlocks) > 0 {
 			items = append(items, &TextItem{
-				id:        fmt.Sprintf("m%d-user", messageIndex),
-				seq:       baseSeq,
-				style:     styles.UserMessageStyle,
-				blocks:    mdBlocks,
-				finalized: finalized,
+				id:          fmt.Sprintf("m%d-user", messageIndex),
+				seq:         baseSeq,
+				style:       styles.UserMessageStyle,
+				blocks:      mdBlocks,
+				finalized:   finalized,
+				messageName: messageName,
 			})
 		}
 
@@ -541,19 +731,21 @@ func appendMessageItems(
 			seq := baseSeq + blockIndex*20
 			if thought := block.GetThought(); thought != "" {
 				items = append(items, &ThoughtItem{
-					id:        fmt.Sprintf("m%d-b%d-thought", messageIndex, blockIndex),
-					seq:       seq,
-					text:      thought,
-					finalized: finalized,
+					id:          fmt.Sprintf("m%d-b%d-thought", messageIndex, blockIndex),
+					seq:         seq,
+					text:        thought,
+					finalized:   finalized,
+					messageName: messageName,
 				})
 			} else if text := block.GetText(); text != "" {
 				// One rectangle per API text block; fences navigable within it.
 				items = append(items, &TextItem{
-					id:        fmt.Sprintf("m%d-b%d-text", messageIndex, blockIndex),
-					seq:       seq,
-					style:     styles.AIMessageStyle,
-					blocks:    markdown.ParseBlocks(text),
-					finalized: finalized,
+					id:          fmt.Sprintf("m%d-b%d-text", messageIndex, blockIndex),
+					seq:         seq,
+					style:       styles.AIMessageStyle,
+					blocks:      markdown.ParseBlocks(text),
+					finalized:   finalized,
+					messageName: messageName,
 				})
 			} else if toolCall := block.GetToolCall(); toolCall != nil {
 				result := toolCall.GetResult()
@@ -565,9 +757,9 @@ func appendMessageItems(
 					seq:              seq,
 					ToolCall:         toolCall,
 					Result:           result,
-					Executing:        executingToolCallID != "" && toolCall.GetId() == executingToolCallID,
 					RequestRenderer:  requestRenderer,
 					lastGoodRequests: toolCallIDToLastGoodRequest,
+					messageName:      messageName,
 				})
 			} else if partialToolCall := block.GetPartialToolCall(); partialToolCall != nil {
 				// Same ID as the completed call so collapse/selection state
@@ -579,6 +771,7 @@ func appendMessageItems(
 					Partial:          true,
 					RequestRenderer:  requestRenderer,
 					lastGoodRequests: toolCallIDToLastGoodRequest,
+					messageName:      messageName,
 				})
 			}
 		}
@@ -589,7 +782,7 @@ func appendMessageItems(
 	case aipb.Role_ROLE_SYSTEM:
 		for _, block := range message.GetBlocks() {
 			if text := block.GetText(); text != "" {
-				items = append(items, NewSystemItem(fmt.Sprintf("m%d-system", messageIndex), text))
+				items = append(items, NewSystemItem(fmt.Sprintf("m%d-system", messageIndex), baseSeq, text, messageName))
 				break
 			}
 		}

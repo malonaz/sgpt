@@ -44,6 +44,15 @@ When referencing specific functions or code locations, use the pattern `file_pat
 - Example: "See the implementation in pkg/utils/helper.go:123-145"
 </code_references>
 
+{{- if .ToolDiscovery }}
+<tool_discovery>
+Some tool sets are discoverable: their methods must be discovered before use, via the discover tool.
+- Discover a tool before calling it, or you will get an 'Unknown tool' error. Not all tools are discoverable — some are available immediately.
+- If you need multiple methods, discover them all at once. You only need to discover a tool ONCE.
+- When you make a discovery tool call, the only other tool calls allowed in that same turn are other discovery calls.
+</tool_discovery>
+{{- end }}
+
 {{- if .RolePrompt }}
 {{ .RolePrompt }}
 {{- end }}

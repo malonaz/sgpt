@@ -22,8 +22,27 @@ message Configuration {
   // Chat configuration.
   ChatConfiguration chat = 4;
 
-  // Tool sets provided by remote gRPC tool engines.
-  repeated ToolSet tool_sets = 5;
+  // Ignore patterns (gitignore syntax) applied on top of .gitignore files
+  // whenever sgpt walks directory trees (graph scans, file discovery).
+  repeated string ignore = 6;
+
+  // Human-readable title: a few lines about the repo this configuration
+  // (or configuration override) belongs to.
+  string title = 7;
+
+  // External repos whose graph nodes and roles are addressable as
+  // "@{name}@{selector}" (e.g. "@github.com/malonaz/core@go/grpc:architecture"
+  // or --role "@github.com/malonaz/core@reviewer").
+  repeated Import imports = 8;
+}
+
+// An external repo, imported by local path.
+message Import {
+  // Name of the import (e.g. "github.com/malonaz/core").
+  string name = 1 [(buf.validate.field).required = true];
+
+  // Absolute path (or ~-prefixed) of the repo's root directory.
+  string path = 2 [(buf.validate.field).required = true];
 }
 
 // gRPC client configuration.
@@ -68,43 +87,52 @@ message ChatConfiguration {
   // Format: providers/{provider}/models/{model}
   string default_model = 3 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
 
-  // The default role alias or name.
+  // The default role selector (e.g. "//path/to:role" or a root role title).
   string default_role = 4;
-
-  // User-defined roles.
-  repeated Role roles = 5;
 }
 
-// A role defines a persona with a system prompt.
+// A role defines a persona with a system prompt. Persisted as a
+// `.sgpt/{title}.role.md` markdown file — `@directive(...)` lines carry the
+// structured fields, the body is the prompt — and addressed like graph
+// nodes ("//dir:title", "@import//dir:title").
 message Role {
-  // Name of this role.
-  string name = 1 [(buf.validate.field).required = true];
+  // Name of this role: its selector ("//dir:title"), derived from the file
+  // location. Never written in the file.
+  string name = 1;
 
-  // Short alias for this role.
+  // Short alias for this role (`@alias("go")`).
   string alias = 2;
 
-  // System prompt for this role.
-  string prompt = 3 [(buf.validate.field).required = true];
+  // System prompt for this role: the markdown body.
+  string prompt = 3;
 
-  // The resource name of the model to use for this role.
+  // The resource name of the model to use for this role (`@model("...")`).
   // Format: providers/{provider}/models/{model}
   string model = 4 [(google.api.resource_reference).type = "ai.malonaz.com/Model"];
 
-  // Files to include as context for this role.
+  // Files to include as context for this role (`@file("path")`).
   repeated string files = 5;
 
-  // Tools to include as part of this role.
+  // Tools to include as part of this role (`@tool("exec_shell")`).
   repeated string tools = 6;
 
-  // Names or aliases of other roles to include. Included roles are expanded
-  // depth-first: their prompts are prepended and their files/tools merged.
+  // Selectors of other roles to include (`@role("//dir:title")`). Included
+  // roles are expanded depth-first: their prompts are prepended and their
+  // files/tools/nodes merged.
   repeated string roles = 7;
+
+  // Knowledge-graph nodes to inject as context for this role
+  // (`@node("//dir:title")`), using -g selector syntax.
+  repeated string graph_nodes = 8;
 }
 
-// A remote tool engine that provides tool sets via gRPC.
+// A remote tool engine that provides tool sets via gRPC. Persisted as a
+// `.sgpt/{title}.toolset` file; discovered and addressed like graph nodes
+// ("//dir:title", "@import//dir:title").
 message ToolSet {
-  // Human-readable name for this tool set (e.g. "onikisu").
-  string name = 1 [(buf.validate.field).required = true];
+  // Name of this tool set: its selector ("//dir:title"). Maintained by
+  // sgpt, never read from the file.
+  string name = 1;
 
   // Name of the gRPC client to use for the engine service.
   string engine_service = 2 [(buf.validate.field).required = true];
