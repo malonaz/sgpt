@@ -577,29 +577,31 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 }
 
 // A role defines a persona with a system prompt. Persisted as a
-// `.sgpt/{title}.role` file; discovered and addressed like graph nodes
-// ("//dir:title", "@import//dir:title").
+// `.sgpt/{title}.role.md` markdown file — `@directive(...)` lines carry the
+// structured fields, the body is the prompt — and addressed like graph
+// nodes ("//dir:title", "@import//dir:title").
 type Role struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// Name of this role: its selector ("//dir:title"). Maintained by sgpt,
-	// never read from the file.
+	// Name of this role: its selector ("//dir:title"), derived from the file
+	// location. Never written in the file.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Short alias for this role.
+	// Short alias for this role (`@alias("go")`).
 	Alias string `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`
-	// System prompt for this role.
+	// System prompt for this role: the markdown body.
 	Prompt string `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// The resource name of the model to use for this role.
+	// The resource name of the model to use for this role (`@model("...")`).
 	// Format: providers/{provider}/models/{model}
 	Model string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
-	// Files to include as context for this role.
+	// Files to include as context for this role (`@file("path")`).
 	Files []string `protobuf:"bytes,5,rep,name=files,proto3" json:"files,omitempty"`
-	// Tools to include as part of this role.
+	// Tools to include as part of this role (`@tool("exec_shell")`).
 	Tools []string `protobuf:"bytes,6,rep,name=tools,proto3" json:"tools,omitempty"`
-	// Names or aliases of other roles to include. Included roles are expanded
-	// depth-first: their prompts are prepended and their files/tools merged.
+	// Selectors of other roles to include (`@role("//dir:title")`). Included
+	// roles are expanded depth-first: their prompts are prepended and their
+	// files/tools/nodes merged.
 	Roles []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
-	// Knowledge-graph nodes to inject as context for this role, using --graph
-	// selector syntax (dir, dir:title, dir/..., @import@dir:title).
+	// Knowledge-graph nodes to inject as context for this role
+	// (`@node("//dir:title")`), using -g selector syntax.
 	GraphNodes    []string `protobuf:"bytes,8,rep,name=graph_nodes,json=graphNodes,proto3" json:"graph_nodes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -721,25 +723,26 @@ func (x *Role) SetGraphNodes(v []string) {
 type Role_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Name of this role: its selector ("//dir:title"). Maintained by sgpt,
-	// never read from the file.
+	// Name of this role: its selector ("//dir:title"), derived from the file
+	// location. Never written in the file.
 	Name string
-	// Short alias for this role.
+	// Short alias for this role (`@alias("go")`).
 	Alias string
-	// System prompt for this role.
+	// System prompt for this role: the markdown body.
 	Prompt string
-	// The resource name of the model to use for this role.
+	// The resource name of the model to use for this role (`@model("...")`).
 	// Format: providers/{provider}/models/{model}
 	Model string
-	// Files to include as context for this role.
+	// Files to include as context for this role (`@file("path")`).
 	Files []string
-	// Tools to include as part of this role.
+	// Tools to include as part of this role (`@tool("exec_shell")`).
 	Tools []string
-	// Names or aliases of other roles to include. Included roles are expanded
-	// depth-first: their prompts are prepended and their files/tools merged.
+	// Selectors of other roles to include (`@role("//dir:title")`). Included
+	// roles are expanded depth-first: their prompts are prepended and their
+	// files/tools/nodes merged.
 	Roles []string
-	// Knowledge-graph nodes to inject as context for this role, using --graph
-	// selector syntax (dir, dir:title, dir/..., @import@dir:title).
+	// Knowledge-graph nodes to inject as context for this role
+	// (`@node("//dir:title")`), using -g selector syntax.
 	GraphNodes []string
 }
 
@@ -888,11 +891,11 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x14ai.malonaz.com/ModelR\fsummaryModel\x12>\n" +
 	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
-	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\"\xe4\x01\n" +
+	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\"\xdc\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1e\n" +
-	"\x06prompt\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x06prompt\x12/\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +
+	"\x06prompt\x18\x03 \x01(\tR\x06prompt\x12/\n" +
 	"\x05model\x18\x04 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\x05model\x12\x14\n" +
 	"\x05files\x18\x05 \x03(\tR\x05files\x12\x14\n" +

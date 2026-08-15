@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-
 	"github.com/malonaz/sgpt/internal/ignore"
 )
 
@@ -88,20 +86,19 @@ func Scan(root string, extraIgnorePatterns []string) (*Tree, error) {
 // deterministic identity fields — never trusted from the files themselves.
 func (d *Dir) loadArtifacts(root string) error {
 	var err error
-	if d.Nodes, err = loadFiles(root, d.Path, NodeExtension, func() *sgptpb.Node { return &sgptpb.Node{} }); err != nil {
+	if d.Nodes, err = loadFiles(root, d.Path, NodeExtension, parseNodeMarkdown); err != nil {
 		return err
 	}
 	for _, nodeFile := range d.Nodes {
-		nodeFile.Message.SetTitle(nodeFile.Title)
 		nodeFile.Message.SetName(nodeFile.Selector())
 	}
-	if d.Roles, err = loadFiles(root, d.Path, RoleExtension, func() *sgptpb.Role { return &sgptpb.Role{} }); err != nil {
+	if d.Roles, err = loadFiles(root, d.Path, RoleExtension, parseRoleMarkdown); err != nil {
 		return err
 	}
 	for _, roleFile := range d.Roles {
 		roleFile.Message.Name = roleFile.Selector()
 	}
-	if d.ToolSets, err = loadFiles(root, d.Path, ToolSetExtension, func() *sgptpb.ToolSet { return &sgptpb.ToolSet{} }); err != nil {
+	if d.ToolSets, err = loadFiles(root, d.Path, ToolSetExtension, parseToolSetJSON); err != nil {
 		return err
 	}
 	for _, toolSetFile := range d.ToolSets {

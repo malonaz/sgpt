@@ -3,6 +3,7 @@ go_library(
     srcs = [
         "forest.go",
         "graph.go",
+        "markdown.go",
         "related.go",
         "select.go",
         "tree.go",
@@ -13,7 +14,6 @@ go_library(
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/go:google.golang.org__protobuf__proto",
-        "//third_party/go:google.golang.org__protobuf__types__known__timestamppb",
     ],
 )
 

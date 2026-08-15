@@ -9,7 +9,6 @@
 package v1
 
 import (
-	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -26,30 +25,28 @@ const (
 )
 
 // A node of the knowledge graph: one human-scoped topic about a directory
-// subtree, persisted as `.sgpt/{title}.node` inside that directory. The
-// graph is rooted wherever an `sgpt.json` configuration lives; the human
-// owns instructions, labels and files; sgpt owns everything else.
+// subtree, persisted as a `.sgpt/{title}.node.md` markdown file inside that
+// directory: `@directive(...)` lines carry the structured fields, the body
+// is the content. The graph is rooted wherever a `.sgpt.json` configuration
+// lives.
 type Node struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// Name of the node: "{path/to/dir}:{title}", relative to the graph root.
-	// Maintained by `sgpt graph`. Never model- or human-written.
+	// Name of the node: "//{path/to/dir}:{title}", derived from the file
+	// location. Never written in the file.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Topic of this node, derived deterministically from the file name
-	// (`architecture.node` -> "architecture"). Never model-written.
-	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	// Human-written prompt dictating what this node should capture.
-	// `sgpt graph` never modifies it.
+	// Human-written prompt dictating what this node should capture
+	// (`@instructions(...)`).
 	Instructions string `protobuf:"bytes,3,opt,name=instructions,proto3" json:"instructions,omitempty"`
-	// Model-generated: a one-or-two-line summary of content.
+	// A one-or-two-line summary of content (`@summary(...)`).
 	Summary string `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`
-	// Model-generated: the full text of the node.
+	// The full text of the node: the markdown body.
 	Content string `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
-	// Arbitrary user metadata. `sgpt graph` never modifies it.
+	// Arbitrary user metadata (`@label("key", "value")`).
 	Labels map[string]string `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Files (root-relative) pulled in verbatim wherever this node is rendered
-	// or read — for knowledge that already lives in a well-documented file
-	// (e.g. a proto API) and must not be duplicated into content.
-	// `sgpt graph` never modifies it.
+	// or read (`@file("path")`) — for knowledge that already lives in a
+	// well-documented file (e.g. a proto API) and must not be duplicated into
+	// content.
 	Files []string `protobuf:"bytes,9,rep,name=files,proto3" json:"files,omitempty"`
 	// Creation time of this resource.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
@@ -87,13 +84,6 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 func (x *Node) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *Node) GetTitle() string {
-	if x != nil {
-		return x.Title
 	}
 	return ""
 }
@@ -151,10 +141,6 @@ func (x *Node) SetName(v string) {
 	x.Name = v
 }
 
-func (x *Node) SetTitle(v string) {
-	x.Title = v
-}
-
 func (x *Node) SetInstructions(v string) {
 	x.Instructions = v
 }
@@ -208,25 +194,22 @@ func (x *Node) ClearUpdateTime() {
 type Node_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Name of the node: "{path/to/dir}:{title}", relative to the graph root.
-	// Maintained by `sgpt graph`. Never model- or human-written.
+	// Name of the node: "//{path/to/dir}:{title}", derived from the file
+	// location. Never written in the file.
 	Name string
-	// Topic of this node, derived deterministically from the file name
-	// (`architecture.node` -> "architecture"). Never model-written.
-	Title string
-	// Human-written prompt dictating what this node should capture.
-	// `sgpt graph` never modifies it.
+	// Human-written prompt dictating what this node should capture
+	// (`@instructions(...)`).
 	Instructions string
-	// Model-generated: a one-or-two-line summary of content.
+	// A one-or-two-line summary of content (`@summary(...)`).
 	Summary string
-	// Model-generated: the full text of the node.
+	// The full text of the node: the markdown body.
 	Content string
-	// Arbitrary user metadata. `sgpt graph` never modifies it.
+	// Arbitrary user metadata (`@label("key", "value")`).
 	Labels map[string]string
 	// Files (root-relative) pulled in verbatim wherever this node is rendered
-	// or read — for knowledge that already lives in a well-documented file
-	// (e.g. a proto API) and must not be duplicated into content.
-	// `sgpt graph` never modifies it.
+	// or read (`@file("path")`) — for knowledge that already lives in a
+	// well-documented file (e.g. a proto API) and must not be duplicated into
+	// content.
 	Files []string
 	// Creation time of this resource.
 	CreateTime *timestamppb.Timestamp
@@ -239,7 +222,6 @@ func (b0 Node_builder) Build() *Node {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.Name = b.Name
-	x.Title = b.Title
 	x.Instructions = b.Instructions
 	x.Summary = b.Summary
 	x.Content = b.Content
@@ -254,11 +236,10 @@ var File_sgpt_v1_graph_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_graph_proto_rawDesc = "" +
 	"\n" +
-	"\x13sgpt/v1/graph.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa2\x03\n" +
+	"\x13sgpt/v1/graph.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x02\n" +
 	"\x04Node\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x03R\x04name\x12\x19\n" +
-	"\x05title\x18\x02 \x01(\tB\x03\xe0A\x03R\x05title\x12*\n" +
-	"\finstructions\x18\x03 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\finstructions\x12\x18\n" +
+	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x03R\x04name\x12\"\n" +
+	"\finstructions\x18\x03 \x01(\tR\finstructions\x12\x18\n" +
 	"\asummary\x18\x04 \x01(\tR\asummary\x12\x18\n" +
 	"\acontent\x18\x05 \x01(\tR\acontent\x121\n" +
 	"\x06labels\x18\x06 \x03(\v2\x19.sgpt.v1.Node.LabelsEntryR\x06labels\x12\x14\n" +

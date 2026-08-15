@@ -22,14 +22,8 @@ func write(t *testing.T, root, path, content string) {
 
 func writeNode(t *testing.T, root, dir, title, summary string) {
 	t.Helper()
-	node := &sgptpb.Node{}
-	node.SetInstructions("instructions")
-	node.SetSummary(summary)
-	node.SetContent("content of " + title)
-	nodeFile := &NodeFile{Dir: dir, Title: title, Extension: NodeExtension, Message: node}
-	if err := SaveNode(root, nodeFile); err != nil {
-		t.Fatal(err)
-	}
+	content := "@instructions(\ninstructions\n)\n@summary(" + summary + ")\n\ncontent of " + title + "\n"
+	write(t, root, filepath.Join(dir, ArtifactDirName, title+NodeExtension), content)
 }
 
 func setup(t *testing.T) (string, *Tree) {
@@ -57,8 +51,8 @@ func TestNames(t *testing.T) {
 	if got := nodeFile.Message.GetName(); got != "//a/b:architecture" {
 		t.Fatalf("name = %q, want //a/b:architecture", got)
 	}
-	if got := nodeFile.Message.GetTitle(); got != "architecture" {
-		t.Fatalf("title = %q, want architecture", got)
+	if got := nodeFile.Message.GetSummary(); got != "b summary" {
+		t.Fatalf("summary = %q, want b summary", got)
 	}
 }
 
@@ -230,12 +224,14 @@ func TestForest(t *testing.T) {
 }
 
 func TestRenderPulledFiles(t *testing.T) {
-	root, tree := setup(t)
-	nodeFile := tree.PathToDir["a"].Nodes[0]
-	nodeFile.Message.SetFiles([]string{"a/b/y.go", "missing.go"})
-	if err := SaveNode(root, nodeFile); err != nil {
+	root, _ := setup(t)
+	write(t, root, filepath.Join("a", ArtifactDirName, "architecture"+NodeExtension),
+		"@summary(a summary)\n@file(\"a/b/y.go\")\n@file(\"missing.go\")\n\ncontent of architecture\n")
+	tree, err := Scan(root, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
+	nodeFile := tree.PathToDir["a"].Nodes[0]
 	rendered := tree.Render(nodeFile)
 	for _, want := range []string{"## File: a/b/y.go", "```\ny\n```", "## File: missing.go", "[unreadable:"} {
 		if !strings.Contains(rendered, want) {
@@ -248,8 +244,8 @@ func TestRoleAndToolSetDiscovery(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "a/x.go", "x")
 	write(t, root, ".sgpt.json", "{}")
-	write(t, root, "a/.sgpt/reviewer.role", `{"alias": "rev", "prompt": "review code", "files": ["a/x.go"], "roles": ["base"], "graph_nodes": ["//a:architecture"]}`)
-	write(t, root, ".sgpt/base.role", `{"prompt": "base"}`)
+	write(t, root, "a/.sgpt/reviewer.role.md", "@alias(\"rev\")\n@file(\"a/x.go\")\n@role(\"base\")\n@node(\"//a:architecture\")\n\nreview code\n")
+	write(t, root, ".sgpt/base.role.md", "base\n")
 	write(t, root, "a/.sgpt/engine.toolset", `{"engine_service": "my-client"}`)
 
 	tree, err := Scan(root, nil)
@@ -287,8 +283,8 @@ func TestImportedRoleQualification(t *testing.T) {
 	importRoot := t.TempDir()
 	write(t, importRoot, "go/x.go", "x")
 	write(t, importRoot, ".sgpt.json", "{}")
-	write(t, importRoot, "go/.sgpt/expert.role",
-		`{"alias": "ex", "prompt": "p", "files": ["go/x.go"], "roles": ["base", "//go:other"], "graph_nodes": ["//go:arch"], "tools": ["diff", "//go:engine"]}`)
+	write(t, importRoot, "go/.sgpt/expert.role.md",
+		"@alias(\"ex\")\n@file(\"go/x.go\")\n@role(\"base\")\n@role(\"//go:other\")\n@node(\"//go:arch\")\n@tool(\"diff\")\n@tool(\"//go:engine\")\n\np\n")
 
 	primaryRoot := t.TempDir()
 	write(t, primaryRoot, ".sgpt.json", "{}")
@@ -342,5 +338,34 @@ func TestRootSelectorAmbiguity(t *testing.T) {
 	// Recursive form is unambiguously a directory.
 	if _, err := tree.Select([]string{"//overview/..."}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestArtifactMarkdownErrors(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, ".sgpt.json", "{}")
+
+	for name, content := range map[string]string{
+		"unknown directive":   "@bogus(\"x\")\n",
+		"unterminated":        "@instructions(\nnever closed\n",
+		"label arity":         "@label(\"only-key\")\n",
+		"text form for alias": "@summary(fine)\n@file(unquoted)\n",
+		"duplicate summary":   "@summary(a)\n@summary(b)\n",
+	} {
+		write(t, root, ".sgpt/bad"+NodeExtension, content)
+		if _, err := Scan(root, nil); err == nil {
+			t.Errorf("%s: Scan accepted invalid artifact:\n%s", name, content)
+		}
+	}
+
+	// Body lines starting with "@" but not directive-shaped are fine.
+	write(t, root, ".sgpt/bad"+NodeExtension, "@summary(s)\n\ntalk about @malonaz//go and a(b) things\n")
+	tree, err := Scan(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := tree.PathToDir["."].Nodes[0].Message
+	if node.GetSummary() != "s" || !strings.Contains(node.GetContent(), "@malonaz//go") {
+		t.Fatalf("parsed node = %v", node)
 	}
 }

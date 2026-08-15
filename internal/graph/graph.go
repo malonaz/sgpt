@@ -12,7 +12,6 @@ import (
 
 	"github.com/malonaz/core/go/pbutil"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
@@ -24,11 +23,11 @@ const (
 	// ArtifactDirName is the per-directory directory holding sgpt artifacts.
 	ArtifactDirName = ".sgpt"
 
-	// NodeExtension is the extension of knowledge node files.
-	NodeExtension = ".node"
-	// RoleExtension is the extension of role files.
-	RoleExtension = ".role"
-	// ToolSetExtension is the extension of tool set files.
+	// NodeExtension is the extension of knowledge node files (markdown).
+	NodeExtension = ".node.md"
+	// RoleExtension is the extension of role files (markdown).
+	RoleExtension = ".role.md"
+	// ToolSetExtension is the extension of tool set files (JSON).
 	ToolSetExtension = ".toolset"
 )
 
@@ -85,8 +84,8 @@ func (f *File[T]) FilePath(root string) string {
 }
 
 // loadFiles reads every artifact of a directory (root-relative) with the
-// given extension, in name order.
-func loadFiles[T proto.Message](root, dir, extension string, factory func() T) ([]*File[T], error) {
+// given extension, in name order, using the kind's parser.
+func loadFiles[T proto.Message](root, dir, extension string, parse func(data []byte) (T, error)) ([]*File[T], error) {
 	entries, err := os.ReadDir(filepath.Join(root, dir, ArtifactDirName))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -100,30 +99,18 @@ func loadFiles[T proto.Message](root, dir, extension string, factory func() T) (
 			continue
 		}
 		title := strings.TrimSuffix(entry.Name(), extension)
-		message := factory()
-		if err := readMessage(filepath.Join(root, dir, ArtifactDirName, entry.Name()), message); err != nil {
-			return nil, fmt.Errorf("parsing %s %s of %s: %w", extension, title, dir, err)
+		path := filepath.Join(root, dir, ArtifactDirName, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		message, err := parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %s: %w", path, err)
 		}
 		files = append(files, &File[T]{Dir: dir, Title: title, Extension: extension, Message: message})
 	}
 	return files, nil
-}
-
-// SaveNode writes a node file back, stamping the deterministic fields
-// (name, title and timestamps).
-func SaveNode(root string, nodeFile *NodeFile) error {
-	node := nodeFile.Message
-	node.SetTitle(nodeFile.Title)
-	node.SetName(nodeFile.Selector())
-	if node.GetCreateTime() == nil {
-		node.SetCreateTime(timestamppb.Now())
-	}
-	node.SetUpdateTime(timestamppb.Now())
-	path := nodeFile.FilePath(root)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return writeMessage(path, node)
 }
 
 // readMessage unmarshals a proto from a JSON file. Strict: unknown fields
@@ -138,14 +125,6 @@ func readMessage(path string, message proto.Message) error {
 		return fmt.Errorf("parsing %s: %w", path, err)
 	}
 	return nil
-}
-
-func writeMessage(path string, message proto.Message) error {
-	data, err := pbutil.JSONMarshalPretty(message)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
 // pathChain returns the parent chain of a root-relative directory, root

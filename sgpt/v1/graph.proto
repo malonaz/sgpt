@@ -2,42 +2,38 @@ syntax = "proto3";
 
 package sgpt.v1;
 
-import "buf/validate/validate.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
 // A node of the knowledge graph: one human-scoped topic about a directory
-// subtree, persisted as `.sgpt/{title}.node` inside that directory. The
-// graph is rooted wherever an `sgpt.json` configuration lives; the human
-// owns instructions, labels and files; sgpt owns everything else.
+// subtree, persisted as a `.sgpt/{title}.node.md` markdown file inside that
+// directory: `@directive(...)` lines carry the structured fields, the body
+// is the content. The graph is rooted wherever a `.sgpt.json` configuration
+// lives.
 message Node {
-  // Name of the node: "{path/to/dir}:{title}", relative to the graph root.
-  // Maintained by `sgpt graph`. Never model- or human-written.
+  // Name of the node: "//{path/to/dir}:{title}", derived from the file
+  // location. Never written in the file.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
 
-  // Topic of this node, derived deterministically from the file name
-  // (`architecture.node` -> "architecture"). Never model-written.
-  string title = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Human-written prompt dictating what this node should capture
+  // (`@instructions(...)`).
+  string instructions = 3;
 
-  // Human-written prompt dictating what this node should capture.
-  // `sgpt graph` never modifies it.
-  string instructions = 3 [(buf.validate.field).required = true];
-
-  // Model-generated: a one-or-two-line summary of content.
+  // A one-or-two-line summary of content (`@summary(...)`).
   string summary = 4;
 
-  // Model-generated: the full text of the node.
+  // The full text of the node: the markdown body.
   string content = 5;
 
-  // Arbitrary user metadata. `sgpt graph` never modifies it.
+  // Arbitrary user metadata (`@label("key", "value")`).
   map<string, string> labels = 6;
 
   // Files (root-relative) pulled in verbatim wherever this node is rendered
-  // or read — for knowledge that already lives in a well-documented file
-  // (e.g. a proto API) and must not be duplicated into content.
-  // `sgpt graph` never modifies it.
+  // or read (`@file("path")`) — for knowledge that already lives in a
+  // well-documented file (e.g. a proto API) and must not be duplicated into
+  // content.
   repeated string files = 9;
 
   // Creation time of this resource.
