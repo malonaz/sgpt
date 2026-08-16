@@ -251,21 +251,22 @@ func NewCmd(
 				cobra.CheckErr(err)
 				opts.Chat = chat.Name
 			default:
-				// Chats are created eagerly: sessions need the resource name
-				// to persist messages and titles.
-				newChat := &aipb.Chat{}
-				store.SetTags(newChat, tags)
-				store.SetFiles(newChat, filePaths)
-				store.SetCurrentModel(newChat, selectedModel.Name)
-				chat, err = chatStore.CreateChat(ctx, newChat)
-				cobra.CheckErr(err)
-				opts.Chat = chat.Name
+				// Deferred creation: the session persists the chat on the
+				// first send, so launching and quitting without typing
+				// leaves no empty chat behind.
+				chat = &aipb.Chat{}
+				store.SetTags(chat, tags)
+				store.SetFiles(chat, filePaths)
+				store.SetCurrentModel(chat, selectedModel.Name)
 			}
 
 			// Messages are server-side resources: load the history to seed
-			// the session (empty for a fresh chat).
-			messages, err := chatStore.ListMessages(ctx, chat.Name)
-			cobra.CheckErr(err)
+			// the session (nothing to load for a not-yet-persisted chat).
+			var messages []*aipb.Message
+			if chat.Name != "" {
+				messages, err = chatStore.ListMessages(ctx, chat.Name)
+				cobra.CheckErr(err)
+			}
 
 			params := session.Params{
 				Model:              selectedModel,
@@ -281,7 +282,8 @@ func NewCmd(
 				LoreNameForPath:    loreIndex.NameForPath,
 			}
 
-			app := tui.NewApp(ctx, chatStore, registry, chat, messages, params)
+			chatSession := session.New(ctx, chatStore, registry, chat, messages, params)
+			app := tui.NewApp(ctx, chatStore, registry, chatSession, params)
 			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, []string, error) {
 				model := selectedModel
 				if request.Model != "" {
@@ -309,11 +311,7 @@ func NewCmd(
 				store.SetTags(subChat, []string{"agent"})
 				store.SetFiles(subChat, subFilePaths)
 				store.SetCurrentModel(subChat, model.Name)
-				store.SetParentChatID(subChat, chat.Name)
-				subChat, err = chatStore.CreateChat(ctx, subChat)
-				if err != nil {
-					return nil, nil, err
-				}
+				store.SetParentChatID(subChat, chatSession.Chat().GetName())
 				subParams := session.Params{
 					Model:              model,
 					Role:               parsedRole,

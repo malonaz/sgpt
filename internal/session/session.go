@@ -676,9 +676,34 @@ func (s *Session) optimisticSystemPromptIndex() int {
 	return -1
 }
 
+// ensureChat lazily creates the server-side chat on the first turn, so a tab
+// that is opened and abandoned never leaves an empty chat behind. Local
+// mutations made before the first send (labels, title, favorite) ride along
+// in the create payload. Idempotent.
+func (s *Session) ensureChat() error {
+	s.mu.Lock()
+	chat := s.chat
+	s.mu.Unlock()
+	if chat.GetName() != "" {
+		return nil
+	}
+	createdChat, err := s.store.CreateChat(s.turnContext(), chat)
+	if err != nil {
+		return fmt.Errorf("creating chat: %w", err)
+	}
+	s.mu.Lock()
+	s.chat = createdChat
+	s.params.Chat = createdChat.GetName()
+	s.mu.Unlock()
+	return nil
+}
+
 // ensureContext persists the one-time context messages (system prompt, newly
 // injected files) before a generation. Idempotent.
 func (s *Session) ensureContext() error {
+	if err := s.ensureChat(); err != nil {
+		return err
+	}
 	chatName := s.Chat().GetName()
 
 	s.mu.Lock()
@@ -1011,6 +1036,11 @@ func (s *Session) updateChat() error {
 	chat := s.chat
 	s.mu.Unlock()
 
+	// Not yet persisted (lazy creation): local mutations are carried by the
+	// eventual CreateChat on the first send.
+	if chat.GetName() == "" {
+		return nil
+	}
 	updatedChat, err := s.store.UpdateChat(s.ctx, chat, "annotations", "labels", "title")
 	if err != nil {
 		return err

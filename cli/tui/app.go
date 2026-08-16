@@ -80,6 +80,8 @@ type App struct {
 
 	agentSessionFactory AgentSessionFactory
 	agentTabCounter     atomic.Int64
+	// newTabCounter uniquifies tab IDs for chats not yet persisted.
+	newTabCounter atomic.Int64
 
 	tabs      []*tab
 	activeTab int
@@ -101,8 +103,7 @@ func NewApp(
 	ctx context.Context,
 	chatStore *store.Store,
 	registry *tool.Registry,
-	initialChat *aipb.Chat,
-	initialMessages []*aipb.Message,
+	chatSession *session.Session,
 	params session.Params,
 ) *App {
 	app := &App{
@@ -114,8 +115,7 @@ func NewApp(
 
 	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
 
-	tabID := params.Chat
-	chatSession := session.New(ctx, chatStore, registry, initialChat, initialMessages, params)
+	tabID := app.tabIDForChat(chatSession.Chat())
 	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession)
 
 	app.tabs = []*tab{
@@ -416,7 +416,10 @@ func (a *App) addTab(id string, s screen.Screen) tea.Cmd {
 func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 	if msg.Chat != nil {
 		for i, t := range a.tabs {
-			if t.id == msg.Chat.Name {
+			// Compare against the live session chat: lazily-created chats
+			// keep their placeholder tab ID after being persisted.
+			if chatScreen, ok := t.screen.(*screen.ChatScreen); ok &&
+				chatScreen.Session().Chat().GetName() == msg.Chat.Name {
 				return a.switchTab(i)
 			}
 		}
@@ -427,23 +430,25 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		var err error
 
 		if chat == nil {
-			newChat := &aipb.Chat{}
-			store.SetCurrentModel(newChat, a.defaultParams.Model.Name)
-			chat, err = a.store.CreateChat(a.ctx, newChat)
-			if err != nil {
-				return screen.AlertMsg{Text: fmt.Sprintf("Create failed: %v", err)}
-			}
+			// Deferred creation: the session persists the chat on the first
+			// send, so an opened-and-abandoned tab leaves no empty chat behind.
+			chat = &aipb.Chat{}
+			store.SetCurrentModel(chat, a.defaultParams.Model.Name)
 		}
 
-		// Messages are server-side resources: load the history to seed the session.
-		messages, err := a.store.ListMessages(a.ctx, chat.Name)
-		if err != nil {
-			return screen.AlertMsg{Text: fmt.Sprintf("Loading messages failed: %v", err)}
+		// Messages are server-side resources: load the history to seed the
+		// session (nothing to load for a not-yet-persisted chat).
+		var messages []*aipb.Message
+		if chat.Name != "" {
+			messages, err = a.store.ListMessages(a.ctx, chat.Name)
+			if err != nil {
+				return screen.AlertMsg{Text: fmt.Sprintf("Loading messages failed: %v", err)}
+			}
 		}
 
 		params := a.defaultParams
 		params.Chat = chat.Name
-		tabID := chat.Name
+		tabID := a.tabIDForChat(chat)
 
 		chatSession := session.New(a.ctx, a.store, a.registry, chat, messages, params)
 		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
@@ -480,6 +485,15 @@ func (a *App) displayNextAlert() tea.Cmd {
 	}
 	a.alertVisible = true
 	return tea.Tick(alertDuration, func(time.Time) tea.Msg { return alertDismissMsg{} })
+}
+
+// tabIDForChat returns a routing ID for a tab: the chat's resource name, or a
+// unique placeholder for chats not yet persisted (created lazily on first send).
+func (a *App) tabIDForChat(chat *aipb.Chat) string {
+	if name := chat.GetName(); name != "" {
+		return name
+	}
+	return fmt.Sprintf("new-%d", a.newTabCounter.Add(1))
 }
 
 func (a *App) makeWrap(tabID string) screen.WrapFunc {
