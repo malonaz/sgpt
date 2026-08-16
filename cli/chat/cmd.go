@@ -278,6 +278,7 @@ func NewCmd(
 				Tools:              toolNames,
 				AvailableToolNames: availableToolNames,
 				ResolveTool:        resolveTool,
+				LoreNameForPath:    loreIndex.NameForPath,
 			}
 
 			app := tui.NewApp(ctx, chatStore, registry, chat, messages, params)
@@ -324,6 +325,7 @@ func NewCmd(
 					Chat:               subChat.Name,
 					SystemPrompt:       parsedRole.Prompt,
 					InjectedFiles:      subFilePaths,
+					LoreNameForPath:    loreIndex.NameForPath,
 				}
 				return session.New(ctx, chatStore, registry, subChat, nil, subParams), subFilePaths, nil
 			})

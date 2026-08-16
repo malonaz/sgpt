@@ -1,6 +1,7 @@
 go_library(
     name = "widget",
     srcs = [
+        "info.go",
         "input.go",
         "picker.go",
         "tab_bar.go",

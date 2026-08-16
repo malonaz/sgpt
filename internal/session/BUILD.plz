@@ -2,6 +2,7 @@ go_library(
     name = "session",
     srcs = [
         "events.go",
+        "info.go",
         "session.go",
         "stream.go",
         "tools.go",

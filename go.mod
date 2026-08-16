@@ -13,7 +13,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
 	github.com/golang/protobuf v1.5.4
-	github.com/malonaz/core v0.0.0-20260815230702-36bca59a7360
+	github.com/malonaz/core v0.0.0-20260816154415-c6f7536f877c
 	github.com/pkg/errors v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.10.2
@@ -25,6 +25,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -151,6 +152,5 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genai v1.53.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )

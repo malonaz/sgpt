@@ -44,6 +44,7 @@ var (
 	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
 	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
 	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
+	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
 )
 
 type ChatScreen struct {
@@ -63,6 +64,10 @@ type ChatScreen struct {
 	// keys; pickerApply consumes its selection on confirm.
 	picker      *widget.Picker
 	pickerApply func(selected []string) tea.Cmd
+
+	// info, when non-nil, is the chat info modal: a read-only snapshot that
+	// swallows every key (any key closes it).
+	info *session.Info
 
 	width            int
 	height           int
@@ -143,7 +148,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
-			chatKeyDeleteMessage,
+			chatKeyDeleteMessage, chatKeyInfo,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -219,6 +224,12 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 
 	case tea.KeyPressMsg:
+		// The info modal is read-only: any key dismisses it, and none reach
+		// the chat underneath.
+		if m.info != nil {
+			m.info = nil
+			return nil
+		}
 		if m.picker != nil {
 			return m.handlePickerKey(msg)
 		}
@@ -288,6 +299,11 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openFilePicker()
 	case key.Matches(msg, chatKeyDeleteMessage.Key):
 		return m.deleteSelectedMessage()
+	case key.Matches(msg, chatKeyInfo.Key):
+		// Snapshotted on open: the modal is a still frame, so a streaming
+		// turn never mutates the numbers under the reader's eyes.
+		m.info = m.session.Info()
+		return nil
 	}
 
 	switch msg.String() {
@@ -682,6 +698,9 @@ func (m *ChatScreen) busyLabel() string {
 func (m *ChatScreen) View() string {
 	if !m.ready {
 		return "Initializing..."
+	}
+	if m.info != nil {
+		return widget.RenderInfo(m.info, m.width, m.height)
 	}
 	if m.picker != nil {
 		return m.picker.View()

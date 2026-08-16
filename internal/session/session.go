@@ -69,6 +69,10 @@ type Params struct {
 	// (virtual injections, e.g. knowledge-graph nodes). Paths present here
 	// are used verbatim — never normalized, never read from disk.
 	InjectedFileContents map[string]string
+	// LoreNameForPath recognizes an injected file as a lore, returning its
+	// canonical name. Lores enter the context as plain files, so this is the
+	// only way to tell them apart when reporting what the context holds.
+	LoreNameForPath func(path string) (string, bool)
 }
 
 // Session drives a single chat conversation.

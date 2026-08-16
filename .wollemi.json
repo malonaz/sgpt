@@ -273,6 +273,7 @@
         "github.com/malonaz/core/go/ai/ai_service/provider/deepgram": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider__deepgram",
         "github.com/malonaz/core/go/ai/ai_service/provider/elevenlabs": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider__elevenlabs",
         "github.com/malonaz/core/go/ai/ai_service/provider/google": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider__google",
+        "github.com/malonaz/core/go/ai/ai_service/provider/mock": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider__mock",
         "github.com/malonaz/core/go/ai/ai_service/provider/openai": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider__openai",
         "github.com/malonaz/core/go/ai/ai_service/provider/xai": "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider__xai",
         "github.com/malonaz/core/go/ai/tool": "//third_party/go:github.com__malonaz__core__go__ai__tool",
