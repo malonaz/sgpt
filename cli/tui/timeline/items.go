@@ -372,6 +372,18 @@ func NewErrorItem(id, text string) *LineItem {
 	return &LineItem{id: id, text: "Error: " + text, style: styles.MessageErrorStyle}
 }
 
+// NewQueuedItem renders a user interjection waiting to join the next
+// generation (typed while a turn was running).
+func NewQueuedItem(id, text string) *LineItem {
+	return &LineItem{id: id, text: "⏳ Queued: " + flatten(text), style: styles.DimTextStyle}
+}
+
+// NewCancelledItem marks a user-cancelled turn — an interruption, not a
+// failure: the turn's inputs are re-queued and resume on the next send.
+func NewCancelledItem(id string) *LineItem {
+	return &LineItem{id: id, text: "Turn cancelled — your messages are queued and resume on the next send", style: styles.DimTextStyle}
+}
+
 func (i *LineItem) ID() string                { return i.id }
 func (i *LineItem) Content() (string, string) { return i.text, "" }
 

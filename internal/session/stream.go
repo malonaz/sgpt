@@ -1,6 +1,8 @@
 package session
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -8,23 +10,23 @@ import (
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/malonaz/sgpt/internal/debug"
-	"github.com/malonaz/sgpt/internal/tool"
 )
 
-const renderThrottleInterval = 66 * time.Millisecond
+// renderInterval paces refresh events: token streams emit far faster than a
+// terminal can usefully render.
+const renderInterval = 66 * time.Millisecond
 
 // stream runs a single generation against the AI service. The input messages
 // (user text, tool results) are persisted server-side along with the
 // generated assistant message. Blocks until the stream completes or errors.
-// Returns the persisted assistant message.
-func (s *Session) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
-	// The turn context is armed in SendMessage, before any network work, so
-	// cancellation covers the whole turn — not just the open stream.
-	streamCtx := s.turnContext()
+// Returns the assistant message.
+func (t *turn) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
+	s := t.session
 
 	// Snapshot once: the UI goroutine mutates params (reasoning effort, tool
 	// selection) while this turn runs.
@@ -45,66 +47,45 @@ func (s *Session) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
 		},
 	}
 	debug.LogProto("request", generateMessageRequest, "messages", "tools")
-	stream, err := s.store.StreamGenerateMessage(streamCtx, generateMessageRequest)
+	stream, err := s.store.StreamGenerateMessage(t.ctx, generateMessageRequest)
 	if err != nil {
 		s.finalizeStream(nil, err)
 		return nil, fmt.Errorf("opening stream: %w", err)
 	}
 
 	accumulator := ai.NewMessageAccumulator()
-	lastRender := time.Now()
-	pendingRender := false
-	reviewedToolCallCount := 0
-
-	checkRender := func() {
-		if time.Since(lastRender) >= renderThrottleInterval {
-			s.refresh()
-			lastRender = time.Now()
-			pendingRender = false
-		} else {
-			pendingRender = true
-		}
-	}
+	resolvedToolCallCount := 0
 
 	for {
 		select {
-		case <-streamCtx.Done():
-			if pendingRender {
-				s.refresh()
-			}
-			s.finalizeStream(accumulator.Message, streamCtx.Err())
-			return nil, fmt.Errorf("stream cancelled: %w", streamCtx.Err())
+		case <-t.ctx.Done():
+			s.finalizeStream(accumulator.Message, t.ctx.Err())
+			return nil, fmt.Errorf("stream cancelled: %w", t.ctx.Err())
 		default:
 		}
 
 		response, err := stream.Recv()
+		if err == io.EOF {
+			generatedMessage := accumulator.Message
+			s.finalizeStream(generatedMessage, nil)
+			return generatedMessage, nil
+		}
 		if err != nil {
-			if pendingRender {
-				s.refresh()
-			}
-			if err == io.EOF {
-				generatedMessage := accumulator.Message
-				s.finalizeStream(generatedMessage, nil)
-				return generatedMessage, nil
-			}
 			s.finalizeStream(accumulator.Message, err)
 			return nil, fmt.Errorf("receiving stream: %w", err)
 		}
 		debug.LogProto("response", response)
 
-		// The final event carries the persisted assistant message; its tool
-		// call blocks are fresh server-side copies without the review state
-		// (status, metadata, results) attached client-side during streaming.
-		// Swap in our accumulated ToolCall objects so identity — and the UI
-		// state hanging off it — survives the replacement.
-		if generatedMessage := response.GetGeneratedMessage(); generatedMessage != nil {
-			mergeToolCallState(accumulator.Message, generatedMessage)
+		// The final event carries the persisted assistant message. The
+		// locally accumulated blocks are the richer truth — they hold the
+		// results and review state attached during streaming — so adopt only
+		// the fields the server owns instead of replacing the message.
+		if persistedMessage := response.GetGeneratedMessage(); persistedMessage != nil {
+			adoptPersistedIdentity(accumulator.Message, persistedMessage)
+			continue
 		}
 
 		if err := accumulator.Add(response); err != nil {
-			if pendingRender {
-				s.refresh()
-			}
 			s.finalizeStream(accumulator.Message, err)
 			return nil, fmt.Errorf("accumulating stream response: %w", err)
 		}
@@ -120,76 +101,41 @@ func (s *Session) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
 			s.mu.Unlock()
 		}
 
-		// Review new tool calls eagerly as they arrive during streaming.
+		// Resolve tool calls eagerly as they complete mid-stream: read-only
+		// and whitelisted tools run immediately, in arrival order, so the
+		// turn keeps moving instead of waiting for the full response.
 		toolCallBlocks := ai.FilterBlocks(accumulator.Message.GetBlocks(), ai.BlockTypeToolCall)
-		for len(toolCallBlocks) > reviewedToolCallCount {
-			s.reviewToolCallEagerly(toolCallBlocks[reviewedToolCallCount].GetToolCall())
-			reviewedToolCallCount++
+		for len(toolCallBlocks) > resolvedToolCallCount {
+			toolCall := toolCallBlocks[resolvedToolCallCount].GetToolCall()
+			debug.LogProto("eager", toolCall)
+			s.resolveToolCall(t.ctx, toolCall, true)
+			resolvedToolCallCount++
 		}
 
-		checkRender()
+		s.refresh()
 	}
 }
 
-// mergeToolCallState replaces the persisted message's tool call blocks with
-// the locally accumulated ones (matched by id), which carry the client-side
-// review annotations and any eagerly attached results.
-func mergeToolCallState(localMessage, persistedMessage *aipb.Message) {
-	toolCallIDToToolCall := map[string]*aipb.ToolCall{}
-	for _, block := range ai.FilterBlocks(localMessage.GetBlocks(), ai.BlockTypeToolCall) {
-		toolCallIDToToolCall[block.GetToolCall().GetId()] = block.GetToolCall()
-	}
-	for _, block := range persistedMessage.GetBlocks() {
-		persistedToolCall := block.GetToolCall()
-		if persistedToolCall == nil {
-			continue
-		}
-		if localToolCall, ok := toolCallIDToToolCall[persistedToolCall.GetId()]; ok {
-			block.Content = &aipb.Block_ToolCall{ToolCall: localToolCall}
-		}
-	}
+// adoptPersistedIdentity copies the server-owned fields of the persisted
+// assistant message onto the locally accumulated one. Blocks deliberately
+// stay local: they carry the tool results and review state attached during
+// streaming, which the server copy does not have.
+func adoptPersistedIdentity(localMessage, persistedMessage *aipb.Message) {
+	localMessage.Name = persistedMessage.GetName()
+	localMessage.Etag = persistedMessage.GetEtag()
+	localMessage.CreateTime = persistedMessage.GetCreateTime()
+	localMessage.UpdateTime = persistedMessage.GetUpdateTime()
+	localMessage.Labels = persistedMessage.GetLabels()
+	localMessage.Model = persistedMessage.GetModel()
+	localMessage.ModelUsage = persistedMessage.GetModelUsage()
+	localMessage.Price = persistedMessage.GetPrice()
 }
 
-// reviewToolCallEagerly attaches display/auto-execute metadata to a tool call
-// as soon as it appears in the stream. Read-only (auto-execute) tools are
-// executed immediately — sequentially, in arrival order — so the turn keeps
-// moving instead of waiting for the full response.
-func (s *Session) reviewToolCallEagerly(toolCall *aipb.ToolCall) {
-	debug.LogProto("eager", toolCall)
-	if !s.registry.Handles(toolCall) {
-		return
-	}
-	if _, err := s.registry.Review(s.ctx, toolCall); err != nil {
-		// Feed the failure back to the model as a tool result instead of
-		// aborting the turn; leaving the call unresolved poisons the history.
-		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-		s.refresh()
-		return
-	}
-	// Review can attach a result directly (e.g. discovery tools); executing
-	// those through the registry would fail with a parse-type mismatch.
-	if toolCall.GetResult() != nil {
-		s.refresh()
-		return
-	}
-	metadata, err := tool.ParseToolCallMetadata(toolCall)
-	if err != nil {
-		return
-	}
-	// User-whitelisted tools execute eagerly, just like read-only ones.
-	if !metadata.GetAutoExecute() && !s.IsToolAutoAccepted(toolCall.GetName()) {
-		return
-	}
-
-	s.setExecutingToolCall(toolCall.GetId())
-	s.refresh()
-	toolResult, err := s.registry.Execute(s.ctx, toolCall)
-	if err != nil {
-		toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
-	}
-	toolCall.Result = toolResult
-	s.setExecutingToolCall("")
-	s.refresh()
+// IsCancelError reports whether err represents a user-initiated cancellation
+// (local context or gRPC Canceled), so the UI can render it calmly as an
+// interruption instead of a failure.
+func IsCancelError(err error) bool {
+	return errors.Is(err, context.Canceled) || grpcstatus.Code(err) == codes.Canceled
 }
 
 // finalizeStream commits the streamed message to the local history and
@@ -232,6 +178,5 @@ func (s *Session) finalizeStream(message *aipb.Message, err error) {
 	}
 
 	s.streamingMessage = nil
-	s.state = StateIdle
 	s.streamError = err
 }

@@ -161,7 +161,7 @@ func (m *ChatScreen) SetSize(width, height int) {
 
 func (m *ChatScreen) OnFocus() tea.Cmd {
 	m.focused = true
-	if m.focusedComponent == FocusTextarea && !m.session.Busy() {
+	if m.focusedComponent == FocusTextarea {
 		return m.input.Focus()
 	}
 	return nil
@@ -225,7 +225,7 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		return m.handleKeyPress(msg)
 	}
 
-	if !m.session.Busy() && m.focusedComponent == FocusTextarea {
+	if m.focusedComponent == FocusTextarea {
 		return m.updateInput(msg)
 	}
 	return nil
@@ -292,9 +292,11 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 
 	switch msg.String() {
 	case "ctrl+c":
-		// Busy() covers the whole turn, including the pre-stream window;
-		// CancelTurn aborts it wherever it is.
-		if m.session.Busy() {
+		// TurnInFlight covers the whole turn — pre-stream window, streaming,
+		// tool execution and review pauses; CancelTurn aborts it wherever it
+		// is and the turn resolves cleanly (cancelled tool results, inputs
+		// re-queued).
+		if m.session.TurnInFlight() {
 			m.session.CancelTurn()
 			return nil
 		}
@@ -311,19 +313,17 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 	if cmd := m.input.HandleKey(msg); cmd != nil {
 		return cmd
 	}
-	if !m.session.Busy() {
-		return m.updateInput(msg)
-	}
-	return nil
+	return m.updateInput(msg)
 }
 
 func (m *ChatScreen) submit() tea.Cmd {
-	// Review takes precedence: a pending call means the turn is parked
-	// waiting on this keystroke.
-	if pendingToolCallID := m.reviewTarget(); pendingToolCallID != "" {
-		return m.confirmReview(pendingToolCallID)
-	}
-	if m.session.Busy() {
+	// An empty ctrl+j while a call awaits review approves it. Composed text
+	// is always a message — an interjection queued for the next generation
+	// when a turn is in flight — never an implicit verdict. Rejection stays
+	// explicit (alt+shift+r).
+	pendingToolCallID := m.reviewTarget()
+	if pendingToolCallID != "" && m.input.Value() == "" {
+		m.session.ApproveToolCall(pendingToolCallID)
 		return nil
 	}
 
@@ -335,24 +335,19 @@ func (m *ChatScreen) submit() tea.Cmd {
 	sess := m.session
 	m.refresh()
 	m.timeline.GotoBottom()
-	return tea.Batch(m.spinner.Tick, func() tea.Msg {
+	var cmds []tea.Cmd
+	if pendingToolCallID != "" {
+		cmds = append(cmds, m.alert("Message queued — the tool call still awaits your verdict"))
+	}
+	cmds = append(cmds, m.spinner.Tick, func() tea.Msg {
+		// Queues an interjection when a turn is in flight; starts a turn
+		// otherwise. Refreshes arrive on the session event channel; emitting
+		// one here too would double-invoke maybeJumpToReview and can consume
+		// the idle→review edge it keys off.
 		sess.SendMessage(text)
-		// Refreshes arrive on the session event channel; emitting one here
-		// too would double-invoke maybeJumpToReview and can consume the
-		// idle→review edge it keys off.
 		return nil
 	})
-}
-
-// confirmReview handles ctrl+j during review: it approves the target.
-// Rejection is explicit (alt+shift+r) so composed text is never silently
-// repurposed as a rejection reason.
-func (m *ChatScreen) confirmReview(toolCallID string) tea.Cmd {
-	if m.input.Value() != "" {
-		return m.alert("Tool call pending review — ctrl+j/alt+y: accept, alt+shift+r: reject (input = reason)")
-	}
-	m.session.ApproveToolCall(toolCallID)
-	return nil
+	return tea.Batch(cmds...)
 }
 
 // reviewTarget returns the tool call a verdict applies to: the selected one
@@ -407,8 +402,9 @@ func (m *ChatScreen) deleteSelectedMessage() tea.Cmd {
 		return m.alert("Deleting a message needs timeline focus — tab to navigate, then alt+d")
 	}
 	// A turn in flight is still appending to (and persisting) the history;
-	// deleting underneath it would race those writes.
-	if m.session.Busy() {
+	// deleting underneath it would race those writes. TurnInFlight, not Busy:
+	// a review pause is still mid-turn.
+	if m.session.TurnInFlight() {
 		return m.alert("Cannot delete while the turn is running — ctrl+c to cancel first")
 	}
 	messageName := m.timeline.SelectedMessageName()
@@ -598,9 +594,29 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 		m.session.Registry(),
 	)
 	if err := m.session.StreamError(); err != nil {
-		items = append(items, timeline.NewErrorItem("stream-error", err.Error()))
+		if session.IsCancelError(err) {
+			items = append(items, timeline.NewCancelledItem("turn-cancelled"))
+		} else {
+			items = append(items, timeline.NewErrorItem("stream-error", err.Error()))
+		}
+	}
+	// Interjections render at the bottom until the turn consumes them into
+	// the history proper.
+	for i, queuedMessage := range m.session.QueuedMessages() {
+		items = append(items, timeline.NewQueuedItem(fmt.Sprintf("queued-%d", i), messageText(queuedMessage)))
 	}
 	return items
+}
+
+// messageText joins a message's text blocks for single-line display.
+func messageText(message *aipb.Message) string {
+	var parts []string
+	for _, block := range message.GetBlocks() {
+		if block.GetText() != "" {
+			parts = append(parts, block.GetText())
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func (m *ChatScreen) refresh() {
@@ -615,14 +631,13 @@ func (m *ChatScreen) refresh() {
 }
 
 func (m *ChatScreen) refreshPlaceholder() {
-	toolCallID := m.reviewTarget()
-	if toolCallID == "" {
-		m.input.Textarea.Placeholder = "Type your message... (ctrl+j: send, tab: navigate, alt+h: help)"
+	if toolCallID := m.reviewTarget(); toolCallID != "" {
+		m.input.Textarea.Placeholder = fmt.Sprintf(
+			"reviewing %s — ctrl+j: accept, alt+shift+r: reject (input = reason), alt+shift+a: always accept",
+			m.toolNameForCall(toolCallID))
 		return
 	}
-	m.input.Textarea.Placeholder = fmt.Sprintf(
-		"reviewing %s — ctrl+j: accept, alt+shift+r: reject (input = reason), alt+shift+a: always accept this tool",
-		m.toolNameForCall(toolCallID))
+	m.input.Textarea.Placeholder = "Type your message... (ctrl+j: send, tab: navigate, alt+h: help)"
 }
 
 func (m *ChatScreen) refreshTitle() {
@@ -636,9 +651,11 @@ func (m *ChatScreen) recalculateLayout() {
 
 	m.titlebar.SetWidth(m.width)
 
+	// The input stays visible while busy — interjections are typed mid-turn —
+	// with a one-line status (spinner) above it.
 	bottomHeight := m.input.Height()
 	if m.session.Busy() {
-		bottomHeight = 1
+		bottomHeight++
 	}
 	viewportHeight := m.height - m.titlebar.Height() - bottomHeight - 1
 	if viewportHeight < styles.MinViewportHeight {
@@ -657,9 +674,9 @@ func (m *ChatScreen) recalculateLayout() {
 
 func (m *ChatScreen) busyLabel() string {
 	if m.session.State() == session.StateExecutingTools {
-		return "executing tool..."
+		return "executing tool... (ctrl+j: queue a message · ctrl+c: cancel)"
 	}
-	return "thinking... (ctrl+c to cancel)"
+	return "thinking... (ctrl+j: queue a message · ctrl+c: cancel)"
 }
 
 func (m *ChatScreen) View() string {
@@ -679,9 +696,9 @@ func (m *ChatScreen) View() string {
 		b.WriteString(m.spinner.View())
 		b.WriteString(" ")
 		b.WriteString(styles.DimTextStyle.Render(m.busyLabel()))
-	} else {
-		b.WriteString(m.input.View())
+		b.WriteString("\n")
 	}
+	b.WriteString(m.input.View())
 	return b.String()
 }
 

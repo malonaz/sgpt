@@ -47,7 +47,7 @@ func TestAwaitVerdictApprove(t *testing.T) {
 	}
 	resultCh := make(chan result, 1)
 	go func() {
-		approved, reason := s.awaitVerdict(toolCall("call-1", "shell"))
+		approved, reason := s.awaitVerdict(s.ctx, toolCall("call-1", "shell"))
 		resultCh <- result{approved, reason}
 	}()
 
@@ -71,7 +71,7 @@ func TestAwaitVerdictReject(t *testing.T) {
 
 	reasonCh := make(chan string, 1)
 	go func() {
-		approved, reason := s.awaitVerdict(toolCall("call-1", "shell"))
+		approved, reason := s.awaitVerdict(s.ctx, toolCall("call-1", "shell"))
 		if approved {
 			t.Error("approved = true, want false")
 		}
@@ -93,7 +93,7 @@ func TestAwaitVerdictCancellation(t *testing.T) {
 
 	doneCh := make(chan bool, 1)
 	go func() {
-		approved, _ := s.awaitVerdict(toolCall("call-1", "shell"))
+		approved, _ := s.awaitVerdict(s.ctx, toolCall("call-1", "shell"))
 		doneCh <- approved
 	}()
 
@@ -125,12 +125,12 @@ func TestAlwaysApproveToolScopedToName(t *testing.T) {
 
 	shellCh := make(chan bool, 1)
 	go func() {
-		approved, _ := s.awaitVerdict(toolCall("call-shell", "shell"))
+		approved, _ := s.awaitVerdict(s.ctx, toolCall("call-shell", "shell"))
 		shellCh <- approved
 	}()
 	diffCh := make(chan bool, 1)
 	go func() {
-		approved, _ := s.awaitVerdict(toolCall("call-diff", "diff"))
+		approved, _ := s.awaitVerdict(s.ctx, toolCall("call-diff", "diff"))
 		diffCh <- approved
 	}()
 
@@ -181,7 +181,7 @@ func TestConcurrentReviewAndRender(t *testing.T) {
 		id := "call"
 		doneCh := make(chan struct{})
 		go func() {
-			s.awaitVerdict(toolCall(id, "shell"))
+			s.awaitVerdict(s.ctx, toolCall(id, "shell"))
 			close(doneCh)
 		}()
 		awaitPending(t, s, id)

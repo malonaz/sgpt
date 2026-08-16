@@ -5,6 +5,7 @@ go_library(
         "session.go",
         "stream.go",
         "tools.go",
+        "turn.go",
     ],
     visibility = ["//..."],
     deps = [
@@ -14,6 +15,7 @@ go_library(
         "//internal/tool",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/go:google.golang.org__grpc__codes",
         "//third_party/go:google.golang.org__grpc__status",
         "//third_party/go:google.golang.org__protobuf__proto",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",

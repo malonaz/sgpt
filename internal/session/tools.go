@@ -1,77 +1,84 @@
 package session
 
 import (
+	"context"
 	"fmt"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 
-	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
-// executeToolCalls resolves every tool call of the assistant message strictly
-// sequentially, then queues the results as input for the next generation.
+// resolveToolCall is the only place a tool call acquires a result; it is
+// idempotent, so eager (mid-stream) and deferred (turn loop) resolution can
+// safely overlap.
 //
-// Review is a blocking await inside this loop: a call needing approval parks
-// the turn goroutine until the user answers (see awaitVerdict). There is no
-// review state to track — a call is "pending" precisely while the loop is
-// waiting on it, and a verdict produces a terminal result immediately.
-func (s *Session) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*aipb.ToolCall) {
-	if len(toolCalls) == 0 {
+// Eager mode resolves only what needs no human — review-attached results,
+// auto-execute and whitelisted tools — and leaves everything else untouched.
+// Deferred mode always attaches a terminal result: it awaits the user's
+// verdict where required, and a cancelled turn resolves to an error result so
+// the history stays valid (providers reject unanswered tool calls outright).
+func (s *Session) resolveToolCall(ctx context.Context, toolCall *aipb.ToolCall, eager bool) {
+	if toolCall.GetResult() != nil {
+		return
+	}
+	if ctx.Err() != nil {
+		if eager {
+			return
+		}
+		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id,
+			fmt.Errorf("turn cancelled by user: this tool call never ran"))
 		return
 	}
 
-	resultBlocks := make([]*aipb.Block, 0, len(toolCalls))
-	for _, toolCall := range toolCalls {
-		debug.LogProto(toolCall.GetName(), toolCall)
-		toolResult := toolCall.GetResult()
-		if toolResult == nil {
-			toolResult = s.resolveToolCall(toolCall)
-			// Attach the result to its call so the UI renders the
-			// request/response pair adjacently and the pairing persists.
-			toolCall.Result = toolResult
-			s.refresh()
+	if eager {
+		if !s.registry.Handles(toolCall) {
+			return
 		}
-		resultBlocks = append(resultBlocks, ai.NewToolResultBlock(toolResult))
-	}
-
-	// Persist the results living inside the assistant message's tool call blocks.
-	if assistantMessage.GetName() != "" {
-		if _, err := s.store.UpdateMessage(s.ctx, assistantMessage, "blocks"); err != nil {
-			s.emitError(fmt.Errorf("persisting tool call results: %w", err))
+		// Review attaches display/auto-execute metadata — and, for discovery
+		// tools, the result itself — exactly once, when the call first
+		// appears in the stream.
+		if _, err := s.registry.Review(ctx, toolCall); err != nil {
+			// Feed the failure back to the model as a tool result instead of
+			// aborting the turn; an unresolved call poisons the history.
+			toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+			return
+		}
+		if toolCall.GetResult() != nil {
+			return
 		}
 	}
 
-	toolMessage := ai.NewToolMessage(resultBlocks...)
-	s.mu.Lock()
-	s.messages = append(s.messages, toolMessage)
-	// The tool message is persisted server-side as input to the next turn.
-	s.pendingInputMessages = append(s.pendingInputMessages, toolMessage)
-	s.invalidatePrice()
-	s.mu.Unlock()
-	s.refresh()
-}
-
-// resolveToolCall produces the terminal result for one tool call: it awaits
-// user approval when required, then executes. Never returns nil.
-func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
 	metadata, err := tool.ParseToolCallMetadata(toolCall)
 	if err != nil {
-		// Review never ran (e.g. unparseable arguments); feed the failure back
-		// to the model rather than killing the turn.
-		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+		if eager {
+			return
+		}
+		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+		return
 	}
 
 	if !metadata.GetAutoExecute() && !s.IsToolAutoAccepted(toolCall.GetName()) {
-		approved, reason := s.awaitVerdict(toolCall)
+		if eager {
+			// Needs a human: the turn loop awaits the verdict.
+			return
+		}
+		approved, reason := s.awaitVerdict(ctx, toolCall)
 		if !approved {
-			return ai.NewErrorToolResult(toolCall.Name, toolCall.Id,
+			toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id,
 				fmt.Errorf("rejected by user: %s", reason))
+			return
 		}
 	}
 
-	s.setState(StateExecutingTools)
+	s.executeToolCall(ctx, toolCall)
+}
+
+// executeToolCall runs the call through the registry and attaches its
+// terminal result; execution failures resolve as error results so the model
+// always gets an answer.
+func (s *Session) executeToolCall(ctx context.Context, toolCall *aipb.ToolCall) {
 	s.setExecutingToolCall(toolCall.GetId())
 	s.refresh()
 	defer func() {
@@ -79,17 +86,17 @@ func (s *Session) resolveToolCall(toolCall *aipb.ToolCall) *aipb.ToolResult {
 		s.refresh()
 	}()
 
-	toolResult, err := s.registry.Execute(s.ctx, toolCall)
+	toolResult, err := s.registry.Execute(ctx, toolCall)
 	if err != nil {
-		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
+		toolResult = ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err)
 	}
-	return toolResult
+	toolCall.Result = toolResult
 }
 
 // awaitVerdict blocks the turn goroutine until the user answers for this tool
-// call, or the session is cancelled (treated as a rejection so the call still
+// call, or the turn is cancelled (treated as a rejection so the call still
 // resolves and the history stays valid).
-func (s *Session) awaitVerdict(toolCall *aipb.ToolCall) (approved bool, reason string) {
+func (s *Session) awaitVerdict(ctx context.Context, toolCall *aipb.ToolCall) (approved bool, reason string) {
 	toolCallID := toolCall.GetId()
 	verdictCh := make(chan verdict, 1)
 
@@ -98,7 +105,6 @@ func (s *Session) awaitVerdict(toolCall *aipb.ToolCall) (approved bool, reason s
 		toolName:  toolCall.GetName(),
 		verdictCh: verdictCh,
 	}
-	s.state = StateAwaitingReview
 	s.mu.Unlock()
 	s.refresh()
 
@@ -111,8 +117,8 @@ func (s *Session) awaitVerdict(toolCall *aipb.ToolCall) (approved bool, reason s
 	select {
 	case answer := <-verdictCh:
 		return answer.approved, answer.reason
-	case <-s.ctx.Done():
-		return false, "session cancelled"
+	case <-ctx.Done():
+		return false, "turn cancelled"
 	}
 }
 

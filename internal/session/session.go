@@ -86,13 +86,11 @@ type Session struct {
 	messages          []*aipb.Message
 	streamingMessage  *aipb.Message
 	streamError       error
-	state             State
 	executingToolCall string
-	// turnCtx scopes one full turn (context RPCs, streams, tool loops); it
-	// exists exactly while a turn runs and cancelTurn aborts it wherever it
-	// is — including before the first stream opens.
-	turnCtx    context.Context
-	cancelTurn context.CancelFunc
+	// currentTurn is the turn in flight, nil when idle. It scopes one full
+	// exchange (context RPCs, streams, tool loops); cancelling it aborts the
+	// turn wherever it is — including before the first stream opens.
+	currentTurn *turn
 	// titleGenerating guards against launching concurrent title generations.
 	titleGenerating bool
 
@@ -121,6 +119,11 @@ type Session struct {
 	// consumed by the next generation request.
 	pendingInputMessages []*aipb.Message
 
+	// queuedMessages holds user interjections typed while a turn is running;
+	// they are appended (after any tool results) to the next generation's
+	// input, or carried into the next turn if the current one ends first.
+	queuedMessages []*aipb.Message
+
 	// enabledUserToolNameSet is the user-facing tool selection;
 	// enabledAdvertisedNameSet is its expansion to the tool/tool-set names
 	// actually advertised to the model.
@@ -143,6 +146,10 @@ type Session struct {
 	// fire while awaiting review — the sub-agent launcher uses it to collect
 	// the final answer after the user resolves everything in the tab.
 	onTurnComplete func(finalText string, err error)
+
+	// renderThrottle paces RefreshEvents: token streams emit far faster than
+	// a terminal can usefully render.
+	renderThrottle throttle
 
 	eventCh chan Event
 }
@@ -167,6 +174,7 @@ func New(
 		injectedFilePathToMessageName: map[string]string{},
 		totalModelUsage:               &aipb.ModelUsage{},
 		lastModelUsage:                &aipb.ModelUsage{},
+		renderThrottle:                throttle{interval: renderInterval},
 		eventCh:                       make(chan Event, 64),
 	}
 	// Tools execute against this session's history (the registry is one
@@ -311,7 +319,7 @@ func (s *Session) emit(event Event) {
 }
 
 func (s *Session) refresh() {
-	s.emit(RefreshEvent{})
+	s.renderThrottle.call(func() { s.emit(RefreshEvent{}) })
 }
 
 func (s *Session) emitError(err error) {
@@ -371,10 +379,22 @@ func (s *Session) StreamError() error {
 	return s.streamError
 }
 
+// State derives the lifecycle phase from the session's facts — nothing ever
+// stores it, so it can never go stale. A pending review outranks execution,
+// which outranks a turn merely being in flight.
 func (s *Session) State() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.state
+	switch {
+	case len(s.pendingReviews) > 0:
+		return StateAwaitingReview
+	case s.executingToolCall != "":
+		return StateExecutingTools
+	case s.currentTurn != nil:
+		return StateStreaming
+	default:
+		return StateIdle
+	}
 }
 
 func (s *Session) IsStreaming() bool {
@@ -392,12 +412,6 @@ func (s *Session) ExecutingToolCallID() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.executingToolCall
-}
-
-func (s *Session) setState(state State) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.state = state
 }
 
 func (s *Session) setExecutingToolCall(id string) {
@@ -833,23 +847,34 @@ func (s *Session) lastAssistantText() string {
 }
 
 func (s *Session) SendMessage(text string) {
-	s.beginTurn()
-	defer s.endTurn()
-	s.setState(StateStreaming)
+	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
+
+	// The queue-or-start decision and the turn arming share one lock
+	// acquisition, so an interjection can never race a turn start.
+	s.mu.Lock()
+	if s.currentTurn != nil {
+		// A turn is in flight: interject. The message is queued — and
+		// rendered as queued — until the turn's next generation consumes it;
+		// it goes after any tool results so the history stays valid.
+		s.queuedMessages = append(s.queuedMessages, userMessage)
+		s.mu.Unlock()
+		s.refresh()
+		return
+	}
+	currentTurn := newTurn(s)
+	s.currentTurn = currentTurn
 	// Optimistic render: the user's message must appear immediately. The
 	// context RPCs below (system prompt, injected files) are a network round
 	// trip that would otherwise leave the timeline empty.
-	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
-	s.mu.Lock()
 	s.streamError = nil
 	s.messages = append(s.messages, userMessage)
 	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
 	s.invalidatePrice()
 	s.mu.Unlock()
+	defer s.endTurn(currentTurn)
 	s.refresh()
 
 	if err := s.ensureContext(); err != nil {
-		s.setState(StateIdle)
 		// The turn never ran: drop the optimistic message from the queue so a
 		// retry doesn't send it twice.
 		s.rollbackPendingInput(userMessage)
@@ -859,7 +884,7 @@ func (s *Session) SendMessage(text string) {
 	}
 
 	s.refresh()
-	s.runTurn()
+	currentTurn.run()
 }
 
 // rollbackPendingInput removes an optimistically appended message after the
@@ -875,23 +900,16 @@ func (s *Session) rollbackPendingInput(message *aipb.Message) {
 	}
 }
 
-// beginTurn arms the turn-scoped context; from here on CancelTurn aborts any
-// turn work, network round trips included.
-func (s *Session) beginTurn() {
+// endTurn releases the turn; the session is idle again and the next
+// SendMessage starts fresh.
+func (s *Session) endTurn(t *turn) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.turnCtx, s.cancelTurn = context.WithCancel(s.ctx)
-}
-
-// endTurn releases the turn context; outside a turn there is nothing to cancel.
-func (s *Session) endTurn() {
-	s.mu.Lock()
-	cancelTurn := s.cancelTurn
-	s.turnCtx, s.cancelTurn = nil, nil
-	s.mu.Unlock()
-	if cancelTurn != nil {
-		cancelTurn()
+	if s.currentTurn == t {
+		s.currentTurn = nil
 	}
+	s.mu.Unlock()
+	t.cancel()
+	s.refresh()
 }
 
 // turnContext returns the running turn's context, falling back to the
@@ -899,8 +917,8 @@ func (s *Session) endTurn() {
 func (s *Session) turnContext() context.Context {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.turnCtx != nil {
-		return s.turnCtx
+	if s.currentTurn != nil {
+		return s.currentTurn.ctx
 	}
 	return s.ctx
 }
@@ -908,64 +926,66 @@ func (s *Session) turnContext() context.Context {
 // CancelTurn aborts the running turn, if any.
 func (s *Session) CancelTurn() {
 	s.mu.Lock()
-	cancelTurn := s.cancelTurn
+	currentTurn := s.currentTurn
 	s.mu.Unlock()
-	if cancelTurn != nil {
-		cancelTurn()
+	if currentTurn != nil {
+		currentTurn.cancel()
 	}
 }
 
-// takePendingInputMessages drains the queue of new messages for the next
-// generation request.
-func (s *Session) takePendingInputMessages() []*aipb.Message {
+// TurnInFlight reports whether a turn is currently running, review pauses
+// included — the window during which SendMessage queues an interjection
+// instead of starting a new turn.
+func (s *Session) TurnInFlight() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.currentTurn != nil
+}
+
+// QueuedMessages returns the interjections waiting for the next generation.
+func (s *Session) QueuedMessages() []*aipb.Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]*aipb.Message(nil), s.queuedMessages...)
+}
+
+func (s *Session) hasQueuedMessages() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.queuedMessages) > 0
+}
+
+// takeInputMessages drains the messages for the next generation request:
+// pending messages (user text, tool results) first, then any queued
+// interjections — tool results must directly answer the assistant message,
+// so interjections always go last. Consumed interjections join the local
+// mirror here, which is their true position in the conversation.
+func (s *Session) takeInputMessages() []*aipb.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	inputMessages := s.pendingInputMessages
 	s.pendingInputMessages = nil
+	if len(s.queuedMessages) > 0 {
+		inputMessages = append(inputMessages, s.queuedMessages...)
+		s.messages = append(s.messages, s.queuedMessages...)
+		s.queuedMessages = nil
+		s.invalidatePrice()
+	}
 	return inputMessages
 }
 
-// runTurn executes a complete turn: stream → process tool calls → save.
-// Auto-execute tool calls run immediately (some already ran eagerly during
-// streaming). Manual ones pause the turn for user review.
-func (s *Session) runTurn() {
-	// A turn never leaves unpersisted chat state behind, and a generation
-	// never starts on top of it: every loop iteration flushes before
-	// streaming, and the turn flushes once more on exit.
-	defer s.flushChat()
-	for {
-		s.flushChat()
-		generatedMessage, err := s.stream(s.takePendingInputMessages())
-
-		s.mu.Lock()
-		ai.AggregateModelUsage(s.totalModelUsage, s.lastModelUsage)
-		*s.lastModelUsage = aipb.ModelUsage{}
-		s.mu.Unlock()
-
-		if err != nil {
-			s.refresh()
-			s.notifyTurnComplete("", err)
-			return
-		}
-
-		var toolCalls []*aipb.ToolCall
-		for _, block := range ai.FilterBlocks(generatedMessage.GetBlocks(), ai.BlockTypeToolCall) {
-			toolCalls = append(toolCalls, block.GetToolCall())
-		}
-
-		if len(toolCalls) == 0 {
-			s.maybeGenerateTitle()
-			s.refresh()
-			s.notifyTurnComplete(s.lastAssistantText(), nil)
-			return
-		}
-
-		// Blocks on user review where required; every call ends up with a
-		// terminal result. Loop: the top-of-loop flush persists the tool side
-		// effects before the next generation.
-		s.executeToolCalls(generatedMessage, toolCalls)
-		s.setState(StateStreaming)
+// requeueInputMessages restores a failed generation's input for the next
+// attempt. The server flags failed inputs with an error status — excluding
+// them from provider history — so dropping them here would silently lose the
+// user's words, and would leave tool calls orphaned (poisoning every later
+// turn) whenever the failed input carried tool results.
+func (s *Session) requeueInputMessages(inputMessages []*aipb.Message) {
+	if len(inputMessages) == 0 {
+		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pendingInputMessages = append(inputMessages, s.pendingInputMessages...)
 }
 
 // saveChat persists local chat mutations from user actions (favorite, files).
