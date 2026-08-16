@@ -23,6 +23,7 @@ import (
 	gograph "github.com/malonaz/sgpt/internal/graph"
 	goignore "github.com/malonaz/sgpt/internal/ignore"
 	"github.com/malonaz/sgpt/internal/lore"
+	"github.com/malonaz/sgpt/internal/repo"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
@@ -42,19 +43,24 @@ func NewCmd(
 ) *cobra.Command {
 	chatStore := store.New(config, aiClient)
 
+	// One index of the configuration's imports, shared by every kind of
+	// imported artifact: roles, tool sets and lores are all addressed
+	// "@{import}//...".
+	imports := repo.NewImports(config.GetImports())
+	// Empty outside a repo: chat still works, just without artifacts.
+	repoRoot, _ := gograph.FindRoot(".")
+
 	// Discover the enclosing repo's .sgpt artifacts (roles, tool sets)
-	// plus imports. Outside a graph, discovery is empty — chat still
-	// works, just without roles/tool sets.
+	// plus imports.
 	buildForest := func() (*gograph.Forest, error) {
-		root, err := gograph.FindRoot(".")
-		if err != nil {
-			return gograph.NewForest(&gograph.Tree{PathToDir: map[string]*gograph.Dir{}}, config.GetImports(), configuration.LoadIgnore), nil
+		if repoRoot == "" {
+			return gograph.NewForest(&gograph.Tree{PathToDir: map[string]*gograph.Dir{}}, imports, configuration.LoadIgnore), nil
 		}
-		tree, err := gograph.Scan(root, config.GetIgnore())
+		tree, err := gograph.Scan(repoRoot, config.GetIgnore())
 		if err != nil {
 			return nil, err
 		}
-		return gograph.NewForest(tree, config.GetImports(), configuration.LoadIgnore), nil
+		return gograph.NewForest(tree, imports, configuration.LoadIgnore), nil
 	}
 	forest, forestErr := buildForest()
 
@@ -67,39 +73,11 @@ func NewCmd(
 		Chat          string
 		Continue      bool
 		Tools         []string
-		Lores         bool
 		Debug         bool
 	}
 
-	// allLibraries is every reachable lore library: the enclosing repo's
-	// (when inside one) plus every configured import's. Deduplicated by
-	// root: the enclosing repo may itself be one of the imports, and the
-	// unprefixed (local) spelling wins.
-	allLibraries := func() []lore.Library {
-		var libraries []lore.Library
-		rootSet := map[string]bool{}
-		addLibrary := func(library lore.Library) {
-			root, err := filepath.EvalSymlinks(library.Root)
-			if err != nil {
-				root = library.Root
-			}
-			if rootSet[root] {
-				return
-			}
-			rootSet[root] = true
-			libraries = append(libraries, library)
-		}
-		if root, err := gograph.FindRoot("."); err == nil {
-			addLibrary(lore.Library{Root: root})
-		}
-		for _, repoImport := range config.GetImports() {
-			addLibrary(lore.Library{
-				Prefix: "@" + repoImport.GetName(),
-				Root:   lore.ExpandHome(repoImport.GetPath()),
-			})
-		}
-		return libraries
-	}
+	loreIndex := lore.NewIndex(repoRoot, imports)
+	searchLoresTool := &lores.Tool{Index: loreIndex}
 
 	cmd := &cobra.Command{
 		Use: "chat",
@@ -158,8 +136,19 @@ func NewCmd(
 			// ad-hoc directory injection and must never drop them.
 			roleFiles, err := file.Parse(&file.InjectionOpts{Files: parsedRole.GetFiles()})
 			cobra.CheckErr(err)
-			realFilePaths := make([]string, 0, len(files)+len(roleFiles))
-			for _, parsedFile := range append(files, roleFiles...) {
+			// Lores configured as always-on context enter as plain files:
+			// selectors are resolved to paths so injection, dedupe and the
+			// file picker treat them like any other file.
+			var defaultLorePaths []string
+			for _, selector := range config.Chat.GetDefaultLores() {
+				_, path, err := loreIndex.Resolve(selector)
+				cobra.CheckErr(err)
+				defaultLorePaths = append(defaultLorePaths, path)
+			}
+			loreFiles, err := file.Parse(&file.InjectionOpts{Files: defaultLorePaths})
+			cobra.CheckErr(err)
+			realFilePaths := make([]string, 0, len(files)+len(roleFiles)+len(loreFiles))
+			for _, parsedFile := range append(append(files, roleFiles...), loreFiles...) {
 				realFilePaths = append(realFilePaths, parsedFile.Path)
 			}
 			filePaths = append(filePaths, file.Normalize(realFilePaths)...)
@@ -190,7 +179,7 @@ func NewCmd(
 			// Same instance everywhere: sub-agents can spawn sub-agents.
 			registry.Register(tool.HandlerIDAgent, agentTool)
 			// search_lores searches every reachable library.
-			registry.Register(tool.HandlerIDSearchLores, &lores.Tool{Libraries: allLibraries()})
+			registry.Register(tool.HandlerIDSearchLores, searchLoresTool)
 
 			availableToolNames := tool.BuiltinNames()
 			for _, name := range tool.BuiltinNames() {
@@ -245,12 +234,8 @@ func NewCmd(
 			}
 
 			toolNames := append(opts.Tools, parsedRole.GetTools()...)
-			// --lores activates the lore functionality: the search tool is
-			// advertised to the model.
-			if opts.Lores {
-				toolNames = append(toolNames, "search_lores")
-			}
-			// The same tool may arrive via --tool, the role and --lores.
+			toolNames = append(toolNames, config.Chat.GetDefaultTools()...)
+			// The same tool may arrive via --tool, the role and the config.
 			toolNames = dedupe(toolNames)
 			if err := validateToolNames(toolNames); err != nil {
 				return err
@@ -360,7 +345,6 @@ func NewCmd(
 	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
 	cmd.Flags().BoolVarP(&opts.Continue, "continue", "c", false, "Continue previous chat")
 	cmd.Flags().StringSliceVar(&opts.Tools, "tool", nil, "Enable a specific tool engine by name (repeatable)")
-	cmd.Flags().BoolVar(&opts.Lores, "lores", false, "Enable lores: advertise the search_lores tool over all lore libraries (enclosing repo + imports)")
 	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
 	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

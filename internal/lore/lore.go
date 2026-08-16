@@ -1,5 +1,6 @@
 // Package lore implements lore libraries: agent-curated pieces of
-// unstructured knowledge stored as JSON files under a repo's `.sgpt/lores`
+// unstructured knowledge stored as markdown files (YAML front matter for
+// metadata, markdown body for content) under a repo's `.sgpt/lores`
 // directory — committed with the repo, so lore travels from repo to repo
 // via the configuration's imports. Searched grep-style via the search_lores
 // tool; each library's label vocabulary is persisted in its repo's
@@ -14,15 +15,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/malonaz/core/go/pbutil"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 const (
-	// Extension of lore files.
-	Extension = ".json"
+	// Extension of lore files: markdown with YAML front matter, so diffs
+	// render as prose rather than as an escaped JSON blob.
+	Extension = ".md"
 	// loresDirName under a repo's .sgpt directory.
 	loresDirName = "lores"
 	// labelsFileName under a repo's .sgpt directory: the persisted label
@@ -75,15 +74,15 @@ func (l Library) Load() ([]*sgptpb.Lore, error) {
 		if err != nil {
 			return err
 		}
-		lore := &sgptpb.Lore{}
-		if err := pbutil.JSONUnmarshal(data, lore); err != nil {
+		lore, err := UnmarshalMarkdown(data)
+		if err != nil {
 			return fmt.Errorf("parsing %s: %w", path, err)
 		}
 		relativePath, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
 		}
-		// Subdirectories become ID segments: "go/errors.json" -> "lores/go/errors".
+		// Subdirectories become ID segments: "go/errors.md" -> "lores/go/errors".
 		loreResourceName := sgptpb.LoreResourceName{Lore: filepath.ToSlash(strings.TrimSuffix(relativePath, Extension))}
 		lore.Name = l.QualifyName(loreResourceName.String())
 		lores = append(lores, lore)
@@ -93,23 +92,6 @@ func (l Library) Load() ([]*sgptpb.Lore, error) {
 		return nil, err
 	}
 	return lores, nil
-}
-
-// ContentString renders a lore's content for searching and reading: a plain
-// string value is returned as-is, anything else is marshaled to JSON.
-func ContentString(lore *sgptpb.Lore) (string, error) {
-	content := lore.GetContent()
-	if content == nil {
-		return "", nil
-	}
-	if _, ok := content.GetKind().(*structpb.Value_StringValue); ok {
-		return content.GetStringValue(), nil
-	}
-	data, err := pbutil.JSONMarshalPretty(content)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 // SyncLabels persists the union of label keys and their distinct values
@@ -183,11 +165,7 @@ func Search(lores []*sgptpb.Lore, query string, topN int) ([]*Match, error) {
 				match.score += 5
 			}
 		}
-		content, err := ContentString(lore)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", lore.GetName(), err)
-		}
-		for _, line := range strings.Split(content, "\n") {
+		for _, line := range strings.Split(lore.GetContent(), "\n") {
 			if !pattern.MatchString(line) {
 				continue
 			}
@@ -207,15 +185,4 @@ func Search(lores []*sgptpb.Lore, query string, topN int) ([]*Match, error) {
 		matches = matches[:topN]
 	}
 	return matches, nil
-}
-
-// ExpandHome resolves a leading "~/" against the user's home directory —
-// import paths in the configuration commonly use it.
-func ExpandHome(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, path[2:])
-		}
-	}
-	return path
 }

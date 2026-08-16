@@ -10,6 +10,7 @@ go_library(
         "//internal/graph",
         "//internal/ignore",
         "//internal/lore",
+        "//internal/repo",
         "//internal/role",
         "//internal/session",
         "//internal/store",

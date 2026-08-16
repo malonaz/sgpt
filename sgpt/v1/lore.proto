@@ -4,13 +4,14 @@ package sgpt.v1;
 
 import "google/api/field_behavior.proto";
 import "google/api/resource.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
-// A lore: one piece of unstructured knowledge, persisted as a JSON file
-// under a repo's `.sgpt/lores/{lore}.json`, where `{lore}` may contain `/`
+// A lore: one piece of unstructured knowledge, persisted as a markdown file
+// under a repo's `.sgpt/lores/{lore}.md` — YAML front matter carries the
+// title, description and labels, the markdown body is the content, so diffs
+// review as prose. `{lore}` may contain `/`
 // segments — the agent is free to organize lores into subdirectories.
 // Committed with the repo, lore is shared from repo to repo via the
 // configuration's imports. Lore files are written solely by the agent; each
@@ -34,8 +35,8 @@ message Lore {
   // matches.
   string description = 3;
 
-  // The unstructured content of the lore.
-  google.protobuf.Value content = 4;
+  // The unstructured content of the lore: the markdown body of the file.
+  string content = 4;
 
   // Arbitrary user metadata.
   map<string, string> labels = 5;

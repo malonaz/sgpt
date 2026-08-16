@@ -10,11 +10,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/repo"
 )
-
-// externalPrefix marks a selector as targeting an imported graph:
-// "@{import name}//{selector}".
-const externalPrefix = "@"
 
 // IgnoreLoader returns the extra ignore patterns of the repo rooted at root
 // (typically its configuration's top-level `ignore`). Imported graphs are
@@ -29,41 +26,24 @@ type Forest struct {
 	Primary *Tree
 	// loadIgnore provides an import's own ignore patterns; may be nil.
 	loadIgnore       IgnoreLoader
-	importNameToPath map[string]string
+	imports          *repo.Imports
 	importNameToTree map[string]*Tree
 }
 
 // NewForest wraps the primary tree with the configured repo imports.
-func NewForest(primary *Tree, imports []*sgptpb.Import, loadIgnore IgnoreLoader) *Forest {
-	forest := &Forest{
+func NewForest(primary *Tree, imports *repo.Imports, loadIgnore IgnoreLoader) *Forest {
+	return &Forest{
 		Primary:          primary,
 		loadIgnore:       loadIgnore,
-		importNameToPath: map[string]string{},
+		imports:          imports,
 		importNameToTree: map[string]*Tree{},
 	}
-	for _, repoImport := range imports {
-		forest.importNameToPath[repoImport.GetName()] = repoImport.GetPath()
-	}
-	return forest
-}
-
-// splitExternal splits "@name//rest" selectors; ok is false for local ones.
-// The returned rest keeps its "//" prefix.
-func splitExternal(selector string) (importName, rest string, ok bool) {
-	if !strings.HasPrefix(selector, externalPrefix) {
-		return "", "", false
-	}
-	importName, rest, found := strings.Cut(selector[len(externalPrefix):], localPrefix)
-	if !found {
-		return "", "", false
-	}
-	return importName, localPrefix + rest, true
 }
 
 // tree returns the tree a selector targets, loading imports on first use,
 // along with the selector stripped of its import prefix.
 func (f *Forest) tree(selector string) (*Tree, string, error) {
-	importName, rest, ok := splitExternal(selector)
+	importName, rest, ok := repo.Split(selector)
 	if !ok {
 		return f.Primary, selector, nil
 	}
@@ -78,11 +58,10 @@ func (f *Forest) importTree(importName string) (*Tree, error) {
 	if tree, ok := f.importNameToTree[importName]; ok {
 		return tree, nil
 	}
-	path, ok := f.importNameToPath[importName]
-	if !ok {
-		return nil, fmt.Errorf("repo %q is not imported in the configuration", importName)
+	root, err := f.imports.Root(importName)
+	if err != nil {
+		return nil, err
 	}
-	root := expandHome(path)
 	if _, err := os.Stat(filepath.Join(root, RootFileName)); err != nil {
 		return nil, fmt.Errorf("import %q has no %s at %s", importName, RootFileName, root)
 	}
@@ -96,18 +75,9 @@ func (f *Forest) importTree(importName string) (*Tree, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scanning imported graph %q: %w", importName, err)
 	}
-	tree.Prefix = externalPrefix + importName
+	tree.Prefix = repo.Prefix + importName
 	f.importNameToTree[importName] = tree
 	return tree, nil
-}
-
-func expandHome(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, path[2:])
-		}
-	}
-	return path
 }
 
 // ResolveRole maps a (possibly import-prefixed) role selector to its role,
@@ -183,10 +153,8 @@ func (f *Forest) trees() []*Tree {
 		return nil
 	}
 	trees := []*Tree{f.Primary}
-	importNames := make([]string, 0, len(f.importNameToPath))
-	for importName := range f.importNameToPath {
-		importNames = append(importNames, importName)
-	}
+	// Sorted: completion output must be stable across runs.
+	importNames := append([]string(nil), f.imports.Names()...)
 	sort.Strings(importNames)
 	for _, importName := range importNames {
 		tree, err := f.importTree(importName)
@@ -214,7 +182,7 @@ func qualifyRole(tree *Tree, roleFile *RoleFile) *sgptpb.Role {
 	}
 	for i, toolName := range role.GetTools() {
 		// Tool entries may be builtins ("diff") or tool set selectors.
-		if strings.HasPrefix(toolName, localPrefix) || strings.HasPrefix(toolName, externalPrefix) {
+		if strings.HasPrefix(toolName, localPrefix) || strings.HasPrefix(toolName, repo.Prefix) {
 			role.Tools[i] = tree.qualifySelector(toolName)
 		}
 	}
@@ -232,7 +200,7 @@ func qualifyRole(tree *Tree, roleFile *RoleFile) *sgptpb.Role {
 // prefix; already-external selectors and bare root shorthands are prefixed
 // canonically too.
 func (t *Tree) qualifySelector(selector string) string {
-	if t.Prefix == "" || strings.HasPrefix(selector, externalPrefix) {
+	if t.Prefix == "" || strings.HasPrefix(selector, repo.Prefix) {
 		return selector
 	}
 	if !strings.HasPrefix(selector, localPrefix) {

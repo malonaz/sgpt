@@ -7,6 +7,7 @@ go_library(
     name = "tool",
     srcs = [
         "builtin.go",
+        "context.go",
         "metadata.go",
         "registry.go",
         "schema.go",

@@ -4,6 +4,7 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//internal/lore",
+        "//internal/store",
         "//internal/tool",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__pbutil",

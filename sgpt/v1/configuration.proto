@@ -89,6 +89,15 @@ message ChatConfiguration {
 
   // The default role selector (e.g. "//path/to:role" or a root role title).
   string default_role = 4;
+
+  // Tools advertised to the model in every chat, on top of those requested
+  // by the role and --tool (e.g. "search_lores").
+  repeated string default_tools = 5;
+
+  // Lores injected into the context of every chat, as selectors
+  // ("lores/{lore}" locally, "@{import}//lores/{lore}" for an imported
+  // repo). Selectors rather than paths, so a lore survives being moved.
+  repeated string default_lores = 6;
 }
 
 // A role defines a persona with a system prompt. Persisted as a

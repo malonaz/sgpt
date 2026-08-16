@@ -169,6 +169,10 @@ func New(
 		lastModelUsage:                &aipb.ModelUsage{},
 		eventCh:                       make(chan Event, 64),
 	}
+	// Tools execute against this session's history (the registry is one
+	// instance shared across main chat and sub-agents): stamped on the
+	// context so tools can derive what the model has already seen.
+	s.ctx = tool.WithHistory(s.ctx, s.historyForTools)
 	s.injectedFilePaths = s.normalizeInjectedPaths(params.InjectedFiles)
 	// Sort once (on a copy — the slice is shared across sessions via the
 	// app's default params): the tool picker reads this on every open.
@@ -342,6 +346,19 @@ func (s *Session) Messages() []*aipb.Message {
 	return append([]*aipb.Message(nil), s.messages...)
 }
 
+// historyForTools is the history tools see while executing: the committed
+// messages plus the in-flight streaming message, so a tool observes results
+// produced earlier in the same turn.
+func (s *Session) historyForTools() []*aipb.Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	messages := append([]*aipb.Message(nil), s.messages...)
+	if s.streamingMessage != nil {
+		messages = append(messages, s.streamingMessage)
+	}
+	return messages
+}
+
 func (s *Session) StreamingMessage() *aipb.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -404,6 +421,16 @@ func (s *Session) TotalModelUsage() *aipb.ModelUsage {
 func (s *Session) LastModelUsage() *aipb.ModelUsage {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !ai.IsModelUsageEmpty(s.lastModelUsage) {
+		return s.lastModelUsage
+	}
+	// No stream in flight (or chat freshly loaded): fall back to the most
+	// recent persisted message that carries usage, so context % stays accurate.
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		if usage := s.messages[i].GetModelUsage(); !ai.IsModelUsageEmpty(usage) {
+			return usage
+		}
+	}
 	return s.lastModelUsage
 }
 

@@ -12,7 +12,6 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	unsafe "unsafe"
@@ -25,8 +24,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A lore: one piece of unstructured knowledge, persisted as a JSON file
-// under a repo's `.sgpt/lores/{lore}.json`, where `{lore}` may contain `/`
+// A lore: one piece of unstructured knowledge, persisted as a markdown file
+// under a repo's `.sgpt/lores/{lore}.md` — YAML front matter carries the
+// title, description and labels, the markdown body is the content, so diffs
+// review as prose. `{lore}` may contain `/`
 // segments — the agent is free to organize lores into subdirectories.
 // Committed with the repo, lore is shared from repo to repo via the
 // configuration's imports. Lore files are written solely by the agent; each
@@ -36,7 +37,7 @@ type Lore struct {
 	xxx_hidden_Name        string                 `protobuf:"bytes,1,opt,name=name,proto3"`
 	xxx_hidden_Title       string                 `protobuf:"bytes,2,opt,name=title,proto3"`
 	xxx_hidden_Description string                 `protobuf:"bytes,3,opt,name=description,proto3"`
-	xxx_hidden_Content     *structpb.Value        `protobuf:"bytes,4,opt,name=content,proto3"`
+	xxx_hidden_Content     string                 `protobuf:"bytes,4,opt,name=content,proto3"`
 	xxx_hidden_Labels      map[string]string      `protobuf:"bytes,5,rep,name=labels,proto3" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	xxx_hidden_CreateTime  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_time,json=createTime,proto3"`
 	xxx_hidden_UpdateTime  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=update_time,json=updateTime,proto3"`
@@ -90,11 +91,11 @@ func (x *Lore) GetDescription() string {
 	return ""
 }
 
-func (x *Lore) GetContent() *structpb.Value {
+func (x *Lore) GetContent() string {
 	if x != nil {
 		return x.xxx_hidden_Content
 	}
-	return nil
+	return ""
 }
 
 func (x *Lore) GetLabels() map[string]string {
@@ -130,7 +131,7 @@ func (x *Lore) SetDescription(v string) {
 	x.xxx_hidden_Description = v
 }
 
-func (x *Lore) SetContent(v *structpb.Value) {
+func (x *Lore) SetContent(v string) {
 	x.xxx_hidden_Content = v
 }
 
@@ -146,13 +147,6 @@ func (x *Lore) SetUpdateTime(v *timestamppb.Timestamp) {
 	x.xxx_hidden_UpdateTime = v
 }
 
-func (x *Lore) HasContent() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Content != nil
-}
-
 func (x *Lore) HasCreateTime() bool {
 	if x == nil {
 		return false
@@ -165,10 +159,6 @@ func (x *Lore) HasUpdateTime() bool {
 		return false
 	}
 	return x.xxx_hidden_UpdateTime != nil
-}
-
-func (x *Lore) ClearContent() {
-	x.xxx_hidden_Content = nil
 }
 
 func (x *Lore) ClearCreateTime() {
@@ -190,8 +180,8 @@ type Lore_builder struct {
 	// One-or-two-line description of the content, shown alongside search
 	// matches.
 	Description string
-	// The unstructured content of the lore.
-	Content *structpb.Value
+	// The unstructured content of the lore: the markdown body of the file.
+	Content string
 	// Arbitrary user metadata.
 	Labels map[string]string
 	// Creation time of this resource.
@@ -218,12 +208,12 @@ var File_sgpt_v1_lore_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_lore_proto_rawDesc = "" +
 	"\n" +
-	"\x12sgpt/v1/lore.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaf\x03\n" +
+	"\x12sgpt/v1/lore.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\x03\n" +
 	"\x04Lore\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tB\x03\xe0A\bR\x04name\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tB\x03\xe0A\x02R\x05title\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x120\n" +
-	"\acontent\x18\x04 \x01(\v2\x16.google.protobuf.ValueR\acontent\x121\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x18\n" +
+	"\acontent\x18\x04 \x01(\tR\acontent\x121\n" +
 	"\x06labels\x18\x05 \x03(\v2\x19.sgpt.v1.Lore.LabelsEntryR\x06labels\x12@\n" +
 	"\vcreate_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\n" +
 	"createTime\x12@\n" +
@@ -238,19 +228,17 @@ var file_sgpt_v1_lore_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_sgpt_v1_lore_proto_goTypes = []any{
 	(*Lore)(nil),                  // 0: sgpt.v1.Lore
 	nil,                           // 1: sgpt.v1.Lore.LabelsEntry
-	(*structpb.Value)(nil),        // 2: google.protobuf.Value
-	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_sgpt_v1_lore_proto_depIdxs = []int32{
-	2, // 0: sgpt.v1.Lore.content:type_name -> google.protobuf.Value
-	1, // 1: sgpt.v1.Lore.labels:type_name -> sgpt.v1.Lore.LabelsEntry
-	3, // 2: sgpt.v1.Lore.create_time:type_name -> google.protobuf.Timestamp
-	3, // 3: sgpt.v1.Lore.update_time:type_name -> google.protobuf.Timestamp
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1, // 0: sgpt.v1.Lore.labels:type_name -> sgpt.v1.Lore.LabelsEntry
+	2, // 1: sgpt.v1.Lore.create_time:type_name -> google.protobuf.Timestamp
+	2, // 2: sgpt.v1.Lore.update_time:type_name -> google.protobuf.Timestamp
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_lore_proto_init() }

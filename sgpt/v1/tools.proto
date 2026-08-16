@@ -39,7 +39,7 @@ service ToolService {
   // stored under each repo's .sgpt/lores) with a grep-style regular
   // expression. Returns the top matching lores with their title,
   // description and matching snippets; read a full lore via its file at
-  // {repo}/.sgpt/lores/{id}.json (ids may contain "/" subdirectory
+  // {repo}/.sgpt/lores/{id}.md (ids may contain "/" subdirectory
   // segments; "@import//" prefixes name an imported repo's library).
   rpc SearchLores(SearchLoresRequest) returns (SearchLoresResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

@@ -10,6 +10,7 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//internal/ignore",
+        "//internal/repo",
         "//sgpt/v1",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/go:google.golang.org__protobuf__proto",
@@ -21,6 +22,7 @@ go_test(
     srcs = ["graph_test.go"],
     deps = [
         ":graph",
+        "//internal/repo",
         "//sgpt/v1",
     ],
 )

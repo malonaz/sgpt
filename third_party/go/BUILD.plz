@@ -3557,7 +3557,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260814125621-052048dc6658",
+    version = "v0.0.0-20260815230702-36bca59a7360",
     visibility = ["PUBLIC"],
 )
 
@@ -3837,6 +3837,7 @@ go_module(
         ":github.com__malonaz__core__go__ai__ai_service__provider__deepgram",
         ":github.com__malonaz__core__go__ai__ai_service__provider__elevenlabs",
         ":github.com__malonaz__core__go__ai__ai_service__provider__google",
+        ":github.com__malonaz__core__go__ai__ai_service__provider__mock",
         ":github.com__malonaz__core__go__ai__ai_service__provider__openai",
         ":github.com__malonaz__core__go__ai__ai_service__provider__xai",
         ":github.com__malonaz__core__go__ai__tool",
@@ -3852,6 +3853,7 @@ go_module(
         ":google.golang.org__grpc__status",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:github.com__malonaz__core__gengo__ai__ai_service__rpc",
         "//third_party/go:github.com__malonaz__core__gengo__ai__store",
@@ -3983,6 +3985,22 @@ go_module(
 )
 
 go_module(
+    name = "github.com__malonaz__core__go__ai__ai_service__provider__mock",
+    download = ":_github.com__malonaz__core#download",
+    install = ["go/ai/ai_service/provider/mock"],
+    module = "github.com/malonaz/core",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__malonaz__core__go__grpc__status",
+        ":github.com__malonaz__core__go__pbutil",
+        ":google.golang.org__grpc__codes",
+        "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
+        "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)
+
+go_module(
     name = "github.com__malonaz__core__go__ai__ai_service__provider__openai",
     download = ":_github.com__malonaz__core#download",
     install = ["go/ai/ai_service/provider/openai"],
@@ -4038,6 +4056,7 @@ go_module(
         ":github.com__malonaz__core__go__pbutil__pbfieldmask",
         ":github.com__malonaz__core__go__pbutil__pbjson",
         ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__types__known__structpb",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
@@ -4357,7 +4376,6 @@ go_module(
         ":github.com__tidwall__pretty",
         ":golang.org__x__text__cases",
         ":golang.org__x__text__language",
-        ":google.golang.org__grpc",
         ":google.golang.org__protobuf__encoding__protojson",
         ":google.golang.org__protobuf__proto",
         ":google.golang.org__protobuf__reflect__protoreflect",
@@ -4420,6 +4438,7 @@ go_module(
         ":google.golang.org__genproto__googleapis__type__money",
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__types__dynamicpb",
+        ":google.golang.org__protobuf__types__known__anypb",
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
         ":google.golang.org__protobuf__types__known__structpb",
@@ -4427,7 +4446,9 @@ go_module(
         "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/go:github.com__malonaz__core__go__pbutil__pbfieldmask",
         "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__rpc__status",
         "//third_party/proto:google__type__date",
+        "//third_party/proto:google__type__postaladdress",
         "//third_party/proto:google__type__timeofday",
         "//third_party/proto:malonaz__core__genproto__json__v1",
         "//third_party/proto:validate",
@@ -5281,8 +5302,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -6893,6 +6914,18 @@ go_module(
     name = "google.golang.org__genproto__googleapis__type__money",
     download = ":_google.golang.org__genproto#download",
     install = ["googleapis/type/money"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__type__postaladdress",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/type/postaladdress"],
     module = "google.golang.org/genproto",
     visibility = ["PUBLIC"],
     deps = [

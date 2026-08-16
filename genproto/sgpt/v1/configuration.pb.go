@@ -475,7 +475,14 @@ type ChatConfiguration struct {
 	// Format: providers/{provider}/models/{model}
 	DefaultModel string `protobuf:"bytes,3,opt,name=default_model,json=defaultModel,proto3" json:"default_model,omitempty"`
 	// The default role selector (e.g. "//path/to:role" or a root role title).
-	DefaultRole   string `protobuf:"bytes,4,opt,name=default_role,json=defaultRole,proto3" json:"default_role,omitempty"`
+	DefaultRole string `protobuf:"bytes,4,opt,name=default_role,json=defaultRole,proto3" json:"default_role,omitempty"`
+	// Tools advertised to the model in every chat, on top of those requested
+	// by the role and --tool (e.g. "search_lores").
+	DefaultTools []string `protobuf:"bytes,5,rep,name=default_tools,json=defaultTools,proto3" json:"default_tools,omitempty"`
+	// Lores injected into the context of every chat, as selectors
+	// ("lores/{lore}" locally, "@{import}//lores/{lore}" for an imported
+	// repo). Selectors rather than paths, so a lore survives being moved.
+	DefaultLores  []string `protobuf:"bytes,6,rep,name=default_lores,json=defaultLores,proto3" json:"default_lores,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -533,6 +540,20 @@ func (x *ChatConfiguration) GetDefaultRole() string {
 	return ""
 }
 
+func (x *ChatConfiguration) GetDefaultTools() []string {
+	if x != nil {
+		return x.DefaultTools
+	}
+	return nil
+}
+
+func (x *ChatConfiguration) GetDefaultLores() []string {
+	if x != nil {
+		return x.DefaultLores
+	}
+	return nil
+}
+
 func (x *ChatConfiguration) SetUser(v string) {
 	x.User = v
 }
@@ -549,6 +570,14 @@ func (x *ChatConfiguration) SetDefaultRole(v string) {
 	x.DefaultRole = v
 }
 
+func (x *ChatConfiguration) SetDefaultTools(v []string) {
+	x.DefaultTools = v
+}
+
+func (x *ChatConfiguration) SetDefaultLores(v []string) {
+	x.DefaultLores = v
+}
+
 type ChatConfiguration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -563,6 +592,13 @@ type ChatConfiguration_builder struct {
 	DefaultModel string
 	// The default role selector (e.g. "//path/to:role" or a root role title).
 	DefaultRole string
+	// Tools advertised to the model in every chat, on top of those requested
+	// by the role and --tool (e.g. "search_lores").
+	DefaultTools []string
+	// Lores injected into the context of every chat, as selectors
+	// ("lores/{lore}" locally, "@{import}//lores/{lore}" for an imported
+	// repo). Selectors rather than paths, so a lore survives being moved.
+	DefaultLores []string
 }
 
 func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
@@ -573,6 +609,8 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 	x.SummaryModel = b.SummaryModel
 	x.DefaultModel = b.DefaultModel
 	x.DefaultRole = b.DefaultRole
+	x.DefaultTools = b.DefaultTools
+	x.DefaultLores = b.DefaultLores
 	return m0
 }
 
@@ -865,7 +903,7 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05Model\x123\n" +
 	"\x04name\x18\x01 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\"\xe4\x01\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\"\xae\x02\n" +
 	"\x11ChatConfiguration\x12,\n" +
 	"\x04user\x18\x01 \x01(\tB\x18\xfaA\x15\n" +
 	"\x13ai.malonaz.com/UserR\x04user\x12>\n" +
@@ -873,7 +911,9 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x14ai.malonaz.com/ModelR\fsummaryModel\x12>\n" +
 	"\rdefault_model\x18\x03 \x01(\tB\x19\xfaA\x16\n" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
-	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\"\xc1\x01\n" +
+	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\x12#\n" +
+	"\rdefault_tools\x18\x05 \x03(\tR\fdefaultTools\x12#\n" +
+	"\rdefault_lores\x18\x06 \x03(\tR\fdefaultLores\"\xc1\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +

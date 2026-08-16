@@ -165,6 +165,7 @@ github_grpc_library(
         "model.proto",
         "speech_to_text.proto",
         "text_to_speech.proto",
+        "text_to_text.proto",
         "voice.proto",
     ],
     repo = "malonaz/core",
@@ -237,6 +238,15 @@ github_proto_library(
     additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/type/date"},
     dir = "google/type",
     files = ["date.proto"],
+    repo = "googleapis/googleapis",
+    revision = GOOGLEAPI_REVISION,
+)
+
+github_proto_library(
+    name = "google__type__postaladdress",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/type/postaladdress"},
+    dir = "google/type",
+    files = ["postal_address.proto"],
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
 )

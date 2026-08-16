@@ -1,0 +1,6 @@
+go_library(
+    name = "repo",
+    srcs = ["repo.go"],
+    visibility = ["//..."],
+    deps = ["//sgpt/v1"],
+)

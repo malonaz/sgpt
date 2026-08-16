@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/repo"
 )
 
 func write(t *testing.T, root, path, content string) {
@@ -44,7 +45,7 @@ func TestRoleAndToolSetDiscovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	forest := NewForest(tree, nil, nil)
+	forest := NewForest(tree, repo.NewImports(nil), nil)
 
 	roles := forest.Roles()
 	if len(roles) != 2 {
@@ -94,7 +95,7 @@ func TestImportedRoleQualification(t *testing.T) {
 	repoImport := &sgptpb.Import{}
 	repoImport.SetName("malonaz/core")
 	repoImport.SetPath(importRoot)
-	forest := NewForest(primaryTree, []*sgptpb.Import{repoImport}, nil)
+	forest := NewForest(primaryTree, repo.NewImports([]*sgptpb.Import{repoImport}), nil)
 
 	expert, err := forest.ResolveRole("@malonaz/core//go:expert")
 	if err != nil {
