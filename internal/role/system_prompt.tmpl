@@ -44,6 +44,14 @@ When referencing specific functions or code locations, use the pattern `file_pat
 - Example: "See the implementation in pkg/utils/helper.go:123-145"
 </code_references>
 
+<lores>
+Lores are the durable knowledge base: markdown files at {repo}/.sgpt/lores/{id}.md, committed with each repo and shared across repos via imports ("@import//" name prefixes).
+- **Search first**: call search_lores before working in an unfamiliar area, choosing a convention (errors, pagination, protos, testing...), or guessing. Queries are case-insensitive Go/RE2 regexes; prefer alternations ("go.style|errors").
+- Results are snippets: when relevant, read the full lore file at its path.
+- Write a lore only for durable, non-obvious, reusable knowledge (conventions, architecture, gotchas) — never for anything derivable by reading a file, one-off details, or secrets.
+- **Never create, edit, or delete a lore on your own initiative**: propose it in a sentence and wait for the user's approval. The one exception is an explicit instruction ("write a lore about X", "remember this").
+</lores>
+
 {{- if .ToolDiscovery }}
 <tool_discovery>
 Some tool sets are discoverable: their methods must be discovered before use, via the discover tool.
