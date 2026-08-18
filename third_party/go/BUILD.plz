@@ -3557,7 +3557,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260816154415-c6f7536f877c",
+    version = "v0.0.0-20260818154053-254ef93c7a4c",
     visibility = ["PUBLIC"],
 )
 
@@ -3646,7 +3646,9 @@ go_module(
         ":google.golang.org__protobuf__types__known__durationpb",
         ":google.golang.org__protobuf__types__known__fieldmaskpb",
         ":google.golang.org__protobuf__types__known__structpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/proto:google__api__annotations",
+        "//third_party/proto:google__type__interval",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__audio__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
@@ -3671,6 +3673,7 @@ go_module(
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__rpc__status",
+        "//third_party/proto:google__type__interval",
         "//third_party/proto:malonaz__core__genproto__audio__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__model__v1",
@@ -3856,8 +3859,10 @@ go_module(
         ":google.golang.org__protobuf__types__known__structpb",
         ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:github.com__malonaz__core__gengo__ai__ai_service__rpc",
+        "//third_party/go:github.com__malonaz__core__gengo__ai__model",
         "//third_party/go:github.com__malonaz__core__gengo__ai__store",
         "//third_party/go:github.com__malonaz__core__go__ai",
+        "//third_party/proto:google__type__interval",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__audio__v1",
@@ -4448,6 +4453,7 @@ go_module(
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__rpc__status",
         "//third_party/proto:google__type__date",
+        "//third_party/proto:google__type__interval",
         "//third_party/proto:google__type__postaladdress",
         "//third_party/proto:google__type__timeofday",
         "//third_party/proto:malonaz__core__genproto__json__v1",
@@ -5302,8 +5308,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -5311,8 +5317,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -6907,6 +6913,19 @@ go_module(
     deps = [
         ":google.golang.org__protobuf__reflect__protoreflect",
         ":google.golang.org__protobuf__runtime__protoimpl",
+    ],
+)
+
+go_module(
+    name = "google.golang.org__genproto__googleapis__type__interval",
+    download = ":_google.golang.org__genproto#download",
+    install = ["googleapis/type/interval"],
+    module = "google.golang.org/genproto",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__runtime__protoimpl",
+        ":google.golang.org__protobuf__types__known__timestamppb",
     ],
 )
 

@@ -120,6 +120,7 @@ github_proto_library(
         "message.proto",
         "metrics.proto",
         "model.proto",
+        "stats.proto",
         "tool.proto",
         "voice.proto",
     ],
@@ -128,6 +129,7 @@ github_proto_library(
     deps = [
         ":google__api__annotations",
         ":google__rpc__status",
+        ":google__type__interval",
         ":malonaz__core__genproto__audio__v1",
         ":malonaz__core__genproto__codegen__aip__v1",
         ":malonaz__core__genproto__codegen__model__v1",
@@ -164,6 +166,7 @@ github_grpc_library(
         "message.proto",
         "model.proto",
         "speech_to_text.proto",
+        "stats.proto",
         "text_to_speech.proto",
         "text_to_text.proto",
         "voice.proto",
@@ -172,6 +175,7 @@ github_grpc_library(
     revision = CONFIG.CORE_REVISION,
     deps = [
         ":google__api__annotations",
+        ":google__type__interval",
         ":malonaz__core__genproto__ai__v1",
         ":malonaz__core__genproto__audio__v1",
         ":malonaz__core__genproto__codegen__aip__v1",
@@ -247,6 +251,15 @@ github_proto_library(
     additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/type/postaladdress"},
     dir = "google/type",
     files = ["postal_address.proto"],
+    repo = "googleapis/googleapis",
+    revision = GOOGLEAPI_REVISION,
+)
+
+github_proto_library(
+    name = "google__type__interval",
+    additional_context = {GO_IMPORT_PATH: "google.golang.org/genproto/googleapis/type/interval"},
+    dir = "google/type",
+    files = ["interval.proto"],
     repo = "googleapis/googleapis",
     revision = GOOGLEAPI_REVISION,
 )
