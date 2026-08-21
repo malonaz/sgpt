@@ -5,6 +5,7 @@ go_binary(
     deps = [
         "//cli/cache",
         "//cli/chat",
+        "//cli/titles",
         "//internal/configuration",
         "//third_party/go:github.com__malonaz__core__go__grpc",
         "//third_party/go:github.com__malonaz__core__go__logging",

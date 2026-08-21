@@ -12,6 +12,7 @@ import (
 
 	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
+	"github.com/malonaz/sgpt/cli/titles"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
@@ -80,5 +81,6 @@ func run() error {
 
 	rootCmd.AddCommand(chat.NewCmd(config, aiClient, clientNameToGRPCConnection))
 	rootCmd.AddCommand(cache.NewCmd())
+	rootCmd.AddCommand(titles.NewCmd(config, aiClient))
 	return rootCmd.Execute()
 }
