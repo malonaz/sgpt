@@ -3557,7 +3557,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260818154053-254ef93c7a4c",
+    version = "v0.0.0-20260824144930-eadf2552bbcb",
     visibility = ["PUBLIC"],
 )
 
@@ -4078,6 +4078,7 @@ go_module(
     visibility = ["PUBLIC"],
     deps = [
         ":github.com__malonaz__core__go__aip__transpiler__postgres",
+        ":github.com__malonaz__core__go__canonicalize",
         ":github.com__malonaz__core__go__pbutil",
         ":github.com__malonaz__core__go__pbutil__pbfieldmask",
         ":github.com__malonaz__core__go__uuid",
@@ -4096,6 +4097,7 @@ go_module(
         "//third_party/go:buf.build__go__protovalidate",
         "//third_party/go:github.com__huandu__xstrings",
         "//third_party/go:github.com__malonaz__core__genproto__aip__v1",
+        "//third_party/go:github.com__malonaz__core__genproto__canonicalize__v1",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:google__api__expr__v1alpha1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
@@ -5299,8 +5301,8 @@ go_mod_download(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -5308,8 +5310,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -5317,8 +5319,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
