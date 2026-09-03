@@ -45,6 +45,7 @@ var (
 	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
 	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
 	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
+	chatKeyEditMessage    = keymap.New("alt+e", "Edit selected user message and resend (truncates below)")
 	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
 )
 
@@ -149,7 +150,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
-			chatKeyDeleteMessage, chatKeyDeleteBelow, chatKeyInfo,
+			chatKeyDeleteMessage, chatKeyDeleteBelow, chatKeyEditMessage, chatKeyInfo,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -302,6 +303,8 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.deleteSelectedMessage()
 	case key.Matches(msg, chatKeyDeleteBelow.Key):
 		return m.deleteMessagesBelowSelected()
+	case key.Matches(msg, chatKeyEditMessage.Key):
+		return m.editSelectedMessage()
 	case key.Matches(msg, chatKeyInfo.Key):
 		// Snapshotted on open: the modal is a still frame, so a streaming
 		// turn never mutates the numbers under the reader's eyes.
@@ -454,6 +457,38 @@ func (m *ChatScreen) deleteMessagesBelowSelected() tea.Cmd {
 		}
 		return wrap(AlertMsg{Text: fmt.Sprintf("%d messages deleted", count)})
 	}
+}
+
+// editSelectedMessage rewinds the chat to just above the selected user message
+// and loads its text into the input, so a bad prompt is fixed in one key.
+// ctrl+j resends as usual; nothing is sent implicitly.
+func (m *ChatScreen) editSelectedMessage() tea.Cmd {
+	messageName, alert := m.deletableSelection("alt+e")
+	if alert != nil {
+		return alert
+	}
+	text := m.session.UserMessageText(messageName)
+	if text == "" {
+		return m.alert("Only user messages can be edited")
+	}
+	// Never clobber a draft silently.
+	if m.input.Value() != "" {
+		return m.alert("Input has unsent text — clear it first")
+	}
+
+	// Text lands in the input immediately; the truncation runs off the UI
+	// loop, and a failure still leaves the user holding their text.
+	m.timeline.ClearSelection()
+	m.input.SetValue(text)
+	focus := m.cycleFocus()
+	sess := m.session
+	wrap := m.wrap
+	return tea.Batch(focus, func() tea.Msg {
+		if _, err := sess.DeleteMessagesFrom(messageName); err != nil {
+			return wrap(AlertMsg{Text: fmt.Sprintf("Edit failed: %v", err)})
+		}
+		return nil
+	})
 }
 
 // deletableSelection resolves the message a delete key acts on, or an alert

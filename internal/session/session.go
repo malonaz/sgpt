@@ -908,6 +908,24 @@ func (s *Session) lastAssistantText() string {
 	return ""
 }
 
+// UserMessageText returns the text of the user message named messageName, or
+// "" when it isn't a user message. Only user text is re-editable.
+func (s *Session) UserMessageText(messageName string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, message := range s.messages {
+		if message.GetName() != messageName || message.GetRole() != aipb.Role_ROLE_USER {
+			continue
+		}
+		var parts []string
+		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
+			parts = append(parts, block.GetText())
+		}
+		return strings.Join(parts, "\n")
+	}
+	return ""
+}
+
 func (s *Session) SendMessage(text string) {
 	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
 
