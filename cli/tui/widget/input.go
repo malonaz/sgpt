@@ -66,6 +66,12 @@ func (i *Input) Value() string {
 	return strings.TrimSpace(i.Textarea.Value())
 }
 
+func (i *Input) SetValue(text string) {
+	i.Textarea.SetValue(text)
+	i.Textarea.CursorEnd()
+	i.AdjustHeight()
+}
+
 func (i *Input) Reset() {
 	i.Textarea.Reset()
 	i.AdjustHeight()

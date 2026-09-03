@@ -44,6 +44,8 @@ var (
 	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
 	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
 	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
+	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
+	chatKeyEditMessage    = keymap.New("alt+e", "Edit selected user message and resend (truncates below)")
 	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
 )
 
@@ -148,7 +150,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
-			chatKeyDeleteMessage, chatKeyInfo,
+			chatKeyDeleteMessage, chatKeyDeleteBelow, chatKeyEditMessage, chatKeyInfo,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -299,6 +301,10 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openFilePicker()
 	case key.Matches(msg, chatKeyDeleteMessage.Key):
 		return m.deleteSelectedMessage()
+	case key.Matches(msg, chatKeyDeleteBelow.Key):
+		return m.deleteMessagesBelowSelected()
+	case key.Matches(msg, chatKeyEditMessage.Key):
+		return m.editSelectedMessage()
 	case key.Matches(msg, chatKeyInfo.Key):
 		// Snapshotted on open: the modal is a still frame, so a streaming
 		// turn never mutates the numbers under the reader's eyes.
@@ -414,18 +420,9 @@ func (m *ChatScreen) toolNameForCall(toolCallID string) string {
 // message that breaks generation — an oversized paste, a poisoned tool result,
 // or the tool call whose missing result makes the provider reject the chat.
 func (m *ChatScreen) deleteSelectedMessage() tea.Cmd {
-	if m.focusedComponent != FocusViewport {
-		return m.alert("Deleting a message needs timeline focus — tab to navigate, then alt+d")
-	}
-	// A turn in flight is still appending to (and persisting) the history;
-	// deleting underneath it would race those writes. TurnInFlight, not Busy:
-	// a review pause is still mid-turn.
-	if m.session.TurnInFlight() {
-		return m.alert("Cannot delete while the turn is running — ctrl+c to cancel first")
-	}
-	messageName := m.timeline.SelectedMessageName()
-	if messageName == "" {
-		return m.alert("No deletable message selected")
+	messageName, alert := m.deletableSelection("alt+d")
+	if alert != nil {
+		return alert
 	}
 
 	sess := m.session
@@ -439,6 +436,78 @@ func (m *ChatScreen) deleteSelectedMessage() tea.Cmd {
 		}
 		return wrap(AlertMsg{Text: "Message deleted"})
 	}
+}
+
+// deleteMessagesBelowSelected truncates the conversation from the message
+// under the cursor (inclusive), so the chat can be resumed from just above it.
+func (m *ChatScreen) deleteMessagesBelowSelected() tea.Cmd {
+	messageName, alert := m.deletableSelection("alt+shift+d")
+	if alert != nil {
+		return alert
+	}
+
+	sess := m.session
+	wrap := m.wrap
+	// The anchor vanishes too; clear so the cursor doesn't dangle on it.
+	m.timeline.ClearSelection()
+	return func() tea.Msg {
+		count, err := sess.DeleteMessagesFrom(messageName)
+		if err != nil {
+			return wrap(AlertMsg{Text: fmt.Sprintf("Delete failed: %v", err)})
+		}
+		return wrap(AlertMsg{Text: fmt.Sprintf("%d messages deleted", count)})
+	}
+}
+
+// editSelectedMessage rewinds the chat to just above the selected user message
+// and loads its text into the input, so a bad prompt is fixed in one key.
+// ctrl+j resends as usual; nothing is sent implicitly.
+func (m *ChatScreen) editSelectedMessage() tea.Cmd {
+	messageName, alert := m.deletableSelection("alt+e")
+	if alert != nil {
+		return alert
+	}
+	text := m.session.UserMessageText(messageName)
+	if text == "" {
+		return m.alert("Only user messages can be edited")
+	}
+	// Never clobber a draft silently.
+	if m.input.Value() != "" {
+		return m.alert("Input has unsent text — clear it first")
+	}
+
+	// Text lands in the input immediately; the truncation runs off the UI
+	// loop, and a failure still leaves the user holding their text.
+	m.timeline.ClearSelection()
+	m.input.SetValue(text)
+	focus := m.cycleFocus()
+	sess := m.session
+	wrap := m.wrap
+	return tea.Batch(focus, func() tea.Msg {
+		if _, err := sess.DeleteMessagesFrom(messageName); err != nil {
+			return wrap(AlertMsg{Text: fmt.Sprintf("Edit failed: %v", err)})
+		}
+		return nil
+	})
+}
+
+// deletableSelection resolves the message a delete key acts on, or an alert
+// explaining why nothing can be deleted right now.
+func (m *ChatScreen) deletableSelection(keyHint string) (string, tea.Cmd) {
+	if m.focusedComponent != FocusViewport {
+		return "", m.alert(fmt.Sprintf("Deleting a message needs timeline focus — tab to navigate, then %s", keyHint))
+	}
+	// A turn in flight is still appending to (and persisting) the history;
+	// deleting underneath it would race those writes. TurnInFlight, not Busy:
+	// a review pause is still mid-turn.
+	if m.session.TurnInFlight() {
+		return "", m.alert("Cannot delete while the turn is running — ctrl+c to cancel first")
+	}
+	messageName := m.timeline.SelectedMessageName()
+	if messageName == "" {
+		return "", m.alert("No deletable message selected")
+	}
+	return messageName, nil
 }
 
 // maybeJumpToReview focuses a pending tool call when a turn pauses for review,

@@ -589,15 +589,82 @@ func (s *Session) DeleteMessage(messageName string) error {
 	s.mu.Lock()
 	messageNamesToDelete := append([]string{messageName}, s.pairedMessageNames(messageName)...)
 	s.mu.Unlock()
+	return s.deleteMessages(messageNamesToDelete)
+}
 
-	for _, name := range messageNamesToDelete {
-		if err := s.store.DeleteMessage(s.ctx, name); err != nil {
-			return fmt.Errorf("deleting message: %w", err)
-		}
+// DeleteMessagesFrom soft-deletes messageName and every persisted message
+// below it, truncating the conversation back to the point just above so it can
+// be continued from there. Blocking — call it off the UI loop.
+//
+// Anchoring on a tool result would orphan the assistant tool call above it,
+// which makes the provider reject the whole chat — so the cut widens up to the
+// message that issued the calls.
+func (s *Session) DeleteMessagesFrom(messageName string) (int, error) {
+	if messageName == "" {
+		return 0, fmt.Errorf("message is not persisted yet")
 	}
 
+	s.mu.Lock()
+	start := -1
+	for i, message := range s.messages {
+		if message.GetName() == messageName {
+			start = i
+			break
+		}
+	}
+	if start == -1 {
+		s.mu.Unlock()
+		return 0, fmt.Errorf("message not found in history")
+	}
+	if owner := s.toolCallOwnerIndex(start); owner != -1 {
+		start = owner
+	}
+	var messageNamesToDelete []string
+	for _, message := range s.messages[start:] {
+		// Optimistic messages have no server-side resource yet.
+		if name := message.GetName(); name != "" {
+			messageNamesToDelete = append(messageNamesToDelete, name)
+		}
+	}
+	s.mu.Unlock()
+	return len(messageNamesToDelete), s.deleteMessages(messageNamesToDelete)
+}
+
+// toolCallOwnerIndex returns the index of the assistant message whose tool
+// calls the message at index answers, or -1 when it carries no tool results.
+// Caller holds the lock.
+func (s *Session) toolCallOwnerIndex(index int) int {
+	toolCallIDSet := map[string]bool{}
+	for _, block := range ai.FilterBlocks(s.messages[index].GetBlocks(), ai.BlockTypeToolResult) {
+		toolCallIDSet[block.GetToolResult().GetToolCallId()] = true
+	}
+	if len(toolCallIDSet) == 0 {
+		return -1
+	}
+	for i := index - 1; i >= 0; i-- {
+		for _, block := range ai.FilterBlocks(s.messages[i].GetBlocks(), ai.BlockTypeToolCall) {
+			if toolCallIDSet[block.GetToolCall().GetId()] {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// deleteMessages soft-deletes names on the server, then drops them from the
+// local history. On a mid-way failure the messages already deleted server-side
+// are still dropped locally, so the view never shows ghosts.
+func (s *Session) deleteMessages(messageNamesToDelete []string) error {
+	if len(messageNamesToDelete) == 0 {
+		return nil
+	}
 	deletedNameSet := make(map[string]bool, len(messageNamesToDelete))
+	var deleteErr error
 	for _, name := range messageNamesToDelete {
+		if err := s.store.DeleteMessage(s.ctx, name); err != nil {
+			deleteErr = fmt.Errorf("deleting message: %w", err)
+			break
+		}
 		deletedNameSet[name] = true
 	}
 
@@ -619,7 +686,7 @@ func (s *Session) DeleteMessage(messageName string) error {
 	s.invalidatePrice()
 	s.mu.Unlock()
 	s.refresh()
-	return nil
+	return deleteErr
 }
 
 // removePath drops the first occurrence of path from paths.
@@ -864,6 +931,25 @@ func (s *Session) lastAssistantText() string {
 	for i := len(s.messages) - 1; i >= 0; i-- {
 		message := s.messages[i]
 		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
+			continue
+		}
+		var parts []string
+		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
+			parts = append(parts, block.GetText())
+		}
+		return strings.Join(parts, "\n")
+	}
+	return ""
+}
+
+// UserMessageText returns the text of the user-typed message named
+// messageName, or "" when it's anything else. Injected context (system prompt,
+// files) is also ROLE_USER but not something to re-edit.
+func (s *Session) UserMessageText(messageName string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, message := range s.messages {
+		if message.GetName() != messageName || message.GetRole() != aipb.Role_ROLE_USER || store.IsContextMessage(message) {
 			continue
 		}
 		var parts []string
