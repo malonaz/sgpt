@@ -589,7 +589,40 @@ func (s *Session) DeleteMessage(messageName string) error {
 	s.mu.Lock()
 	messageNamesToDelete := append([]string{messageName}, s.pairedMessageNames(messageName)...)
 	s.mu.Unlock()
+	return s.deleteMessages(messageNamesToDelete)
+}
 
+// DeleteMessagesFrom soft-deletes messageName and every persisted message
+// below it, truncating the conversation back to the point just above so it can
+// be continued from there. Blocking — call it off the UI loop.
+func (s *Session) DeleteMessagesFrom(messageName string) (int, error) {
+	if messageName == "" {
+		return 0, fmt.Errorf("message is not persisted yet")
+	}
+
+	s.mu.Lock()
+	var messageNamesToDelete []string
+	found := false
+	for _, message := range s.messages {
+		found = found || message.GetName() == messageName
+		// Optimistic messages have no server-side resource yet.
+		if name := message.GetName(); found && name != "" {
+			messageNamesToDelete = append(messageNamesToDelete, name)
+		}
+	}
+	s.mu.Unlock()
+	if !found {
+		return 0, fmt.Errorf("message not found in history")
+	}
+	return len(messageNamesToDelete), s.deleteMessages(messageNamesToDelete)
+}
+
+// deleteMessages soft-deletes names on the server, then drops them from the
+// local history.
+func (s *Session) deleteMessages(messageNamesToDelete []string) error {
+	if len(messageNamesToDelete) == 0 {
+		return nil
+	}
 	for _, name := range messageNamesToDelete {
 		if err := s.store.DeleteMessage(s.ctx, name); err != nil {
 			return fmt.Errorf("deleting message: %w", err)

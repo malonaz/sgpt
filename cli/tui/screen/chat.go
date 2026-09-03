@@ -44,6 +44,7 @@ var (
 	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
 	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
 	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
+	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
 	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
 )
 
@@ -148,7 +149,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
-			chatKeyDeleteMessage, chatKeyInfo,
+			chatKeyDeleteMessage, chatKeyDeleteBelow, chatKeyInfo,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -299,6 +300,8 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openFilePicker()
 	case key.Matches(msg, chatKeyDeleteMessage.Key):
 		return m.deleteSelectedMessage()
+	case key.Matches(msg, chatKeyDeleteBelow.Key):
+		return m.deleteMessagesBelowSelected()
 	case key.Matches(msg, chatKeyInfo.Key):
 		// Snapshotted on open: the modal is a still frame, so a streaming
 		// turn never mutates the numbers under the reader's eyes.
@@ -414,18 +417,9 @@ func (m *ChatScreen) toolNameForCall(toolCallID string) string {
 // message that breaks generation — an oversized paste, a poisoned tool result,
 // or the tool call whose missing result makes the provider reject the chat.
 func (m *ChatScreen) deleteSelectedMessage() tea.Cmd {
-	if m.focusedComponent != FocusViewport {
-		return m.alert("Deleting a message needs timeline focus — tab to navigate, then alt+d")
-	}
-	// A turn in flight is still appending to (and persisting) the history;
-	// deleting underneath it would race those writes. TurnInFlight, not Busy:
-	// a review pause is still mid-turn.
-	if m.session.TurnInFlight() {
-		return m.alert("Cannot delete while the turn is running — ctrl+c to cancel first")
-	}
-	messageName := m.timeline.SelectedMessageName()
-	if messageName == "" {
-		return m.alert("No deletable message selected")
+	messageName, alert := m.deletableSelection("alt+d")
+	if alert != nil {
+		return alert
 	}
 
 	sess := m.session
@@ -439,6 +433,46 @@ func (m *ChatScreen) deleteSelectedMessage() tea.Cmd {
 		}
 		return wrap(AlertMsg{Text: "Message deleted"})
 	}
+}
+
+// deleteMessagesBelowSelected truncates the conversation from the message
+// under the cursor (inclusive), so the chat can be resumed from just above it.
+func (m *ChatScreen) deleteMessagesBelowSelected() tea.Cmd {
+	messageName, alert := m.deletableSelection("alt+shift+d")
+	if alert != nil {
+		return alert
+	}
+
+	sess := m.session
+	wrap := m.wrap
+	// The anchor vanishes too; clear so the cursor doesn't dangle on it.
+	m.timeline.ClearSelection()
+	return func() tea.Msg {
+		count, err := sess.DeleteMessagesFrom(messageName)
+		if err != nil {
+			return wrap(AlertMsg{Text: fmt.Sprintf("Delete failed: %v", err)})
+		}
+		return wrap(AlertMsg{Text: fmt.Sprintf("%d messages deleted", count)})
+	}
+}
+
+// deletableSelection resolves the message a delete key acts on, or an alert
+// explaining why nothing can be deleted right now.
+func (m *ChatScreen) deletableSelection(keyHint string) (string, tea.Cmd) {
+	if m.focusedComponent != FocusViewport {
+		return "", m.alert(fmt.Sprintf("Deleting a message needs timeline focus — tab to navigate, then %s", keyHint))
+	}
+	// A turn in flight is still appending to (and persisting) the history;
+	// deleting underneath it would race those writes. TurnInFlight, not Busy:
+	// a review pause is still mid-turn.
+	if m.session.TurnInFlight() {
+		return "", m.alert("Cannot delete while the turn is running — ctrl+c to cancel first")
+	}
+	messageName := m.timeline.SelectedMessageName()
+	if messageName == "" {
+		return "", m.alert("No deletable message selected")
+	}
+	return messageName, nil
 }
 
 // maybeJumpToReview focuses a pending tool call when a turn pauses for review,
