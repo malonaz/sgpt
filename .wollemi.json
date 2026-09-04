@@ -359,6 +359,7 @@
         "github.com/rivo/uniseg": "//third_party/go:github.com__rivo__uniseg",
         "github.com/sashabaranov/go-openai": "//third_party/go:github.com__sashabaranov__go-openai",
         "github.com/sashabaranov/go-openai/internal": "//third_party/go:github.com__sashabaranov__go-openai__internal",
+        "github.com/sashabaranov/go-openai/jsonschema": "//third_party/go:github.com__sashabaranov__go-openai__jsonschema",
         "github.com/scylladb/go-set/strset": "//third_party/go:github.com__scylladb__go-set__strset",
         "github.com/sercand/kuberesolver/v5": "//third_party/go:github.com__sercand__kuberesolver__v5",
         "github.com/shopspring/decimal": "//third_party/go:github.com__shopspring__decimal",
