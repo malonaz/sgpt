@@ -4,3 +4,8 @@ plz-out
 .plz-cache
 .env
 /sgpt-cli
+
+# Entries above are managed by Please
+docs/node_modules
+docs/dist
+docs/.astro

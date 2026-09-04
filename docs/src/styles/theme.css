@@ -1,0 +1,69 @@
+/* Terminal-flavoured palette: deep navy surfaces, mint accent. */
+:root {
+	--sl-color-accent-low: #0f2b22;
+	--sl-color-accent: #34d399;
+	--sl-color-accent-high: #a7f3d0;
+	--sl-color-white: #f4f6fb;
+	--sl-color-gray-1: #e2e6f0;
+	--sl-color-gray-2: #b9c0d1;
+	--sl-color-gray-3: #7f889f;
+	--sl-color-gray-4: #4b5368;
+	--sl-color-gray-5: #2a3040;
+	--sl-color-gray-6: #171b27;
+	--sl-color-black: #0b0f19;
+	--sl-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-theme='light'] {
+	--sl-color-accent-low: #d1fae5;
+	--sl-color-accent: #059669;
+	--sl-color-accent-high: #064e3b;
+	--sl-color-white: #0b0f19;
+	--sl-color-gray-1: #171b27;
+	--sl-color-gray-2: #2a3040;
+	--sl-color-gray-3: #4b5368;
+	--sl-color-gray-4: #7f889f;
+	--sl-color-gray-5: #d5d9e3;
+	--sl-color-gray-6: #eef0f5;
+	--sl-color-gray-7: #f7f8fb;
+	--sl-color-black: #ffffff;
+}
+
+/* Hero: subtle radial glow behind the tagline. */
+.hero {
+	position: relative;
+}
+.hero::before {
+	content: '';
+	position: absolute;
+	inset: -4rem -2rem auto;
+	height: 24rem;
+	background: radial-gradient(60% 60% at 50% 30%, color-mix(in srgb, var(--sl-color-accent) 22%, transparent), transparent 70%);
+	pointer-events: none;
+	z-index: -1;
+}
+.hero h1 {
+	letter-spacing: -0.03em;
+	background: linear-gradient(120deg, var(--sl-color-white), var(--sl-color-accent-high));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
+/* Key caps in the keymap reference. */
+kbd {
+	font-family: var(--sl-font-mono);
+	font-size: 0.85em;
+	padding: 0.1em 0.45em;
+	border-radius: 0.35em;
+	border: 1px solid var(--sl-color-gray-5);
+	border-bottom-width: 2px;
+	background: var(--sl-color-gray-6);
+	color: var(--sl-color-white);
+	white-space: nowrap;
+}
+
+/* Code blocks: slightly tighter, terminal feel. */
+.expressive-code .frame {
+	border-radius: 0.6rem;
+}

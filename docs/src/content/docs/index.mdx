@@ -1,0 +1,40 @@
+---
+title: SGPT
+description: A terminal-native AI coding agent that lives in your repo.
+template: splash
+hero:
+  tagline: A coding agent that lives in your terminal — and in your repo. Multi-tab chats, reviewable tool calls, roles and knowledge that ship with the code.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Get started
+      link: /guides/installation/
+      icon: right-arrow
+    - text: How it works
+      link: /concepts/architecture/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+	<Card title="Terminal first" icon="laptop">
+		A Bubble Tea TUI with tabs, a scrollable timeline, fuzzy pickers for files and tools, and an `$EDITOR` escape hatch for anything long.
+	</Card>
+	<Card title="Every action reviewed" icon="approve-check">
+		Tool calls render as diffs or commands and wait for your verdict. Side-effect-free tools run on their own; the rest ask first.
+	</Card>
+	<Card title="Roles that travel" icon="document">
+		Personas are markdown files in `.sgpt/`, addressed please-style (`//dir:title`) and importable across repos.
+	</Card>
+	<Card title="Knowledge that compounds" icon="magnifier">
+		Lores are a committed, grep-searchable knowledge base the agent consults before guessing — and proposes additions to.
+	</Card>
+	<Card title="Any gRPC service is a tool" icon="puzzle">
+		Point a tool set at a service and its methods become callable tools, schemas and docs derived from the protos.
+	</Card>
+	<Card title="Sub-agents" icon="rocket">
+		Delegate self-contained tasks to a sub-agent in its own tab; get the answer back as a tool result.
+	</Card>
+</CardGrid>
