@@ -2,4 +2,5 @@
 plz-out
 .plzconfig.local
 .plz-cache
-.env/sgpt-cli
+.env
+/sgpt-cli
