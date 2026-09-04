@@ -1,8 +1,3 @@
-filegroup(
-    name = "descriptor_set",
-    srcs = ["//sgpt/v1:descriptor_set"],
-)
-
 go_library(
     name = "tool",
     srcs = [
@@ -12,10 +7,10 @@ go_library(
         "registry.go",
         "schema.go",
     ],
-    resources = [":descriptor_set"],
     visibility = ["//..."],
     deps = [
         "//sgpt/v1",
+        "//sgpt/v1/descriptor",
         "//third_party/go:github.com__malonaz__core__go__ai",
         "//third_party/go:github.com__malonaz__core__go__ai__tool",
         "//third_party/go:github.com__malonaz__core__go__pbutil",

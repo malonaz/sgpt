@@ -2,7 +2,6 @@ package tool
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"sync"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/malonaz/core/go/pbutil"
 	"github.com/malonaz/core/go/pbutil/pbjson"
 	"github.com/malonaz/core/go/pbutil/pbreflection"
+	"github.com/malonaz/sgpt/genproto/sgpt/v1/descriptor"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -23,12 +23,6 @@ import (
 // toolServiceFullName anchors reflection resolution: only files reachable
 // from a listed service are fetched.
 const toolServiceFullName = "sgpt.v1.ToolService"
-
-// The descriptor set is compiled with source info so proto comments become
-// tool and field descriptions.
-//
-//go:embed descriptor_set.bin
-var descriptorSetBytes []byte
 
 var (
 	schemaOnce sync.Once
@@ -47,7 +41,7 @@ func Schema() (*pbreflection.Schema, error) {
 
 func loadSchema() (*pbreflection.Schema, error) {
 	fileDescriptorSet := &descriptorpb.FileDescriptorSet{}
-	if err := pbutil.Unmarshal(descriptorSetBytes, fileDescriptorSet); err != nil {
+	if err := pbutil.Unmarshal(descriptor.Set, fileDescriptorSet); err != nil {
 		return nil, fmt.Errorf("unmarshaling embedded descriptor set: %w", err)
 	}
 	files, err := protodesc.NewFiles(fileDescriptorSet)
