@@ -32,7 +32,7 @@ func NewRenderer(width int) (*Renderer, error) {
 		glamour.WithStyles(customStyle()),
 		glamour.WithWordWrap(width),
 		glamour.WithInlineTableLinks(true),
-		glamour.WithHiddenLinks(),
+		glamour.WithHyperlinkMode(ansi.HyperlinkModeInline),
 	)
 	if err != nil {
 		return nil, err

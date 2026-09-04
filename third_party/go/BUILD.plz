@@ -249,8 +249,7 @@ go_mod_download(
     name = "charm.land__glamour__v2",
     _tag = "download",
     module = "charm.land/glamour/v2",
-    patch = ["glamour.patch"],
-    version = "v2.0.0",
+    version = "v2.0.2-0.20260901024658-49df6562f7a3",
     visibility = ["PUBLIC"],
 )
 
@@ -320,7 +319,7 @@ go_mod_download(
     name = "charm.land__lipgloss__v2",
     _tag = "download",
     module = "charm.land/lipgloss/v2",
-    version = "v2.0.3",
+    version = "v2.0.4",
     visibility = ["PUBLIC"],
 )
 
@@ -5301,8 +5300,8 @@ go_mod_download(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -5319,8 +5318,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -5676,7 +5675,7 @@ go_mod_download(
     name = "github.com__yuin__goldmark",
     _tag = "download",
     module = "github.com/yuin/goldmark",
-    version = "v1.8.2",
+    version = "v1.8.5",
     visibility = ["PUBLIC"],
 )
 
@@ -6563,7 +6562,7 @@ go_mod_download(
     name = "golang.org__x__sync",
     _tag = "download",
     module = "golang.org/x/sync",
-    version = "v0.20.0",
+    version = "v0.22.0",
     visibility = ["PUBLIC"],
 )
 
@@ -6589,7 +6588,7 @@ go_mod_download(
     name = "golang.org__x__sys",
     _tag = "download",
     module = "golang.org/x/sys",
-    version = "v0.44.0",
+    version = "v0.45.0",
     visibility = ["PUBLIC"],
 )
 
@@ -6615,7 +6614,7 @@ go_mod_download(
     name = "golang.org__x__text",
     _tag = "download",
     module = "golang.org/x/text",
-    version = "v0.37.0",
+    version = "v0.41.0",
     visibility = ["PUBLIC"],
 )
 
