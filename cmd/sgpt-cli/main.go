@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/malonaz/core/go/grpc"
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
@@ -20,7 +22,8 @@ const defaultConfigFilepath = "~/.config/sgpt/.sgpt.json"
 
 func main() {
 	if err := run(); err != nil {
-		panic(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
@@ -48,7 +51,8 @@ func run() error {
 
 	rootCmd.PersistentFlags().StringVar(&configFilepath, "config", defaultConfigFilepath, "Path to configuration file")
 
-	if err := rootCmd.ParseFlags(os.Args); err != nil {
+	// Pre-parse only to learn --config; Execute renders help itself.
+	if err := rootCmd.ParseFlags(os.Args); err != nil && !errors.Is(err, pflag.ErrHelp) {
 		return fmt.Errorf("parsing flags: %v", err)
 	}
 
