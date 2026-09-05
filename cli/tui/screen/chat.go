@@ -31,22 +31,22 @@ type sessionEventMsg struct {
 }
 
 var (
-	chatKeyCycleFocus     = keymap.New("tab", "Toggle input/timeline focus")
-	chatKeySubmit         = keymap.New("ctrl+j", "Send message / review tool call")
-	chatKeyAccept         = keymap.New("alt+y", "Accept tool call under review")
-	chatKeyAcceptAll      = keymap.New("alt+shift+y", "Accept all pending tool calls")
-	chatKeyAlwaysAccept   = keymap.New("alt+shift+a", "Always accept this tool (session)")
-	chatKeyReject         = keymap.New("alt+shift+r", "Reject tool call under review (input text = reason)")
-	chatKeyCancel         = keymap.New("ctrl+c", "Cancel stream / close tab")
-	chatKeyCycleReasoning = keymap.New("alt+t", "Cycle reasoning effort")
-	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
-	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
-	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
-	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
-	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
-	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
-	chatKeyEditMessage    = keymap.New("alt+e", "Edit selected user message and resend (truncates below)")
-	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
+	chatKeyCycleFocus     = keymap.New("chat.cycle_focus", "Toggle input/timeline focus", "tab")
+	chatKeySubmit         = keymap.New("chat.submit", "Send message / review tool call", "ctrl+j")
+	chatKeyAccept         = keymap.New("chat.accept_tool_call", "Accept tool call under review", "alt+y")
+	chatKeyAcceptAll      = keymap.New("chat.accept_all_tool_calls", "Accept all pending tool calls", "alt+shift+y")
+	chatKeyAlwaysAccept   = keymap.New("chat.always_accept_tool", "Always accept this tool (session)", "alt+shift+a")
+	chatKeyReject         = keymap.New("chat.reject_tool_call", "Reject tool call under review (input text = reason)", "alt+shift+r")
+	chatKeyCancel         = keymap.New("chat.cancel", "Cancel stream / close tab", "ctrl+c")
+	chatKeyCycleReasoning = keymap.New("chat.cycle_reasoning", "Cycle reasoning effort", "alt+t")
+	chatKeyToggleFavorite = keymap.New("chat.toggle_favorite", "Toggle favorite", "alt+shift+f")
+	chatKeyOpenAll        = keymap.New("chat.open_in_editor", "Open entire chat in $EDITOR", "alt+shift+o")
+	chatKeyPickTools      = keymap.New("chat.pick_tools", "Select/unselect tools (fuzzy)", "alt+shift+t")
+	chatKeyPickFiles      = keymap.New("chat.pick_files", "Select/unselect files (fuzzy)", "alt+shift+e")
+	chatKeyDeleteMessage  = keymap.New("chat.delete_message", "Delete selected message from the chat", "alt+d")
+	chatKeyDeleteBelow    = keymap.New("chat.delete_below", "Delete selected message and everything below it", "alt+shift+d")
+	chatKeyEditMessage    = keymap.New("chat.edit_message", "Edit selected user message and resend (truncates below)", "alt+e")
+	chatKeyInfo           = keymap.New("chat.info", "Show chat info (context, tokens, cost)", "alt+i")
 )
 
 type ChatScreen struct {
@@ -145,7 +145,7 @@ func (m *ChatScreen) ShortTitle() string {
 
 func (m *ChatScreen) Keymaps() []keymap.Map {
 	return []keymap.Map{
-		{Name: "Chat", Bindings: []keymap.Binding{
+		{Name: "Chat", Bindings: []*keymap.Binding{
 			chatKeySubmit, chatKeyAccept, chatKeyAcceptAll, chatKeyAlwaysAccept,
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,

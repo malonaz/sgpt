@@ -77,10 +77,12 @@ func validateGrpcClientReferences(configuration *sgptpb.Configuration) error {
 			return fmt.Errorf("grpc client %q: empty api_key (is the env variable set?)", grpcClient.GetName())
 		}
 	}
-	if aiService := configuration.GetAiService(); aiService != "" {
-		if _, err := GrpcClient(configuration, aiService); err != nil {
-			return fmt.Errorf("ai_service: %w", err)
-		}
+	aiService := configuration.GetAiService()
+	if aiService == "" {
+		return fmt.Errorf("ai_service: not set (declare a grpc_clients entry and reference it by name)")
+	}
+	if _, err := GrpcClient(configuration, aiService); err != nil {
+		return fmt.Errorf("ai_service: %w", err)
 	}
 	return nil
 }

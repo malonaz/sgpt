@@ -15,22 +15,22 @@ import (
 )
 
 var (
-	KeyPrevItem       = keymap.New("alt+[", "Previous fence/block")
-	KeyNextItem       = keymap.New("alt+]", "Next fence/block")
-	KeyToTop          = keymap.New("alt+<", "Jump to top")
-	KeyToBottom       = keymap.New("alt+>", "Jump to bottom")
-	KeyScrollUp       = keymap.New("ctrl+p", "Scroll up")
-	KeyScrollDown     = keymap.New("ctrl+n", "Scroll down")
-	KeyToggleCollapse = keymap.New("alt+z", "Collapse/expand item")
-	KeyToggleNavMode  = keymap.New("alt+a", "Toggle fence/API-block navigation")
-	KeyCopy           = keymap.New("alt+w", "Copy selection to clipboard")
-	KeyOpenEditor     = keymap.New("alt+o", "Open selection in $EDITOR")
+	KeyPrevItem       = keymap.New("timeline.prev_item", "Previous fence/block", "alt+[")
+	KeyNextItem       = keymap.New("timeline.next_item", "Next fence/block", "alt+]")
+	KeyToTop          = keymap.New("timeline.to_top", "Jump to top", "alt+<")
+	KeyToBottom       = keymap.New("timeline.to_bottom", "Jump to bottom", "alt+>")
+	KeyScrollUp       = keymap.New("timeline.scroll_up", "Scroll up", "ctrl+p")
+	KeyScrollDown     = keymap.New("timeline.scroll_down", "Scroll down", "ctrl+n")
+	KeyToggleCollapse = keymap.New("timeline.toggle_collapse", "Collapse/expand item", "alt+z")
+	KeyToggleNavMode  = keymap.New("timeline.toggle_nav_mode", "Toggle fence/API-block navigation", "alt+a")
+	KeyCopy           = keymap.New("timeline.copy", "Copy selection to clipboard", "alt+w")
+	KeyOpenEditor     = keymap.New("timeline.open_in_editor", "Open selection in $EDITOR", "alt+o")
 )
 
 func Keymap() keymap.Map {
 	return keymap.Map{
 		Name: "Timeline",
-		Bindings: []keymap.Binding{
+		Bindings: []*keymap.Binding{
 			KeyPrevItem, KeyNextItem, KeyToTop, KeyToBottom,
 			KeyScrollUp, KeyScrollDown, KeyToggleCollapse, KeyToggleNavMode,
 			KeyCopy, KeyOpenEditor,

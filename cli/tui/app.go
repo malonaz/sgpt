@@ -50,26 +50,30 @@ type tab struct {
 }
 
 var (
-	keyQuit     = keymap.New("ctrl+c", "Quit")
-	keyNewTab   = keymap.New("ctrl+t", "New chat tab")
-	keyCloseTab = keymap.New("ctrl+w", "Close tab")
-	keyPrevTab  = keymap.New("alt+j", "Previous tab")
-	keyNextTab  = keymap.New("alt+;", "Next tab")
-	keyOpenMenu = keymap.New("alt+m", "Open menu")
-	keyCopyName = keymap.New("alt+c", "Copy chat name")
-	keyHelp     = keymap.New("alt+h", "Toggle this help")
-	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
-	keyTab2     = key.NewBinding(key.WithKeys("alt+f2"))
-	keyTab3     = key.NewBinding(key.WithKeys("alt+f3"))
-	keyTab4     = key.NewBinding(key.WithKeys("alt+f4"))
-	keyTab5     = key.NewBinding(key.WithKeys("alt+f5"))
-	keyTab6     = key.NewBinding(key.WithKeys("alt+f6"))
-	keyTab7     = key.NewBinding(key.WithKeys("alt+f7"))
-	keyTab8     = key.NewBinding(key.WithKeys("alt+f8"))
-	keyTab9     = key.NewBinding(key.WithKeys("alt+f9"))
+	keyQuit     = keymap.New("app.quit", "Quit", "ctrl+c")
+	keyNewTab   = keymap.New("app.new_tab", "New chat tab", "ctrl+t")
+	keyCloseTab = keymap.New("app.close_tab", "Close tab", "ctrl+w")
+	keyPrevTab  = keymap.New("app.prev_tab", "Previous tab", "alt+j")
+	keyNextTab  = keymap.New("app.next_tab", "Next tab", "alt+;")
+	keyOpenMenu = keymap.New("app.open_menu", "Open menu", "alt+m")
+	keyCopyName = keymap.New("app.copy_chat_name", "Copy chat name", "alt+c")
+	keyHelp     = keymap.New("app.help", "Toggle this help", "alt+h")
+	keyEditKeys = keymap.New("app.edit_keymap", "Edit key bindings", "ctrl+k")
 )
 
-var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, keyTab6, keyTab7, keyTab8, keyTab9}
+// tabIndexKeys jump straight to the nth tab. Configurable like the rest, but
+// kept out of the help modal: nine near-identical lines earn no space there.
+var tabIndexKeys = []*keymap.Binding{
+	keymap.New("app.tab_1", "Jump to tab 1", "alt+f1"),
+	keymap.New("app.tab_2", "Jump to tab 2", "alt+f2"),
+	keymap.New("app.tab_3", "Jump to tab 3", "alt+f3"),
+	keymap.New("app.tab_4", "Jump to tab 4", "alt+f4"),
+	keymap.New("app.tab_5", "Jump to tab 5", "alt+f5"),
+	keymap.New("app.tab_6", "Jump to tab 6", "alt+f6"),
+	keymap.New("app.tab_7", "Jump to tab 7", "alt+f7"),
+	keymap.New("app.tab_8", "Jump to tab 8", "alt+f8"),
+	keymap.New("app.tab_9", "Jump to tab 9", "alt+f9"),
+}
 
 type App struct {
 	ctx      context.Context
@@ -96,6 +100,8 @@ type App struct {
 	alertQueue   []string
 	alertVisible bool
 	helpVisible  bool
+	// keymapEditor is non-nil while the keymap editor modal is open.
+	keymapEditor *keymap.Editor
 	quitting     bool
 }
 
@@ -207,6 +213,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, t := range a.tabs {
 			t.screen.SetSize(a.width, contentHeight)
 		}
+		if a.keymapEditor != nil {
+			a.keymapEditor.SetSize(a.width, a.height)
+		}
 		return a, nil
 
 	case screen.TabMsg:
@@ -240,6 +249,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.closeTab(msg.TabID)
 
 	case tea.KeyPressMsg:
+		// The keymap editor swallows every key: while it is capturing, the
+		// next press is the new binding, so none may reach the app beneath.
+		if a.keymapEditor != nil {
+			if done := a.keymapEditor.HandleKey(msg); done {
+				a.keymapEditor = nil
+			}
+			return a, nil
+		}
 		// The help modal swallows every key: alt+h opens, anything closes.
 		if a.helpVisible {
 			a.helpVisible = false
@@ -247,6 +264,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if key.Matches(msg, keyHelp.Key) {
 			a.helpVisible = true
+			return a, nil
+		}
+		if key.Matches(msg, keyEditKeys.Key) {
+			a.keymapEditor = keymap.NewEditor()
+			a.keymapEditor.SetSize(a.width, a.height)
 			return a, nil
 		}
 		if cmd := a.handleGlobalKey(msg); cmd != nil {
@@ -267,6 +289,13 @@ func (a *App) View() tea.View {
 	}
 	if !a.ready {
 		return tea.NewView("Initializing...")
+	}
+
+	if a.keymapEditor != nil {
+		view := tea.NewView(a.keymapEditor.View())
+		view.AltScreen = true
+		view.ReportFocus = true
+		return view
 	}
 
 	if a.helpVisible {
@@ -303,9 +332,9 @@ func (a *App) View() tea.View {
 func (a *App) keymaps() []keymap.Map {
 	maps := []keymap.Map{{
 		Name: "Global",
-		Bindings: []keymap.Binding{
-			keyHelp, keyQuit, keyNewTab, keyCloseTab, keyPrevTab, keyNextTab,
-			keyOpenMenu, keyCopyName,
+		Bindings: []*keymap.Binding{
+			keyHelp, keyEditKeys, keyQuit, keyNewTab, keyCloseTab, keyPrevTab,
+			keyNextTab, keyOpenMenu, keyCopyName,
 		},
 	}}
 	if a.activeTab < len(a.tabs) {
@@ -348,8 +377,8 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
-	for i, k := range tabIndexKeys {
-		if key.Matches(msg, k) {
+	for i, tabIndexKey := range tabIndexKeys {
+		if key.Matches(msg, tabIndexKey.Key) {
 			return a.switchTab(i)
 		}
 	}

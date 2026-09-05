@@ -11,20 +11,20 @@ import (
 )
 
 var (
-	keyUp           = keymap.New("ctrl+p", "Move up")
-	keyDown         = keymap.New("ctrl+n", "Move down")
-	keyOpen         = keymap.New("enter", "Open chat")
-	keyDelete       = keymap.New("alt+d", "Delete chat")
-	keyRefresh      = keymap.New("alt+r", "Refresh")
-	keyToTop        = keymap.New("alt+<", "Jump to filter")
-	keyToBottom     = keymap.New("alt+>", "Jump to last chat")
-	keyMenuFavorite = keymap.New("alt+shift+f", "Toggle favorite")
+	keyUp           = keymap.New("menu.up", "Move up", "ctrl+p")
+	keyDown         = keymap.New("menu.down", "Move down", "ctrl+n")
+	keyOpen         = keymap.New("menu.open", "Open chat", "enter")
+	keyDelete       = keymap.New("menu.delete", "Delete chat", "alt+d")
+	keyRefresh      = keymap.New("menu.refresh", "Refresh", "alt+r")
+	keyToTop        = keymap.New("menu.to_top", "Jump to filter", "alt+<")
+	keyToBottom     = keymap.New("menu.to_bottom", "Jump to last chat", "alt+>")
+	keyMenuFavorite = keymap.New("menu.toggle_favorite", "Toggle favorite", "alt+shift+f")
 )
 
 func (m *Model) Keymaps() []keymap.Map {
 	return []keymap.Map{{
 		Name: "Menu",
-		Bindings: []keymap.Binding{
+		Bindings: []*keymap.Binding{
 			keyUp, keyDown, keyOpen, keyDelete, keyMenuFavorite,
 			keyRefresh, keyToTop, keyToBottom,
 		},
