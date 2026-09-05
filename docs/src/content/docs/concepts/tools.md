@@ -33,6 +33,8 @@ Each tool renders its own request:
   approve is exactly what lands;
 - engine RPCs show `Service/Method` and the request as JSON.
 
+![exec_shell reviewed, accepted and summarised](../../../assets/screenshots/shell.svg)
+
 ## Verdicts
 
 When a call awaits review the status line says so and the input box turns

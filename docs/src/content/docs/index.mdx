@@ -17,6 +17,12 @@ hero:
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import diffReview from '../../assets/screenshots/diff-review.svg';
+
+<div class="shot shot-hero">
+	<Image src={diffReview} alt="sgpt chat: a diff tool call under review, with the unified diff rendered in the timeline and accept/reject hints in the input bar" />
+</div>
 
 <CardGrid stagger>
 	<Card title="Terminal first" icon="laptop">

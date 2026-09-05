@@ -24,12 +24,18 @@ Ask for something that needs the filesystem:
 > what does `internal/session/turn.go` do?
 
 The model calls `read_files`. Reads are side-effect free, so the call runs
-immediately and its result streams back. Now ask for a change:
+immediately and its result streams back:
+
+![read_files auto-executes, then a markdown answer](../../../assets/screenshots/read-and-answer.svg)
+
+Now ask for a change:
 
 > rename `pendingReview` to `awaitingVerdict`
 
 The model proposes an edit. The timeline shows a **unified diff** and the
 status line says a review is pending:
+
+![A diff tool call under review](../../../assets/screenshots/diff-review.svg)
 
 - <kbd>alt</kbd>+<kbd>y</kbd> accept
 - <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>r</kbd> reject — whatever is in the
@@ -65,3 +71,5 @@ Roles come from `.sgpt/*.role.md` files in the repo (and its imports); see
 
 <kbd>alt</kbd>+<kbd>h</kbd> shows the full [keymap](/reference/keymap/) at
 any time.
+
+![The keymap overlay](../../../assets/screenshots/help.svg)

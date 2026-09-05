@@ -67,3 +67,17 @@ kbd {
 .expressive-code .frame {
 	border-radius: 0.6rem;
 }
+
+/* Screenshots: full-bleed on the splash, soft glow, tight radius. */
+.shot img,
+.sl-markdown-content img[src*="/screenshots/"] {
+	width: 100%;
+	height: auto;
+	border-radius: 0.75rem;
+	box-shadow: 0 30px 80px -20px color-mix(in srgb, var(--sl-color-accent) 35%, transparent),
+		0 0 0 1px var(--sl-color-gray-5);
+}
+.shot-hero {
+	max-width: 68rem;
+	margin: 0 auto 3rem;
+}
