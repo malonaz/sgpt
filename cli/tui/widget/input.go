@@ -15,15 +15,14 @@ import (
 )
 
 var (
-	keyInputPrevHistory = keymap.New("input.prev_history", "Previous history entry", "alt+p")
-	keyInputNextHistory = keymap.New("input.next_history", "Next history entry", "alt+n")
-	keyInputOpenEditor  = keymap.New("input.open_in_editor", "Compose in $EDITOR", "alt+o")
+	keyInputPrevHistory = keymap.New("prev_history", "Previous history entry", "alt+p")
+	keyInputNextHistory = keymap.New("next_history", "Next history entry", "alt+n")
 )
 
 func InputKeymap() keymap.Map {
 	return keymap.Map{
 		Name:     "Input",
-		Bindings: []*keymap.Binding{keyInputPrevHistory, keyInputNextHistory, keyInputOpenEditor},
+		Bindings: []*keymap.Binding{keyInputPrevHistory, keyInputNextHistory, keymap.KeyOpenInEditor},
 	}
 }
 
@@ -119,7 +118,7 @@ func (i *Input) HandleKey(msg tea.KeyPressMsg) tea.Cmd {
 			i.AdjustHeight()
 		}
 		return nil
-	case key.Matches(msg, keyInputOpenEditor.Key):
+	case key.Matches(msg, keymap.KeyOpenInEditor.Key):
 		return editor.Open(i.Textarea.Value(), "md")
 	}
 	return nil
@@ -137,7 +136,7 @@ func (i *Input) View() string {
 	// rebind these keys while the input is on screen.
 	i.Textarea.Placeholder = fmt.Sprintf(
 		"Type your message... (%s: send, %s: navigate, %s: help)",
-		keymap.KeysOf("chat.submit"), keymap.KeysOf("chat.cycle_focus"), keymap.KeysOf("app.help"),
+		keymap.KeysOf("submit"), keymap.KeysOf("cycle_focus"), keymap.KeysOf("help"),
 	)
 	return styles.TextAreaStyle.Render(i.Textarea.View())
 }

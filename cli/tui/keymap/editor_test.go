@@ -77,8 +77,8 @@ func editorFor(t *testing.T, id string) (*Editor, string) {
 }
 
 func TestEditorRebindsAndPersists(t *testing.T) {
-	binding := New("editor.submit", "Send message", "ctrl+j")
-	editor, path := editorFor(t, "editor.submit")
+	binding := New("editor_submit", "Send message", "f30")
+	editor, path := editorFor(t, "editor_submit")
 
 	if done := editor.HandleKey(press(t, "enter")); done {
 		t.Fatal("enter closed the editor, want it to start capturing")
@@ -106,7 +106,7 @@ func TestEditorRebindsAndPersists(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, b := range config.Bindings {
-		if b.ID != "editor.submit" {
+		if b.ID != "editor_submit" {
 			continue
 		}
 		if len(b.Keys) != 1 || b.Keys[0] != "z" {
@@ -118,50 +118,49 @@ func TestEditorRebindsAndPersists(t *testing.T) {
 }
 
 func TestEditorRejectsConflictWithoutRebinding(t *testing.T) {
-	binding := New("conflict.submit", "Send message", "ctrl+j")
-	New("conflict.info", "Show info", "alt+i")
-	editor, _ := editorFor(t, "conflict.submit")
+	binding := New("conflict_submit", "Send message", "f31")
+	New("conflict_info", "Show info", "alt+i")
+	editor, _ := editorFor(t, "conflict_submit")
 
 	editor.HandleKey(press(t, "enter"))
 	editor.HandleKey(press(t, "alt+i"))
 
-	if got := binding.KeysString(); got != "ctrl+j" {
-		t.Errorf("keys = %q after a conflicting capture, want the original %q", got, "ctrl+j")
+	if got := binding.KeysString(); got != "f31" {
+		t.Errorf("keys = %q after a conflicting capture, want the original %q", got, "f31")
 	}
 	if !editor.failed {
 		t.Error("a conflicting capture was not reported as a failure")
 	}
-	if !strings.Contains(editor.status, "conflict.info") {
+	if !strings.Contains(editor.status, "conflict_info") {
 		t.Errorf("status = %q, want it to name the conflicting binding", editor.status)
 	}
 }
 
 func TestEditorEscapeCancelsCaptureThenCloses(t *testing.T) {
-	binding := New("escape.submit", "Send message", "ctrl+j")
-	editor, _ := editorFor(t, "escape.submit")
+	binding := New("escape_submit", "Send message", "f32")
+	editor, _ := editorFor(t, "escape_submit")
 
 	editor.HandleKey(press(t, "enter"))
 	if done := editor.HandleKey(press(t, "esc")); done {
 		t.Fatal("esc closed the editor while capturing, want it to cancel the capture")
 	}
-	if got := binding.KeysString(); got != "ctrl+j" {
-		t.Errorf("keys = %q after a cancelled capture, want %q", got, "ctrl+j")
+	if got := binding.KeysString(); got != "f32" {
+		t.Errorf("keys = %q after a cancelled capture, want %q", got, "f32")
 	}
 	if !editor.HandleKey(press(t, "esc")) {
 		t.Error("esc did not close the editor once browsing")
 	}
 }
 
-func TestEditorAcceptsKeyUsedInAnotherScope(t *testing.T) {
-	binding := New("scopea.submit", "Send message", "ctrl+j")
-	New("scopeb.quit", "Quit", "alt+u")
-	editor, _ := editorFor(t, "scopea.submit")
+func TestEditorAcceptsAFreeKey(t *testing.T) {
+	binding := New("editor_free_submit", "Send message", "f33")
+	editor, _ := editorFor(t, "editor_free_submit")
 
 	editor.HandleKey(press(t, "enter"))
 	editor.HandleKey(press(t, "alt+u"))
 
 	if got := binding.KeysString(); got != "alt+u" {
-		t.Errorf("keys = %q, want %q: the same key in another scope is allowed", got, "alt+u")
+		t.Errorf("keys = %q, want %q: a key nothing else claims is free", got, "alt+u")
 	}
 	if editor.failed {
 		t.Errorf("rebinding was reported as a failure: %s", editor.status)
@@ -169,8 +168,8 @@ func TestEditorAcceptsKeyUsedInAnotherScope(t *testing.T) {
 }
 
 func TestEditorNavigationStaysInBounds(t *testing.T) {
-	New("nav.first", "First", "f1")
-	editor, _ := editorFor(t, "nav.first")
+	New("nav_first", "First", "f34")
+	editor, _ := editorFor(t, "nav_first")
 
 	editor.cursor = 0
 	editor.HandleKey(press(t, "up"))
@@ -190,8 +189,8 @@ func TestEditorNavigationStaysInBounds(t *testing.T) {
 }
 
 func TestEditorViewShowsEveryBindingAcrossScroll(t *testing.T) {
-	New("view.only", "The only one", "alt+q")
-	editor, _ := editorFor(t, "view.only")
+	New("view_only", "The only one", "f35")
+	editor, _ := editorFor(t, "view_only")
 	editor.SetSize(120, 40)
 
 	// Walk the whole list; every binding must appear while it is selected,

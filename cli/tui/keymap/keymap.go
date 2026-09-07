@@ -17,6 +17,10 @@ import (
 // Bindings are declared once at package initialization and registered by ID.
 // Load rebinds them in place, so every holder of the pointer picks up the
 // user's mapping without further wiring.
+//
+// Bindings are global: one key means one thing everywhere. An action several
+// screens share is therefore one binding they all hold, not one per screen —
+// see the shared bindings in this package.
 type Binding struct {
 	// ID addresses this binding in the user's keymap file. Stable across
 	// releases: renaming one silently drops everyone's override of it.
@@ -35,15 +39,12 @@ func (b *Binding) KeysString() string {
 // package initialization, so it is complete by the time main runs.
 var registry = map[string]*Binding{}
 
-// New declares a user-configurable binding. Panics on a duplicate or
-// un-namespaced ID, or on missing default keys: every argument is a
-// compile-time constant, so a panic here is a programming error.
+// New declares a user-configurable binding. Panics on a duplicate ID or on
+// missing default keys: every argument is a compile-time constant, so a
+// panic here is a programming error.
 func New(id, help string, keys ...string) *Binding {
 	if _, ok := registry[id]; ok {
 		panic(fmt.Sprintf("keymap: duplicate binding id %q", id))
-	}
-	if namespace(id) == "" {
-		panic(fmt.Sprintf("keymap: binding id %q is not namespaced (want e.g. %q)", id, "chat.submit"))
 	}
 	if len(keys) == 0 {
 		panic(fmt.Sprintf("keymap: binding %q declares no default keys", id))
@@ -74,7 +75,7 @@ func KeysOf(id string) string {
 }
 
 // Bindings returns every declared binding, ordered by ID so the generated
-// keymap file groups them by namespace and is stable across runs.
+// keymap file and the editor list them in the same order every run.
 func Bindings() []*Binding {
 	bindings := make([]*Binding, 0, len(registry))
 	for _, binding := range registry {
@@ -82,16 +83,6 @@ func Bindings() []*Binding {
 	}
 	sort.Slice(bindings, func(i, j int) bool { return bindings[i].ID < bindings[j].ID })
 	return bindings
-}
-
-// namespace is the part of an ID before its first dot: the scope the binding
-// is active in, and the scope key conflicts are checked within.
-func namespace(id string) string {
-	dot := strings.Index(id, ".")
-	if dot <= 0 || dot == len(id)-1 {
-		return ""
-	}
-	return id[:dot]
 }
 
 // Map is a named group of bindings, rendered as a section in the help modal.

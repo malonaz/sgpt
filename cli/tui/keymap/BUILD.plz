@@ -4,6 +4,7 @@ go_library(
         "config.go",
         "editor.go",
         "keymap.go",
+        "shared.go",
     ],
     visibility = ["//..."],
     deps = [

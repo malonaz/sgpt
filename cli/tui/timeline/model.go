@@ -15,25 +15,20 @@ import (
 )
 
 var (
-	KeyPrevItem       = keymap.New("timeline.prev_item", "Previous fence/block", "alt+[")
-	KeyNextItem       = keymap.New("timeline.next_item", "Next fence/block", "alt+]")
-	KeyToTop          = keymap.New("timeline.to_top", "Jump to top", "alt+<")
-	KeyToBottom       = keymap.New("timeline.to_bottom", "Jump to bottom", "alt+>")
-	KeyScrollUp       = keymap.New("timeline.scroll_up", "Scroll up", "ctrl+p")
-	KeyScrollDown     = keymap.New("timeline.scroll_down", "Scroll down", "ctrl+n")
-	KeyToggleCollapse = keymap.New("timeline.toggle_collapse", "Collapse/expand item", "alt+z")
-	KeyToggleNavMode  = keymap.New("timeline.toggle_nav_mode", "Toggle fence/API-block navigation", "alt+a")
-	KeyCopy           = keymap.New("timeline.copy", "Copy selection to clipboard", "alt+w")
-	KeyOpenEditor     = keymap.New("timeline.open_in_editor", "Open selection in $EDITOR", "alt+o")
+	KeyPrevItem       = keymap.New("prev_item", "Previous fence/block", "alt+[")
+	KeyNextItem       = keymap.New("next_item", "Next fence/block", "alt+]")
+	KeyToggleCollapse = keymap.New("toggle_collapse", "Collapse/expand item", "alt+z")
+	KeyToggleNavMode  = keymap.New("toggle_nav_mode", "Toggle fence/API-block navigation", "alt+a")
+	KeyCopy           = keymap.New("copy", "Copy selection to clipboard", "alt+w")
 )
 
 func Keymap() keymap.Map {
 	return keymap.Map{
 		Name: "Timeline",
 		Bindings: []*keymap.Binding{
-			KeyPrevItem, KeyNextItem, KeyToTop, KeyToBottom,
-			KeyScrollUp, KeyScrollDown, KeyToggleCollapse, KeyToggleNavMode,
-			KeyCopy, KeyOpenEditor,
+			KeyPrevItem, KeyNextItem, keymap.KeyToTop, keymap.KeyToBottom,
+			keymap.KeyUp, keymap.KeyDown, KeyToggleCollapse, KeyToggleNavMode,
+			KeyCopy, keymap.KeyOpenInEditor,
 		},
 	}
 }
@@ -244,15 +239,15 @@ func (m *Model) HandleKey(msg tea.KeyPressMsg, alert func(string) tea.Cmd) tea.C
 		m.moveCursor(-1)
 	case key.Matches(msg, KeyNextItem.Key):
 		m.moveCursor(1)
-	case key.Matches(msg, KeyToTop.Key):
+	case key.Matches(msg, keymap.KeyToTop.Key):
 		if len(m.items) > 0 {
 			m.setCursor(0, 0)
 		}
-	case key.Matches(msg, KeyToBottom.Key):
+	case key.Matches(msg, keymap.KeyToBottom.Key):
 		m.SelectLast()
-	case key.Matches(msg, KeyScrollUp.Key):
+	case key.Matches(msg, keymap.KeyUp.Key):
 		m.setYOffset(m.yOffset - 3)
-	case key.Matches(msg, KeyScrollDown.Key):
+	case key.Matches(msg, keymap.KeyDown.Key):
 		m.setYOffset(m.yOffset + 3)
 	case key.Matches(msg, KeyToggleCollapse.Key):
 		m.toggleCollapse()
@@ -273,7 +268,7 @@ func (m *Model) HandleKey(msg tea.KeyPressMsg, alert func(string) tea.Cmd) tea.C
 			clipboard.Write(clipboard.FmtText, []byte(content))
 			return alert("Copied to clipboard!")
 		}
-	case key.Matches(msg, KeyOpenEditor.Key):
+	case key.Matches(msg, keymap.KeyOpenInEditor.Key):
 		if content, extension := m.selectedContent(); content != "" {
 			return editor.Open(content, extension)
 		}

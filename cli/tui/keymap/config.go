@@ -122,24 +122,49 @@ func commit(idToKeys map[string][]string) {
 	}
 }
 
-// validate rejects two bindings of the same namespace claiming the same key:
-// within one scope only ever one of them could fire. The same key across
-// namespaces is fine, and the defaults rely on it — ctrl+c quits the app and
-// cancels a stream, ctrl+p scrolls the timeline and moves up the menu.
+// sharedKeys are the binding pairs allowed to claim the same key anyway,
+// because the first deliberately falls through to the second: ctrl+c quits
+// the app, except while a turn is streaming, where the chat screen takes it
+// and cancels the turn instead.
+var sharedKeys = [][2]string{
+	{"quit", "cancel"},
+}
+
+// validate rejects a key that could never fire: bound twice to one binding,
+// or claimed by a second binding. Bindings are global, so the second claim
+// is dead however far apart on screen the two actions are — whichever the
+// dispatcher reaches first wins every press.
 func validate(idToKeys map[string][]string) error {
-	type claim struct{ namespace, key string }
-	claimedBy := map[claim]string{}
+	claimedBy := map[string]string{}
 	// Ordered, so a file with several conflicts always names the same one.
 	for _, b := range Bindings() {
+		claimed := map[string]struct{}{}
 		for _, k := range idToKeys[b.ID] {
-			c := claim{namespace: namespace(b.ID), key: k}
-			if other, ok := claimedBy[c]; ok {
+			if _, ok := claimed[k]; ok {
+				return fmt.Errorf("%q is bound twice to %q", k, b.ID)
+			}
+			claimed[k] = struct{}{}
+
+			other, taken := claimedBy[k]
+			if !taken {
+				claimedBy[k] = b.ID
+				continue
+			}
+			if !shareKeys(other, b.ID) {
 				return fmt.Errorf("%q is bound to both %q and %q", k, other, b.ID)
 			}
-			claimedBy[c] = b.ID
 		}
 	}
 	return nil
+}
+
+func shareKeys(oneID, otherID string) bool {
+	for _, pair := range sharedKeys {
+		if (pair[0] == oneID && pair[1] == otherID) || (pair[0] == otherID && pair[1] == oneID) {
+			return true
+		}
+	}
+	return false
 }
 
 // write serializes every declared binding, so the file the user edits always

@@ -50,7 +50,7 @@ Every TUI key binding is configurable. On startup SGPT writes `~/.config/sgpt/.s
 {
   "bindings": [
     {
-      "id": "chat.submit",
+      "id": "submit",
       "help": "Send message / review tool call",
       "keys": ["ctrl+j"]
     }
@@ -59,7 +59,9 @@ Every TUI key binding is configurable. On startup SGPT writes `~/.config/sgpt/.s
 ```
 You do not have to edit it by hand: press `ctrl+k` in the TUI to open the key binding editor, move with the arrow keys, press enter on a binding and then press the key you want it bound to. The change is saved to the file straight away.
 
-Editing the file directly works too. Edit `keys` to rebind, list several to accept more than one, or set it to `[]` to unbind. Bindings you delete from the file fall back to their defaults and are written back on the next start, so new bindings show up as SGPT gains them. Ids are namespaced by the scope they are active in (`app`, `chat`, `menu`, `timeline`, `input`); two bindings in the same scope may not claim the same key, but the same key in different scopes is fine. Pass `--keymap` to use a different file.
+Editing the file directly works too. Edit `keys` to rebind, list several to accept more than one, or set it to `[]` to unbind. Bindings you delete from the file fall back to their defaults and are written back on the next start, so new bindings show up as SGPT gains them. Pass `--keymap` to use a different file.
+
+Bindings are global: a key means one thing wherever it is pressed, so no two may claim the same one. Actions that several screens share are a single binding — `up`/`down` move through the chat menu and scroll the timeline, `delete` removes the selected chat or message, `open_in_editor` opens the timeline selection or composes in the input — so rebinding one moves the key everywhere it acts.
 
 ## Use
 ```bash

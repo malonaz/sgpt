@@ -50,29 +50,29 @@ type tab struct {
 }
 
 var (
-	keyQuit     = keymap.New("app.quit", "Quit", "ctrl+c")
-	keyNewTab   = keymap.New("app.new_tab", "New chat tab", "ctrl+t")
-	keyCloseTab = keymap.New("app.close_tab", "Close tab", "ctrl+w")
-	keyPrevTab  = keymap.New("app.prev_tab", "Previous tab", "alt+j")
-	keyNextTab  = keymap.New("app.next_tab", "Next tab", "alt+;")
-	keyOpenMenu = keymap.New("app.open_menu", "Open menu", "alt+m")
-	keyCopyName = keymap.New("app.copy_chat_name", "Copy chat name", "alt+c")
-	keyHelp     = keymap.New("app.help", "Toggle this help", "alt+h")
-	keyEditKeys = keymap.New("app.edit_keymap", "Edit key bindings", "ctrl+k")
+	keyQuit     = keymap.New("quit", "Quit", "ctrl+c")
+	keyNewTab   = keymap.New("new_tab", "New chat tab", "ctrl+t")
+	keyCloseTab = keymap.New("close_tab", "Close tab", "ctrl+w")
+	keyPrevTab  = keymap.New("prev_tab", "Previous tab", "alt+j")
+	keyNextTab  = keymap.New("next_tab", "Next tab", "alt+;")
+	keyOpenMenu = keymap.New("open_menu", "Open menu", "alt+m")
+	keyCopyName = keymap.New("copy_chat_name", "Copy chat name", "alt+c")
+	keyHelp     = keymap.New("help", "Toggle this help", "alt+h")
+	keyEditKeys = keymap.New("edit_keymap", "Edit key bindings", "ctrl+k")
 )
 
 // tabIndexKeys jump straight to the nth tab. Configurable like the rest, but
 // kept out of the help modal: nine near-identical lines earn no space there.
 var tabIndexKeys = []*keymap.Binding{
-	keymap.New("app.tab_1", "Jump to tab 1", "alt+f1"),
-	keymap.New("app.tab_2", "Jump to tab 2", "alt+f2"),
-	keymap.New("app.tab_3", "Jump to tab 3", "alt+f3"),
-	keymap.New("app.tab_4", "Jump to tab 4", "alt+f4"),
-	keymap.New("app.tab_5", "Jump to tab 5", "alt+f5"),
-	keymap.New("app.tab_6", "Jump to tab 6", "alt+f6"),
-	keymap.New("app.tab_7", "Jump to tab 7", "alt+f7"),
-	keymap.New("app.tab_8", "Jump to tab 8", "alt+f8"),
-	keymap.New("app.tab_9", "Jump to tab 9", "alt+f9"),
+	keymap.New("tab_1", "Jump to tab 1", "alt+f1"),
+	keymap.New("tab_2", "Jump to tab 2", "alt+f2"),
+	keymap.New("tab_3", "Jump to tab 3", "alt+f3"),
+	keymap.New("tab_4", "Jump to tab 4", "alt+f4"),
+	keymap.New("tab_5", "Jump to tab 5", "alt+f5"),
+	keymap.New("tab_6", "Jump to tab 6", "alt+f6"),
+	keymap.New("tab_7", "Jump to tab 7", "alt+f7"),
+	keymap.New("tab_8", "Jump to tab 8", "alt+f8"),
+	keymap.New("tab_9", "Jump to tab 9", "alt+f9"),
 }
 
 type App struct {

@@ -18,22 +18,12 @@ const (
 	editorChrome = 10
 )
 
-// row is one line of the editor: either a namespace header or a binding.
-type row struct {
-	header  string
-	binding *Binding
-}
-
 // Editor is the modal keymap editor. Arrow keys browse the declared
 // bindings, enter starts capturing, and the next key pressed becomes the
 // binding. Every rebinding is written to the keymap file as it is made, so
 // what the editor shows and what the file holds never diverge.
 type Editor struct {
-	rows     []row
 	bindings []*Binding
-	// bindingRows[i] is the row index of bindings[i], so the scroll window
-	// can keep the cursor visible through the header rows.
-	bindingRows []int
 
 	cursor    int
 	capturing bool
@@ -49,18 +39,7 @@ type Editor struct {
 // The bindings are held by pointer, so rebinding one updates the list in
 // place.
 func NewEditor() *Editor {
-	editor := &Editor{}
-	currentNamespace := ""
-	for _, binding := range Bindings() {
-		if bindingNamespace := namespace(binding.ID); bindingNamespace != currentNamespace {
-			currentNamespace = bindingNamespace
-			editor.rows = append(editor.rows, row{header: currentNamespace})
-		}
-		editor.bindingRows = append(editor.bindingRows, len(editor.rows))
-		editor.rows = append(editor.rows, row{binding: binding})
-		editor.bindings = append(editor.bindings, binding)
-	}
-	return editor
+	return &Editor{bindings: Bindings()}
 }
 
 func (e *Editor) SetSize(width, height int) {
@@ -124,17 +103,17 @@ func (e *Editor) View() string {
 			styles.ConfirmBoxStyle.Render(styles.DimTextStyle.Render("no key bindings declared")))
 	}
 	visibleRows := max(editorMinRows, e.height-editorChrome)
-	// Scroll so the cursor's row stays in the window, headers included.
+	// Scroll so the cursor stays in the window.
 	top := 0
-	if cursorRow := e.bindingRows[e.cursor]; cursorRow >= visibleRows {
-		top = cursorRow - visibleRows + 1
+	if e.cursor >= visibleRows {
+		top = e.cursor - visibleRows + 1
 	}
 
 	var b strings.Builder
 	b.WriteString(styles.ConfirmTitleStyle.Render("Edit Key Bindings"))
 	b.WriteString("\n\n")
-	for index := top; index < len(e.rows) && index < top+visibleRows; index++ {
-		b.WriteString(e.renderRow(e.rows[index]))
+	for index := top; index < len(e.bindings) && index < top+visibleRows; index++ {
+		b.WriteString(e.renderBinding(e.bindings[index]))
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
@@ -142,13 +121,10 @@ func (e *Editor) View() string {
 	return lipgloss.Place(e.width, e.height, lipgloss.Center, lipgloss.Center, styles.ConfirmBoxStyle.Render(b.String()))
 }
 
-func (e *Editor) renderRow(r row) string {
-	if r.binding == nil {
-		return styles.MenuHeaderStyle.Render(r.header)
-	}
-	selected := r.binding == e.bindings[e.cursor]
+func (e *Editor) renderBinding(binding *Binding) string {
+	selected := binding == e.bindings[e.cursor]
 
-	keys := r.binding.KeysString()
+	keys := binding.KeysString()
 	switch {
 	case selected && e.capturing:
 		keys = "press a key..."
@@ -161,9 +137,9 @@ func (e *Editor) renderRow(r row) string {
 	helpWidth := max(20, e.width-editorIDWidth-editorKeysWidth-editorChrome)
 	line := fmt.Sprintf(
 		"%-*s %-*s %s",
-		editorIDWidth, styles.Truncate(r.binding.ID, editorIDWidth),
+		editorIDWidth, styles.Truncate(binding.ID, editorIDWidth),
 		editorKeysWidth, styles.Truncate(keys, editorKeysWidth),
-		styles.Truncate(r.binding.Help, helpWidth),
+		styles.Truncate(binding.Help, helpWidth),
 	)
 	if selected {
 		return styles.MenuSelectedStyle.Render(line)
