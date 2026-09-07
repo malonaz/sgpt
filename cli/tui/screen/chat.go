@@ -31,22 +31,20 @@ type sessionEventMsg struct {
 }
 
 var (
-	chatKeyCycleFocus     = keymap.New("tab", "Toggle input/timeline focus")
-	chatKeySubmit         = keymap.New("ctrl+j", "Send message / review tool call")
-	chatKeyAccept         = keymap.New("alt+y", "Accept tool call under review")
-	chatKeyAcceptAll      = keymap.New("alt+shift+y", "Accept all pending tool calls")
-	chatKeyAlwaysAccept   = keymap.New("alt+shift+a", "Always accept this tool (session)")
-	chatKeyReject         = keymap.New("alt+shift+r", "Reject tool call under review (input text = reason)")
-	chatKeyCancel         = keymap.New("ctrl+c", "Cancel stream / close tab")
-	chatKeyCycleReasoning = keymap.New("alt+t", "Cycle reasoning effort")
-	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
-	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
-	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
-	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
-	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
-	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
-	chatKeyEditMessage    = keymap.New("alt+e", "Edit selected user message and resend (truncates below)")
-	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
+	chatKeyCycleFocus     = keymap.New("cycle_focus", "Toggle input/timeline focus", "tab")
+	chatKeySubmit         = keymap.New("submit", "Send message / review tool call", "ctrl+j")
+	chatKeyAccept         = keymap.New("accept_tool_call", "Accept tool call under review", "alt+y")
+	chatKeyAcceptAll      = keymap.New("accept_all_tool_calls", "Accept all pending tool calls", "alt+shift+y")
+	chatKeyAlwaysAccept   = keymap.New("always_accept_tool", "Always accept this tool (session)", "alt+shift+a")
+	chatKeyReject         = keymap.New("reject_tool_call", "Reject tool call under review (input text = reason)", "alt+shift+r")
+	chatKeyCancel         = keymap.New("cancel", "Cancel stream / close tab", "ctrl+c")
+	chatKeyCycleReasoning = keymap.New("cycle_reasoning", "Cycle reasoning effort", "alt+t")
+	chatKeyOpenAll        = keymap.New("open_chat_in_editor", "Open entire chat in $EDITOR", "alt+shift+o")
+	chatKeyPickTools      = keymap.New("pick_tools", "Select/unselect tools (fuzzy)", "alt+shift+t")
+	chatKeyPickFiles      = keymap.New("pick_files", "Select/unselect files (fuzzy)", "alt+shift+e")
+	chatKeyDeleteBelow    = keymap.New("delete_below", "Delete selected message and everything below it", "alt+shift+d")
+	chatKeyEditMessage    = keymap.New("edit_message", "Edit selected user message and resend (truncates below)", "alt+e")
+	chatKeyInfo           = keymap.New("info", "Show chat info (context, tokens, cost)", "alt+i")
 )
 
 type ChatScreen struct {
@@ -145,12 +143,12 @@ func (m *ChatScreen) ShortTitle() string {
 
 func (m *ChatScreen) Keymaps() []keymap.Map {
 	return []keymap.Map{
-		{Name: "Chat", Bindings: []keymap.Binding{
+		{Name: "Chat", Bindings: []*keymap.Binding{
 			chatKeySubmit, chatKeyAccept, chatKeyAcceptAll, chatKeyAlwaysAccept,
 			chatKeyReject, chatKeyCancel, chatKeyCycleFocus,
-			chatKeyCycleReasoning, chatKeyToggleFavorite,
+			chatKeyCycleReasoning, keymap.KeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
-			chatKeyDeleteMessage, chatKeyDeleteBelow, chatKeyEditMessage, chatKeyInfo,
+			keymap.KeyDelete, chatKeyDeleteBelow, chatKeyEditMessage, chatKeyInfo,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -291,7 +289,7 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, chatKeyCycleReasoning.Key):
 		m.cycleReasoningEffort()
 		return nil
-	case key.Matches(msg, chatKeyToggleFavorite.Key):
+	case key.Matches(msg, keymap.KeyToggleFavorite.Key):
 		return m.toggleFavorite()
 	case key.Matches(msg, chatKeyOpenAll.Key):
 		return editor.Open(timeline.ConversationText(m.session.Messages()), "md")
@@ -299,7 +297,7 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openToolPicker()
 	case key.Matches(msg, chatKeyPickFiles.Key):
 		return m.openFilePicker()
-	case key.Matches(msg, chatKeyDeleteMessage.Key):
+	case key.Matches(msg, keymap.KeyDelete.Key):
 		return m.deleteSelectedMessage()
 	case key.Matches(msg, chatKeyDeleteBelow.Key):
 		return m.deleteMessagesBelowSelected()

@@ -11,22 +11,16 @@ import (
 )
 
 var (
-	keyUp           = keymap.New("ctrl+p", "Move up")
-	keyDown         = keymap.New("ctrl+n", "Move down")
-	keyOpen         = keymap.New("enter", "Open chat")
-	keyDelete       = keymap.New("alt+d", "Delete chat")
-	keyRefresh      = keymap.New("alt+r", "Refresh")
-	keyToTop        = keymap.New("alt+<", "Jump to filter")
-	keyToBottom     = keymap.New("alt+>", "Jump to last chat")
-	keyMenuFavorite = keymap.New("alt+shift+f", "Toggle favorite")
+	keyOpen    = keymap.New("open_chat", "Open chat", "enter")
+	keyRefresh = keymap.New("refresh", "Refresh", "alt+r")
 )
 
 func (m *Model) Keymaps() []keymap.Map {
 	return []keymap.Map{{
 		Name: "Menu",
-		Bindings: []keymap.Binding{
-			keyUp, keyDown, keyOpen, keyDelete, keyMenuFavorite,
-			keyRefresh, keyToTop, keyToBottom,
+		Bindings: []*keymap.Binding{
+			keymap.KeyUp, keymap.KeyDown, keyOpen, keymap.KeyDelete,
+			keymap.KeyToggleFavorite, keyRefresh, keymap.KeyToTop, keymap.KeyToBottom,
 		},
 	}}
 }
@@ -105,12 +99,12 @@ func (m *Model) removeChatByName(name string) {
 
 func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, keyToTop.Key):
+	case key.Matches(msg, keymap.KeyToTop.Key):
 		m.focusTarget = FocusFilter
 		m.listYOffset = 0
 		return m.applyFocus()
 
-	case key.Matches(msg, keyToBottom.Key):
+	case key.Matches(msg, keymap.KeyToBottom.Key):
 		displayed := m.displayedChats()
 		if len(displayed) > 0 {
 			m.focusTarget = FocusChatList
@@ -120,10 +114,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return tea.Batch(m.applyFocus(), m.maybeLoadMessages())
 
-	case key.Matches(msg, keyUp.Key):
+	case key.Matches(msg, keymap.KeyUp.Key):
 		return m.navigateUp()
 
-	case key.Matches(msg, keyDown.Key):
+	case key.Matches(msg, keymap.KeyDown.Key):
 		return m.navigateDown()
 
 	case key.Matches(msg, keyOpen.Key):
@@ -134,7 +128,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
-	case key.Matches(msg, keyDelete.Key):
+	case key.Matches(msg, keymap.KeyDelete.Key):
 		if m.focusTarget == FocusChatList {
 			if chat := m.selectedChat(); chat != nil {
 				return m.deleteChat(chat.Name)
@@ -142,7 +136,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
-	case key.Matches(msg, keyMenuFavorite.Key):
+	case key.Matches(msg, keymap.KeyToggleFavorite.Key):
 		if m.focusTarget == FocusChatList {
 			if chat := m.selectedChat(); chat != nil {
 				return m.toggleFavorite(chat)

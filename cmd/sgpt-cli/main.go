@@ -15,10 +15,14 @@ import (
 	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
 	"github.com/malonaz/sgpt/cli/titles"
+	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
 
-const defaultConfigFilepath = "~/.config/sgpt/.sgpt.json"
+const (
+	defaultConfigFilepath = "~/.config/sgpt/.sgpt.json"
+	defaultKeymapFilepath = "~/.config/sgpt/.sgpt-keymap.json"
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -36,7 +40,7 @@ func run() error {
 		return err
 	}
 
-	var configFilepath string
+	var configFilepath, keymapFilepath string
 	rootCmd := &cobra.Command{
 		Use:     "sgpt",
 		Short:   "A CLI for GPT operations",
@@ -50,10 +54,19 @@ func run() error {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&configFilepath, "config", defaultConfigFilepath, "Path to configuration file")
+	rootCmd.PersistentFlags().StringVar(&keymapFilepath, "keymap", defaultKeymapFilepath, "Path to TUI keymap file")
 
 	// Pre-parse only to learn --config; Execute renders help itself.
 	if err := rootCmd.ParseFlags(os.Args); err != nil && !errors.Is(err, pflag.ErrHelp) {
 		return fmt.Errorf("parsing flags: %v", err)
+	}
+
+	// Before the configuration: the keymap stands on its own, and on a first
+	// run the configuration is still a stub that fails to parse. Written out
+	// with the defaults when absent, so every binding is visible and editable
+	// without having to look any of them up.
+	if err := keymap.Load(keymapFilepath); err != nil {
+		return fmt.Errorf("loading keymap: %v", err)
 	}
 
 	ctx := context.Background()
