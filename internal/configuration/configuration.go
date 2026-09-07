@@ -13,6 +13,14 @@ import (
 	"github.com/malonaz/sgpt/internal/file"
 )
 
+const (
+	// overrideFileName is the committed, repo-local configuration.
+	overrideFileName = ".sgpt.json"
+	// localOverrideFileName is its git-ignored sibling: personal settings
+	// (identity, machine-specific endpoints) that must not be shared.
+	localOverrideFileName = ".sgpt.json.local"
+)
+
 var defaultConfig = &sgptpb.Configuration{
 	Models: []*sgptpb.Model{
 		{Name: "providers/openai/models/gpt-4", Alias: "4"},
@@ -44,18 +52,27 @@ func Parse(path string) (*sgptpb.Configuration, error) {
 	if err != nil {
 		return nil, fmt.Errorf("finding override config paths: %w", err)
 	}
-	// Apply overrides from root-most to cwd-most so closer overrides win.
-	for i := len(overrideConfigPaths) - 1; i >= 0; i-- {
-		overrideConfiguration, err := parseConfig(overrideConfigPaths[i])
-		if err != nil {
-			return nil, fmt.Errorf("parsing override config %s: %w", overrideConfigPaths[i], err)
-		}
-		proto.Merge(configuration, overrideConfiguration)
+	if err := mergeOverrides(configuration, overrideConfigPaths); err != nil {
+		return nil, err
 	}
 	if err := validateGrpcClientReferences(configuration); err != nil {
 		return nil, err
 	}
 	return configuration, nil
+}
+
+// mergeOverrides applies the override configurations onto configuration.
+// paths are highest precedence first, so they are merged in reverse: the last
+// write wins, leaving the cwd-most local override on top.
+func mergeOverrides(configuration *sgptpb.Configuration, paths []string) error {
+	for i := len(paths) - 1; i >= 0; i-- {
+		overrideConfiguration, err := parseConfig(paths[i])
+		if err != nil {
+			return fmt.Errorf("parsing override config %s: %w", paths[i], err)
+		}
+		proto.Merge(configuration, overrideConfiguration)
+	}
+	return nil
 }
 
 // GrpcClient resolves a gRPC client by name.
@@ -135,8 +152,28 @@ func initializeIfNotPresent(path string) error {
 	return nil
 }
 
-// findOverrideConfigPaths walks up from cwd collecting all .sgpt.json files.
-// Returns them ordered from cwd-most to root-most.
+// overrideConfigPathsIn returns the override configurations present in dir,
+// ordered from highest to lowest precedence: .sgpt.json.local is git-ignored
+// and personal, so it wins over the committed .sgpt.json beside it.
+func overrideConfigPathsIn(dir string) ([]string, error) {
+	var paths []string
+	for _, name := range []string{localOverrideFileName, overrideFileName} {
+		path := filepath.Join(dir, name)
+		ok, err := file.Exists(path)
+		if err != nil {
+			return nil, fmt.Errorf("checking override config existence: %w", err)
+		}
+		if ok {
+			paths = append(paths, path)
+		}
+	}
+	return paths, nil
+}
+
+// findOverrideConfigPaths walks up from cwd collecting every override
+// configuration. Returns them ordered from highest to lowest precedence:
+// cwd-most before root-most, and within a directory the local override before
+// the committed one.
 func findOverrideConfigPaths() ([]string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -145,14 +182,11 @@ func findOverrideConfigPaths() ([]string, error) {
 
 	var paths []string
 	for {
-		overrideConfigPath := filepath.Join(currentDir, ".sgpt.json")
-		ok, err := file.Exists(overrideConfigPath)
+		dirPaths, err := overrideConfigPathsIn(currentDir)
 		if err != nil {
-			return nil, fmt.Errorf("checking override config existence: %w", err)
+			return nil, err
 		}
-		if ok {
-			paths = append(paths, overrideConfigPath)
-		}
+		paths = append(paths, dirPaths...)
 		if currentDir == filepath.Dir(currentDir) {
 			break
 		}
@@ -180,14 +214,21 @@ func parseConfig(path string) (*sgptpb.Configuration, error) {
 // LoadIgnore returns the top-level ignore patterns of the repo-local
 // configuration at root, if any. Used when scanning imported repos: an
 // import obeys its own ignores, never the importer's.
+//
+// Both override files contribute: ignores accumulate rather than override, so
+// a .sgpt.json.local adds to what .sgpt.json already excludes.
 func LoadIgnore(root string) []string {
-	configPath := filepath.Join(root, ".sgpt.json")
-	if _, err := os.Stat(configPath); err != nil {
-		return nil
-	}
-	configuration, err := parseConfig(configPath)
+	paths, err := overrideConfigPathsIn(root)
 	if err != nil {
 		return nil
 	}
-	return configuration.GetIgnore()
+	var ignore []string
+	for _, path := range paths {
+		configuration, err := parseConfig(path)
+		if err != nil {
+			return nil
+		}
+		ignore = append(ignore, configuration.GetIgnore()...)
+	}
+	return ignore
 }

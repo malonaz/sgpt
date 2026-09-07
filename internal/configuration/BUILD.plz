@@ -10,3 +10,12 @@ go_library(
         "//third_party/go:google.golang.org__protobuf__proto",
     ],
 )
+
+go_test(
+    name = "test",
+    srcs = ["configuration_test.go"],
+    deps = [
+        ":configuration",
+        "//sgpt/v1",
+    ],
+)
