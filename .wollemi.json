@@ -2,12 +2,10 @@
     "explicit_sources": true,
     "gofmt": {
         "codegen_rule_formatting": {
-            "go_admin_api_main_src": "{{ name }}",
             "go_copy": "{{ name }}",
-            "go_main_src": "{{ name }}",
-            "go_service_runtime_src": "{{ name }}",
-            "go_service_src": "{{ name }}",
-            "go_template": "{{ name }}"
+            "go_template": "{{ name }}",
+            "onyx_main_src": "{{ name }}",
+            "onyx_service_src": "{{ name }}"
         },
         "import_path_remapping": {
             "github.com/malonaz/sgpt/genproto": "github.com/malonaz/sgpt"
@@ -554,6 +552,7 @@
         "google.golang.org/grpc/stats": "//third_party/go:google.golang.org__grpc__stats",
         "google.golang.org/grpc/status": "//third_party/go:google.golang.org__grpc__status",
         "google.golang.org/grpc/tap": "//third_party/go:google.golang.org__grpc__tap",
+        "google.golang.org/grpc/test/bufconn": "//third_party/go:google.golang.org__grpc__test__bufconn",
         "google.golang.org/protobuf/encoding/protodelim": "//third_party/go:google.golang.org__protobuf__encoding__protodelim",
         "google.golang.org/protobuf/encoding/protojson": "//third_party/go:google.golang.org__protobuf__encoding__protojson",
         "google.golang.org/protobuf/encoding/prototext": "//third_party/go:google.golang.org__protobuf__encoding__prototext",

@@ -64,7 +64,7 @@ func run() error {
 
 	clientNameToGRPCConnection := map[string]*grpc.Connection{}
 	for _, grpcClient := range config.GetGrpcClients() {
-		opts, err := grpc.ParseOpts(grpcClient.BaseUrl)
+		opts, err := grpc.ParseClientOpts(grpcClient.BaseUrl)
 		if err != nil {
 			return fmt.Errorf("parsing base URL: %w", err)
 		}

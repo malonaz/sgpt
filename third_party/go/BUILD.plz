@@ -3556,7 +3556,7 @@ go_mod_download(
     name = "github.com__malonaz__core",
     _tag = "download",
     module = "github.com/malonaz/core",
-    version = "v0.0.0-20260824144930-eadf2552bbcb",
+    version = "v0.0.0-20260910124519-acce6af92331",
     visibility = ["PUBLIC"],
 )
 
@@ -3940,11 +3940,15 @@ go_module(
     module = "github.com/malonaz/core",
     visibility = ["PUBLIC"],
     deps = [
+        ":github.com__malonaz__core__go__audio",
         ":github.com__malonaz__core__go__grpc__status",
         ":google.golang.org__grpc__codes",
+        ":google.golang.org__protobuf__types__known__durationpb",
+        ":google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/go:github.com__coder__websocket",
         "//third_party/go:github.com__malonaz__core__go__ai__ai_service__provider",
         "//third_party/proto:malonaz__core__genproto__ai__ai_service__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__audio__v1",
     ],
 )
@@ -4408,11 +4412,13 @@ go_module(
         ":google.golang.org__protobuf__reflect__protopath",
         ":google.golang.org__protobuf__reflect__protorange",
         ":google.golang.org__protobuf__reflect__protoreflect",
+        ":google.golang.org__protobuf__types__descriptorpb",
         "//third_party/go:github.com__malonaz__core__genproto__canonicalize__v1",
         "//third_party/go:github.com__malonaz__core__go__canonicalize",
         "//third_party/go:github.com__malonaz__core__go__grpc__status",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/proto:google__rpc__errdetails",
+        "//third_party/proto:validate",
     ],
 )
 
@@ -5300,8 +5306,8 @@ go_mod_download(
 
 if is_platform(
     arch = [
-        "arm64",
         "amd64",
+        "arm64",
     ],
     os = ["linux"],
 ):
@@ -5309,8 +5315,8 @@ if is_platform(
 
 if is_platform(
     arch = [
-        "amd64",
         "arm64",
+        "amd64",
     ],
     os = ["linux"],
 ):
@@ -7958,6 +7964,15 @@ go_module(
     module = "google.golang.org/grpc",
     visibility = ["PUBLIC"],
     deps = ["//third_party/go:google.golang.org__grpc__metadata"],
+)
+
+go_module(
+    name = "google.golang.org__grpc__test__bufconn",
+    download = ":_google.golang.org__grpc#download",
+    install = ["test/bufconn"],
+    module = "google.golang.org/grpc",
+    visibility = ["PUBLIC"],
+    deps = [],
 )
 
 go_mod_download(
