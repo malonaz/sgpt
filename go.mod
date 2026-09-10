@@ -11,7 +11,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
 	github.com/golang/protobuf v1.5.4
-	github.com/malonaz/core v0.0.0-20260910124519-acce6af92331
+	github.com/malonaz/core v0.0.0-20260910154828-bee1920877bc
 	github.com/pkg/errors v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.10.2

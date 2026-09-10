@@ -266,7 +266,9 @@ func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.T
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request: %w", err)
 	}
-	if err := pbutil.JSONUnmarshal(requestBytes, request); err != nil {
+	// Any payloads reference types only the reflected server knows.
+	resolver := pbutil.WithResolver(engine.schema.Types())
+	if err := pbutil.JSONUnmarshal(requestBytes, request, resolver); err != nil {
 		return nil, fmt.Errorf("unmarshaling request: %w", err)
 	}
 
@@ -279,7 +281,7 @@ func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.T
 		return ai.NewErrorToolResult(toolCall.Name, toolCall.Id, err), nil
 	}
 
-	responseBytes, err := pbutil.JSONMarshal(response)
+	responseBytes, err := pbutil.JSONMarshal(response, resolver)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling response: %w", err)
 	}
