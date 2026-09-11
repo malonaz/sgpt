@@ -10,6 +10,12 @@ type LabelParentChat struct {
 	GetKey func() string
 }
 
+type LabelCategory struct {
+	GetKey func() string
+	Chat   string
+	Title  string
+}
+
 type LabelInjectedFile struct {
 	GetKey func() string
 }
@@ -21,6 +27,7 @@ type LabelContext struct {
 type LabelSet struct {
 	Favorite     LabelFavorite
 	ParentChat   LabelParentChat
+	Category     LabelCategory
 	InjectedFile LabelInjectedFile
 	Context      LabelContext
 }
@@ -35,6 +42,13 @@ var Labels = LabelSet{
 		GetKey: func() string {
 			return "sgpt.com/parent-chat"
 		},
+	},
+	Category: LabelCategory{
+		GetKey: func() string {
+			return "sgpt.com/category"
+		},
+		Chat:  "chat",
+		Title: "title",
 	},
 	InjectedFile: LabelInjectedFile{
 		GetKey: func() string {

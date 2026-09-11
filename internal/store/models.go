@@ -12,6 +12,7 @@ import (
 	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/grpc/middleware"
 
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/cache"
 	"github.com/malonaz/sgpt/internal/configuration"
 )
@@ -79,12 +80,13 @@ func (s *Store) GenerateTitle(ctx context.Context, userText string) (string, err
 		return "", err
 	}
 
-	throwawayChat, err := s.CreateChat(ctx, &aipb.Chat{})
+	// Kept (not deleted) for auditability; listings filter on the label.
+	titleChat := &aipb.Chat{}
+	aip.SetLabel(titleChat, sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Title)
+	throwawayChat, err := s.CreateChat(ctx, titleChat)
 	if err != nil {
 		return "", fmt.Errorf("creating title chat: %w", err)
 	}
-	// Best-effort cleanup: a leaked, empty, untitled chat is harmless.
-	defer func() { _ = s.DeleteChat(ctx, throwawayChat.GetName()) }()
 
 	// Fence the excerpt so the model can't mistake it for instructions
 	// (or vice versa) — it is arbitrary user conversation text.

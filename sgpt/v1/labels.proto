@@ -16,6 +16,11 @@ option (malonaz.codegen.aip.v1.label) = {
   key: "sgpt.com/parent-chat"
   description: "ID segment of the chat that launched this sub-agent chat."
 };
+option (malonaz.codegen.aip.v1.label) = {
+  key: "sgpt.com/category"
+  values: ["chat", "title"]
+  description: "What a chat is for: `chat` is a user conversation, `title` a throwaway chat used to generate another chat's title. Unlabelled chats predate the label and are user conversations."
+};
 // ---------------------------------------------------------------------------
 // Message
 // ---------------------------------------------------------------------------

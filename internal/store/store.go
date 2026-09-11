@@ -23,6 +23,10 @@ import (
 // be quoted as string literals: labels."sgpt.com/favorite" = "true".
 var FavoriteFilter = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.Favorite.GetKey(), aip.LabelValueTrue)
 
+// VisibleFilter matches user conversations, excluding machinery chats such
+// as title generation. Pre-label chats were backfilled to "chat".
+var VisibleFilter = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat)
+
 const (
 	// TagsAnnotation stores chat tags, comma-separated. Tags such as GitHub
 	// repos ("owner/repo") don't fit the label value pattern, hence annotations.
@@ -72,6 +76,9 @@ func newResourceID() string {
 
 // CreateChat persists a new chat.
 func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, error) {
+	if _, ok := aip.GetLabel(chat, sgptpb.Labels.Category.GetKey()); !ok {
+		aip.SetLabel(chat, sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat)
+	}
 	createChatRequest := &aiservicepb.CreateChatRequest{
 		Parent:    s.parent(),
 		RequestId: uuid.MustNewV7().String(),
@@ -122,8 +129,13 @@ func (s *Store) DeleteChat(ctx context.Context, name string) error {
 	return nil
 }
 
-// ListChats returns a page of chats, most recent first.
+// ListChats returns a page of visible chats, most recent first.
 func (s *Store) ListChats(ctx context.Context, pageSize int32, pageToken, filter string) ([]*aipb.Chat, string, error) {
+	if filter == "" {
+		filter = VisibleFilter
+	} else {
+		filter = fmt.Sprintf("%s AND (%s)", VisibleFilter, filter)
+	}
 	listChatsRequest := &aiservicepb.ListChatsRequest{
 		Parent:    s.parent(),
 		PageSize:  pageSize,
