@@ -1,6 +1,7 @@
 package main
 
 import (
+	compressgzip "compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"github.com/malonaz/core/go/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 
 	"github.com/malonaz/sgpt/cli/cache"
 	"github.com/malonaz/sgpt/cli/chat"
@@ -62,6 +65,10 @@ func run() error {
 		return fmt.Errorf("parsing config: %v", err)
 	}
 
+	// Prompts carry large text contexts; favour wire size over CPU.
+	if err := gzip.SetLevel(compressgzip.BestCompression); err != nil {
+		return fmt.Errorf("setting gzip level: %w", err)
+	}
 	clientNameToGRPCConnection := map[string]*grpc.Connection{}
 	for _, grpcClient := range config.GetGrpcClients() {
 		opts, err := grpc.ParseClientOpts(grpcClient.BaseUrl)
@@ -73,6 +80,7 @@ func run() error {
 			return fmt.Errorf("creating connection: %w", err)
 		}
 		conn.WithLogger(errorLogger)
+		conn.WithOptions(googlegrpc.WithDefaultCallOptions(googlegrpc.UseCompressor(gzip.Name)))
 		conn.WithMetadata(grpcClient.ApiKeyHeader, grpcClient.ApiKey)
 		if err := conn.Connect(ctx); err != nil {
 			return fmt.Errorf("connecting: %w", err)
