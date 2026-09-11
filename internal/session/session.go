@@ -19,6 +19,7 @@ import (
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/file"
+	"github.com/malonaz/sgpt/internal/permission"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
@@ -73,6 +74,12 @@ type Params struct {
 	// canonical name. Lores enter the context as plain files, so this is the
 	// only way to tell them apart when reporting what the context holds.
 	LoreNameForPath func(path string) (string, bool)
+	// Policy decides how the session's tool calls are handled; nil means
+	// each tool's own review policy. Sub-agents receive a child of their
+	// launcher's policy.
+	Policy *permission.Policy
+	// Depth is 0 for a user-opened chat, one more per sub-agent level.
+	Depth int
 }
 
 // Session drives a single chat conversation.
@@ -98,9 +105,9 @@ type Session struct {
 	// titleGenerating guards against launching concurrent title generations.
 	titleGenerating bool
 
-	// autoAcceptedToolNameSet holds tools the user marked "always accept";
-	// their calls skip manual review for the rest of the session.
-	autoAcceptedToolNameSet map[string]bool
+	// policy decides whether a tool call runs, awaits the user or is
+	// refused; "always accept" is a grant on it.
+	policy *permission.Policy
 
 	// pendingReviews holds one entry per tool call currently awaiting user
 	// review. The turn goroutine blocks on the channel; the UI answers by
@@ -166,6 +173,10 @@ func New(
 	messages []*aipb.Message,
 	params Params,
 ) *Session {
+	policy := params.Policy
+	if policy == nil {
+		policy = &permission.Policy{}
+	}
 	s := &Session{
 		ctx:                           ctx,
 		params:                        params,
@@ -173,7 +184,7 @@ func New(
 		registry:                      registry,
 		chat:                          chat,
 		messages:                      messages,
-		autoAcceptedToolNameSet:       map[string]bool{},
+		policy:                        policy,
 		pendingReviews:                map[string]pendingReview{},
 		injectedFilePathToMessageName: map[string]string{},
 		totalModelUsage:               &aipb.ModelUsage{},
@@ -181,10 +192,12 @@ func New(
 		renderThrottle:                throttle{interval: renderInterval},
 		eventCh:                       make(chan Event, 64),
 	}
-	// Tools execute against this session's history (the registry is one
-	// instance shared across main chat and sub-agents): stamped on the
-	// context so tools can derive what the model has already seen.
+	// Tools execute against this session's history and identity (the
+	// registry is one instance shared across main chat and sub-agents):
+	// stamped on the context so tools can derive what the model has already
+	// seen, and what a sub-agent may inherit.
 	s.ctx = tool.WithHistory(s.ctx, s.historyForTools)
+	s.ctx = tool.WithCaller(s.ctx, s.caller)
 	s.injectedFilePaths = s.normalizeInjectedPaths(params.InjectedFiles)
 	// Sort once (on a copy — the slice is shared across sessions via the
 	// app's default params): the tool picker reads this on every open.
@@ -356,6 +369,25 @@ func (s *Session) Messages() []*aipb.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]*aipb.Message(nil), s.messages...)
+}
+
+// caller is the identity tools see while executing: what the agent tool may
+// hand down to a sub-agent.
+func (s *Session) caller() tool.Caller {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tools := make([]string, 0, len(s.enabledUserToolNameSet))
+	for name := range s.enabledUserToolNameSet {
+		tools = append(tools, name)
+	}
+	sort.Strings(tools)
+	return tool.Caller{
+		Chat:   s.chat.GetName(),
+		Depth:  s.params.Depth,
+		Model:  s.params.Model,
+		Tools:  tools,
+		Policy: s.policy,
+	}
 }
 
 // historyForTools is the history tools see while executing: the committed
@@ -898,13 +930,6 @@ func (s *Session) advertisedToolSets() []*aipb.ToolSet {
 		}
 	}
 	return toolSets
-}
-
-// IsToolAutoAccepted reports whether the user whitelisted this tool.
-func (s *Session) IsToolAutoAccepted(name string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.autoAcceptedToolNameSet[name]
 }
 
 func (s *Session) SetOnTurnComplete(callback func(finalText string, err error)) {

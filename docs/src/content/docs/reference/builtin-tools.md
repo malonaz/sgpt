@@ -70,14 +70,20 @@ Returns the path and the number of patches applied.
 
 ## `agent` — review
 
-Launch a sub-agent in a new tab. See [Sub-agents](/concepts/agents/).
+Launch one or more sub-agents, each in its own tab, and wait for all of
+them. See [Sub-agents](/concepts/agents/).
 
 | Argument | Type | Description |
 |---|---|---|
-| `query` | string | The task, with all context — nothing is shared. |
-| `title` | string | Tab title. |
-| `files` | string[] | Paths to inject. |
-| `tools` | string[] | Tools to grant. |
-| `model` | string | Optional model override. |
+| `context` | string | Briefing shared by every task, prepended to each sub-agent's system prompt. |
+| `tasks[].title` | string | Tab title. |
+| `tasks[].query` | string | The task; the shared context is already in the system prompt. |
+| `tasks[].files` | string[] | Paths injected for this task, on top of `files`. |
+| `tasks[].model` | string | Model override for this task. |
+| `files` | string[] | Paths injected into every sub-agent. |
+| `tools` | string[] | Tools granted, narrowing the chat's own; unset inherits them all. |
+| `model` | string | Model for every sub-agent; unset inherits the chat's. |
+| `permissions` | `PermissionRule[]` | Rules tightening the chat's policy for the sub-agents (`review` or `deny` only). |
 
-Returns the sub-agent's final answer.
+Returns one result per task, in order: title, chat name, the final message,
+or an error when the sub-agent produced none.

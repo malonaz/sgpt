@@ -21,7 +21,8 @@ then **execute**, then the result is sent back as a message.
 Auto-execution is not a hardcoded list: a tool auto-runs when its RPC is
 declared `idempotency_level = NO_SIDE_EFFECTS`. The same rule applies to
 remote tool engines, so a `GetIssue` runs silently while `UpdateIssue`
-waits for you.
+waits for you. [Permission rules](/concepts/permissions/) override this
+default per tool — or per argument.
 
 ## What you see
 
@@ -45,7 +46,7 @@ into a reason field:
 | <kbd>alt</kbd>+<kbd>y</kbd> | Accept the call under review |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>y</kbd> | Accept every pending call |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>r</kbd> | Reject; the input text is sent back as the reason |
-| <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>a</kbd> | Always accept this tool for the rest of the session |
+| <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>a</kbd> | Always accept this tool for the rest of the session (and its sub-agents) |
 
 A rejected call returns an error result carrying your reason, so the model
 can adjust rather than retry blindly. Cancelling a turn

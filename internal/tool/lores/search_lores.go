@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	"github.com/malonaz/core/go/pbutil"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/lore"
@@ -65,12 +64,8 @@ func (t *Tool) returnedNameSet(messages []*aipb.Message) map[string]bool {
 				if toolResult.GetToolName() != SearchLores.GetName() {
 					continue
 				}
-				structured := toolResult.GetStructuredContent().GetStructValue()
-				if structured == nil {
-					continue
-				}
 				searchLoresResponse := &sgptpb.SearchLoresResponse{}
-				if err := pbutil.UnmarshalFromStruct(searchLoresResponse, structured); err != nil {
+				if err := tool.UnmarshalResult(toolResult, searchLoresResponse); err != nil {
 					continue
 				}
 				for _, match := range searchLoresResponse.GetMatches() {
@@ -157,12 +152,8 @@ func init() { tool.RegisterBuiltin(SearchLores) }
 // RenderResult renders matches as markdown — titles, labels and snippets
 // with the matched text highlighted — instead of the raw JSON payload.
 func (t *Tool) RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
-	structured := toolResult.GetStructuredContent().GetStructValue()
-	if structured == nil {
-		return "", false
-	}
 	searchLoresResponse := &sgptpb.SearchLoresResponse{}
-	if err := pbutil.UnmarshalFromStruct(searchLoresResponse, structured); err != nil {
+	if err := tool.UnmarshalResult(toolResult, searchLoresResponse); err != nil {
 		return "", false
 	}
 	if len(searchLoresResponse.GetMatches()) == 0 {

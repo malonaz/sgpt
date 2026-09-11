@@ -832,14 +832,15 @@ func (b0 ExecShellResponse_builder) Build() *ExecShellResponse {
 
 // Request for the `agent` tool.
 type AgentRequest struct {
-	state            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Query string                 `protobuf:"bytes,1,opt,name=query,proto3"`
-	xxx_hidden_Title string                 `protobuf:"bytes,5,opt,name=title,proto3"`
-	xxx_hidden_Files []string               `protobuf:"bytes,2,rep,name=files,proto3"`
-	xxx_hidden_Tools []string               `protobuf:"bytes,3,rep,name=tools,proto3"`
-	xxx_hidden_Model string                 `protobuf:"bytes,4,opt,name=model,proto3"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Context     string                 `protobuf:"bytes,1,opt,name=context,proto3"`
+	xxx_hidden_Tasks       *[]*AgentTask          `protobuf:"bytes,2,rep,name=tasks,proto3"`
+	xxx_hidden_Files       []string               `protobuf:"bytes,3,rep,name=files,proto3"`
+	xxx_hidden_Tools       []string               `protobuf:"bytes,4,rep,name=tools,proto3"`
+	xxx_hidden_Model       string                 `protobuf:"bytes,5,opt,name=model,proto3"`
+	xxx_hidden_Permissions *[]*PermissionRule     `protobuf:"bytes,6,rep,name=permissions,proto3"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *AgentRequest) Reset() {
@@ -867,18 +868,20 @@ func (x *AgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AgentRequest) GetQuery() string {
+func (x *AgentRequest) GetContext() string {
 	if x != nil {
-		return x.xxx_hidden_Query
+		return x.xxx_hidden_Context
 	}
 	return ""
 }
 
-func (x *AgentRequest) GetTitle() string {
+func (x *AgentRequest) GetTasks() []*AgentTask {
 	if x != nil {
-		return x.xxx_hidden_Title
+		if x.xxx_hidden_Tasks != nil {
+			return *x.xxx_hidden_Tasks
+		}
 	}
-	return ""
+	return nil
 }
 
 func (x *AgentRequest) GetFiles() []string {
@@ -902,12 +905,21 @@ func (x *AgentRequest) GetModel() string {
 	return ""
 }
 
-func (x *AgentRequest) SetQuery(v string) {
-	x.xxx_hidden_Query = v
+func (x *AgentRequest) GetPermissions() []*PermissionRule {
+	if x != nil {
+		if x.xxx_hidden_Permissions != nil {
+			return *x.xxx_hidden_Permissions
+		}
+	}
+	return nil
 }
 
-func (x *AgentRequest) SetTitle(v string) {
-	x.xxx_hidden_Title = v
+func (x *AgentRequest) SetContext(v string) {
+	x.xxx_hidden_Context = v
+}
+
+func (x *AgentRequest) SetTasks(v []*AgentTask) {
+	x.xxx_hidden_Tasks = &v
 }
 
 func (x *AgentRequest) SetFiles(v []string) {
@@ -922,55 +934,69 @@ func (x *AgentRequest) SetModel(v string) {
 	x.xxx_hidden_Model = v
 }
 
+func (x *AgentRequest) SetPermissions(v []*PermissionRule) {
+	x.xxx_hidden_Permissions = &v
+}
+
 type AgentRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Task for the sub-agent, including all required context.
-	Query string
-	// Short human-readable title for the sub-agent's chat (a few words).
-	Title string
-	// File paths to inject into the sub-agent's context.
+	// Briefing shared by every task, prepended to each sub-agent's system
+	// prompt: background, constraints, conventions, expected output format.
+	Context string
+	// Tasks to run concurrently, one sub-agent each.
+	Tasks []*AgentTask
+	// File paths injected into every sub-agent's context.
 	Files []string
-	// Tools to grant the sub-agent (built-in tools or configured tool engines).
+	// Tools granted to every sub-agent, narrowing this chat's own tools;
+	// unset inherits them all. Names outside this chat's tools are rejected.
 	Tools []string
-	// Optional model override for the sub-agent.
+	// Model for every sub-agent (name or alias); unset inherits this chat's.
 	Model string
+	// Permission rules for the sub-agents, first match wins. Rules can only
+	// tighten what this chat may do: "deny" a tool a task must not touch, or
+	// force "review" on one it should only use with the user watching.
+	Permissions []*PermissionRule
 }
 
 func (b0 AgentRequest_builder) Build() *AgentRequest {
 	m0 := &AgentRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Query = b.Query
-	x.xxx_hidden_Title = b.Title
+	x.xxx_hidden_Context = b.Context
+	x.xxx_hidden_Tasks = &b.Tasks
 	x.xxx_hidden_Files = b.Files
 	x.xxx_hidden_Tools = b.Tools
 	x.xxx_hidden_Model = b.Model
+	x.xxx_hidden_Permissions = &b.Permissions
 	return m0
 }
 
-// Result of the `agent` tool.
-type AgentResponse struct {
-	state               protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Response string                 `protobuf:"bytes,1,opt,name=response,proto3"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+// One sub-agent's task.
+type AgentTask struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Title string                 `protobuf:"bytes,1,opt,name=title,proto3"`
+	xxx_hidden_Query string                 `protobuf:"bytes,2,opt,name=query,proto3"`
+	xxx_hidden_Files []string               `protobuf:"bytes,3,rep,name=files,proto3"`
+	xxx_hidden_Model string                 `protobuf:"bytes,4,opt,name=model,proto3"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
-func (x *AgentResponse) Reset() {
-	*x = AgentResponse{}
+func (x *AgentTask) Reset() {
+	*x = AgentTask{}
 	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AgentResponse) String() string {
+func (x *AgentTask) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AgentResponse) ProtoMessage() {}
+func (*AgentTask) ProtoMessage() {}
 
-func (x *AgentResponse) ProtoReflect() protoreflect.Message {
+func (x *AgentTask) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -982,29 +1008,134 @@ func (x *AgentResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AgentResponse) GetResponse() string {
+func (x *AgentTask) GetTitle() string {
 	if x != nil {
-		return x.xxx_hidden_Response
+		return x.xxx_hidden_Title
 	}
 	return ""
 }
 
-func (x *AgentResponse) SetResponse(v string) {
-	x.xxx_hidden_Response = v
+func (x *AgentTask) GetQuery() string {
+	if x != nil {
+		return x.xxx_hidden_Query
+	}
+	return ""
+}
+
+func (x *AgentTask) GetFiles() []string {
+	if x != nil {
+		return x.xxx_hidden_Files
+	}
+	return nil
+}
+
+func (x *AgentTask) GetModel() string {
+	if x != nil {
+		return x.xxx_hidden_Model
+	}
+	return ""
+}
+
+func (x *AgentTask) SetTitle(v string) {
+	x.xxx_hidden_Title = v
+}
+
+func (x *AgentTask) SetQuery(v string) {
+	x.xxx_hidden_Query = v
+}
+
+func (x *AgentTask) SetFiles(v []string) {
+	x.xxx_hidden_Files = v
+}
+
+func (x *AgentTask) SetModel(v string) {
+	x.xxx_hidden_Model = v
+}
+
+type AgentTask_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Short human-readable title for the sub-agent's chat (a few words).
+	Title string
+	// The task itself; the shared `context` is already in the sub-agent's
+	// system prompt, so state only what is specific to this task.
+	Query string
+	// File paths injected into this sub-agent's context, on top of the shared
+	// ones.
+	Files []string
+	// Model override for this task (name or alias).
+	Model string
+}
+
+func (b0 AgentTask_builder) Build() *AgentTask {
+	m0 := &AgentTask{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Title = b.Title
+	x.xxx_hidden_Query = b.Query
+	x.xxx_hidden_Files = b.Files
+	x.xxx_hidden_Model = b.Model
+	return m0
+}
+
+// Result of the `agent` tool.
+type AgentResponse struct {
+	state              protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_Results *[]*AgentResponse_Result `protobuf:"bytes,1,rep,name=results,proto3"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *AgentResponse) Reset() {
+	*x = AgentResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentResponse) ProtoMessage() {}
+
+func (x *AgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentResponse) GetResults() []*AgentResponse_Result {
+	if x != nil {
+		if x.xxx_hidden_Results != nil {
+			return *x.xxx_hidden_Results
+		}
+	}
+	return nil
+}
+
+func (x *AgentResponse) SetResults(v []*AgentResponse_Result) {
+	x.xxx_hidden_Results = &v
 }
 
 type AgentResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The sub-agent's final answer.
-	Response string
+	// One result per task, in request order.
+	Results []*AgentResponse_Result
 }
 
 func (b0 AgentResponse_builder) Build() *AgentResponse {
 	m0 := &AgentResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Response = b.Response
+	x.xxx_hidden_Results = &b.Results
 	return m0
 }
 
@@ -1020,7 +1151,7 @@ type ReadFilesResponse_File struct {
 
 func (x *ReadFilesResponse_File) Reset() {
 	*x = ReadFilesResponse_File{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1032,7 +1163,7 @@ func (x *ReadFilesResponse_File) String() string {
 func (*ReadFilesResponse_File) ProtoMessage() {}
 
 func (x *ReadFilesResponse_File) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1112,7 +1243,7 @@ type SearchLoresResponse_Match struct {
 
 func (x *SearchLoresResponse_Match) Reset() {
 	*x = SearchLoresResponse_Match{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1124,7 +1255,7 @@ func (x *SearchLoresResponse_Match) String() string {
 func (*SearchLoresResponse_Match) ProtoMessage() {}
 
 func (x *SearchLoresResponse_Match) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1231,11 +1362,116 @@ func (b0 SearchLoresResponse_Match_builder) Build() *SearchLoresResponse_Match {
 	return m0
 }
 
+// One sub-agent's outcome.
+type AgentResponse_Result struct {
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Title    string                 `protobuf:"bytes,1,opt,name=title,proto3"`
+	xxx_hidden_Chat     string                 `protobuf:"bytes,2,opt,name=chat,proto3"`
+	xxx_hidden_Response string                 `protobuf:"bytes,3,opt,name=response,proto3"`
+	xxx_hidden_Error    string                 `protobuf:"bytes,4,opt,name=error,proto3"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *AgentResponse_Result) Reset() {
+	*x = AgentResponse_Result{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentResponse_Result) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentResponse_Result) ProtoMessage() {}
+
+func (x *AgentResponse_Result) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentResponse_Result) GetTitle() string {
+	if x != nil {
+		return x.xxx_hidden_Title
+	}
+	return ""
+}
+
+func (x *AgentResponse_Result) GetChat() string {
+	if x != nil {
+		return x.xxx_hidden_Chat
+	}
+	return ""
+}
+
+func (x *AgentResponse_Result) GetResponse() string {
+	if x != nil {
+		return x.xxx_hidden_Response
+	}
+	return ""
+}
+
+func (x *AgentResponse_Result) GetError() string {
+	if x != nil {
+		return x.xxx_hidden_Error
+	}
+	return ""
+}
+
+func (x *AgentResponse_Result) SetTitle(v string) {
+	x.xxx_hidden_Title = v
+}
+
+func (x *AgentResponse_Result) SetChat(v string) {
+	x.xxx_hidden_Chat = v
+}
+
+func (x *AgentResponse_Result) SetResponse(v string) {
+	x.xxx_hidden_Response = v
+}
+
+func (x *AgentResponse_Result) SetError(v string) {
+	x.xxx_hidden_Error = v
+}
+
+type AgentResponse_Result_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The task's title.
+	Title string
+	// Resource name of the sub-agent's chat.
+	Chat string
+	// The sub-agent's final message; empty when it failed.
+	Response string
+	// Why the sub-agent produced no answer (launch rejected, turn failed,
+	// cancelled); empty on success.
+	Error string
+}
+
+func (b0 AgentResponse_Result_builder) Build() *AgentResponse_Result {
+	m0 := &AgentResponse_Result{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Title = b.Title
+	x.xxx_hidden_Chat = b.Chat
+	x.xxx_hidden_Response = b.Response
+	x.xxx_hidden_Error = b.Error
+	return m0
+}
+
 var File_sgpt_v1_tools_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\n" +
-	"\x13sgpt/v1/tools.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\"?\n" +
+	"\x13sgpt/v1/tools.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x12sgpt/v1/tool.proto\"?\n" +
 	"\vDiffRequest\x12\x17\n" +
 	"\x04path\x18\x01 \x01(\tB\x03\xe0A\x02R\x04path\x12\x17\n" +
 	"\x04diff\x18\x02 \x01(\tB\x03\xe0A\x02R\x04diff\"G\n" +
@@ -1283,15 +1519,26 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x11ExecShellResponse\x12\x16\n" +
 	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"\x86\x01\n" +
-	"\fAgentRequest\x12\x19\n" +
-	"\x05query\x18\x01 \x01(\tB\x03\xe0A\x02R\x05query\x12\x19\n" +
-	"\x05title\x18\x05 \x01(\tB\x03\xe0A\x02R\x05title\x12\x14\n" +
-	"\x05files\x18\x02 \x03(\tR\x05files\x12\x14\n" +
-	"\x05tools\x18\x03 \x03(\tR\x05tools\x12\x14\n" +
-	"\x05model\x18\x04 \x01(\tR\x05model\"+\n" +
-	"\rAgentResponse\x12\x1a\n" +
-	"\bresponse\x18\x01 \x01(\tR\bresponse2\x94\x03\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\xd4\x01\n" +
+	"\fAgentRequest\x12\x18\n" +
+	"\acontext\x18\x01 \x01(\tR\acontext\x12-\n" +
+	"\x05tasks\x18\x02 \x03(\v2\x12.sgpt.v1.AgentTaskB\x03\xe0A\x02R\x05tasks\x12\x14\n" +
+	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
+	"\x05tools\x18\x04 \x03(\tR\x05tools\x12\x14\n" +
+	"\x05model\x18\x05 \x01(\tR\x05model\x129\n" +
+	"\vpermissions\x18\x06 \x03(\v2\x17.sgpt.v1.PermissionRuleR\vpermissions\"m\n" +
+	"\tAgentTask\x12\x19\n" +
+	"\x05title\x18\x01 \x01(\tB\x03\xe0A\x02R\x05title\x12\x19\n" +
+	"\x05query\x18\x02 \x01(\tB\x03\xe0A\x02R\x05query\x12\x14\n" +
+	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\"\xae\x01\n" +
+	"\rAgentResponse\x127\n" +
+	"\aresults\x18\x01 \x03(\v2\x1d.sgpt.v1.AgentResponse.ResultR\aresults\x1ad\n" +
+	"\x06Result\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x12\n" +
+	"\x04chat\x18\x02 \x01(\tR\x04chat\x12\x1a\n" +
+	"\bresponse\x18\x03 \x01(\tR\bresponse\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error2\x94\x03\n" +
 	"\vToolService\x123\n" +
 	"\x04Diff\x12\x14.sgpt.v1.DiffRequest\x1a\x15.sgpt.v1.DiffResponse\x12<\n" +
 	"\aReplace\x12\x17.sgpt.v1.ReplaceRequest\x1a\x18.sgpt.v1.ReplaceResponse\x12G\n" +
@@ -1300,7 +1547,7 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\vSearchLores\x12\x1b.sgpt.v1.SearchLoresRequest\x1a\x1c.sgpt.v1.SearchLoresResponse\"\x03\x90\x02\x01\x126\n" +
 	"\x05Agent\x12\x15.sgpt.v1.AgentRequest\x1a\x16.sgpt.v1.AgentResponseB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_sgpt_v1_tools_proto_goTypes = []any{
 	(*DiffRequest)(nil),               // 0: sgpt.v1.DiffRequest
 	(*DiffResponse)(nil),              // 1: sgpt.v1.DiffResponse
@@ -1314,33 +1561,39 @@ var file_sgpt_v1_tools_proto_goTypes = []any{
 	(*ExecShellRequest)(nil),          // 9: sgpt.v1.ExecShellRequest
 	(*ExecShellResponse)(nil),         // 10: sgpt.v1.ExecShellResponse
 	(*AgentRequest)(nil),              // 11: sgpt.v1.AgentRequest
-	(*AgentResponse)(nil),             // 12: sgpt.v1.AgentResponse
-	(*ReadFilesResponse_File)(nil),    // 13: sgpt.v1.ReadFilesResponse.File
-	(*SearchLoresResponse_Match)(nil), // 14: sgpt.v1.SearchLoresResponse.Match
-	nil,                               // 15: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	(*AgentTask)(nil),                 // 12: sgpt.v1.AgentTask
+	(*AgentResponse)(nil),             // 13: sgpt.v1.AgentResponse
+	(*ReadFilesResponse_File)(nil),    // 14: sgpt.v1.ReadFilesResponse.File
+	(*SearchLoresResponse_Match)(nil), // 15: sgpt.v1.SearchLoresResponse.Match
+	nil,                               // 16: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	(*AgentResponse_Result)(nil),      // 17: sgpt.v1.AgentResponse.Result
+	(*PermissionRule)(nil),            // 18: sgpt.v1.PermissionRule
 }
 var file_sgpt_v1_tools_proto_depIdxs = []int32{
 	3,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
-	13, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
-	14, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
-	15, // 3: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
-	0,  // 4: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
-	2,  // 5: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
-	5,  // 6: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
-	9,  // 7: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
-	7,  // 8: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
-	11, // 9: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
-	1,  // 10: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
-	4,  // 11: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
-	6,  // 12: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
-	10, // 13: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
-	8,  // 14: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
-	12, // 15: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
-	10, // [10:16] is the sub-list for method output_type
-	4,  // [4:10] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	14, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
+	15, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
+	12, // 3: sgpt.v1.AgentRequest.tasks:type_name -> sgpt.v1.AgentTask
+	18, // 4: sgpt.v1.AgentRequest.permissions:type_name -> sgpt.v1.PermissionRule
+	17, // 5: sgpt.v1.AgentResponse.results:type_name -> sgpt.v1.AgentResponse.Result
+	16, // 6: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	0,  // 7: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
+	2,  // 8: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
+	5,  // 9: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
+	9,  // 10: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
+	7,  // 11: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
+	11, // 12: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
+	1,  // 13: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
+	4,  // 14: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
+	6,  // 15: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
+	10, // 16: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
+	8,  // 17: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
+	13, // 18: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
+	13, // [13:19] is the sub-list for method output_type
+	7,  // [7:13] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_tools_proto_init() }
@@ -1348,13 +1601,14 @@ func file_sgpt_v1_tools_proto_init() {
 	if File_sgpt_v1_tools_proto != nil {
 		return
 	}
+	file_sgpt_v1_tool_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_tools_proto_rawDesc), len(file_sgpt_v1_tools_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

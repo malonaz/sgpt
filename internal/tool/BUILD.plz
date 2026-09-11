@@ -9,6 +9,7 @@ go_library(
     ],
     visibility = ["//..."],
     deps = [
+        "//internal/permission",
         "//sgpt/v1",
         "//sgpt/v1/descriptor",
         "//third_party/go:github.com__malonaz__core__go__ai",

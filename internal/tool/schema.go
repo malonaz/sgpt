@@ -133,3 +133,16 @@ func UnmarshalArguments(toolCall *aipb.ToolCall, requestMessage proto.Message) e
 	}
 	return nil
 }
+
+// UnmarshalResult parses a structured tool result back into its typed
+// response proto; errors when the result carries no structured content.
+func UnmarshalResult(toolResult *aipb.ToolResult, responseMessage proto.Message) error {
+	structured := toolResult.GetStructuredContent().GetStructValue()
+	if structured == nil {
+		return fmt.Errorf("tool result has no structured content")
+	}
+	if err := pbutil.UnmarshalFromStruct(responseMessage, structured); err != nil {
+		return fmt.Errorf("parsing tool result: %w", err)
+	}
+	return nil
+}

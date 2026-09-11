@@ -22,6 +22,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// How a tool call is handled when it arrives.
+type PermissionMode int32
+
+const (
+	// Unset; the rule is ignored.
+	PermissionMode_PERMISSION_MODE_UNSPECIFIED PermissionMode = 0
+	// Execute without asking.
+	PermissionMode_PERMISSION_MODE_ALLOW PermissionMode = 1
+	// Ask the user before executing.
+	PermissionMode_PERMISSION_MODE_REVIEW PermissionMode = 2
+	// Reject without asking; the model is told the call was denied by policy.
+	PermissionMode_PERMISSION_MODE_DENY PermissionMode = 3
+)
+
+// Enum value maps for PermissionMode.
+var (
+	PermissionMode_name = map[int32]string{
+		0: "PERMISSION_MODE_UNSPECIFIED",
+		1: "PERMISSION_MODE_ALLOW",
+		2: "PERMISSION_MODE_REVIEW",
+		3: "PERMISSION_MODE_DENY",
+	}
+	PermissionMode_value = map[string]int32{
+		"PERMISSION_MODE_UNSPECIFIED": 0,
+		"PERMISSION_MODE_ALLOW":       1,
+		"PERMISSION_MODE_REVIEW":      2,
+		"PERMISSION_MODE_DENY":        3,
+	}
+)
+
+func (x PermissionMode) Enum() *PermissionMode {
+	p := new(PermissionMode)
+	*p = x
+	return p
+}
+
+func (x PermissionMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PermissionMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_sgpt_v1_tool_proto_enumTypes[0].Descriptor()
+}
+
+func (PermissionMode) Type() protoreflect.EnumType {
+	return &file_sgpt_v1_tool_proto_enumTypes[0]
+}
+
+func (x PermissionMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // Metadata attached to a tool call via annotations.
 type ToolCallMetadata struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
@@ -266,6 +318,115 @@ func (b0 DisplayMessage_builder) Build() *DisplayMessage {
 	return m0
 }
 
+// A permission rule decides how matching tool calls are handled. Rules are
+// evaluated in order; the first match wins. A rule matches when the call's
+// tool name equals `tool` and, if `pattern` is set, the argument at
+// `argument` matches it.
+type PermissionRule struct {
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Tool     string                 `protobuf:"bytes,1,opt,name=tool,proto3"`
+	xxx_hidden_Argument string                 `protobuf:"bytes,2,opt,name=argument,proto3"`
+	xxx_hidden_Pattern  string                 `protobuf:"bytes,3,opt,name=pattern,proto3"`
+	xxx_hidden_Mode     PermissionMode         `protobuf:"varint,4,opt,name=mode,proto3,enum=sgpt.v1.PermissionMode"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *PermissionRule) Reset() {
+	*x = PermissionRule{}
+	mi := &file_sgpt_v1_tool_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PermissionRule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PermissionRule) ProtoMessage() {}
+
+func (x *PermissionRule) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tool_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *PermissionRule) GetTool() string {
+	if x != nil {
+		return x.xxx_hidden_Tool
+	}
+	return ""
+}
+
+func (x *PermissionRule) GetArgument() string {
+	if x != nil {
+		return x.xxx_hidden_Argument
+	}
+	return ""
+}
+
+func (x *PermissionRule) GetPattern() string {
+	if x != nil {
+		return x.xxx_hidden_Pattern
+	}
+	return ""
+}
+
+func (x *PermissionRule) GetMode() PermissionMode {
+	if x != nil {
+		return x.xxx_hidden_Mode
+	}
+	return PermissionMode_PERMISSION_MODE_UNSPECIFIED
+}
+
+func (x *PermissionRule) SetTool(v string) {
+	x.xxx_hidden_Tool = v
+}
+
+func (x *PermissionRule) SetArgument(v string) {
+	x.xxx_hidden_Argument = v
+}
+
+func (x *PermissionRule) SetPattern(v string) {
+	x.xxx_hidden_Pattern = v
+}
+
+func (x *PermissionRule) SetMode(v PermissionMode) {
+	x.xxx_hidden_Mode = v
+}
+
+type PermissionRule_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Tool name the rule applies to (e.g. "exec_shell").
+	Tool string
+	// Argument the pattern is matched against: a dotted path into the call's
+	// arguments (e.g. "command", "patches.search"). Repeated fields match if any
+	// element matches. Empty matches on the tool name alone.
+	Argument string
+	// Case-sensitive RE2 regular expression the argument must match.
+	Pattern string
+	// What to do with a matching call.
+	Mode PermissionMode
+}
+
+func (b0 PermissionRule_builder) Build() *PermissionRule {
+	m0 := &PermissionRule{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Tool = b.Tool
+	x.xxx_hidden_Argument = b.Argument
+	x.xxx_hidden_Pattern = b.Pattern
+	x.xxx_hidden_Mode = b.Mode
+	return m0
+}
+
 var File_sgpt_v1_tool_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_tool_proto_rawDesc = "" +
@@ -279,22 +440,36 @@ const file_sgpt_v1_tool_proto_rawDesc = "" +
 	"\x0fdisplay_message\x18\x01 \x01(\v2\x17.sgpt.v1.DisplayMessageR\x0edisplayMessage\"B\n" +
 	"\x0eDisplayMessage\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x16\n" +
-	"\x06hidden\x18\x02 \x01(\bR\x06hiddenB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
+	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\x87\x01\n" +
+	"\x0ePermissionRule\x12\x12\n" +
+	"\x04tool\x18\x01 \x01(\tR\x04tool\x12\x1a\n" +
+	"\bargument\x18\x02 \x01(\tR\bargument\x12\x18\n" +
+	"\apattern\x18\x03 \x01(\tR\apattern\x12+\n" +
+	"\x04mode\x18\x04 \x01(\x0e2\x17.sgpt.v1.PermissionModeR\x04mode*\x82\x01\n" +
+	"\x0ePermissionMode\x12\x1f\n" +
+	"\x1bPERMISSION_MODE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15PERMISSION_MODE_ALLOW\x10\x01\x12\x1a\n" +
+	"\x16PERMISSION_MODE_REVIEW\x10\x02\x12\x18\n" +
+	"\x14PERMISSION_MODE_DENY\x10\x03B*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_sgpt_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_sgpt_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_sgpt_v1_tool_proto_goTypes = []any{
-	(*ToolCallMetadata)(nil),       // 0: sgpt.v1.ToolCallMetadata
-	(*ToolCallResultMetadata)(nil), // 1: sgpt.v1.ToolCallResultMetadata
-	(*DisplayMessage)(nil),         // 2: sgpt.v1.DisplayMessage
+	(PermissionMode)(0),            // 0: sgpt.v1.PermissionMode
+	(*ToolCallMetadata)(nil),       // 1: sgpt.v1.ToolCallMetadata
+	(*ToolCallResultMetadata)(nil), // 2: sgpt.v1.ToolCallResultMetadata
+	(*DisplayMessage)(nil),         // 3: sgpt.v1.DisplayMessage
+	(*PermissionRule)(nil),         // 4: sgpt.v1.PermissionRule
 }
 var file_sgpt_v1_tool_proto_depIdxs = []int32{
-	2, // 0: sgpt.v1.ToolCallMetadata.display_message:type_name -> sgpt.v1.DisplayMessage
-	2, // 1: sgpt.v1.ToolCallResultMetadata.display_message:type_name -> sgpt.v1.DisplayMessage
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3, // 0: sgpt.v1.ToolCallMetadata.display_message:type_name -> sgpt.v1.DisplayMessage
+	3, // 1: sgpt.v1.ToolCallResultMetadata.display_message:type_name -> sgpt.v1.DisplayMessage
+	0, // 2: sgpt.v1.PermissionRule.mode:type_name -> sgpt.v1.PermissionMode
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_tool_proto_init() }
@@ -307,13 +482,14 @@ func file_sgpt_v1_tool_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_tool_proto_rawDesc), len(file_sgpt_v1_tool_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   3,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_sgpt_v1_tool_proto_goTypes,
 		DependencyIndexes: file_sgpt_v1_tool_proto_depIdxs,
+		EnumInfos:         file_sgpt_v1_tool_proto_enumTypes,
 		MessageInfos:      file_sgpt_v1_tool_proto_msgTypes,
 	}.Build()
 	File_sgpt_v1_tool_proto = out.File
