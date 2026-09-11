@@ -32,12 +32,14 @@ type alertDismissMsg struct{}
 type openTabMsg struct {
 	id     string
 	screen screen.Screen
+	// background opens the tab without focusing it.
+	background bool
 }
 
 // AgentSessionFactory builds a ready-to-run session for a sub-agent launch
-// (registry, injected files, system prompt). Lives in cli/chat, which owns
-// tool/file/role resolution.
-type AgentSessionFactory func(ctx context.Context, request *agent.LaunchRequest) (chatSession *session.Session, injectedFiles []string, err error)
+// (registry, injected files, system prompt, policy). Lives in cli/chat, which
+// owns tool/file/role resolution.
+type AgentSessionFactory func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, error)
 
 type agentResult struct {
 	text string
@@ -136,13 +138,13 @@ func (a *App) SetAgentSessionFactory(factory AgentSessionFactory) {
 
 // LaunchAgent implements agent.Launcher. Called from a session's tool-execute
 // goroutine — never the bubbletea loop — so the tab is opened via program.Send.
-func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (string, error) {
+func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (*agent.LaunchResult, error) {
 	if a.agentSessionFactory == nil {
-		return "", fmt.Errorf("sub-agent launching is not configured")
+		return nil, fmt.Errorf("sub-agent launching is not configured")
 	}
-	chatSession, _, err := a.agentSessionFactory(ctx, request)
+	chatSession, err := a.agentSessionFactory(ctx, request)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	resultCh := make(chan agentResult, 1)
@@ -159,7 +161,9 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (st
 	// unique tab ID.
 	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
 	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
-	a.program.Send(openTabMsg{id: tabID, screen: chatScreen})
+	// In the background: a batch would otherwise yank focus once per task
+	// while the user is watching the launcher.
+	a.program.Send(openTabMsg{id: tabID, screen: chatScreen, background: true})
 
 	// SendMessage blocks for the whole turn; run it off this goroutine so we
 	// can honor ctx cancellation while waiting.
@@ -167,9 +171,15 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (st
 
 	select {
 	case result := <-resultCh:
-		return result.text, result.err
+		if result.err != nil {
+			return nil, result.err
+		}
+		return &agent.LaunchResult{Chat: chatSession.Chat().GetName(), Response: result.text}, nil
 	case <-ctx.Done():
-		return "", ctx.Err()
+		// The launcher gave up (turn cancelled): stop the sub-agent too
+		// rather than leave it burning tokens nobody will read.
+		chatSession.CancelTurn()
+		return nil, ctx.Err()
 	}
 }
 
@@ -196,8 +206,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.displayNextAlert()
 
 	case openTabMsg:
-		cmd := a.addTab(msg.id, msg.screen)
-		return a, cmd
+		return a, a.addTab(msg.id, msg.screen, msg.background)
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -403,12 +412,15 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 	return a.tabs[a.activeTab].screen.OnFocus()
 }
 
-func (a *App) addTab(id string, s screen.Screen) tea.Cmd {
-	if a.activeTab < len(a.tabs) {
-		a.tabs[a.activeTab].screen.OnBlur()
-	}
+func (a *App) addTab(id string, s screen.Screen, background bool) tea.Cmd {
 	s.SetSize(a.width, a.contentHeight())
 	a.tabs = append(a.tabs, &tab{id: id, screen: s})
+	if background {
+		return s.Init()
+	}
+	if a.activeTab < len(a.tabs)-1 {
+		a.tabs[a.activeTab].screen.OnBlur()
+	}
 	a.activeTab = len(a.tabs) - 1
 	return tea.Batch(s.Init(), s.OnFocus())
 }
@@ -520,15 +532,17 @@ func (a *App) contentHeight() int {
 func (a *App) renderTabBar() string {
 	var tabs []widget.Tab
 	for i, t := range a.tabs {
-		streaming := false
+		var streaming, reviewing bool
 		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
 			streaming = chatScreen.IsStreaming()
+			reviewing = chatScreen.IsAwaitingReview()
 		}
 		tabs = append(tabs, widget.Tab{
 			ID:        t.id,
 			Title:     t.screen.ShortTitle(),
 			Active:    i == a.activeTab,
 			Streaming: streaming,
+			Reviewing: reviewing,
 		})
 	}
 	return widget.RenderTabBar(tabs, a.width)

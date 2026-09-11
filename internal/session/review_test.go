@@ -7,16 +7,18 @@ import (
 	"time"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+
+	"github.com/malonaz/sgpt/internal/permission"
 )
 
 // newReviewSession builds the minimal session needed to exercise the review
 // handshake: no store, no registry, no turn loop.
 func newReviewSession(ctx context.Context) *Session {
 	return &Session{
-		ctx:                     ctx,
-		pendingReviews:          map[string]pendingReview{},
-		autoAcceptedToolNameSet: map[string]bool{},
-		eventCh:                 make(chan Event, 1024),
+		ctx:            ctx,
+		pendingReviews: map[string]pendingReview{},
+		policy:         &permission.Policy{},
+		eventCh:        make(chan Event, 1024),
 	}
 }
 
@@ -142,8 +144,8 @@ func TestAlwaysApproveToolScopedToName(t *testing.T) {
 	if approved := <-shellCh; !approved {
 		t.Fatal("shell call was not approved")
 	}
-	if !s.IsToolAutoAccepted("shell") {
-		t.Fatal("shell was not whitelisted")
+	if s.policy.Decide(toolCall("call-next", "shell"), false).Mode != permission.ModeAllow {
+		t.Fatal("shell was not granted")
 	}
 	// The diff call must still be waiting.
 	if pending := s.PendingToolCallIDs(); !pending["call-diff"] {

@@ -5,6 +5,7 @@ package sgpt.v1;
 import "buf/validate/validate.proto";
 import "google/api/resource.proto";
 import "malonaz/ai/ai_engine/v1/ai_engine.proto";
+import "sgpt/v1/tool.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
@@ -98,6 +99,25 @@ message ChatConfiguration {
   // ("lores/{lore}" locally, "@{import}//lores/{lore}" for an imported
   // repo). Selectors rather than paths, so a lore survives being moved.
   repeated string default_lores = 6;
+
+  // Permission rules applied to every tool call, in every chat; first match
+  // wins. Unmatched calls fall back to the tool's own review policy
+  // (side-effect-free tools auto-execute, everything else is reviewed).
+  repeated PermissionRule permissions = 7;
+
+  // Sub-agent settings.
+  AgentConfiguration agent = 8;
+}
+
+// Sub-agent settings.
+message AgentConfiguration {
+  // Sub-agents allowed to run at once across the whole TUI; the rest of a
+  // batch queues. Defaults to 4.
+  int32 max_concurrent = 1;
+
+  // How deep sub-agents may nest: 1 lets a chat launch sub-agents but not
+  // those sub-agents launch their own. Defaults to 2.
+  int32 max_depth = 2;
 }
 
 // A role defines a persona with a system prompt. Persisted as a

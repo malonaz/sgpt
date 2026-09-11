@@ -20,9 +20,10 @@ option (malonaz.codegen.aip.v1.label) = {
   key: "sgpt.com/category"
   values: [
     "chat",
-    "title"
+    "title",
+    "agent"
   ]
-  description: "What a chat is for: `chat` is a user conversation, `title` a throwaway chat used to generate another chat's title. Unlabelled chats predate the label and are user conversations."
+  description: "What a chat is for: `chat` is a user conversation, `agent` a sub-agent launched by another chat (see sgpt.com/parent-chat), `title` a throwaway chat used to generate another chat's title. Unlabelled chats predate the label and are user conversations."
 };
 // ---------------------------------------------------------------------------
 // Message
@@ -33,5 +34,5 @@ option (malonaz.codegen.aip.v1.label) = {
 };
 option (malonaz.codegen.aip.v1.label) = {
   key: "sgpt.com/context"
-  description: "Marks a message injected by sgpt as context (system prompt, injected files, images and documents read by tools) rather than typed by the user."
+  description: "Marks a message injected by sgpt as context (system prompt, injected files) rather than typed by the user."
 };

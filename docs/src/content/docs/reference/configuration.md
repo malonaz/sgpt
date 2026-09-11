@@ -44,6 +44,24 @@ fields are rejected.
 | `default_role` | string | Role selector or root title used when `-r` is absent. |
 | `default_tools` | string[] | Tools advertised in every chat, on top of role and `--tool`. |
 | `default_lores` | string[] | Lore selectors injected into every chat (`lores/x`, `@import//lores/x`). |
+| `permissions` | `PermissionRule[]` | Rules applied to every tool call, first match wins; see [Permissions](/concepts/permissions/). |
+| `agent` | `AgentConfiguration` | Sub-agent limits. |
+
+## `PermissionRule`
+
+| Field | Type | Description |
+|---|---|---|
+| `tool` | string | Tool name the rule applies to (`exec_shell`). |
+| `argument` | string | Dotted path into the call's arguments (`command`, `patches.search`); repeated fields match if any element does. Set together with `pattern`. |
+| `pattern` | string | RE2 regex the argument must match. |
+| `mode` | `PermissionMode` | `PERMISSION_MODE_ALLOW`, `PERMISSION_MODE_REVIEW` or `PERMISSION_MODE_DENY`. |
+
+## `AgentConfiguration`
+
+| Field | Type | Description |
+|---|---|---|
+| `max_concurrent` | int | Sub-agents running at once across the TUI; default 4. |
+| `max_depth` | int | Nesting depth: 1 lets a chat launch sub-agents but not those launch their own; default 2. |
 
 ## `Import`
 

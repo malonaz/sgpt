@@ -168,6 +168,14 @@ func (m *ChatScreen) SetSize(width, height int) {
 
 func (m *ChatScreen) OnFocus() tea.Cmd {
 	m.focused = true
+	// Arriving at a tab that paused for review while in the background:
+	// land on the call, as if the pause had happened in view.
+	if m.IsAwaitingReview() && m.input.Value() == "" {
+		if toolCallID := m.reviewTarget(); toolCallID != "" {
+			m.focusToolCall(toolCallID)
+			return nil
+		}
+	}
 	if m.focusedComponent == FocusTextarea {
 		return m.input.Focus()
 	}
@@ -183,6 +191,12 @@ func (m *ChatScreen) OnBlur() {
 // and the quit guard.
 func (m *ChatScreen) IsStreaming() bool {
 	return m.session.Busy()
+}
+
+// IsAwaitingReview reports whether a tool call is parked on the user's
+// verdict — drives the tab indicator so a background sub-agent is noticed.
+func (m *ChatScreen) IsAwaitingReview() bool {
+	return m.session.State() == session.StateAwaitingReview
 }
 
 func (m *ChatScreen) Session() *session.Session {
@@ -253,7 +267,7 @@ func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
 	}
 	if _, ok := event.(session.RefreshEvent); ok {
 		m.refresh()
-		m.maybeJumpToReview()
+		cmds = append(cmds, m.maybeJumpToReview())
 	}
 	return tea.Batch(cmds...)
 }
@@ -511,22 +525,27 @@ func (m *ChatScreen) deletableSelection(keyHint string) (string, tea.Cmd) {
 }
 
 // maybeJumpToReview focuses a pending tool call when a turn pauses for review,
-// so the user lands directly on what needs their verdict.
-func (m *ChatScreen) maybeJumpToReview() {
+// so the user lands directly on what needs their verdict. A background tab
+// (a sub-agent) cannot grab focus, so it raises an alert instead.
+func (m *ChatScreen) maybeJumpToReview() tea.Cmd {
 	state := m.session.State()
 	entered := state == session.StateAwaitingReview && m.lastState != session.StateAwaitingReview
 	m.lastState = state
 	if !entered {
-		return
+		return nil
+	}
+	if !m.focused {
+		return m.alert(fmt.Sprintf("%s: tool call awaits your review", m.Title()))
 	}
 	// Don't steal focus mid-composition: blurring the input silently drops
 	// keystrokes into the timeline while the user is typing a message.
 	if m.input.Value() != "" {
-		return
+		return nil
 	}
 	if toolCallID := m.reviewTarget(); toolCallID != "" {
 		m.focusToolCall(toolCallID)
 	}
+	return nil
 }
 
 // focusToolCall moves timeline focus onto the given call's item.

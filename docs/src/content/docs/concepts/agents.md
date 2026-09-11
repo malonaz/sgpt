@@ -1,36 +1,59 @@
 ---
 title: Sub-agents
-description: Delegate a self-contained task to a chat of its own.
+description: Fan self-contained work out to chats of their own.
 ---
 
-The `agent` tool launches a **sub-agent**: a new chat tab that receives a
-task, works it to completion with its own tools and context, and returns its
-final answer as the tool result of the parent chat.
+The `agent` tool launches **sub-agents**: one new chat tab per task, each
+working from a fresh context until it produces a final answer. The batch's
+answers come back together as the tool result of the launching chat.
 
 ## When the model uses it
 
-The tool description tells the model to delegate *self-contained* work and
-to pass **all** necessary context in the query — the sub-agent shares
-nothing with the parent conversation. Typical uses: a wide exploration of
-an unfamiliar area, a mechanical refactor across many files, or a parallel
-investigation while the parent keeps reasoning.
+The tool description tells the model to delegate *self-contained* work: a
+wide exploration of an unfamiliar area, a mechanical refactor across many
+files, several investigations at once. Sub-agents share nothing with the
+launching conversation, so everything they need travels in the request.
 
-## What it takes
+## Anatomy of a launch
 
 | Argument | Meaning |
 |---|---|
-| `query` | The task, with all required context |
-| `title` | A few words naming the new tab |
-| `files` | Paths to inject into the sub-agent's context |
-| `tools` | Built-in tools or tool engine names to grant |
-| `model` | Optional model override |
+| `context` | A briefing written **once** and shared by every task — background, constraints, what to report |
+| `tasks[]` | One sub-agent each: a `title` (the tab), a `query`, optional `files` and `model` |
+| `files` / `tools` / `model` | Defaults for every task |
+| `permissions` | Rules tightening what the sub-agents may do without review |
+
+The briefing becomes part of each sub-agent's system prompt, after the
+role's prompt and a short **contract**: you are a sub-agent, nobody will
+answer questions, work to completion, your last message is the report. That
+is why a sub-agent finishes with a self-contained answer rather than a
+follow-up question.
+
+## What a sub-agent inherits
+
+Everything comes from its launcher, narrowed by the request and never
+widened:
+
+- **Tools** — the launcher's enabled tools, or the subset in `tools`. A
+  tool the launcher lacks is rejected before anything runs.
+- **Model** — the launcher's, unless `model` (or a task's) says otherwise.
+- **Permissions** — a child of the launcher's [policy](/concepts/permissions/).
+  Request rules can force `review` or `deny`, not `allow`; and when you
+  "always accept" a tool in the launching chat, its sub-agents follow.
+- **Depth** — sub-agents may launch their own up to
+  `chat.agent.max_depth` levels.
 
 ## What you see
 
-A new tab opens with the sub-agent's chat; switch to it
-(<kbd>alt</kbd>+<kbd>;</kbd>) to watch or intervene — it is an ordinary
-chat, so its tool calls are reviewed the same way. When it produces a final
-answer the parent's tool call resolves and the parent turn continues.
+Launching is a manual-review call: the request shows the briefing and each
+task, the summary line shows the task count, tools, files, model and rules.
+Once approved, tabs open **in the background** — the tab bar marks them
+`●` while they work and `▶` when one paused for your verdict, with an alert
+naming it. Switch over (<kbd>alt</kbd>+<kbd>;</kbd>) and the tab lands on
+the call to review; it is an ordinary chat, so you can also intervene or
+keep talking to it afterwards.
 
-Launching a sub-agent is a manual-review tool call: you see the query,
-title and grants before it starts.
+At most `chat.agent.max_concurrent` sub-agents run at once; the rest of a
+batch queues. Cancelling the launching turn cancels them all. Sub-agent
+chats are labelled `sgpt.com/category: agent` with `sgpt.com/parent-chat`
+pointing at the launcher, and stay listed in the menu.
