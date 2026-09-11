@@ -482,7 +482,13 @@ type ChatConfiguration struct {
 	// Lores injected into the context of every chat, as selectors
 	// ("lores/{lore}" locally, "@{import}//lores/{lore}" for an imported
 	// repo). Selectors rather than paths, so a lore survives being moved.
-	DefaultLores  []string `protobuf:"bytes,6,rep,name=default_lores,json=defaultLores,proto3" json:"default_lores,omitempty"`
+	DefaultLores []string `protobuf:"bytes,6,rep,name=default_lores,json=defaultLores,proto3" json:"default_lores,omitempty"`
+	// Permission rules applied to every tool call, in every chat; first match
+	// wins. Unmatched calls fall back to the tool's own review policy
+	// (side-effect-free tools auto-execute, everything else is reviewed).
+	Permissions []*PermissionRule `protobuf:"bytes,7,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	// Sub-agent settings.
+	Agent         *AgentConfiguration `protobuf:"bytes,8,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -554,6 +560,20 @@ func (x *ChatConfiguration) GetDefaultLores() []string {
 	return nil
 }
 
+func (x *ChatConfiguration) GetPermissions() []*PermissionRule {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+func (x *ChatConfiguration) GetAgent() *AgentConfiguration {
+	if x != nil {
+		return x.Agent
+	}
+	return nil
+}
+
 func (x *ChatConfiguration) SetUser(v string) {
 	x.User = v
 }
@@ -578,6 +598,25 @@ func (x *ChatConfiguration) SetDefaultLores(v []string) {
 	x.DefaultLores = v
 }
 
+func (x *ChatConfiguration) SetPermissions(v []*PermissionRule) {
+	x.Permissions = v
+}
+
+func (x *ChatConfiguration) SetAgent(v *AgentConfiguration) {
+	x.Agent = v
+}
+
+func (x *ChatConfiguration) HasAgent() bool {
+	if x == nil {
+		return false
+	}
+	return x.Agent != nil
+}
+
+func (x *ChatConfiguration) ClearAgent() {
+	x.Agent = nil
+}
+
 type ChatConfiguration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -599,6 +638,12 @@ type ChatConfiguration_builder struct {
 	// ("lores/{lore}" locally, "@{import}//lores/{lore}" for an imported
 	// repo). Selectors rather than paths, so a lore survives being moved.
 	DefaultLores []string
+	// Permission rules applied to every tool call, in every chat; first match
+	// wins. Unmatched calls fall back to the tool's own review policy
+	// (side-effect-free tools auto-execute, everything else is reviewed).
+	Permissions []*PermissionRule
+	// Sub-agent settings.
+	Agent *AgentConfiguration
 }
 
 func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
@@ -611,6 +656,88 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 	x.DefaultRole = b.DefaultRole
 	x.DefaultTools = b.DefaultTools
 	x.DefaultLores = b.DefaultLores
+	x.Permissions = b.Permissions
+	x.Agent = b.Agent
+	return m0
+}
+
+// Sub-agent settings.
+type AgentConfiguration struct {
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Sub-agents allowed to run at once across the whole TUI; the rest of a
+	// batch queues. Defaults to 4.
+	MaxConcurrent int32 `protobuf:"varint,1,opt,name=max_concurrent,json=maxConcurrent,proto3" json:"max_concurrent,omitempty"`
+	// How deep sub-agents may nest: 1 lets a chat launch sub-agents but not
+	// those sub-agents launch their own. Defaults to 2.
+	MaxDepth      int32 `protobuf:"varint,2,opt,name=max_depth,json=maxDepth,proto3" json:"max_depth,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentConfiguration) Reset() {
+	*x = AgentConfiguration{}
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentConfiguration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentConfiguration) ProtoMessage() {}
+
+func (x *AgentConfiguration) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentConfiguration) GetMaxConcurrent() int32 {
+	if x != nil {
+		return x.MaxConcurrent
+	}
+	return 0
+}
+
+func (x *AgentConfiguration) GetMaxDepth() int32 {
+	if x != nil {
+		return x.MaxDepth
+	}
+	return 0
+}
+
+func (x *AgentConfiguration) SetMaxConcurrent(v int32) {
+	x.MaxConcurrent = v
+}
+
+func (x *AgentConfiguration) SetMaxDepth(v int32) {
+	x.MaxDepth = v
+}
+
+type AgentConfiguration_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Sub-agents allowed to run at once across the whole TUI; the rest of a
+	// batch queues. Defaults to 4.
+	MaxConcurrent int32
+	// How deep sub-agents may nest: 1 lets a chat launch sub-agents but not
+	// those sub-agents launch their own. Defaults to 2.
+	MaxDepth int32
+}
+
+func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
+	m0 := &AgentConfiguration{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.MaxConcurrent = b.MaxConcurrent
+	x.MaxDepth = b.MaxDepth
 	return m0
 }
 
@@ -644,7 +771,7 @@ type Role struct {
 
 func (x *Role) Reset() {
 	*x = Role{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -656,7 +783,7 @@ func (x *Role) String() string {
 func (*Role) ProtoMessage() {}
 
 func (x *Role) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[5]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +926,7 @@ type ToolSet struct {
 
 func (x *ToolSet) Reset() {
 	*x = ToolSet{}
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[6]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -811,7 +938,7 @@ func (x *ToolSet) String() string {
 func (*ToolSet) ProtoMessage() {}
 
 func (x *ToolSet) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_configuration_proto_msgTypes[6]
+	mi := &file_sgpt_v1_configuration_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -881,7 +1008,7 @@ var File_sgpt_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\"\x97\x02\n" +
+	"\x1bsgpt/v1/configuration.proto\x12\asgpt.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19google/api/resource.proto\x1a'malonaz/ai/ai_engine/v1/ai_engine.proto\x1a\x12sgpt/v1/tool.proto\"\x97\x02\n" +
 	"\rConfiguration\x126\n" +
 	"\fgrpc_clients\x18\x01 \x03(\v2\x13.sgpt.v1.GrpcClientR\vgrpcClients\x12\x1d\n" +
 	"\n" +
@@ -903,7 +1030,7 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x05Model\x123\n" +
 	"\x04name\x18\x01 \x01(\tB\x1f\xfaA\x16\n" +
 	"\x14ai.malonaz.com/Model\xbaH\x03\xc8\x01\x01R\x04name\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\"\xae\x02\n" +
+	"\x05alias\x18\x02 \x01(\tR\x05alias\"\x9c\x03\n" +
 	"\x11ChatConfiguration\x12,\n" +
 	"\x04user\x18\x01 \x01(\tB\x18\xfaA\x15\n" +
 	"\x13ai.malonaz.com/UserR\x04user\x12>\n" +
@@ -913,7 +1040,12 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x14ai.malonaz.com/ModelR\fdefaultModel\x12!\n" +
 	"\fdefault_role\x18\x04 \x01(\tR\vdefaultRole\x12#\n" +
 	"\rdefault_tools\x18\x05 \x03(\tR\fdefaultTools\x12#\n" +
-	"\rdefault_lores\x18\x06 \x03(\tR\fdefaultLores\"\xc1\x01\n" +
+	"\rdefault_lores\x18\x06 \x03(\tR\fdefaultLores\x129\n" +
+	"\vpermissions\x18\a \x03(\v2\x17.sgpt.v1.PermissionRuleR\vpermissions\x121\n" +
+	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"X\n" +
+	"\x12AgentConfiguration\x12%\n" +
+	"\x0emax_concurrent\x18\x01 \x01(\x05R\rmaxConcurrent\x12\x1b\n" +
+	"\tmax_depth\x18\x02 \x01(\x05R\bmaxDepth\"\xc1\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +
@@ -928,28 +1060,32 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\x0eengine_service\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rengineService\x12Q\n" +
 	"\ttool_sets\x18\x03 \x03(\v24.malonaz.ai.ai_engine.v1.CreateServiceToolSetRequestR\btoolSetsB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_sgpt_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_sgpt_v1_configuration_proto_goTypes = []any{
 	(*Configuration)(nil),                  // 0: sgpt.v1.Configuration
 	(*Import)(nil),                         // 1: sgpt.v1.Import
 	(*GrpcClient)(nil),                     // 2: sgpt.v1.GrpcClient
 	(*Model)(nil),                          // 3: sgpt.v1.Model
 	(*ChatConfiguration)(nil),              // 4: sgpt.v1.ChatConfiguration
-	(*Role)(nil),                           // 5: sgpt.v1.Role
-	(*ToolSet)(nil),                        // 6: sgpt.v1.ToolSet
-	(*v1.CreateServiceToolSetRequest)(nil), // 7: malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
+	(*AgentConfiguration)(nil),             // 5: sgpt.v1.AgentConfiguration
+	(*Role)(nil),                           // 6: sgpt.v1.Role
+	(*ToolSet)(nil),                        // 7: sgpt.v1.ToolSet
+	(*PermissionRule)(nil),                 // 8: sgpt.v1.PermissionRule
+	(*v1.CreateServiceToolSetRequest)(nil), // 9: malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
 }
 var file_sgpt_v1_configuration_proto_depIdxs = []int32{
 	2, // 0: sgpt.v1.Configuration.grpc_clients:type_name -> sgpt.v1.GrpcClient
 	3, // 1: sgpt.v1.Configuration.models:type_name -> sgpt.v1.Model
 	4, // 2: sgpt.v1.Configuration.chat:type_name -> sgpt.v1.ChatConfiguration
 	1, // 3: sgpt.v1.Configuration.imports:type_name -> sgpt.v1.Import
-	7, // 4: sgpt.v1.ToolSet.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	8, // 4: sgpt.v1.ChatConfiguration.permissions:type_name -> sgpt.v1.PermissionRule
+	5, // 5: sgpt.v1.ChatConfiguration.agent:type_name -> sgpt.v1.AgentConfiguration
+	9, // 6: sgpt.v1.ToolSet.tool_sets:type_name -> malonaz.ai.ai_engine.v1.CreateServiceToolSetRequest
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_configuration_proto_init() }
@@ -957,13 +1093,14 @@ func file_sgpt_v1_configuration_proto_init() {
 	if File_sgpt_v1_configuration_proto != nil {
 		return
 	}
+	file_sgpt_v1_tool_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_configuration_proto_rawDesc), len(file_sgpt_v1_configuration_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -23,9 +23,12 @@ import (
 // be quoted as string literals: labels."sgpt.com/favorite" = "true".
 var FavoriteFilter = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.Favorite.GetKey(), aip.LabelValueTrue)
 
-// VisibleFilter matches user conversations, excluding machinery chats such
-// as title generation. Pre-label chats were backfilled to "chat".
-var VisibleFilter = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat)
+// VisibleFilter matches conversations worth reopening — the user's own and
+// sub-agents' — excluding machinery chats such as title generation.
+// Pre-label chats were backfilled to "chat".
+var VisibleFilter = fmt.Sprintf("(labels.%q = %q OR labels.%q = %q)",
+	sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat,
+	sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Agent)
 
 const (
 	// TagsAnnotation stores chat tags, comma-separated. Tags such as GitHub
@@ -77,7 +80,7 @@ func newResourceID() string {
 // CreateChat persists a new chat.
 func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, error) {
 	if _, ok := aip.GetLabel(chat, sgptpb.Labels.Category.GetKey()); !ok {
-		aip.SetLabel(chat, sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat)
+		SetCategory(chat, sgptpb.Labels.Category.Chat)
 	}
 	createChatRequest := &aiservicepb.CreateChatRequest{
 		Parent:    s.parent(),
@@ -257,6 +260,11 @@ func SetFavoriteLabel(chat *aipb.Chat, favorite bool) {
 		return
 	}
 	aip.SetLabel(chat, sgptpb.Labels.Favorite.GetKey(), aip.LabelValueTrue)
+}
+
+// SetCategory labels what a chat is for (see sgpt.com/category).
+func SetCategory(chat *aipb.Chat, category string) {
+	aip.SetLabel(chat, sgptpb.Labels.Category.GetKey(), category)
 }
 
 // ParentChatID returns the ID of the chat that launched this sub-agent chat.

@@ -7,6 +7,7 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 
+	"github.com/malonaz/sgpt/internal/permission"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
@@ -15,7 +16,7 @@ import (
 // safely overlap.
 //
 // Eager mode resolves only what needs no human — review-attached results,
-// auto-execute and whitelisted tools — and leaves everything else untouched.
+// calls the policy allows or denies — and leaves everything else untouched.
 // Deferred mode always attaches a terminal result: it awaits the user's
 // verdict where required, and a cancelled turn resolves to an error result so
 // the history stays valid (providers reject unanswered tool calls outright).
@@ -59,7 +60,14 @@ func (s *Session) resolveToolCall(ctx context.Context, toolCall *aipb.ToolCall, 
 		return
 	}
 
-	if !metadata.GetAutoExecute() && !s.IsToolAutoAccepted(toolCall.GetName()) {
+	switch decision := s.policy.Decide(toolCall, metadata.GetAutoExecute()); decision.Mode {
+	case permission.ModeDeny:
+		// Refused without a human: the model is told which rule, so it can
+		// route around it instead of retrying.
+		toolCall.Result = ai.NewErrorToolResult(toolCall.Name, toolCall.Id,
+			fmt.Errorf("denied by permission policy (%s): this tool call never ran", decision.Reason()))
+		return
+	case permission.ModeReview:
 		if eager {
 			// Needs a human: the turn loop awaits the verdict.
 			return
@@ -168,11 +176,12 @@ func (s *Session) ApproveAllToolCalls() {
 	}
 }
 
-// AlwaysApproveTool whitelists a tool for the rest of the session, so its
-// future calls skip review, and approves any call awaiting review right now.
+// AlwaysApproveTool grants a tool for the rest of the session (and the
+// sub-agents it launches), so its future calls skip review, and approves any
+// call awaiting review right now.
 func (s *Session) AlwaysApproveTool(name string) {
+	s.policy.Grant(name)
 	s.mu.Lock()
-	s.autoAcceptedToolNameSet[name] = true
 	var toolCallIDs []string
 	for toolCallID, review := range s.pendingReviews {
 		if review.toolName == name {

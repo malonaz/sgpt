@@ -28,3 +28,35 @@ message DisplayMessage {
   // If set, we do not show this message.
   bool hidden = 2;
 }
+
+// How a tool call is handled when it arrives.
+enum PermissionMode {
+  // Unset; the rule is ignored.
+  PERMISSION_MODE_UNSPECIFIED = 0;
+  // Execute without asking.
+  PERMISSION_MODE_ALLOW = 1;
+  // Ask the user before executing.
+  PERMISSION_MODE_REVIEW = 2;
+  // Reject without asking; the model is told the call was denied by policy.
+  PERMISSION_MODE_DENY = 3;
+}
+
+// A permission rule decides how matching tool calls are handled. Rules are
+// evaluated in order; the first match wins. A rule matches when the call's
+// tool name equals `tool` and, if `pattern` is set, the argument at
+// `argument` matches it.
+message PermissionRule {
+  // Tool name the rule applies to (e.g. "exec_shell").
+  string tool = 1;
+
+  // Argument the pattern is matched against: a dotted path into the call's
+  // arguments (e.g. "command", "patches.search"). Repeated fields match if any
+  // element matches. Empty matches on the tool name alone.
+  string argument = 2;
+
+  // Case-sensitive RE2 regular expression the argument must match.
+  string pattern = 3;
+
+  // What to do with a matching call.
+  PermissionMode mode = 4;
+}

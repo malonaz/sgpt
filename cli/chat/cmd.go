@@ -23,6 +23,7 @@ import (
 	gograph "github.com/malonaz/sgpt/internal/graph"
 	goignore "github.com/malonaz/sgpt/internal/ignore"
 	"github.com/malonaz/sgpt/internal/lore"
+	"github.com/malonaz/sgpt/internal/permission"
 	"github.com/malonaz/sgpt/internal/repo"
 	"github.com/malonaz/sgpt/internal/role"
 	"github.com/malonaz/sgpt/internal/session"
@@ -165,7 +166,13 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
-			agentTool := &agent.Tool{}
+			agentTool := agent.NewTool(config.GetChat().GetAgent())
+			// The root of every session's policy: the user's configured
+			// rules; sub-agents derive children that can only tighten it.
+			policy, err := permission.New(config.GetChat().GetPermissions())
+			if err != nil {
+				return fmt.Errorf("chat.permissions: %w", err)
+			}
 
 			// The registry always carries the FULL tool surface — every
 			// builtin and every configured tool engine. Which subset is
@@ -280,25 +287,33 @@ func NewCmd(
 				AvailableToolNames: availableToolNames,
 				ResolveTool:        resolveTool,
 				LoreNameForPath:    loreIndex.NameForPath,
+				Policy:             policy,
 			}
 
 			chatSession := session.New(ctx, chatStore, registry, chat, messages, params)
 			app := tui.NewApp(ctx, chatStore, registry, chatSession, params)
-			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, []string, error) {
-				model := selectedModel
+			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, error) {
+				// Everything a sub-agent gets comes from its launcher —
+				// model, tools, policy — narrowed by the request.
+				caller := request.Caller
+				model := caller.Model
 				if request.Model != "" {
 					var err error
 					model, err = chatStore.ResolveModel(ctx, request.Model)
 					if err != nil {
-						return nil, nil, err
+						return nil, err
 					}
 				}
 				if err := validateToolNames(request.Tools); err != nil {
-					return nil, nil, err
+					return nil, err
+				}
+				subPolicy, err := caller.Policy.Child(request.Permissions)
+				if err != nil {
+					return nil, err
 				}
 				subFiles, err := file.Parse(&file.InjectionOpts{Files: request.Files})
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				subFilePaths := make([]string, len(subFiles))
 				for i, parsedFile := range subFiles {
@@ -308,10 +323,10 @@ func NewCmd(
 				subChat := &aipb.Chat{}
 				// Agent-provided title: skips auto-generation and labels the tab.
 				subChat.Title = request.Title
-				store.SetTags(subChat, []string{"agent"})
+				store.SetCategory(subChat, sgptpb.Labels.Category.Agent)
 				store.SetFiles(subChat, subFilePaths)
 				store.SetCurrentModel(subChat, model.Name)
-				store.SetParentChatID(subChat, chatSession.Chat().GetName())
+				store.SetParentChatID(subChat, caller.Chat)
 				subParams := session.Params{
 					Model:              model,
 					Role:               parsedRole,
@@ -320,12 +335,13 @@ func NewCmd(
 					Tools:              request.Tools,
 					AvailableToolNames: availableToolNames,
 					ResolveTool:        resolveTool,
-					Chat:               subChat.Name,
-					SystemPrompt:       parsedRole.Prompt,
+					SystemPrompt:       agent.SystemPrompt(parsedRole.Prompt, request.Context),
 					InjectedFiles:      subFilePaths,
 					LoreNameForPath:    loreIndex.NameForPath,
+					Policy:             subPolicy,
+					Depth:              caller.Depth + 1,
 				}
-				return session.New(ctx, chatStore, registry, subChat, nil, subParams), subFilePaths, nil
+				return session.New(ctx, chatStore, registry, subChat, nil, subParams), nil
 			})
 			agentTool.SetLauncher(app)
 			program := tea.NewProgram(app, tea.WithContext(ctx))

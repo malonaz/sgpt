@@ -3,6 +3,7 @@ syntax = "proto3";
 package sgpt.v1;
 
 import "google/api/field_behavior.proto";
+import "sgpt/v1/tool.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
@@ -45,11 +46,17 @@ service ToolService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // Launch a sub-agent in a new chat tab to work on a self-contained task.
-  // The sub-agent receives the query, optional injected files and tools,
-  // runs until it produces a final answer, and that answer is returned as
-  // this tool's result. Provide all necessary context in the query: the
-  // sub-agent shares none of this conversation.
+  // Launch one or more sub-agents, each in its own chat tab, and wait for
+  // all of them. Every task runs concurrently with its own fresh context:
+  // the shared `context` plus its own `query`, and nothing from this
+  // conversation. Write everything a task needs to know — background,
+  // constraints, what to report back — once in `context` rather than
+  // repeating it per task. Each sub-agent works its task to completion
+  // without asking questions and its final message comes back verbatim, so
+  // tell it exactly what to return. Use this to fan out independent work
+  // (explore several areas, refactor many files, run parallel
+  // investigations) while you keep the overall picture. Sub-agents inherit
+  // this chat's tools unless `tools` narrows them, and never get more.
   rpc Agent(AgentRequest) returns (AgentResponse);
 }
 
@@ -186,24 +193,64 @@ message ExecShellResponse {
 
 // Request for the `agent` tool.
 message AgentRequest {
-  // Task for the sub-agent, including all required context.
-  string query = 1 [(google.api.field_behavior) = REQUIRED];
+  // Briefing shared by every task, prepended to each sub-agent's system
+  // prompt: background, constraints, conventions, expected output format.
+  string context = 1;
 
+  // Tasks to run concurrently, one sub-agent each.
+  repeated AgentTask tasks = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // File paths injected into every sub-agent's context.
+  repeated string files = 3;
+
+  // Tools granted to every sub-agent, narrowing this chat's own tools;
+  // unset inherits them all. Names outside this chat's tools are rejected.
+  repeated string tools = 4;
+
+  // Model for every sub-agent (name or alias); unset inherits this chat's.
+  string model = 5;
+
+  // Permission rules for the sub-agents, first match wins. Rules can only
+  // tighten what this chat may do: "deny" a tool a task must not touch, or
+  // force "review" on one it should only use with the user watching.
+  repeated PermissionRule permissions = 6;
+}
+
+// One sub-agent's task.
+message AgentTask {
   // Short human-readable title for the sub-agent's chat (a few words).
-  string title = 5 [(google.api.field_behavior) = REQUIRED];
+  string title = 1 [(google.api.field_behavior) = REQUIRED];
 
-  // File paths to inject into the sub-agent's context.
-  repeated string files = 2;
+  // The task itself; the shared `context` is already in the sub-agent's
+  // system prompt, so state only what is specific to this task.
+  string query = 2 [(google.api.field_behavior) = REQUIRED];
 
-  // Tools to grant the sub-agent (built-in tools or configured tool engines).
-  repeated string tools = 3;
+  // File paths injected into this sub-agent's context, on top of the shared
+  // ones.
+  repeated string files = 3;
 
-  // Optional model override for the sub-agent.
+  // Model override for this task (name or alias).
   string model = 4;
 }
 
 // Result of the `agent` tool.
 message AgentResponse {
-  // The sub-agent's final answer.
-  string response = 1;
+  // One sub-agent's outcome.
+  message Result {
+    // The task's title.
+    string title = 1;
+
+    // Resource name of the sub-agent's chat.
+    string chat = 2;
+
+    // The sub-agent's final message; empty when it failed.
+    string response = 3;
+
+    // Why the sub-agent produced no answer (launch rejected, turn failed,
+    // cancelled); empty on success.
+    string error = 4;
+  }
+
+  // One result per task, in request order.
+  repeated Result results = 1;
 }

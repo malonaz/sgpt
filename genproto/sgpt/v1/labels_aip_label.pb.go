@@ -14,6 +14,7 @@ type LabelCategory struct {
 	GetKey func() string
 	Chat   string
 	Title  string
+	Agent  string
 }
 
 type LabelInjectedFile struct {
@@ -49,6 +50,7 @@ var Labels = LabelSet{
 		},
 		Chat:  "chat",
 		Title: "title",
+		Agent: "agent",
 	},
 	InjectedFile: LabelInjectedFile{
 		GetKey: func() string {

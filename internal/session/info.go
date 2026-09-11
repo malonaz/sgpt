@@ -134,10 +134,7 @@ func (s *Session) Info() *Info {
 	for name := range s.enabledUserToolNameSet {
 		info.EnabledTools = append(info.EnabledTools, name)
 	}
-	for name := range s.autoAcceptedToolNameSet {
-		info.AutoAcceptedTools = append(info.AutoAcceptedTools, name)
-	}
+	info.AutoAcceptedTools = s.policy.Grants()
 	sort.Strings(info.EnabledTools)
-	sort.Strings(info.AutoAcceptedTools)
 	return info
 }

@@ -29,6 +29,7 @@ export default defineConfig({
 						{ label: 'The .sgpt graph', slug: 'concepts/graph' },
 						{ label: 'Roles', slug: 'concepts/roles' },
 						{ label: 'Tools & review', slug: 'concepts/tools' },
+						{ label: 'Permissions', slug: 'concepts/permissions' },
 						{ label: 'Tool engines', slug: 'concepts/tool-engines' },
 						{ label: 'Lores', slug: 'concepts/lores' },
 						{ label: 'Sub-agents', slug: 'concepts/agents' },
