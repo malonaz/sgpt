@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"syscall"
+	"time"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
@@ -45,16 +47,24 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 	}, nil
 }
 
-func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
 	execShellRequest, err := parseShellCommandArguments(toolCall)
 	if err != nil {
 		return nil, err
 	}
-	command := exec.Command("sh", "-c", execShellRequest.GetCommand())
+	command := exec.CommandContext(ctx, "sh", "-c", execShellRequest.GetCommand())
 	if execShellRequest.GetWorkingDirectory() != "" {
 		command.Dir = execShellRequest.GetWorkingDirectory()
 	}
+	// Own process group so cancellation kills the whole tree, not just `sh`;
+	// WaitDelay stops orphaned grandchildren holding the pipe from blocking us.
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	command.Cancel = func() error { return syscall.Kill(-command.Process.Pid, syscall.SIGKILL) }
+	command.WaitDelay = time.Second
 	output, err := command.CombinedOutput()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	execShellResponse := &sgptpb.ExecShellResponse{Output: string(output)}
 	if err != nil {
 		// Surface failures in the result so the model can react to them.
