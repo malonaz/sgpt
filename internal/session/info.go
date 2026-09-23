@@ -86,7 +86,7 @@ func (s *Session) Info() *Info {
 		info.SupportsToolCall = s.params.Model.GetTtt().GetToolCall()
 		info.SupportsReasoning = s.params.Model.GetTtt().GetReasoning()
 	}
-	modelResourceName := &aipb.ModelResourceName{}
+	modelResourceName := &aipb.ModelRn{}
 	if err := modelResourceName.UnmarshalString(s.params.Model.GetName()); err == nil {
 		info.Provider, info.Model = modelResourceName.Provider, modelResourceName.Model
 	}

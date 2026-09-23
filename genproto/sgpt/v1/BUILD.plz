@@ -3,14 +3,15 @@ go_library(
     srcs = [
         "configuration.pb.go",
         "labels.pb.go",
-        "labels_aip_label.pb.go",
+        "labels_aip.pb.go",
         "lore.pb.go",
-        "lore_aip.go",
+        "lore_aip.pb.go",
         "tool.pb.go",
         "tools.pb.go",
     ],
     visibility = ["//..."],
     deps = [
+        "//third_party/go:github.com__malonaz__core__go__aip",
         "//third_party/go:go.einride.tech__aip__resourcename",
         "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
         "//third_party/go:google.golang.org__protobuf__runtime__protoimpl",

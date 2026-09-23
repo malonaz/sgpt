@@ -83,8 +83,8 @@ func (l Library) Load() ([]*sgptpb.Lore, error) {
 			return err
 		}
 		// Subdirectories become ID segments: "go/errors.md" -> "lores/go/errors".
-		loreResourceName := sgptpb.LoreResourceName{Lore: filepath.ToSlash(strings.TrimSuffix(relativePath, Extension))}
-		lore.Name = l.QualifyName(loreResourceName.String())
+		loreRn := &sgptpb.LoreRn{Lore: filepath.ToSlash(strings.TrimSuffix(relativePath, Extension))}
+		lore.Name = l.QualifyName(loreRn.String())
 		lores = append(lores, lore)
 		return nil
 	})

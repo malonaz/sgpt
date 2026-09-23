@@ -33,3 +33,14 @@ filegroup(
     ],
     visibility = ["PUBLIC"],
 )
+
+# Gathers the proto go aip dependencies - referenced in .plzconfig. Pinned to
+# this repo's module set so generated code links against one copy of core.
+filegroup(
+    name = "protoc-gen-go-aip-dep",
+    exported_deps = [
+        "//third_party/go:github.com__malonaz__core__go__aip",
+        "//third_party/go:go.einride.tech__aip__resourcename",
+    ],
+    visibility = ["PUBLIC"],
+)

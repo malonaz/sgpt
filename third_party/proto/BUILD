@@ -110,12 +110,13 @@ github_proto_library(
     additional_context = {
         GO_IMPORT_PATH: "github.com/malonaz/core/genproto/ai/v1",
         GENERATE_GO_AIP: True,
-        GENERATE_GO_AIP_LABEL: True,
     },
     dir = "malonaz/ai/v1",
     files = [
+        "annotations.proto",
         "chat.proto",
         "errors.proto",
+        "jsonschema.proto",
         "labels.proto",
         "message.proto",
         "metrics.proto",
@@ -227,6 +228,7 @@ github_proto_library(
     dir = "malonaz/codegen/aip/v1",
     files = [
         "aip.proto",
+        "annotation.proto",
         "label.proto",
     ],
     repo = "malonaz/core",
@@ -279,13 +281,16 @@ github_proto_library(
     dir = "malonaz/aip/v1",
     files = [
         "aip.proto",
+        "annotation.proto",
         "extensions.proto",
+        "import.proto",
         "label.proto",
     ],
     repo = "malonaz/core",
     revision = CONFIG.CORE_REVISION,
     deps = [
         ":google__api__annotations",
+        ":google__rpc__status",
         ":validate",
     ],
 )

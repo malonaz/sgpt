@@ -12,7 +12,6 @@ go_library(
         "//sgpt/v1",
         "//sgpt/v1/descriptor",
         "//third_party/go:github.com__malonaz__core__go__ai",
-        "//third_party/go:github.com__malonaz__core__go__ai__tool",
         "//third_party/go:github.com__malonaz__core__go__pbutil",
         "//third_party/go:github.com__malonaz__core__go__pbutil__pbjson",
         "//third_party/go:github.com__malonaz__core__go__pbutil__pbreflection",

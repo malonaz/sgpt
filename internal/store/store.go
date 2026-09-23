@@ -268,7 +268,7 @@ func ParentChatID(chat *aipb.Chat) string {
 // SetParentChatID labels a chat with the ID segment of the chat that
 // launched it. No-op when the parent is unnamed (not yet persisted).
 func SetParentChatID(chat *aipb.Chat, parentChatName string) {
-	chatRn := &aipb.ChatResourceName{}
+	chatRn := &aipb.ChatRn{}
 	if err := chatRn.UnmarshalString(parentChatName); err != nil {
 		return
 	}

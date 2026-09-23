@@ -37,7 +37,6 @@ proto_library(
     ],
     additional_context = {
         GENERATE_GO_AIP: True,
-        GENERATE_GO_AIP_LABEL: True,
         GO_IMPORT_PATH: "github.com/malonaz/sgpt/genproto/sgpt/v1",
     },
     labels = ["copy_generated_code::genproto"],

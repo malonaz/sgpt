@@ -72,13 +72,13 @@ func (t *TitleBar) Refresh(params session.Params, totalUsage, lastUsage *aipb.Mo
 	tokenStr := fmt.Sprintf("↑%s ↓%s $%.4f", formatTokenCount(totalInputTokens), formatTokenCount(totalOutputTokens), price)
 
 	contextStr := ""
-	if contextLimit := params.Model.GetTtt().GetContextTokenLimit(); contextLimit > 0 {
+	if contextLimit := int64(params.Model.GetTtt().GetContextTokenLimit()); contextLimit > 0 {
 		lastInputTokens := lastUsage.GetInputToken().GetQuantity() + lastUsage.GetInputTokenCacheRead().GetQuantity()
 		usagePercent := float64(lastInputTokens) / float64(contextLimit) * 100
 		contextStr = fmt.Sprintf(" │ 📦 %.0f%% (%s/%s)", usagePercent, formatTokenCount(lastInputTokens), formatTokenCount(contextLimit))
 	}
 
-	modelResourceName := &aipb.ModelResourceName{}
+	modelResourceName := &aipb.ModelRn{}
 	modelResourceName.UnmarshalString(params.Model.Name)
 	modelStr := fmt.Sprintf("%s/%s", modelResourceName.Provider, modelResourceName.Model)
 
@@ -93,7 +93,7 @@ func (t *TitleBar) View() string {
 	return t.rendered
 }
 
-func formatTokenCount(count int32) string {
+func formatTokenCount(count int64) string {
 	if count < 1000 {
 		return fmt.Sprintf("%d", count)
 	}

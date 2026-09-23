@@ -290,6 +290,7 @@
         "github.com/malonaz/core/go/health": "//third_party/go:github.com__malonaz__core__go__health",
         "github.com/malonaz/core/go/http": "//third_party/go:github.com__malonaz__core__go__http",
         "github.com/malonaz/core/go/jsonnet": "//third_party/go:github.com__malonaz__core__go__jsonnet",
+        "github.com/malonaz/core/go/lifecycle": "//third_party/go:github.com__malonaz__core__go__lifecycle",
         "github.com/malonaz/core/go/logging": "//third_party/go:github.com__malonaz__core__go__logging",
         "github.com/malonaz/core/go/logging/pretty": "//third_party/go:github.com__malonaz__core__go__logging__pretty",
         "github.com/malonaz/core/go/pbutil": "//third_party/go:github.com__malonaz__core__go__pbutil",

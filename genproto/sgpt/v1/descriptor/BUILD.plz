@@ -1,6 +1,5 @@
 go_library(
     name = "descriptor",
     srcs = ["descriptor_set.go"],
-    resources = ["descriptor_set.bin"],
     visibility = ["//..."],
 )

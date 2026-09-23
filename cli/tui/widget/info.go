@@ -152,7 +152,7 @@ func infoSessionRows(info *session.Info) []infoRow {
 		{label: "capabilities", value: infoCapabilities(info)},
 	}
 	if info.OutputLimit > 0 {
-		rows = append(rows, infoRow{label: "max output", value: infoTokens(info.OutputLimit)})
+		rows = append(rows, infoRow{label: "max output", value: infoTokens(int64(info.OutputLimit))})
 	}
 	return rows
 }
@@ -227,7 +227,7 @@ func infoContextGauge(info *session.Info) string {
 		infoGauge(ratio),
 		infoValueStyle.Render(fmt.Sprintf("%.1f%%", ratio*100)),
 		infoLabelStyle.Render(fmt.Sprintf("(%s / %s · %s free)",
-			infoTokens(used), infoTokens(info.ContextLimit), infoTokens(info.ContextLimit-used))),
+			infoTokens(used), infoTokens(int64(info.ContextLimit)), infoTokens(int64(info.ContextLimit)-used))),
 	)
 }
 
@@ -364,13 +364,13 @@ func infoReasoning(effort aipb.ReasoningEffort) string {
 	}
 }
 
-func infoTokens(count int32) string {
+func infoTokens(count int64) string {
 	return formatTokenCount(count)
 }
 
 // infoTokensWithShare annotates a token count with its share of a total —
 // cache reads and reasoning tokens only mean something relative to it.
-func infoTokensWithShare(count, total int32) string {
+func infoTokensWithShare(count, total int64) string {
 	if total <= 0 || count == 0 {
 		return infoTokens(count)
 	}
