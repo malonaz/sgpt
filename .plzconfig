@@ -8,7 +8,7 @@ path = /bin:/usr/bin:/usr/local/bin:/opt/homebrew/opt/postgresql@13/bin:/opt/hom
 
 [buildconfig]
 ;; Tracks the core revision.
-core-revision = bee1920877bce202d7d8657fcd91e3505965e731
+core-revision = ba0f3acbc31a71f4324b88e425c45d69cefcdae4
 
 [sandbox ]
 test = false
@@ -60,6 +60,7 @@ ProtocTool = //tools:protoc
 Target = //plugins:core
 ProtocGenGoDep = //tools:protoc-gen-go-dep
 ProtocGenGrpcGoDep = //tools:protoc-gen-go-grpc-dep
+ProtocGenAipGoDep = //tools:protoc-gen-go-aip-dep
 
 [alias "tidy"]
 desc = Tidy pulls third party deps and then calls `lint`

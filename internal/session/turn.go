@@ -28,21 +28,20 @@ func newTurn(s *Session) *turn {
 }
 
 // run executes the turn to completion: generate → resolve tool calls → loop.
-// Every loop iteration flushes chat state before streaming, and the turn
-// flushes once more on exit, so a turn never leaves unpersisted chat state
-// behind.
+// Chat state is flushed after every generation (before tool review can park
+// the turn) and once more on exit, so a turn never leaves unpersisted chat
+// state behind and the server's usage/price rollup is adopted promptly.
 func (t *turn) run() {
 	s := t.session
 	defer s.flushChat()
 	for {
-		s.flushChat()
 		inputMessages := s.takeInputMessages()
 		generatedMessage, err := t.stream(inputMessages)
 
 		s.mu.Lock()
-		ai.AggregateModelUsage(s.totalModelUsage, s.lastModelUsage)
 		*s.lastModelUsage = aipb.ModelUsage{}
 		s.mu.Unlock()
+		s.flushChat()
 
 		if err != nil {
 			// The failed inputs are re-queued (the server excluded them from
@@ -114,7 +113,6 @@ func (t *turn) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*aip
 	s.messages = append(s.messages, toolMessage)
 	// The tool message is persisted server-side as input to the next turn.
 	s.pendingInputMessages = append(s.pendingInputMessages, toolMessage)
-	s.invalidatePrice()
 	s.mu.Unlock()
 	s.refresh()
 }

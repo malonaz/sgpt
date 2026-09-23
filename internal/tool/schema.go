@@ -7,7 +7,6 @@ import (
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
-	aitool "github.com/malonaz/core/go/ai/tool"
 	"github.com/malonaz/core/go/pbutil"
 	"github.com/malonaz/core/go/pbutil/pbjson"
 	"github.com/malonaz/core/go/pbutil/pbreflection"
@@ -93,7 +92,7 @@ func MustBuildTool(toolName, handlerID string, methodFullName protoreflect.FullN
 	// the annotation propagates onto tool calls, where Review reads it back.
 	if methodOptions, ok := methodDescriptor.Options().(*descriptorpb.MethodOptions); ok &&
 		methodOptions.GetIdempotencyLevel() == descriptorpb.MethodOptions_NO_SIDE_EFFECTS {
-		annotations[aitool.AnnotationKeyNoSideEffect] = "true"
+		annotations[aipb.Annotations.NoSideEffect.Key] = "true"
 	}
 	return &aipb.Tool{
 		Name:        toolName,
@@ -107,7 +106,7 @@ func MustBuildTool(toolName, handlerID string, methodFullName protoreflect.FullN
 // side-effect free (idempotency_level = NO_SIDE_EFFECTS).
 func NoSideEffects(toolCall *aipb.ToolCall) bool {
 	// Locked read: the session goroutine mutates annotations concurrently.
-	return GetToolCallAnnotation(toolCall, aitool.AnnotationKeyNoSideEffect) == "true"
+	return GetToolCallAnnotation(toolCall, aipb.Annotations.NoSideEffect.Key) == "true"
 }
 
 // NewStructuredToolResult marshals a typed response proto into a structured

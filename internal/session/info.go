@@ -21,7 +21,8 @@ type Info struct {
 	Reasoning aipb.ReasoningEffort
 	Favorite  bool
 
-	// Message tallies, counting only live (non-deleted) messages.
+	// Per-role tallies are the chat's server-maintained live counts;
+	// ContextMessages and ToolCalls are derived from the local history.
 	UserMessages      int
 	AssistantMessages int
 	ToolMessages      int
@@ -33,8 +34,8 @@ type Info struct {
 	// ToolNameToCalls counts calls per tool name, for the busiest-tools list.
 	ToolNameToCalls map[string]int
 
-	// Usage is cumulative across the chat's turns; ContextUsage is the last
-	// turn's, which is what actually fills the context window.
+	// Usage is cumulative across the chat's generations; ContextUsage is the
+	// last turn's, which is what actually fills the context window.
 	Usage        *aipb.ModelUsage
 	ContextUsage *aipb.ModelUsage
 	ContextLimit int32
@@ -58,26 +59,30 @@ type Info struct {
 
 // Info computes the snapshot. Blocking only on the session mutex.
 func (s *Session) Info() *Info {
-	// Price() and LastModelUsage() take the lock themselves.
-	price, contextUsage := s.Price(), s.LastModelUsage()
+	// TotalModelUsage() and LastModelUsage() take the lock themselves.
+	usage, contextUsage := s.TotalModelUsage(), s.LastModelUsage()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	info := &Info{
-		ChatName:        s.chat.GetName(),
-		Title:           s.chat.GetTitle(),
-		Model:           s.params.Model.GetName(),
-		Reasoning:       s.params.ReasoningEffort,
-		Favorite:        store.IsFavorite(s.chat),
-		ToolNameToCalls: map[string]int{},
-		Usage:           s.totalModelUsage,
-		ContextUsage:    contextUsage,
-		ContextLimit:    s.params.Model.GetTtt().GetContextTokenLimit(),
-		OutputLimit:     s.params.Model.GetTtt().GetOutputTokenLimit(),
-		Price:           price,
-		QueuedMessages:  len(s.queuedMessages),
-		AvailableTools:  append([]string(nil), s.params.AvailableToolNames...),
+		ChatName:          s.chat.GetName(),
+		Title:             s.chat.GetTitle(),
+		Model:             s.params.Model.GetName(),
+		Reasoning:         s.params.ReasoningEffort,
+		Favorite:          store.IsFavorite(s.chat),
+		ToolNameToCalls:   map[string]int{},
+		Usage:             usage,
+		ContextUsage:      contextUsage,
+		ContextLimit:      s.params.Model.GetTtt().GetContextTokenLimit(),
+		OutputLimit:       s.params.Model.GetTtt().GetOutputTokenLimit(),
+		Price:             s.chat.GetPrice(),
+		QueuedMessages:    len(s.queuedMessages),
+		UserMessages:      int(s.chat.GetUserMessageCount()),
+		AssistantMessages: int(s.chat.GetAssistantMessageCount()),
+		ToolMessages:      int(s.chat.GetToolMessageCount()),
+		SystemMessages:    int(s.chat.GetSystemMessageCount()),
+		AvailableTools:    append([]string(nil), s.params.AvailableToolNames...),
 	}
 	if s.params.Role != nil {
 		info.Role = s.params.Role.Name
@@ -86,10 +91,12 @@ func (s *Session) Info() *Info {
 		info.SupportsToolCall = s.params.Model.GetTtt().GetToolCall()
 		info.SupportsReasoning = s.params.Model.GetTtt().GetReasoning()
 	}
-	modelResourceName := &aipb.ModelResourceName{}
+	modelResourceName := &aipb.ModelRn{}
 	if err := modelResourceName.UnmarshalString(s.params.Model.GetName()); err == nil {
 		info.Provider, info.Model = modelResourceName.Provider, modelResourceName.Model
 	}
+
+	info.TotalMessages = info.UserMessages + info.AssistantMessages + info.ToolMessages + info.SystemMessages
 
 	for _, message := range s.messages {
 		// Soft-deleted messages are gone from the model's view of the chat;
@@ -97,19 +104,8 @@ func (s *Session) Info() *Info {
 		if message.GetDeleteTime() != nil {
 			continue
 		}
-		info.TotalMessages++
 		if store.IsContextMessage(message) {
 			info.ContextMessages++
-		}
-		switch message.GetRole() {
-		case aipb.Role_ROLE_USER:
-			info.UserMessages++
-		case aipb.Role_ROLE_ASSISTANT:
-			info.AssistantMessages++
-		case aipb.Role_ROLE_TOOL:
-			info.ToolMessages++
-		case aipb.Role_ROLE_SYSTEM:
-			info.SystemMessages++
 		}
 		for _, block := range message.GetBlocks() {
 			if toolCall := block.GetToolCall(); toolCall != nil {

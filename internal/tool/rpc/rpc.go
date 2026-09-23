@@ -166,7 +166,7 @@ func (m *Manager) GetToolSets() []*aipb.ToolSet {
 }
 
 func (m *Manager) engineFor(toolCall *aipb.ToolCall) (*engineConnection, error) {
-	toolSetName, ok := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolSetName)
+	toolSetName, ok := aip.GetAnnotation(toolCall, aipb.Annotations.ToolSetName.Key)
 	if !ok {
 		return nil, fmt.Errorf("no tool set annotation found on tool call")
 	}
@@ -191,9 +191,9 @@ func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.
 		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
 
-	toolType, _ := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolType)
+	toolType, _ := aip.GetAnnotation(toolCall, aipb.Annotations.ToolType.Key)
 	switch toolType {
-	case aitool.AnnotationValueToolTypeDiscovery:
+	case aitool.ToolTypeDiscovery:
 		toolResult := toolCall.GetResult()
 		if toolResult == nil {
 			return nil, fmt.Errorf("discovery tool call %q has no result", toolCall.GetName())
@@ -207,7 +207,7 @@ func (m *Manager) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.
 		}
 		toolCallMetadata.AutoExecute = true
 
-	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
+	case aitool.ToolTypeGenerateRPCRequest:
 		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, toolCall, m.GetToolSets())
 		if err != nil {
 			return nil, err
@@ -295,14 +295,14 @@ func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.T
 // RenderHeader shows {Service}/{Method} for RPC calls and a discrete label
 // for discovery calls, instead of the generated tool names.
 func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	toolType, _ := aip.GetAnnotation(toolCall, aitool.AnnotationKeyToolType)
+	toolType, _ := aip.GetAnnotation(toolCall, aipb.Annotations.ToolType.Key)
 	switch toolType {
-	case aitool.AnnotationValueToolTypeDiscovery:
+	case aitool.ToolTypeDiscovery:
 		toolResult := toolCall.GetResult()
 		if toolResult == nil {
 			return "🔍 discovering tools…", true
 		}
-		discovered, ok := aip.GetAnnotation(toolResult, aitool.AnnotationKeyDiscoveredTools)
+		discovered, ok := aip.GetAnnotation(toolResult, aipb.Annotations.DiscoveredTools.Key)
 		if !ok || discovered == "" {
 			return "🔍 discovered tools", true
 		}
@@ -324,7 +324,7 @@ func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 			}
 		}
 		return "🔍 " + strings.Join(sections, " | "), true
-	case aitool.AnnotationValueToolTypeGenerateRPCRequest:
+	case aitool.ToolTypeGenerateRPCRequest:
 		engine, err := m.engineFor(toolCall)
 		if err != nil {
 			return "", false
