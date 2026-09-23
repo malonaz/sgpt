@@ -173,7 +173,6 @@ func (s *Session) finalizeStream(message *aipb.Message, err error) {
 		}
 		if len(message.GetBlocks()) > 0 || err != nil {
 			s.messages = append(s.messages, message)
-			s.invalidatePrice()
 		}
 	}
 

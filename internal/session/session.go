@@ -134,16 +134,13 @@ type Session struct {
 	enabledUserToolNameSet   map[string]bool
 	enabledAdvertisedNameSet map[string]bool
 
-	totalModelUsage *aipb.ModelUsage
-	lastModelUsage  *aipb.ModelUsage
+	// lastModelUsage is the in-flight generation's cumulative usage; chat-wide
+	// usage and price are server-maintained on s.chat.
+	lastModelUsage *aipb.ModelUsage
 
 	// pendingErrors queues non-fatal errors for the TUI. Errors are never
 	// dropped, so they are held here rather than in the lossy event channel.
 	pendingErrors []error
-
-	// price memoizes the sum of message prices; every render reads it.
-	price      float64
-	priceValid bool
 
 	// onTurnComplete fires when a turn reaches a terminal state: final answer
 	// (no tool calls), stream error, or tool-processing failure. It does NOT
@@ -176,7 +173,6 @@ func New(
 		autoAcceptedToolNameSet:       map[string]bool{},
 		pendingReviews:                map[string]pendingReview{},
 		injectedFilePathToMessageName: map[string]string{},
-		totalModelUsage:               &aipb.ModelUsage{},
 		lastModelUsage:                &aipb.ModelUsage{},
 		renderThrottle:                throttle{interval: renderInterval},
 		eventCh:                       make(chan Event, 64),
@@ -259,7 +255,6 @@ func (s *Session) RepairHistory() error {
 
 	s.mu.Lock()
 	s.messages = append(s.messages, createdMessage)
-	s.invalidatePrice()
 	s.mu.Unlock()
 	s.refresh()
 	return nil
@@ -430,10 +425,15 @@ func (s *Session) Params() Params {
 	return s.params
 }
 
+// TotalModelUsage folds the chat's per-model usage into one aggregate. The
+// server rolls usage onto the chat after every generation; it is adopted here
+// on the next chat write (see turn.run), so this trails a stream by one flush.
 func (s *Session) TotalModelUsage() *aipb.ModelUsage {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.totalModelUsage
+	total := &aipb.ModelUsage{}
+	ai.AggregateModelUsage(total, s.chat.GetModelUsages()...)
+	return total
 }
 
 func (s *Session) LastModelUsage() *aipb.ModelUsage {
@@ -452,29 +452,11 @@ func (s *Session) LastModelUsage() *aipb.ModelUsage {
 	return s.lastModelUsage
 }
 
-// Price sums the server-priced messages of the chat: each message carries its
-// own authoritative cost, so no client-side pricing math is needed.
+// Price is the server-maintained, append-only spend of the chat.
 func (s *Session) Price() float64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.priceValid {
-		return s.price
-	}
-	// Recomputed in full: messages are not strictly append-only (optimistic
-	// placeholders get swapped, injected files removed), so an incremental
-	// tally would drift. Memoized because every render asks for this.
-	s.price = 0
-	for _, message := range s.messages {
-		s.price += message.GetPrice()
-	}
-	s.priceValid = true
-	return s.price
-}
-
-// invalidatePrice must be called whenever s.messages changes. Caller holds
-// the lock.
-func (s *Session) invalidatePrice() {
-	s.priceValid = false
+	return s.chat.GetPrice()
 }
 
 func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
@@ -517,7 +499,6 @@ func (s *Session) SetInjectedFiles(paths []string) {
 		}
 		if index := s.optimisticInjectedFileIndex(path); index >= 0 {
 			s.messages = append(s.messages[:index], s.messages[index+1:]...)
-			s.invalidatePrice()
 		}
 	}
 	s.injectedFilePaths = append([]string(nil), paths...)
@@ -531,7 +512,6 @@ func (s *Session) SetInjectedFiles(paths []string) {
 			continue
 		}
 		s.messages = append(s.messages, store.NewInjectedFileMessage(path, s.injectedFileContent(path)))
-		s.invalidatePrice()
 	}
 	s.mu.Unlock()
 
@@ -548,7 +528,6 @@ func (s *Session) SetInjectedFiles(paths []string) {
 		for i, message := range s.messages {
 			if message.GetName() == messageName {
 				s.messages = append(s.messages[:i], s.messages[i+1:]...)
-				s.invalidatePrice()
 				break
 			}
 		}
@@ -683,7 +662,6 @@ func (s *Session) deleteMessages(messageNamesToDelete []string) error {
 		remainingMessages = append(remainingMessages, message)
 	}
 	s.messages = remainingMessages
-	s.invalidatePrice()
 	s.mu.Unlock()
 	s.refresh()
 	return deleteErr
@@ -799,7 +777,6 @@ func (s *Session) ensureContext() error {
 		} else {
 			s.messages = append(s.messages, createdMessage)
 		}
-		s.invalidatePrice()
 		s.mu.Unlock()
 	}
 
@@ -815,7 +792,6 @@ func (s *Session) ensureContext() error {
 		} else {
 			s.messages = append(s.messages, createdMessage)
 		}
-		s.invalidatePrice()
 		s.mu.Unlock()
 	}
 	return nil
@@ -984,7 +960,6 @@ func (s *Session) SendMessage(text string) {
 	s.streamError = nil
 	s.messages = append(s.messages, userMessage)
 	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
-	s.invalidatePrice()
 	s.mu.Unlock()
 	defer s.endTurn(currentTurn)
 	s.refresh()
@@ -1084,7 +1059,6 @@ func (s *Session) takeInputMessages() []*aipb.Message {
 		inputMessages = append(inputMessages, s.queuedMessages...)
 		s.messages = append(s.messages, s.queuedMessages...)
 		s.queuedMessages = nil
-		s.invalidatePrice()
 	}
 	return inputMessages
 }
