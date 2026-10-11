@@ -9,3 +9,4 @@ plz-out
 docs/node_modules
 docs/dist
 docs/.astro
+.idea

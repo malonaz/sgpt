@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -14,15 +15,14 @@ import (
 )
 
 var (
-	keyInputPrevHistory = keymap.New("alt+p", "Previous history entry")
-	keyInputNextHistory = keymap.New("alt+n", "Next history entry")
-	keyInputOpenEditor  = keymap.New("alt+o", "Compose in $EDITOR")
+	keyInputPrevHistory = keymap.New("prev_history", "Previous history entry", "alt+p")
+	keyInputNextHistory = keymap.New("next_history", "Next history entry", "alt+n")
 )
 
 func InputKeymap() keymap.Map {
 	return keymap.Map{
 		Name:     "Input",
-		Bindings: []keymap.Binding{keyInputPrevHistory, keyInputNextHistory, keyInputOpenEditor},
+		Bindings: []*keymap.Binding{keyInputPrevHistory, keyInputNextHistory, keymap.KeyOpenInEditor},
 	}
 }
 
@@ -34,7 +34,6 @@ type Input struct {
 
 func NewInput() *Input {
 	ta := textarea.New()
-	ta.Placeholder = "Type your message... (ctrl+j: send, tab: navigate, alt+h: help)"
 	ta.CharLimit = 0
 	ta.SetWidth(styles.DefaultTextareaWidth)
 	ta.SetHeight(styles.MinTextareaHeight)
@@ -119,7 +118,7 @@ func (i *Input) HandleKey(msg tea.KeyPressMsg) tea.Cmd {
 			i.AdjustHeight()
 		}
 		return nil
-	case key.Matches(msg, keyInputOpenEditor.Key):
+	case key.Matches(msg, keymap.KeyOpenInEditor.Key):
 		return editor.Open(i.Textarea.Value(), "md")
 	}
 	return nil
@@ -133,5 +132,11 @@ func (i *Input) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (i *Input) View() string {
+	// Recomputed per render rather than set once: the keymap editor can
+	// rebind these keys while the input is on screen.
+	i.Textarea.Placeholder = fmt.Sprintf(
+		"Type your message... (%s: send, %s: navigate, %s: help)",
+		keymap.KeysOf("submit"), keymap.KeysOf("cycle_focus"), keymap.KeysOf("help"),
+	)
 	return styles.TextAreaStyle.Render(i.Textarea.View())
 }

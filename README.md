@@ -44,8 +44,26 @@ local env = std.native("env");
 Any `.sgpt.json` found walking up from the cwd is merged on top — each repo
 carries its own title, imports, ignores and default role.
 
-## Use
+### Key mappings
+Every TUI key binding is configurable. On startup SGPT writes `~/.config/sgpt/.sgpt-keymap.json` if it is not there yet, listing every binding with its id, a description, and the keys it is bound to:
+```json
+{
+  "bindings": [
+    {
+      "id": "submit",
+      "help": "Send message / review tool call",
+      "keys": ["ctrl+j"]
+    }
+  ]
+}
+```
+You do not have to edit it by hand: press `ctrl+k` in the TUI to open the key binding editor, move with the arrow keys, press enter on a binding and then press the key you want it bound to. The change is saved to the file straight away.
 
+Editing the file directly works too. Edit `keys` to rebind, list several to accept more than one, or set it to `[]` to unbind. Bindings you delete from the file fall back to their defaults and are written back on the next start, so new bindings show up as SGPT gains them. Pass `--keymap` to use a different file.
+
+Bindings are global: a key means one thing wherever it is pressed, so no two may claim the same one. Actions that several screens share are a single binding — `up`/`down` move through the chat menu and scroll the timeline, `delete` removes the selected chat or message, `open_in_editor` opens the timeline selection or composes in the input — so rebinding one moves the key everywhere it acts.
+
+## Use
 ```bash
 sgpt chat                          # new chat, default role
 sgpt chat -r reviewer -m opus      # role + model alias

@@ -19,3 +19,12 @@ go_library(
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
+
+go_test(
+    name = "test",
+    srcs = ["keymap_test.go"],
+    deps = [
+        ":tui",
+        "//cli/tui/keymap",
+    ],
+)
