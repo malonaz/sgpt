@@ -49,7 +49,8 @@ Lores are the durable knowledge base: markdown files at {repo}/.sgpt/lores/{id}.
 - **Search first**: call search_lores before working in an unfamiliar area, choosing a convention (errors, pagination, protos, testing...), or guessing. Queries are case-insensitive Go/RE2 regexes; prefer alternations ("go.style|errors").
 - Results are snippets: when relevant, read the full lore file at its path.
 - Write a lore only for durable, non-obvious, reusable knowledge (conventions, architecture, gotchas) — never for anything derivable by reading a file, one-off details, or secrets.
-- **Never create, edit, or delete a lore on your own initiative**: propose it in a sentence and wait for the user's approval. The one exception is an explicit instruction ("write a lore about X", "remember this").
+- **Keep lores current on your own initiative**: when you learn durable knowledge, or find a lore wrong or stale, create, edit, or delete it in the same turn — don't ask first.
+- Report every lore change on the last line of your reply, exactly: `Lores: {created|updated|deleted} {id} — {short reason}` (comma-separate several). Omit the line when nothing changed.
 </lores>
 
 {{- if .ToolDiscovery }}
