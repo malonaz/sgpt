@@ -32,6 +32,10 @@ var VisibleFilter = fmt.Sprintf("(labels.%q = %q OR labels.%q = %q)",
 	sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat,
 	sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Agent)
 
+// UserChatFilter narrows ListChats to the user's own conversations, hiding
+// sub-agent chats.
+var UserChatFilter = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.Category.GetKey(), sgptpb.Labels.Category.Chat)
+
 const (
 	// TagsAnnotation stores chat tags, comma-separated. Tags such as GitHub
 	// repos ("owner/repo") don't fit the label value pattern, hence annotations.
@@ -274,6 +278,12 @@ func SetFavoriteLabel(chat *aipb.Chat, favorite bool) {
 // SetCategory labels what a chat is for (see sgpt.com/category).
 func SetCategory(chat *aipb.Chat, category string) {
 	aip.SetLabel(chat, sgptpb.Labels.Category.GetKey(), category)
+}
+
+// IsAgentChat reports whether a chat is a sub-agent's conversation.
+func IsAgentChat(chat *aipb.Chat) bool {
+	category, _ := aip.GetLabel(chat, sgptpb.Labels.Category.GetKey())
+	return category == sgptpb.Labels.Category.Agent
 }
 
 // ParentChatID returns the ID of the chat that launched this sub-agent chat.
