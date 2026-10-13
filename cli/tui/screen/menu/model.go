@@ -15,6 +15,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/store"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 const (
@@ -31,6 +32,8 @@ const (
 	// minPreviewWidth is the narrowest terminal that still gets a preview
 	// pane; below it the list takes the full width.
 	minPreviewWidth = 70
+	// initialRenderWidth sizes the markdown renderer until the first resize.
+	initialRenderWidth = 80
 )
 
 type FocusTarget int
@@ -81,9 +84,10 @@ type listLine struct {
 }
 
 type Model struct {
-	ctx   context.Context
-	store *store.Store
-	wrap  screen.WrapFunc
+	ctx      context.Context
+	store    *store.Store
+	registry *tool.Registry
+	wrap     screen.WrapFunc
 
 	favorites []*aipb.Chat
 	others    []*aipb.Chat
@@ -146,11 +150,13 @@ type Model struct {
 	focused        bool
 }
 
-func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Model {
-	renderer, _ := markdown.NewRenderer(styles.DefaultTextareaWidth)
+func New(ctx context.Context, chatStore *store.Store, registry *tool.Registry, wrap screen.WrapFunc) *Model {
+	// RenderItems sizes it to the preview pane on every render.
+	renderer, _ := markdown.NewRenderer(initialRenderWidth)
 	m := &Model{
 		ctx:                ctx,
 		store:              chatStore,
+		registry:           registry,
 		wrap:               wrap,
 		filterInput:        widget.NewFilterInput(""),
 		renderer:           renderer,
@@ -202,10 +208,6 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Title() string {
-	return "Chats"
-}
-
-func (m *Model) ShortTitle() string {
 	return "Chats"
 }
 
@@ -526,18 +528,15 @@ func (m *Model) detailWidth() int {
 	return max(0, m.width-m.listWidth()-1)
 }
 
-// Rows above the list (label, filter box) and below it (hints).
-const (
-	headerHeight = 4
-	footerHeight = 1
-)
+// headerHeight is the rows above the list: the label and the filter box.
+const headerHeight = 4
 
 func (m *Model) recalculateLayout() {
 	if m.width == 0 || m.height == 0 {
 		return
 	}
-	m.listHeight = max(1, m.height-headerHeight-footerHeight)
-	detailHeight := max(1, m.height-1-footerHeight)
+	m.listHeight = max(1, m.height-headerHeight)
+	detailHeight := max(1, m.height-1)
 	detailWidth := m.detailWidth()
 	if !m.ready {
 		m.detailViewport = viewport.New(viewport.WithWidth(detailWidth), viewport.WithHeight(detailHeight))

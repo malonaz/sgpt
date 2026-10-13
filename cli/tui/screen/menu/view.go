@@ -11,6 +11,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/format"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/timeline"
+	"github.com/malonaz/sgpt/cli/tui/widget"
 	"github.com/malonaz/sgpt/internal/store"
 )
 
@@ -35,15 +36,17 @@ func (m *Model) View() string {
 	if !m.ready {
 		return ""
 	}
+	// The body fills exactly the rows under the header: the app reserves
+	// nothing else.
+	height := max(1, m.height-1)
 	left := strings.Join([]string{m.renderFilter(), m.renderList()}, "\n")
+	left = lipgloss.NewStyle().Width(m.listWidth()).Height(height).MaxHeight(height).Render(left)
 	body := left
-	if detailWidth := m.detailWidth(); detailWidth > 0 && m.width >= minPreviewWidth {
-		height := m.height - 1 - footerHeight
+	if m.detailWidth() > 0 && m.width >= minPreviewWidth {
 		separator := styles.SubtleStyle.Render(strings.TrimSuffix(strings.Repeat(styles.GlyphRule+"\n", height), "\n"))
-		left = lipgloss.NewStyle().Width(m.listWidth()).Height(height).Render(left)
 		body = lipgloss.JoinHorizontal(lipgloss.Top, left, separator, m.detailViewport.View())
 	}
-	return strings.Join([]string{m.renderHeader(), body, m.renderFooter()}, "\n")
+	return m.renderHeader() + "\n" + body
 }
 
 // renderHeader is a quiet label with the list's honest status at the right.
@@ -91,17 +94,13 @@ func (m *Model) renderFilter() string {
 	return filterBoxStyle.BorderForeground(border).Width(m.listWidth() - 1).Render(m.filterInput.View())
 }
 
-func (m *Model) renderFooter() string {
+// Status is the menu's side of the status bar: the keys that apply now.
+func (m *Model) Status() widget.Status {
 	hints := []string{keyDown.Hint()}
 	if m.focusTarget == FocusChatList {
 		hints = []string{keyOpen.Hint(), keyDelete.Hint(), keyMenuFavorite.Hint(), keyBack.Hint()}
 	}
-	hints = append(hints, keyToggleAgents.Hint(), keyRefresh.Hint())
-	// Drop trailing hints rather than wrap.
-	for len(hints) > 1 && lipgloss.Width(styles.Hints(hints...)) > m.width-2 {
-		hints = hints[:len(hints)-1]
-	}
-	return " " + styles.Hints(hints...)
+	return widget.Status{Hints: append(hints, keyToggleAgents.Hint(), keyRefresh.Hint())}
 }
 
 // renderList materializes only the visible window of the virtualized list —
@@ -228,7 +227,7 @@ func (m *Model) renderDetail() string {
 	lines = append(lines, indent.Render(styles.SubtleStyle.Render(strings.Repeat("─", textWidth))), "")
 
 	messages, loaded := m.messagesCache[chat.GetName()]
-	items := timeline.BuildChatItems(messages, nil)
+	items := timeline.BuildChatItems(messages, m.registry)
 	switch {
 	case !loaded:
 		lines = append(lines, indent.Render(styles.MutedStyle.Render("Loading conversation"+styles.GlyphEllipsis)))

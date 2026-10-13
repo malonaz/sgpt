@@ -90,12 +90,6 @@ type helpUnit struct {
 	section string
 }
 
-// RenderHelp renders the first page of the help modal.
-func RenderHelp(maps []Map, width, height int) string {
-	view, _ := RenderHelpPage(maps, width, height, 0)
-	return view
-}
-
 // RenderHelpPage renders a centered help modal that fits width×height:
 // sections flow into side-by-side columns, and whatever still doesn't fit
 // spills onto further pages. It returns the page count.

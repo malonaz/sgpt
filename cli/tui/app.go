@@ -16,7 +16,6 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
-	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/history"
@@ -87,16 +86,17 @@ type tab struct {
 }
 
 var (
-	keyQuit           = keymap.New("ctrl+c", "Quit when pressed twice (asks first; cancels a turn or clears the input before)")
-	keyNewTab         = keymap.New("ctrl+t", "New chat tab")
-	keyCloseTab       = keymap.New("ctrl+w", "Close tab (asks first if it is still working)")
-	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close every idle sub-agent tab")
-	keyConfirm        = key.NewBinding(key.WithKeys("y", "enter"))
+	keyQuit           = keymap.New("ctrl+c", "Quit (press twice)")
+	keyNewTab         = keymap.New("ctrl+t", "New tab")
+	keyCloseTab       = keymap.New("ctrl+w", "Close tab")
+	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close idle sub-agent tabs")
+	keyHelpPageUp     = key.NewBinding(key.WithKeys("pgup"))
+	keyHelpPageDown   = key.NewBinding(key.WithKeys("pgdown"))
 	keyPrevTab        = keymap.New("alt+j", "Previous tab")
 	keyNextTab        = keymap.New("alt+;", "Next tab")
 	keyOpenMenu       = keymap.New("alt+m", "Open menu")
 	keyCopyName       = keymap.New("alt+c", "Copy chat name")
-	keyHelp           = keymap.New("alt+h", "Toggle this help")
+	keyHelp           = keymap.New("alt+h", "Toggle help")
 	keyTab1           = key.NewBinding(key.WithKeys("alt+f1"))
 	keyTab2           = key.NewBinding(key.WithKeys("alt+f2"))
 	keyTab3           = key.NewBinding(key.WithKeys("alt+f3"))
@@ -137,6 +137,7 @@ type App struct {
 	alertQueue   []screen.AlertMsg
 	alertVisible bool
 	helpVisible  bool
+	helpPage     int
 	// quitArmedAt is when an idle ctrl+c asked for a second one.
 	quitArmedAt time.Time
 	// confirm, when non-nil, is a modal awaiting y/enter; any other key
@@ -161,7 +162,7 @@ func NewApp(
 	}
 	app.chatEnv = &screen.ChatEnv{Agents: app.agents, History: history.Open()}
 
-	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
+	menuScreen := menuscreen.New(ctx, chatStore, registry, app.makeWrap(menuTabID))
 
 	tabID := app.tabIDForChat(chatSession.Chat())
 	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, app.chatEnv)
@@ -290,18 +291,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Modals swallow every key: y/enter confirms, anything else cancels.
 		if confirm := a.confirm; confirm != nil {
 			a.confirm = nil
-			if key.Matches(msg, keyConfirm) {
+			if key.Matches(msg, widget.KeyConfirm.Key) {
 				return a, confirm.action()
 			}
 			return a, nil
 		}
-		// alt+h opens help, anything closes it.
+		// alt+h opens help; pgup/pgdn page it and any other key closes it.
 		if a.helpVisible {
-			a.helpVisible = false
+			switch {
+			case key.Matches(msg, keyHelpPageUp):
+				a.helpPage = max(0, a.helpPage-1)
+			case key.Matches(msg, keyHelpPageDown):
+				_, pages := keymap.RenderHelpPage(a.keymaps(), a.width, a.height, 0)
+				a.helpPage = min(a.helpPage+1, pages-1)
+			default:
+				a.helpVisible = false
+			}
 			return a, nil
 		}
 		if key.Matches(msg, keyHelp.Key) {
-			a.helpVisible = true
+			a.helpVisible, a.helpPage = true, 0
 			return a, nil
 		}
 		if cmd := a.handleGlobalKey(msg); cmd != nil {
@@ -353,7 +362,8 @@ func (a *App) modalView() string {
 	case a.confirm != nil:
 		return widget.RenderConfirm(a.confirm.title, a.confirm.body, a.width, a.height)
 	case a.helpVisible:
-		return keymap.RenderHelp(a.keymaps(), a.width, a.height)
+		view, _ := keymap.RenderHelpPage(a.keymaps(), a.width, a.height, a.helpPage)
+		return view
 	}
 	return ""
 }
@@ -760,7 +770,7 @@ func (a *App) renderStatusBar() string {
 	if reporter, ok := a.tabs[a.activeTab].screen.(screen.StatusReporter); ok {
 		status = reporter.Status()
 	}
-	status.Hints = append(status.Hints, styles.Hint(strings.Join(keyHelp.Key.Keys(), " / "), "help"))
+	status.Hints = append(status.Hints, keyHelp.WithShort("help").Hint())
 	var toast *widget.Toast
 	if a.alertVisible && len(a.alertQueue) > 0 {
 		alert := a.alertQueue[0]

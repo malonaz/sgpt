@@ -18,12 +18,12 @@ var (
 	keyPageDown     = keymap.New("pgdown", "Page down").WithShort("page down")
 	keyOpen         = keymap.New("enter", "Open chat").WithShort("open")
 	keyBack         = keymap.New("esc", "Back to search").WithShort("search")
-	keyDelete       = keymap.New("alt+d", "Delete chat (asks first)").WithShort("delete")
+	keyDelete       = keymap.New("alt+d", "Delete chat").WithShort("delete")
 	keyRefresh      = keymap.New("alt+r", "Refresh").WithShort("refresh")
 	keyToTop        = keymap.New("alt+<", "Jump to search").WithShort("search")
 	keyToBottom     = keymap.New("alt+>", "Jump to last chat").WithShort("last")
 	keyMenuFavorite = keymap.New("alt+shift+f", "Toggle favorite").WithShort("favorite")
-	keyToggleAgents = keymap.New("alt+s", "Show/hide sub-agent chats").WithShort("sub-agents")
+	keyToggleAgents = keymap.New("alt+s", "Show or hide sub-agents").WithShort("sub-agents")
 )
 
 func (m *Model) Keymaps() []keymap.Map {

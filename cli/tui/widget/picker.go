@@ -25,9 +25,9 @@ var (
 	pickerKeyUp     = keymap.Binding{Key: key.NewBinding(key.WithKeys("ctrl+p", "up")), Help: "Move up", Short: "up"}
 	pickerKeyDown   = keymap.Binding{Key: key.NewBinding(key.WithKeys("ctrl+n", "down")), Help: "Move down", Short: "down"}
 	pickerKeyToggle = keymap.Binding{Key: key.NewBinding(key.WithKeys("space")), Help: "Toggle", Short: "toggle"}
-	pickerKeyAll    = keymap.New("ctrl+a", "Select every visible item").WithShort("all")
+	pickerKeyAll    = keymap.New("ctrl+a", "Select all visible").WithShort("all")
 	// ctrl+x: free in the filter field, and "cut" reads as clear.
-	pickerKeyClear  = keymap.New("ctrl+x", "Clear the selection").WithShort("none")
+	pickerKeyClear  = keymap.New("ctrl+x", "Clear selection").WithShort("none")
 	pickerKeyApply  = keymap.Binding{Key: key.NewBinding(key.WithKeys("enter", "ctrl+j")), Help: "Apply", Short: "apply"}
 	pickerKeyCancel = keymap.Binding{Key: key.NewBinding(key.WithKeys("esc", "ctrl+c")), Help: "Cancel", Short: "cancel"}
 
