@@ -5,6 +5,7 @@ go_binary(
         "main.go",
         "runtime.go",
         "scenes.go",
+        "scenes_menu.go",
     ],
     deps = [
         "//cli/tui",

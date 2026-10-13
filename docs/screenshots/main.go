@@ -40,7 +40,10 @@ type scene struct {
 	name      string
 	title     string
 	responses [][]*aipb.Block
-	drive     func(r *runtime, s *session.Session)
+	// chats and messages seed the server's history (the Chats tab).
+	chats    []*aipb.Chat
+	messages map[string][]*aipb.Message
+	drive    func(r *runtime, s *session.Session)
 }
 
 // registered holds every scene; each scenes_*.go file registers its own from
@@ -104,7 +107,7 @@ func render(sc scene, width, height int) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client, closeServer, err := startServer(&fakeAiService{responses: sc.responses, title: sc.title})
+	client, closeServer, err := startServer(&fakeAiService{responses: sc.responses, title: sc.title, chats: sc.chats, messages: sc.messages})
 	if err != nil {
 		return "", err
 	}
