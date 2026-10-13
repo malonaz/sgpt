@@ -744,7 +744,7 @@ func focusAgent(target tool.Agent, title string) tea.Cmd {
 	return func() tea.Msg { return FocusAgentMsg{Agent: target, Title: title} }
 }
 
-// agentTitle names an agent's chat, untitled until its first exchange.
+// agentTitle names a launcher; only a top-level chat can still be untitled.
 func agentTitle(target tool.Agent) string {
 	if title := target.Chat().GetTitle(); title != "" {
 		return title
