@@ -294,7 +294,7 @@ func NewCmd(
 
 			chatSession := session.New(ctx, chatStore, registry, chat, messages, params)
 			app := tui.NewApp(ctx, chatStore, registry, chatSession, params)
-			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, error) {
+			app.SetAgentSessionFactory(func(launchCtx context.Context, request *agent.LaunchRequest) (*session.Session, error) {
 				// Everything a sub-agent gets comes from its launcher —
 				// model, tools, policy, review queue — narrowed by the
 				// request.
@@ -302,7 +302,7 @@ func NewCmd(
 				model := caller.Model
 				if request.Model != "" {
 					var err error
-					model, err = chatStore.ResolveModel(ctx, request.Model)
+					model, err = chatStore.ResolveModel(launchCtx, request.Model)
 					if err != nil {
 						return nil, err
 					}
@@ -341,6 +341,8 @@ func NewCmd(
 					Depth:              caller.Depth + 1,
 					Reviews:            caller.Reviews,
 				}
+				// The app's context, not the launch's: the tab outlives the
+				// launcher's turn, which only scopes the first turn.
 				return session.New(ctx, chatStore, registry, subChat, nil, subParams), nil
 			})
 			agentTool.SetLauncher(app)

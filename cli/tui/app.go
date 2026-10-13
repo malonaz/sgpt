@@ -166,8 +166,10 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (*a
 	a.program.Send(openTabMsg{id: tabID, screen: chatScreen, background: true})
 
 	// SendMessage blocks for the whole turn; run it off this goroutine so we
-	// can honor ctx cancellation while waiting.
-	go chatSession.SendMessage(request.Query)
+	// can honor ctx cancellation while waiting. ctx scopes the turn: when the
+	// launcher gives up, the sub-agent stops rather than burn tokens nobody
+	// will read.
+	go chatSession.SendMessageContext(ctx, request.Query)
 
 	select {
 	case result := <-resultCh:
@@ -176,9 +178,6 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (*a
 		}
 		return &agent.LaunchResult{Chat: chatSession.Chat().GetName(), Response: result.text}, nil
 	case <-ctx.Done():
-		// The launcher gave up (turn cancelled): stop the sub-agent too
-		// rather than leave it burning tokens nobody will read.
-		chatSession.CancelTurn()
 		return nil, ctx.Err()
 	}
 }
@@ -402,6 +401,11 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 		return tea.Quit
 	}
 	a.tabs[removeIndex].screen.OnBlur()
+	// The tab is the only handle on its turn: left running it would stream
+	// on unseen, or park forever on a review nobody can answer.
+	if chatScreen, ok := a.tabs[removeIndex].screen.(*screen.ChatScreen); ok {
+		chatScreen.Session().CancelTurn()
+	}
 	a.tabs = append(a.tabs[:removeIndex], a.tabs[removeIndex+1:]...)
 	if a.activeTab >= len(a.tabs) {
 		a.activeTab = len(a.tabs) - 1

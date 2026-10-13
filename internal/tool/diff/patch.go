@@ -172,8 +172,9 @@ type FileDiff struct {
 	Create bool
 	// Delete is set by a '+++ /dev/null' header; hunks are ignored.
 	Delete bool
-	// NewPath is the '+++' header path; a value different from the edited
-	// file's path means the file is renamed.
+	// OldPath and NewPath are the '---' and '+++' header paths; differing
+	// ones mean the file is renamed.
+	OldPath string
 	NewPath string
 	Patches []Patch
 }
@@ -183,7 +184,7 @@ type FileDiff struct {
 // entirely — models miscount them constantly — so each hunk is anchored
 // purely by its context and removed lines. File headers encode the
 // operation: '--- /dev/null' creates, '+++ /dev/null' deletes, and a '+++'
-// path that differs from the edited file's path renames.
+// path that differs from the '---' one renames.
 func ParseUnifiedDiff(diff string) (*FileDiff, error) {
 	fileDiff := &FileDiff{}
 	var search, replace []string
@@ -217,8 +218,10 @@ func ParseUnifiedDiff(diff string) (*FileDiff, error) {
 			}
 			inHunk = true
 		case !inHunk && strings.HasPrefix(line, "--- "):
-			if strings.TrimSpace(line[4:]) == devNull {
+			if source := strings.TrimSpace(line[4:]); source == devNull {
 				fileDiff.Create = true
+			} else {
+				fileDiff.OldPath = stripDiffPathPrefix(source)
 			}
 		case !inHunk && strings.HasPrefix(line, "+++ "):
 			if target := strings.TrimSpace(line[4:]); target == devNull {

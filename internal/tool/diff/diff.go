@@ -166,12 +166,18 @@ func (t *Tool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolRe
 }
 
 // renameTarget resolves the destination path: the '+++' header path when it
-// differs from the request path, otherwise the request path itself.
+// differs from the '---' one (or, lacking that header, from the request
+// path), otherwise the request path itself. Headers spelling the edited file
+// differently from the request — relative to an absolute path — are no rename.
 func renameTarget(path string, fileDiff *FileDiff) string {
-	if fileDiff.NewPath != "" && fileDiff.NewPath != path {
-		return fileDiff.NewPath
+	source := fileDiff.OldPath
+	if source == "" {
+		source = path
 	}
-	return path
+	if fileDiff.NewPath == "" || filepath.Clean(fileDiff.NewPath) == filepath.Clean(source) {
+		return path
+	}
+	return fileDiff.NewPath
 }
 
 // isCreate reports whether the diff should be applied as a file creation.

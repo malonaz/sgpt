@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
@@ -52,12 +53,15 @@ func (t *ReadFilesTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*ai
 	files := make([]*sgptpb.ReadFilesResponse_File, 0, len(readFilesRequest.GetPaths()))
 	for _, path := range readFilesRequest.GetPaths() {
 		file := &sgptpb.ReadFilesResponse_File{Path: path}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			// Per-file errors are part of the result so one bad path doesn't
-			// sink the whole read.
+		// Per-file errors are part of the result so one bad path doesn't
+		// sink the whole read.
+		switch content, err := os.ReadFile(path); {
+		case err != nil:
 			file.Error = err.Error()
-		} else {
+		case !utf8.Valid(content):
+			// Proto strings must be UTF-8: one binary file would fail the batch.
+			file.Error = "not a UTF-8 text file"
+		default:
 			file.Content = string(content)
 		}
 		files = append(files, file)

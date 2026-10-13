@@ -56,16 +56,19 @@ func (t *turn) stream(inputMessages []*aipb.Message) (*aipb.Message, error) {
 	accumulator := ai.NewMessageAccumulator()
 	resolvedToolCallCount := 0
 
+	// Once the persisted message arrives the server has committed the
+	// generation and its inputs: a later cancel or transport error only lost
+	// the trailing EOF, and failing the turn would re-send stored inputs.
+	committed := func() bool { return accumulator.Message.GetName() != "" }
+
 	for {
-		select {
-		case <-t.ctx.Done():
-			s.finalizeStream(accumulator.Message, t.ctx.Err())
-			return nil, fmt.Errorf("stream cancelled: %w", t.ctx.Err())
-		default:
+		if err := t.ctx.Err(); err != nil && !committed() {
+			s.finalizeStream(accumulator.Message, err)
+			return nil, fmt.Errorf("stream cancelled: %w", err)
 		}
 
 		response, err := stream.Recv()
-		if err == io.EOF {
+		if err == io.EOF || (err != nil && committed()) {
 			generatedMessage := accumulator.Message
 			s.finalizeStream(generatedMessage, nil)
 			return generatedMessage, nil

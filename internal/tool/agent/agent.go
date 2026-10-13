@@ -55,8 +55,10 @@ type Launcher interface {
 // session, so the concurrency cap is TUI-wide.
 type Tool struct {
 	maxDepth int
-	// slots bounds the sub-agents running at once; a batch beyond it queues.
-	slots chan struct{}
+	// slots bounds the sub-agents running at once per nesting level; a batch
+	// beyond it queues. Per level, since a sub-agent's own launches waiting on
+	// slots its ancestors hold would deadlock.
+	slots []chan struct{}
 
 	mu       sync.Mutex
 	launcher Launcher
@@ -72,7 +74,11 @@ func NewTool(configuration *sgptpb.AgentConfiguration) *Tool {
 	if maxDepth <= 0 {
 		maxDepth = defaultMaxDepth
 	}
-	return &Tool{maxDepth: maxDepth, slots: make(chan struct{}, maxConcurrent)}
+	slots := make([]chan struct{}, maxDepth)
+	for i := range slots {
+		slots[i] = make(chan struct{}, maxConcurrent)
+	}
+	return &Tool{maxDepth: maxDepth, slots: slots}
 }
 
 func (t *Tool) SetLauncher(launcher Launcher) {
@@ -224,9 +230,10 @@ func (t *Tool) launchRequest(agentRequest *sgptpb.AgentRequest, task *sgptpb.Age
 
 // launch waits for a slot, then runs the sub-agent to completion.
 func (t *Tool) launch(ctx context.Context, launcher Launcher, request *LaunchRequest) (*LaunchResult, error) {
+	slots := t.slots[request.Caller.Depth]
 	select {
-	case t.slots <- struct{}{}:
-		defer func() { <-t.slots }()
+	case slots <- struct{}{}:
+		defer func() { <-slots }()
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"github.com/malonaz/core/go/uuid"
+	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
@@ -80,6 +81,8 @@ func newResourceID() string {
 
 // CreateChat persists a new chat.
 func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, error) {
+	// Never mutate the caller's chat: other goroutines may be reading it.
+	chat = proto.CloneOf(chat)
 	if _, ok := aip.GetLabel(chat, sgptpb.Labels.Category.GetKey()); !ok {
 		SetCategory(chat, sgptpb.Labels.Category.Chat)
 	}
@@ -102,6 +105,7 @@ func (s *Store) CreateChat(ctx context.Context, chat *aipb.Chat) (*aipb.Chat, er
 func (s *Store) UpdateChat(ctx context.Context, chat *aipb.Chat, paths ...string) (*aipb.Chat, error) {
 	// The server bumps the chat during generation (price, update_time), so a
 	// local etag is always stale; masked writes bound last-write-wins anyway.
+	chat = proto.CloneOf(chat)
 	chat.Etag = ""
 	updateChatRequest := &aiservicepb.UpdateChatRequest{
 		Chat:       chat,
@@ -174,6 +178,7 @@ func (s *Store) LatestChat(ctx context.Context) (*aipb.Chat, error) {
 
 // SetFavorite sets or clears the favorite label on a chat and persists it.
 func (s *Store) SetFavorite(ctx context.Context, chat *aipb.Chat, favorite bool) (*aipb.Chat, error) {
+	chat = proto.CloneOf(chat)
 	SetFavoriteLabel(chat, favorite)
 	return s.UpdateChat(ctx, chat, "labels")
 }

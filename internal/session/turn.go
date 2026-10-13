@@ -22,14 +22,24 @@ type turn struct {
 	// executions, review waits — so one cancel aborts it wherever it is.
 	ctx    context.Context
 	cancel context.CancelFunc
+	// inputs are the user messages the turn was started for.
+	inputs []*aipb.Message
 	// attachments are tool.Attach'd blocks awaiting the next tool message;
 	// unlocked since tools only run on the turn goroutine.
 	attachments []*aipb.Block
 }
 
-func newTurn(s *Session) *turn {
+// newTurn arms a turn that scope can also cancel — from the moment it is
+// armed, a window CancelTurn cannot reach from another goroutine.
+func newTurn(s *Session, scope context.Context) *turn {
 	t := &turn{session: s}
-	t.ctx, t.cancel = context.WithCancel(tool.WithAttach(s.ctx, t.attach))
+	ctx, cancel := context.WithCancel(tool.WithAttach(s.ctx, t.attach))
+	stop := context.AfterFunc(scope, cancel)
+	t.ctx = ctx
+	t.cancel = func() {
+		stop()
+		cancel()
+	}
 	return t
 }
 
@@ -41,7 +51,8 @@ func (t *turn) attach(blocks ...*aipb.Block) {
 // Chat state is flushed after every generation (before tool review can park
 // the turn) and once more on exit, so a turn never leaves unpersisted chat
 // state behind and the server's usage/price rollup is adopted promptly.
-func (t *turn) run() {
+// Returns the error that ended the turn, nil on a final answer.
+func (t *turn) run() error {
 	s := t.session
 	defer s.flushChat()
 	for {
@@ -59,7 +70,7 @@ func (t *turn) run() {
 			s.requeueInputMessages(inputMessages)
 			s.refresh()
 			s.notifyTurnComplete("", err)
-			return
+			return err
 		}
 
 		var toolCalls []*aipb.ToolCall
@@ -76,7 +87,7 @@ func (t *turn) run() {
 			s.maybeGenerateTitle()
 			s.refresh()
 			s.notifyTurnComplete(s.lastAssistantText(), nil)
-			return
+			return nil
 		}
 
 		t.executeToolCalls(generatedMessage, toolCalls)
@@ -84,10 +95,10 @@ func (t *turn) run() {
 		// Cancelled mid-review or mid-execution: the remaining calls were
 		// resolved as cancelled and their results queued for the next turn —
 		// end this one cleanly instead of streaming on a dead context.
-		if t.ctx.Err() != nil {
+		if err := t.ctx.Err(); err != nil {
 			s.refresh()
-			s.notifyTurnComplete("", t.ctx.Err())
-			return
+			s.notifyTurnComplete("", err)
+			return err
 		}
 	}
 }

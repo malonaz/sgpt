@@ -10,6 +10,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/file"
@@ -85,8 +87,13 @@ type Session struct {
 	store    *store.Store
 	registry *tool.Registry
 
-	mu   sync.Mutex
+	mu sync.Mutex
+	// chat is replaced, never mutated in place: callers read the snapshots
+	// Chat returns without the lock.
 	chat *aipb.Chat
+	// chatRevision counts local chat edits, so a write never adopts a
+	// response that predates one.
+	chatRevision uint64
 	// messages is the local mirror of the chat's server-side message
 	// history, oldest first. Input messages appended locally may lack a
 	// resource name (the server persists them without echoing them back).
@@ -964,68 +971,93 @@ func (s *Session) UserMessageText(messageName string) string {
 }
 
 func (s *Session) SendMessage(text string) {
-	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
+	s.SendMessageContext(context.Background(), text)
+}
 
+// SendMessageContext is SendMessage with ctx also scoping the turn it starts,
+// for a launcher awaiting the answer; an interjection ignores it.
+func (s *Session) SendMessageContext(ctx context.Context, text string) {
 	// The queue-or-start decision and the turn arming share one lock
 	// acquisition, so an interjection can never race a turn start.
 	s.mu.Lock()
+	// While a turn is in flight this is an interjection: queued — and
+	// rendered as queued — until the turn's next generation consumes it, after
+	// any tool results so the history stays valid.
+	s.queuedMessages = append(s.queuedMessages, ai.NewUserMessage(ai.NewTextBlock(text)))
 	if s.currentTurn != nil {
-		// A turn is in flight: interject. The message is queued — and
-		// rendered as queued — until the turn's next generation consumes it;
-		// it goes after any tool results so the history stays valid.
-		s.queuedMessages = append(s.queuedMessages, userMessage)
 		s.mu.Unlock()
 		s.refresh()
 		return
 	}
-	currentTurn := newTurn(s)
-	s.currentTurn = currentTurn
-	// Optimistic render: the user's message must appear immediately. The
-	// context RPCs below (system prompt, injected files) are a network round
-	// trip that would otherwise leave the timeline empty.
-	s.streamError = nil
-	s.messages = append(s.messages, userMessage)
-	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
+	nextTurn := s.startTurnLocked(ctx)
 	s.mu.Unlock()
-	defer s.endTurn(currentTurn)
-	s.refresh()
-
-	if err := s.ensureContext(); err != nil {
-		// The turn never ran: drop the optimistic message from the queue so a
-		// retry doesn't send it twice.
-		s.rollbackPendingInput(userMessage)
-		s.emitError(err)
-		s.notifyTurnComplete("", err)
-		return
+	for nextTurn != nil {
+		nextTurn = s.runTurn(nextTurn)
 	}
-
-	s.refresh()
-	currentTurn.run()
 }
 
-// rollbackPendingInput removes an optimistically appended message after the
-// turn failed before reaching the model.
-func (s *Session) rollbackPendingInput(message *aipb.Message) {
+// startTurnLocked arms a turn for the queued messages; interjections a
+// cancelled turn left behind keep their place ahead of the newer message.
+// Caller holds the lock.
+func (s *Session) startTurnLocked(scope context.Context) *turn {
+	t := newTurn(s, scope)
+	t.inputs = s.queuedMessages
+	s.queuedMessages = nil
+	s.currentTurn = t
+	// Optimistic render: the user's message must appear immediately. The
+	// context RPCs (system prompt, injected files) are a network round trip
+	// that would otherwise leave the timeline empty.
+	s.streamError = nil
+	s.messages = append(s.messages, t.inputs...)
+	s.pendingInputMessages = append(s.pendingInputMessages, t.inputs...)
+	return t
+}
+
+// runTurn runs an armed turn to its end and returns the turn that follows
+// it, if any.
+func (s *Session) runTurn(t *turn) *turn {
+	s.refresh()
+	err := s.ensureContext()
+	if err != nil {
+		s.unsendInputs(t)
+		s.emitError(err)
+		s.notifyTurnComplete("", err)
+	} else {
+		s.refresh()
+		err = t.run()
+	}
+	return s.endTurn(t, err == nil)
+}
+
+// unsendInputs returns the inputs of a turn that never reached the model to
+// the queue, ahead of anything typed since: shown as sent they would be a lie,
+// and dropped the user's words would be lost.
+func (s *Session) unsendInputs(t *turn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for i, pendingMessage := range s.pendingInputMessages {
-		if pendingMessage == message {
-			s.pendingInputMessages = append(s.pendingInputMessages[:i], s.pendingInputMessages[i+1:]...)
-			break
-		}
-	}
+	isInput := func(message *aipb.Message) bool { return slices.Contains(t.inputs, message) }
+	s.messages = slices.DeleteFunc(s.messages, isInput)
+	s.pendingInputMessages = slices.DeleteFunc(s.pendingInputMessages, isInput)
+	s.queuedMessages = slices.Concat(t.inputs, s.queuedMessages)
 }
 
 // endTurn releases the turn; the session is idle again and the next
-// SendMessage starts fresh.
-func (s *Session) endTurn(t *turn) {
+// SendMessage starts fresh. A completed turn hands over to a new one when
+// interjections are still queued: they arrived after its last generation,
+// and nothing else would ever send them.
+func (s *Session) endTurn(t *turn, completed bool) *turn {
+	var nextTurn *turn
 	s.mu.Lock()
 	if s.currentTurn == t {
 		s.currentTurn = nil
+		if completed && len(s.queuedMessages) > 0 {
+			nextTurn = s.startTurnLocked(context.Background())
+		}
 	}
 	s.mu.Unlock()
 	t.cancel()
 	s.refresh()
+	return nextTurn
 }
 
 // turnContext returns the running turn's context, falling back to the
@@ -1118,23 +1150,42 @@ func (s *Session) saveChat() error {
 // locally-owned field (title included). The server returns the full payload,
 // adopted as the new local chat — no cloning, no local re-patching.
 func (s *Session) updateChat() error {
-	s.mu.Lock()
-	chat := s.chat
-	s.mu.Unlock()
+	for {
+		s.mu.Lock()
+		chat, revision := s.chat, s.chatRevision
+		s.mu.Unlock()
 
-	// Not yet persisted (lazy creation): local mutations are carried by the
-	// eventual CreateChat on the first send.
-	if chat.GetName() == "" {
-		return nil
+		// Not yet persisted (lazy creation): local mutations are carried by the
+		// eventual CreateChat on the first send.
+		if chat.GetName() == "" {
+			return nil
+		}
+		updatedChat, err := s.store.UpdateChat(s.ctx, chat, "annotations", "labels", "title")
+		if err != nil {
+			return err
+		}
+		s.mu.Lock()
+		edited := s.chatRevision != revision
+		if !edited {
+			s.chat = updatedChat
+		}
+		s.mu.Unlock()
+		// An edit landed mid-write: adopting the response would revert it, and
+		// it still has to be persisted.
+		if !edited {
+			return nil
+		}
 	}
-	updatedChat, err := s.store.UpdateChat(s.ctx, chat, "annotations", "labels", "title")
-	if err != nil {
-		return err
-	}
+}
+
+// editChat applies a local edit to a copy of the chat.
+func (s *Session) editChat(edit func(chat *aipb.Chat)) {
 	s.mu.Lock()
-	s.chat = updatedChat
-	s.mu.Unlock()
-	return nil
+	defer s.mu.Unlock()
+	chat := proto.CloneOf(s.chat)
+	edit(chat)
+	s.chat = chat
+	s.chatRevision++
 }
 
 // flushChat is the end-of-turn chat write; errors surface as alerts.
@@ -1182,10 +1233,10 @@ func (s *Session) maybeGenerateTitle() {
 		s.mu.Lock()
 		s.titleGenerating = false
 		discard := err != nil || title == "" || s.chat.GetTitle() != ""
-		if !discard {
-			s.chat.Title = title
-		}
 		s.mu.Unlock()
+		if !discard {
+			s.editChat(func(chat *aipb.Chat) { chat.Title = title })
+		}
 		if err != nil {
 			s.emitError(fmt.Errorf("generating title: %w", err))
 		}
@@ -1205,10 +1256,11 @@ func (s *Session) maybeGenerateTitle() {
 // ToggleFavorite flips the favorite tag on the chat and persists.
 // Returns true if the chat is now a favorite.
 func (s *Session) ToggleFavorite() bool {
-	s.mu.Lock()
-	favorite := !store.IsFavorite(s.chat)
-	store.SetFavoriteLabel(s.chat, favorite)
-	s.mu.Unlock()
+	var favorite bool
+	s.editChat(func(chat *aipb.Chat) {
+		favorite = !store.IsFavorite(chat)
+		store.SetFavoriteLabel(chat, favorite)
+	})
 
 	if err := s.saveChat(); err != nil {
 		s.emitError(fmt.Errorf("saving favorite: %w", err))
