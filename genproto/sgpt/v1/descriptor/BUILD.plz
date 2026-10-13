@@ -1,5 +1,7 @@
 go_library(
     name = "descriptor",
     srcs = ["descriptor_set.go"],
+    # Feeds the //go:embed directive.
+    resources = ["descriptor_set.bin"],
     visibility = ["//..."],
 )
