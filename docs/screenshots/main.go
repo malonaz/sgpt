@@ -23,12 +23,15 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/lore"
+	"github.com/malonaz/sgpt/internal/repo"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 	"github.com/malonaz/sgpt/internal/tool/agent"
 	"github.com/malonaz/sgpt/internal/tool/diff"
 	toolio "github.com/malonaz/sgpt/internal/tool/io"
+	"github.com/malonaz/sgpt/internal/tool/lores"
 	"github.com/malonaz/sgpt/internal/tool/shell"
 )
 
@@ -121,8 +124,12 @@ func render(sc scene, width, height int) (string, error) {
 	registry := tool.NewRegistry()
 	registry.Register(tool.HandlerIDShell, &shell.Tool{})
 	registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
+	registry.Register(tool.HandlerIDReadImage, &toolio.ReadImageTool{})
+	registry.Register(tool.HandlerIDReadDocument, &toolio.ReadDocumentTool{})
 	registry.Register(tool.HandlerIDDiff, &diff.Tool{})
 	registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
+	// The fixtures are the repo: search_lores searches their (empty) library.
+	registry.Register(tool.HandlerIDSearchLores, &lores.Tool{Index: lore.NewIndex(".", &repo.Imports{})})
 	for handlerID, agentTool := range agent.NewManager(nil).Tools() {
 		registry.Register(handlerID, agentTool)
 	}
@@ -130,7 +137,7 @@ func render(sc scene, width, height int) (string, error) {
 		builtinTools, _ := tool.Builtin(name)
 		registry.AddTools(builtinTools...)
 	}
-	toolNames := []string{"read_files", "exec_shell", "diff"}
+	toolNames := []string{"read_files", "exec_shell", "diff", "replace", "search_lores", "create_agents"}
 
 	chat := &aipb.Chat{}
 	store.SetCurrentModel(chat, model)

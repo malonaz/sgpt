@@ -6,10 +6,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 const chatsParent = "organizations/acme/users/ada/chats/"
@@ -61,13 +63,31 @@ func seedChats() []*aipb.Chat {
 	return chats
 }
 
+// persistedToolCall is a call as the server stores it: annotated with the
+// handler that resolves it to a registered tool.
+func persistedToolCall(id, name, handlerID string, arguments map[string]any) *aipb.Block {
+	block := toolCall(id, name, arguments)
+	block.GetToolCall().Annotations = map[string]string{tool.ToolHandlerIDAnnotation: handlerID}
+	return block
+}
+
+// readFilesResult is read_files' structured result for one file.
+func readFilesResult(path, content string) *structpb.Value {
+	value, err := structpb.NewValue(map[string]any{"files": []any{map[string]any{"path": path, "content": content}}})
+	if err != nil {
+		panic(err)
+	}
+	return value
+}
+
 // seedMessages gives the newest chat a short conversation to preview.
 func seedMessages() map[string][]*aipb.Message {
 	return map[string][]*aipb.Message{
 		chatsParent + "a1f04c2e": {
 			ai.NewUserMessage(text("rename pendingReview to awaitingVerdict")),
-			ai.NewAssistantMessage(text("Reading the review state first.\n"), toolCall("call_1", "read_files", map[string]any{"paths": []any{"internal/session/review.go"}})),
-			ai.NewToolMessage(ai.NewToolResultBlock(ai.NewToolResult("read_files", "call_1", "package session\n\ntype pendingReview struct {\n\tverdict chan verdict\n}\n"))),
+			ai.NewAssistantMessage(text("Reading the review state first.\n"), persistedToolCall("call_1", "read_files", tool.HandlerIDReadFiles, map[string]any{"paths": []any{"internal/session/review.go"}})),
+			ai.NewToolMessage(ai.NewToolResultBlock(ai.NewStructuredToolResult("read_files", "call_1", readFilesResult(
+				"internal/session/review.go", "package session\n\ntype pendingReview struct {\n\tverdict chan verdict\n}\n")))),
 			ai.NewAssistantMessage(text("Renamed the type and the map that holds it; the accessor methods keep their names.\n\n" +
 				"| File | Change |\n|---|---|\n| `internal/session/review.go` | type and map renamed |\n| `internal/session/session.go` | field renamed |\n")),
 		},

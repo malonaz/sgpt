@@ -29,7 +29,8 @@ func selectUp(r *runtime, focus bool, up int) {
 }
 
 // agenticTurn is a realistic multi-step turn: a folded run of five
-// investigations, a sentence, then a tight run of three edits and checks.
+// investigations, a sentence, then a tight run of three edits and checks,
+// one of which fails.
 func agenticTurn(edit *aipb.Block) [][]*aipb.Block {
 	return [][]*aipb.Block{
 		{
@@ -41,7 +42,7 @@ func agenticTurn(edit *aipb.Block) [][]*aipb.Block {
 			thought("Two places reference the map. Check nothing else does."),
 			toolCall("call_3", "exec_shell", map[string]any{"command": "grep -rn pendingReview internal/"}),
 			toolCall("call_4", "exec_shell", map[string]any{"command": "wc -l internal/session/review.go"}),
-			toolCall("call_5", "read_files", map[string]any{"paths": []any{"internal/session/verdict.go"}}),
+			toolCall("call_5", "exec_shell", map[string]any{"command": "grep -rln awaitVerdict internal/"}),
 		},
 		{
 			text("Only `review.go` references the type and its map, so the rename stays local.\n"),
