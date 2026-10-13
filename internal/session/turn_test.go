@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -97,6 +98,39 @@ func TestRequeuedInputsAreSentOnce(t *testing.T) {
 		t.Fatalf("requests = %q, want %q", got, want)
 	}
 	if got, want := userTexts(s), []string{"first", "interjection", "second"}; !slices.Equal(got, want) {
+		t.Fatalf("history = %q, want %q", got, want)
+	}
+}
+
+// A turn that dies before reaching the model must not leave the message
+// rendered as sent: it returns to the queue and goes out with the next send.
+func TestContextFailureKeepsMessageUnsent(t *testing.T) {
+	fake := newFakeAI()
+	fake.createChatErr = errors.New("unavailable")
+	fake.generate = func(n int, stream *fakeStream) { reply("answer")(stream) }
+	s := newTestSession(t, fake)
+	var turnErr error
+	s.SetOnTurnComplete(func(_ string, err error) { turnErr = err })
+
+	s.SendMessage("lost")
+
+	if turnErr == nil {
+		t.Fatal("turn reported success despite the context failure")
+	}
+	if got := userTexts(s); len(got) != 0 {
+		t.Fatalf("history = %q, want the unsent message out of it", got)
+	}
+	if got := messageTexts(s.QueuedMessages()); !slices.Equal(got, []string{"lost"}) {
+		t.Fatalf("queued = %q, want [lost]", got)
+	}
+
+	s.SendMessage("again")
+
+	want := []string{"lost", "again"}
+	if got := fake.requestTexts()[0]; !slices.Equal(got, want) {
+		t.Fatalf("request = %q, want %q", got, want)
+	}
+	if got := userTexts(s); !slices.Equal(got, want) {
 		t.Fatalf("history = %q, want %q", got, want)
 	}
 }

@@ -1007,9 +1007,7 @@ func (s *Session) runTurn(t *turn) *turn {
 	s.refresh()
 	err := s.ensureContext()
 	if err != nil {
-		// The turn never ran: drop the optimistic message from the queue so a
-		// retry doesn't send it twice.
-		s.rollbackPendingInput(t)
+		s.unsendInputs(t)
 		s.emitError(err)
 		s.notifyTurnComplete("", err)
 	} else {
@@ -1019,14 +1017,16 @@ func (s *Session) runTurn(t *turn) *turn {
 	return s.endTurn(t, err == nil)
 }
 
-// rollbackPendingInput removes an optimistically appended message after the
-// turn failed before reaching the model.
-func (s *Session) rollbackPendingInput(t *turn) {
+// unsendInputs returns the inputs of a turn that never reached the model to
+// the queue, ahead of anything typed since: shown as sent they would be a lie,
+// and dropped the user's words would be lost.
+func (s *Session) unsendInputs(t *turn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.pendingInputMessages = slices.DeleteFunc(s.pendingInputMessages, func(message *aipb.Message) bool {
-		return slices.Contains(t.inputs, message)
-	})
+	isInput := func(message *aipb.Message) bool { return slices.Contains(t.inputs, message) }
+	s.messages = slices.DeleteFunc(s.messages, isInput)
+	s.pendingInputMessages = slices.DeleteFunc(s.pendingInputMessages, isInput)
+	s.queuedMessages = slices.Concat(t.inputs, s.queuedMessages)
 }
 
 // endTurn releases the turn; the session is idle again and the next
