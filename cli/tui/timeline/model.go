@@ -155,6 +155,15 @@ func (m *Model) setYOffset(y int) {
 func (m *Model) AtBottom() bool { return m.yOffset >= m.maxYOffset() }
 func (m *Model) GotoBottom()    { m.yOffset = m.maxYOffset() }
 
+// ScrollBy moves the window by lines (negative scrolls up), clamped.
+func (m *Model) ScrollBy(lines int) { m.setYOffset(m.yOffset + lines) }
+
+// Height is the visible window's height in lines.
+func (m *Model) Height() int { return m.height }
+
+// LinesBelow counts content lines under the visible window.
+func (m *Model) LinesBelow() int { return m.maxYOffset() - m.yOffset }
+
 func (m *Model) ClearSelection() {
 	m.cursorID = ""
 	m.cursorSub = 0
