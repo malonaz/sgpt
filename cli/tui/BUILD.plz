@@ -6,7 +6,6 @@ go_library(
         "//cli/tui/keymap",
         "//cli/tui/screen",
         "//cli/tui/screen/menu",
-        "//cli/tui/styles",
         "//cli/tui/widget",
         "//internal/history",
         "//internal/session",

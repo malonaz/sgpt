@@ -60,6 +60,8 @@ func init() {
 				r.typeText("rename pendingReview and split out verdict")
 				r.key('j', tea.ModCtrl)
 				awaitTurn(r, s, 10*time.Second)
+				// The resolved run folds; open it to show every row.
+				selectUp(r, false, 0)
 			},
 		},
 		scene{

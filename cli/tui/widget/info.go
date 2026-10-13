@@ -44,16 +44,24 @@ func RenderInfo(info *session.Info, width, height int) string {
 	blocks := []string{
 		title,
 		infoContextGauge(info, innerWidth),
-		infoFlow(innerWidth, infoTable("Session", infoSessionRows(info)), infoUsageTable(info)),
+		infoFlow(innerWidth, infoTable("Session", infoSessionRows(info), false), infoUsageTable(info)),
 		infoMessages(info, innerWidth),
 	}
-	fixed := strings.Join(blocks, "\n\n")
 	footer := styles.Hint("esc", "close")
 
-	// Fixed parts, the gaps around the lists, the footer and the frame.
-	spare := height - 2 - box.GetVerticalFrameSize() - lipgloss.Height(fixed) - 4
-	content := fixed + "\n\n" + infoInventory(info, innerWidth, spare) + "\n\n" + footer
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box.Render(content))
+	// Sections breathe with a blank line between them, unless that would
+	// overflow a short screen.
+	var modal string
+	for _, gap := range []string{"\n\n", "\n"} {
+		fixed := strings.Join(blocks, gap)
+		// Fixed parts, the gaps around the lists, the footer and the frame.
+		spare := height - 2 - box.GetVerticalFrameSize() - lipgloss.Height(fixed) - 2*lipgloss.Height(gap)
+		modal = box.Render(fixed + gap + infoInventory(info, innerWidth, spare) + gap + footer)
+		if lipgloss.Height(modal) <= height {
+			break
+		}
+	}
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, modal)
 }
 
 // infoChatLabel identifies the chat: its title when it has one, else the
@@ -96,7 +104,9 @@ func infoFlow(width int, blocks ...string) string {
 
 // infoTable renders a titled table: the first cell muted (the label), the
 // rest in text ink, each column left-aligned to its widest cell.
-func infoTable(title string, rows [][]string) string {
+// infoTable lays rows out in columns; numeric tables right-align every
+// column after the label, so figures line up by their last digit.
+func infoTable(title string, rows [][]string, numeric bool) string {
 	var widths []int
 	for _, row := range rows {
 		for i, cell := range row {
@@ -116,8 +126,12 @@ func infoTable(title string, rows [][]string) string {
 			} else {
 				b.WriteString("  ")
 			}
-			padded := cell + strings.Repeat(" ", widths[i]-lipgloss.Width(cell))
-			b.WriteString(style.Render(padded))
+			pad := strings.Repeat(" ", widths[i]-lipgloss.Width(cell))
+			if numeric && i > 0 {
+				b.WriteString(pad + style.Render(cell))
+			} else {
+				b.WriteString(style.Render(cell) + pad)
+			}
 		}
 		lines = append(lines, strings.TrimRight(b.String(), " "))
 	}
@@ -152,31 +166,31 @@ func infoUsageTable(info *session.Info) string {
 	input, cacheRead := usage.GetInputToken(), usage.GetInputTokenCacheRead()
 	cacheWrite := usage.GetInputTokenCacheWrite()
 	output, reasoning := usage.GetOutputToken(), usage.GetOutputReasoningToken()
+	// Sub-categories indent under their parent and show their share of it.
 	row := func(label string, consumption *aipb.ResourceConsumption, share int64) []string {
-		quantity := format.Tokens(consumption.GetQuantity())
+		percent := ""
 		if share > 0 && consumption.GetQuantity() > 0 {
-			quantity += fmt.Sprintf(" %.0f%%", float64(consumption.GetQuantity())/float64(share)*100)
+			percent = fmt.Sprintf("%.0f%%", float64(consumption.GetQuantity())/float64(share)*100)
 		}
 		price := ""
 		if consumption.GetPrice() > 0 {
 			price = format.Price(consumption.GetPrice())
 		}
-		return []string{label, quantity, price}
+		return []string{label, format.Tokens(consumption.GetQuantity()), percent, price}
 	}
 	rows := [][]string{
 		row("input", input, 0),
-		row(" cache read", cacheRead, input.GetQuantity()+cacheRead.GetQuantity()),
-		row(" cache write", cacheWrite, 0),
+		row("  cache read", cacheRead, input.GetQuantity()+cacheRead.GetQuantity()),
+		row("  cache write", cacheWrite, 0),
 		row("output", output, 0),
-		row(" reasoning", reasoning, output.GetQuantity()+reasoning.GetQuantity()),
+		row("  reasoning", reasoning, output.GetQuantity()+reasoning.GetQuantity()),
 	}
-	total := format.Price(info.Price)
+	rows = append(rows, []string{"total", "", "", format.Price(info.Price)})
 	// The per-turn average is what predicts the next turn's cost.
 	if turns := info.AssistantMessages; turns > 0 {
-		total += fmt.Sprintf(" %s %s/turn", styles.GlyphSeparator, format.Price(info.Price/float64(turns)))
+		rows = append(rows, []string{"per turn", "", "", format.Price(info.Price / float64(turns))})
 	}
-	rows = append(rows, []string{"total", "", total})
-	return infoTable("Usage", rows)
+	return infoTable("Usage", rows, true)
 }
 
 // infoContextGauge shows how full the context window is, using the LAST

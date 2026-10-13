@@ -15,6 +15,7 @@ go_library(
         "//cli/tui/widget",
         "//internal/markdown",
         "//internal/store",
+        "//internal/tool",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbles__v2__textarea",
         "//third_party/go:charm.land__bubbles__v2__viewport",

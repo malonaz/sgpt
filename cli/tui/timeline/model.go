@@ -10,20 +10,19 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/editor"
 	"github.com/malonaz/sgpt/cli/tui/keymap"
-	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
 var (
-	KeyPrevItem       = keymap.New("alt+[", "Previous fence/block")
-	KeyNextItem       = keymap.New("alt+]", "Next fence/block")
+	KeyPrevItem       = keymap.New("alt+[", "Previous fence or block")
+	KeyNextItem       = keymap.New("alt+]", "Next fence or block")
 	KeyToTop          = keymap.New("alt+<", "Jump to top")
 	KeyToBottom       = keymap.New("alt+>", "Jump to bottom")
 	KeyScrollUp       = keymap.New("ctrl+p", "Scroll up")
 	KeyScrollDown     = keymap.New("ctrl+n", "Scroll down")
-	KeyToggleCollapse = keymap.Binding{Key: key.NewBinding(key.WithKeys("alt+z", "enter")), Help: "Collapse/expand item"}
-	KeyToggleNavMode  = keymap.New("alt+a", "Toggle fence/API-block navigation")
-	KeyCopy           = keymap.New("alt+w", "Copy selection to clipboard")
+	KeyToggleCollapse = keymap.Binding{Key: key.NewBinding(key.WithKeys("alt+z", "enter")), Help: "Expand or collapse"}
+	KeyToggleNavMode  = keymap.New("alt+a", "Toggle fence or block steps")
+	KeyCopy           = keymap.New("alt+w", "Copy selection")
 	KeyOpenEditor     = keymap.New("alt+o", "Open selection in $EDITOR")
 )
 
@@ -94,17 +93,17 @@ type Model struct {
 	// of one rerender pass so measure + View don't render twice.
 	volatileLines map[string][]string
 
-	renderer   *markdown.Renderer
-	frame      int
-	reviewHint string
-	width      int
-	height     int
-	focused    bool
-	ready      bool
+	renderer *markdown.Renderer
+	frame    int
+	width    int
+	height   int
+	focused  bool
+	ready    bool
 }
 
 func New() *Model {
-	renderer, _ := markdown.NewRenderer(styles.DefaultTextareaWidth)
+	// SetSize fits the renderer to the timeline before the first render.
+	renderer, _ := markdown.NewRenderer(80)
 	return &Model{
 		collapsed:     map[string]bool{},
 		renderCache:   map[string]renderEntry{},
@@ -126,16 +125,6 @@ func (m *Model) fold() {
 	if run, ok := m.runOwner[m.cursorID]; ok && m.cursorIndex() == -1 {
 		m.cursorID, m.cursorSub = run, 0
 	}
-}
-
-// SetReviewBindings names the keys the review card hints; the chat screen
-// owns and handles them.
-func (m *Model) SetReviewBindings(accept, reject, always keymap.Binding) {
-	hint := func(binding keymap.Binding, action string) string {
-		return styles.Hint(strings.Join(binding.Key.Keys(), "/"), action)
-	}
-	m.reviewHint = styles.Hints(hint(accept, "accept"), hint(reject, "reject"), hint(always, "always"))
-	m.rerender()
 }
 
 // Animate advances live spinners; it costs nothing when nothing is live.
@@ -482,7 +471,6 @@ func (m *Model) renderContext(item Item) RenderContext {
 		SelectedSub: selectedSub,
 		Renderer:    m.renderer,
 		Frame:       m.frame,
-		ReviewHint:  m.reviewHint,
 	}
 }
 

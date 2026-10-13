@@ -39,27 +39,27 @@ type sessionEventMsg struct {
 }
 
 var (
-	chatKeyCycleFocus     = keymap.New("tab", "Toggle input/timeline focus")
-	chatKeySubmit         = keymap.New("ctrl+j", "Send message / review tool call")
-	chatKeyAccept         = keymap.New("alt+y", "Accept tool call under review")
-	chatKeyAcceptAll      = keymap.New("alt+shift+y", "Accept all pending tool calls")
-	chatKeyAlwaysAccept   = keymap.New("alt+shift+a", "Always accept this tool (session)")
-	chatKeyReject         = keymap.New("alt+shift+r", "Reject tool call under review (input text = reason)")
-	chatKeyCancel         = keymap.New("ctrl+c", "Cancel the running turn (and its sub-agents'), else clear the input")
+	chatKeyCycleFocus     = keymap.New("tab", "Switch input and timeline")
+	chatKeySubmit         = keymap.New("ctrl+j", "Send, or accept the review")
+	chatKeyAccept         = keymap.New("alt+y", "Accept the tool call")
+	chatKeyAcceptAll      = keymap.New("alt+shift+y", "Accept all tool calls")
+	chatKeyAlwaysAccept   = keymap.New("alt+shift+a", "Always accept this tool")
+	chatKeyReject         = keymap.New("alt+shift+r", "Reject (input is the reason)")
+	chatKeyCancel         = keymap.New("ctrl+c", "Cancel turn, or clear input")
 	chatKeyBack           = keymap.New("esc", "Back to the input")
-	chatKeyPageUp         = keymap.New("pgup", "Scroll the timeline up a page")
-	chatKeyPageDown       = keymap.New("pgdown", "Scroll the timeline down a page")
+	chatKeyPageUp         = keymap.New("pgup", "Page up")
+	chatKeyPageDown       = keymap.New("pgdown", "Page down")
 	chatKeyCycleReasoning = keymap.New("alt+t", "Cycle reasoning effort")
 	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
-	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
-	chatKeyPickTools      = keymap.New("alt+shift+t", "Select/unselect tools (fuzzy)")
-	chatKeyPickFiles      = keymap.New("alt+shift+e", "Select/unselect files (fuzzy)")
-	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete selected message from the chat")
-	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
-	chatKeyEditMessage    = keymap.New("alt+e", "Edit selected user message and resend (truncates below)")
-	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
-	chatKeyFocusLauncher  = keymap.New("alt+u", "Go to the launcher's tab")
-	chatKeyNextAgent      = keymap.New("alt+g", "Go to the next sub-agent's tab (awaiting review first)")
+	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open chat in $EDITOR")
+	chatKeyPickTools      = keymap.New("alt+shift+t", "Pick tools")
+	chatKeyPickFiles      = keymap.New("alt+shift+e", "Pick files")
+	chatKeyDeleteMessage  = keymap.New("alt+d", "Delete message")
+	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete message and below")
+	chatKeyEditMessage    = keymap.New("alt+e", "Edit and resend message")
+	chatKeyInfo           = keymap.New("alt+i", "Chat info")
+	chatKeyFocusLauncher  = keymap.New("alt+u", "Go to launcher")
+	chatKeyNextAgent      = keymap.New("alt+g", "Go to next sub-agent")
 )
 
 const (
@@ -300,6 +300,7 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
+		m.timeline.Animate()
 		return cmd
 
 	case tea.KeyPressMsg:
@@ -1028,20 +1029,15 @@ func (m *ChatScreen) hints() []string {
 	switch {
 	case m.reviewTarget() != "":
 		return []string{
-			hint(chatKeySubmit, "accept"), hint(chatKeyReject, "reject"),
-			hint(chatKeyAlwaysAccept, "always"), hint(chatKeyCancel, "cancel"),
+			chatKeySubmit.WithShort("accept").Hint(), chatKeyReject.WithShort("reject").Hint(),
+			chatKeyAlwaysAccept.WithShort("always").Hint(), chatKeyCancel.WithShort("cancel").Hint(),
 		}
 	case m.session.TurnInFlight():
-		return []string{hint(chatKeyCancel, "cancel"), hint(chatKeySubmit, "queue")}
+		return []string{chatKeyCancel.WithShort("cancel").Hint(), chatKeySubmit.WithShort("queue").Hint()}
 	case m.focusedComponent == FocusViewport:
-		return []string{hint(timeline.KeyToggleCollapse, "expand"), hint(chatKeyBack, "input"), hint(chatKeyEditMessage, "edit")}
+		return []string{timeline.KeyToggleCollapse.WithShort("expand").Hint(), chatKeyBack.WithShort("input").Hint(), chatKeyEditMessage.WithShort("edit").Hint()}
 	}
-	return []string{hint(chatKeySubmit, "send"), hint(chatKeyCycleFocus, "timeline")}
-}
-
-// hint renders a binding's status-bar hint.
-func hint(binding keymap.Binding, action string) string {
-	return styles.Hint(strings.Join(binding.Key.Keys(), " / "), action)
+	return []string{chatKeySubmit.WithShort("send").Hint(), chatKeyCycleFocus.WithShort("timeline").Hint()}
 }
 
 func (m *ChatScreen) facts() []widget.Fact {
@@ -1077,7 +1073,9 @@ func (m *ChatScreen) facts() []widget.Fact {
 			facts = append(facts, widget.Fact{Text: style.Render(fmt.Sprintf("%d%% ctx", percent)), Priority: 5})
 		}
 	}
-	facts = append(facts, widget.Fact{Text: styles.MutedStyle.Render(format.Price(m.session.Price())), Priority: 3})
+	if price := m.session.Price(); price > 0 {
+		facts = append(facts, widget.Fact{Text: styles.MutedStyle.Render(format.Price(price)), Priority: 3})
+	}
 	return facts
 }
 
@@ -1097,8 +1095,8 @@ func reasoningLabel(effort aipb.ReasoningEffort) string {
 // states.
 func (m *ChatScreen) agentStrip() string {
 	strip := widget.AgentStrip{
-		LauncherHint: hint(chatKeyFocusLauncher, "launcher"),
-		ChildrenHint: hint(chatKeyNextAgent, "next agent"),
+		LauncherHint: chatKeyFocusLauncher.WithShort("launcher").Hint(),
+		ChildrenHint: chatKeyNextAgent.WithShort("next agent").Hint(),
 	}
 	if launcher := m.agents.Parent(m.session); launcher != nil {
 		strip.Launcher = agentTitle(launcher)

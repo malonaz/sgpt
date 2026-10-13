@@ -99,16 +99,15 @@ func (t *Tool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (
 	return summary, true
 }
 
-// RenderRequest renders the command as a shell fence.
+// RenderRequest renders a command run elsewhere as a shell fence. A plain
+// command declines: the row's subject already shows it.
 func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	command := tool.Argument(toolCall, "command").GetStringValue()
-	if command == "" {
+	directory := tool.Argument(toolCall, "working_directory").GetStringValue()
+	if command == "" || directory == "" {
 		return "", false
 	}
-	if directory := tool.Argument(toolCall, "working_directory").GetStringValue(); directory != "" {
-		command = fmt.Sprintf("cd %s && %s", directory, command)
-	}
-	return tool.Fence("sh", command), true
+	return tool.Fence("sh", fmt.Sprintf("cd %s && %s", directory, command)), true
 }
 
 // RenderResult renders the output as the terminal showed it; the exit code
