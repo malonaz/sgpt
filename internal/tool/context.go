@@ -27,3 +27,24 @@ func History(ctx context.Context) []*aipb.Message {
 	}
 	return history()
 }
+
+// attachKey scopes the attachment sink carried on tool-execution contexts.
+type attachKey struct{}
+
+// WithAttach stamps a context with a sink for content a tool result cannot
+// carry (tool messages hold only tool_result blocks): attached blocks reach
+// the model as a user message right after the tool message.
+func WithAttach(ctx context.Context, attach func(blocks ...*aipb.Block)) context.Context {
+	return context.WithValue(ctx, attachKey{}, attach)
+}
+
+// Attach hands blocks to the executing turn; it reports false when executing
+// outside a turn, where nothing would deliver them.
+func Attach(ctx context.Context, blocks ...*aipb.Block) bool {
+	attach, ok := ctx.Value(attachKey{}).(func(blocks ...*aipb.Block))
+	if !ok {
+		return false
+	}
+	attach(blocks...)
+	return true
+}

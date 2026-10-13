@@ -10,6 +10,7 @@ import (
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/aip"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"github.com/malonaz/core/go/uuid"
@@ -337,6 +338,14 @@ func NewInjectedFileMessage(path, content string) *aipb.Message {
 		},
 	}
 	aip.SetLabel(message, sgptpb.Labels.InjectedFile.GetKey(), aip.LabelValueTrue)
+	aip.SetLabel(message, sgptpb.Labels.Context.GetKey(), aip.LabelValueTrue)
+	return message
+}
+
+// NewAttachmentMessage builds the user message carrying tool-attached
+// content (images, documents), labeled as context: the user did not type it.
+func NewAttachmentMessage(blocks []*aipb.Block) *aipb.Message {
+	message := ai.NewUserMessage(blocks...)
 	aip.SetLabel(message, sgptpb.Labels.Context.GetKey(), aip.LabelValueTrue)
 	return message
 }

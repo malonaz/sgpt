@@ -33,5 +33,5 @@ option (malonaz.codegen.aip.v1.label) = {
 };
 option (malonaz.codegen.aip.v1.label) = {
   key: "sgpt.com/context"
-  description: "Marks a message injected by sgpt as context (system prompt, injected files) rather than typed by the user."
+  description: "Marks a message injected by sgpt as context (system prompt, injected files, images and documents read by tools) rather than typed by the user."
 };

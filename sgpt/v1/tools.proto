@@ -31,6 +31,18 @@ service ToolService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
+  // Look at an image file (PNG, JPEG, GIF or WebP). Use this to see
+  // screenshots, diagrams or photos; read_files cannot show images.
+  rpc ReadImage(ReadImageRequest) returns (ReadImageResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Read a PDF document, including its layout, tables and figures. Use
+  // this for PDFs; read_files cannot parse them.
+  rpc ReadDocument(ReadDocumentRequest) returns (ReadDocumentResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // Execute a shell command on the user's system. Use this when the user
   // asks you to run commands, create files, or perform system operations.
   rpc ExecShell(ExecShellRequest) returns (ExecShellResponse);
@@ -124,6 +136,27 @@ message ReadFilesResponse {
   // One entry per requested path, in request order.
   repeated File files = 1;
 }
+
+// Request for the `read_image` tool.
+message ReadImageRequest {
+  // Path of the image file.
+  string path = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `read_image` tool: a bare acknowledgment. The image itself
+// follows as a user message, since tool results cannot carry images.
+message ReadImageResponse {}
+
+// Request for the `read_document` tool.
+message ReadDocumentRequest {
+  // Path of the PDF file.
+  string path = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `read_document` tool: a bare acknowledgment. The document
+// itself follows as a user message, since tool results cannot carry
+// documents.
+message ReadDocumentResponse {}
 
 // Request for the `search_lores` tool.
 message SearchLoresRequest {

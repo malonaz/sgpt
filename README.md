@@ -68,8 +68,9 @@ Any directory may hold artifacts, addressed please-style (`//dir:title`,
 | Tool set | `.sgpt/{title}.toolset` | gRPC service methods exposed to the model via a remote tool engine |
 | Lore | `.sgpt/lores/{id}.md` | Durable knowledge the agent searches with `search_lores` |
 
-Built-in tools: `read_files`, `exec_shell`, `diff`, `replace`,
-`search_lores`, `agent` (sub-agents in their own tab). Side-effect-free
+Built-in tools: `read_files`, `read_image`, `read_document` (PDFs),
+`exec_shell`, `diff`, `replace`, `search_lores`, `agent` (sub-agents in
+their own tab). Side-effect-free
 tools auto-execute; everything else waits for your review.
 
 ## Develop
