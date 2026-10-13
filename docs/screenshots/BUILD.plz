@@ -6,6 +6,7 @@ go_binary(
         "runtime.go",
         "scenes.go",
         "scenes_menu.go",
+        "scenes_timeline.go",
         "scenes_tools.go",
     ],
     deps = [

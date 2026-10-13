@@ -12,11 +12,6 @@ const (
 
 	MinViewportHeight = 1
 
-	MessagePaddingLeft = 2
-
-	BlockIndicatorChar  = "┃"
-	BlockIndicatorWidth = 2
-
 	TruncateLength       = 100
 	TruncateSuffix       = "..."
 	TruncateSuffixLength = 3
@@ -27,24 +22,19 @@ const (
 // Legacy color names, remapped onto the semantic palette (palette.go).
 // Deprecated: use the Color* tokens; these are removed once unused.
 var (
-	PrimaryColor           = ColorBrand
-	SecondaryColor         = ColorInfo
-	AccentColor            = ColorWarning
-	SuccessColor           = ColorSuccess
-	ErrorColor             = ColorDanger
-	MutedColor             = ColorMuted
-	TextColor              = ColorText
-	DimTextColor           = ColorMuted
-	MessageColor           = ColorText
-	ThoughtColor           = ColorMuted
-	FileColor              = ColorFile
-	AgentColor             = ColorAgent
-	BorderColor            = ColorSubtle
-	DividerColor           = ColorSubtle
-	CodeBgColor            = ColorSurface
-	MessageSelectedColor   = ColorBrand
-	MessageUnselectedColor = ColorSubtle
-	BlockIndicatorColor    = ColorSubtle
+	PrimaryColor   = ColorBrand
+	SecondaryColor = ColorInfo
+	AccentColor    = ColorWarning
+	SuccessColor   = ColorSuccess
+	ErrorColor     = ColorDanger
+	MutedColor     = ColorMuted
+	TextColor      = ColorText
+	DimTextColor   = ColorMuted
+	FileColor      = ColorFile
+	AgentColor     = ColorAgent
+	BorderColor    = ColorSubtle
+	DividerColor   = ColorSubtle
+	CodeBgColor    = ColorSurface
 
 	TabActiveColor   = ColorBrand
 	TabInactiveColor = ColorSurface
@@ -84,93 +74,10 @@ var (
 )
 
 var (
-	messageStyle = lipgloss.NewStyle().
-			Foreground(TextColor).
-			Padding(0, 1).
-			Border(lipgloss.RoundedBorder())
-
-	UserMessageStyle = lipgloss.NewStyle().
-				Inherit(messageStyle).
-				BorderForeground(PrimaryColor).
-				MarginLeft(10)
-
-	AIMessageStyle = lipgloss.NewStyle().
-			Inherit(messageStyle).
-			BorderForeground(SecondaryColor).
-			MarginRight(10)
-
-	// AgentMessageStyle frames messages other agents sent into this chat.
-	AgentMessageStyle = UserMessageStyle.BorderForeground(AgentColor)
-
-	AIThoughtStyle = lipgloss.NewStyle().
-			Inherit(AIMessageStyle).
-			BorderForeground(ThoughtColor)
-
-	ToolCallStyle = lipgloss.NewStyle()
-
-	ToolResultStyle = lipgloss.NewStyle()
-
-	UserLabelStyle = lipgloss.NewStyle().
-			Foreground(SuccessColor).
-			Bold(true)
-
-	AgentLabelStyle = lipgloss.NewStyle().
-			Foreground(AgentColor).
-			Bold(true)
-
-	AILabelStyle = lipgloss.NewStyle().
-			Foreground(SecondaryColor).
-			Bold(true)
-
-	MessageErrorStyle = lipgloss.NewStyle().
-				Foreground(ErrorColor).
-				Italic(true).
-				PaddingLeft(MessagePaddingLeft)
-
-	MessageInterruptStyle = lipgloss.NewStyle().
-				Foreground(AccentColor).
-				Italic(true).
-				PaddingLeft(MessagePaddingLeft)
-)
-
-var (
-	ThoughtLabelStyle = lipgloss.NewStyle().
-				Foreground(AccentColor).
-				Italic(true)
-
-	ThoughtStyle = lipgloss.NewStyle().
-			Foreground(ThoughtColor).
-			Italic(true).
-			PaddingLeft(MessagePaddingLeft)
-
+	// DimTextStyle is muted ink.
+	// Deprecated: use MutedStyle.
 	DimTextStyle = lipgloss.NewStyle().
-			Foreground(DimTextColor)
-)
-
-var (
-	BlockIndicatorStyle = lipgloss.NewStyle().
-				Foreground(BlockIndicatorColor)
-
-	BlockIndicatorSelectedStyle = lipgloss.NewStyle().
-					Foreground(MessageSelectedColor)
-)
-
-var (
-	ToolLabelStyle = lipgloss.NewStyle().
-		Foreground(AccentColor).
-		Bold(true)
-)
-
-var (
-	FileStyle = lipgloss.NewStyle().
-		Foreground(FileColor).
-		Italic(true)
-)
-
-var (
-	SystemStyle = lipgloss.NewStyle().
-		Foreground(MutedColor).
-		Italic(true)
+		Foreground(DimTextColor)
 )
 
 var (
@@ -194,10 +101,6 @@ var (
 var (
 	ViewportStyle = lipgloss.NewStyle().Margin(0).Padding(0)
 )
-
-func MessageHorizontalFrameSize() int {
-	return AIMessageStyle.GetHorizontalFrameSize()
-}
 
 func Truncate(s string, maxLen int) string {
 	if lipgloss.Width(s) <= maxLen {

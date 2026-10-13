@@ -546,8 +546,6 @@ func (m *Model) recalculateLayout() {
 		m.detailViewport.SetWidth(detailWidth)
 		m.detailViewport.SetHeight(detailHeight)
 	}
-	// Mirrors timeline.Model's own renderer sizing for the preview width.
-	m.renderer.SetWidth(max(10, m.previewWidth()-styles.MessageHorizontalFrameSize()-2))
 	// Width changes invalidate every cached preview and row (wrapping changed).
 	m.detailCache = map[string]string{}
 	m.rowCache = map[string]string{}
