@@ -20,6 +20,10 @@ type RenderContext struct {
 	// (menu detail pane) where cache keys would collide across chats.
 	Static   bool
 	Renderer *markdown.Renderer
+	// Frame advances live spinners; only uncached (live) items read it.
+	Frame int
+	// ReviewHint is the review card's action line.
+	ReviewHint string
 }
 
 // Item is a single navigable unit in the timeline (an API block).
@@ -42,6 +46,13 @@ type Cacheable interface {
 type Collapsible interface {
 	Item
 	DefaultCollapsed() bool
+}
+
+// Compact items sit flush against compact neighbours (no blank line), so a
+// run of one-line tool rows reads as a single list.
+type Compact interface {
+	Item
+	Compact(ctx RenderContext) bool
 }
 
 // SubNavigable items contain sub-blocks (code fences) navigable individually.
