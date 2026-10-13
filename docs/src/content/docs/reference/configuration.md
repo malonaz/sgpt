@@ -60,7 +60,7 @@ fields are rejected.
 
 | Field | Type | Description |
 |---|---|---|
-| `max_concurrent` | int | Sub-agents running at once across the TUI; default 4. |
+| `max_concurrent` | int | Sub-agents running at once across the TUI, per nesting level; default 4. |
 | `max_depth` | int | Nesting depth: 1 lets a chat launch sub-agents but not those launch their own; default 2. |
 
 ## `Import`

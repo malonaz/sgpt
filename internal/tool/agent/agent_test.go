@@ -199,3 +199,40 @@ func TestSystemPrompt(t *testing.T) {
 		t.Error("empty briefing must not add a section")
 	}
 }
+
+// nestingLauncher makes every top-level sub-agent launch one of its own, as a
+// sub-agent granted the agent tool does.
+type nestingLauncher struct {
+	agentTool *Tool
+	t         *testing.T
+}
+
+func (l *nestingLauncher) LaunchAgent(ctx context.Context, request *LaunchRequest) (*LaunchResult, error) {
+	if request.Caller.Depth == 0 {
+		nestedCtx := tool.WithCaller(ctx, func() tool.Caller { return tool.Caller{Depth: 1} })
+		toolResult, err := l.agentTool.Execute(nestedCtx, agentCall(l.t, map[string]any{"tasks": []any{task("nested", "q")}}))
+		if err != nil {
+			return nil, err
+		}
+		if nestedError := decode(l.t, toolResult).GetResults()[0].GetError(); nestedError != "" {
+			return nil, errors.New(nestedError)
+		}
+	}
+	return &LaunchResult{Chat: "chats/" + request.Title, Response: "done"}, nil
+}
+
+// Sub-agents launching their own must not wait on slots their ancestors hold.
+func TestNestedLaunchesDoNotDeadlock(t *testing.T) {
+	agentTool := NewTool(&sgptpb.AgentConfiguration{MaxConcurrent: 1})
+	agentTool.SetLauncher(&nestingLauncher{agentTool: agentTool, t: t})
+	ctx, cancel := context.WithTimeout(callerContext(t, tool.Caller{}), 2*time.Second)
+	defer cancel()
+
+	toolResult, err := agentTool.Execute(ctx, agentCall(t, map[string]any{"tasks": []any{task("a", "q")}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result := decode(t, toolResult).GetResults()[0]; result.GetError() != "" {
+		t.Fatalf("launch failed: %s", result.GetError())
+	}
+}

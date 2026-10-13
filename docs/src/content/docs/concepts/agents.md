@@ -59,7 +59,7 @@ select one. Nested sub-agents surface in the same root. The sub-agent's tab
 still marks `▶` and can answer its own calls; it is an ordinary chat, so you
 can also intervene or keep talking to it afterwards.
 
-At most `chat.agent.max_concurrent` sub-agents run at once; the rest of a
-batch queues. Cancelling the launching turn cancels them all. Sub-agent
+At most `chat.agent.max_concurrent` sub-agents run at once per nesting
+level; the rest of a batch queues. Cancelling the launching turn cancels them all. Sub-agent
 chats are labelled `sgpt.com/category: agent` with `sgpt.com/parent-chat`
 pointing at the launcher, and stay listed in the menu.
