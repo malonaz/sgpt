@@ -86,10 +86,12 @@ service ToolService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // Block until operations you started finish — all of them, or the first
-  // with `return_when` ANY. Returns early when the timeout elapses or a
-  // message arrives for you (a sub-agent's question, the user typing), so
-  // you can react to it; the message follows this result.
+  // Block until an operation you started finishes (or every one, with
+  // `return_when` ALL). Returns early when the timeout elapses or a message
+  // arrives for you (a sub-agent's question, the user typing); the message
+  // follows this result. Work as results land: wait, act on the finished
+  // operation's response (reply with message_agent, follow up), then wait
+  // again for the rest, rather than idling until the slowest finishes.
   rpc WaitOperations(WaitOperationsRequest) returns (WaitOperationsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -368,7 +370,7 @@ message GetOperationsResponse {
 message WaitOperationsRequest {
   // When a wait over several operations returns.
   enum ReturnWhen {
-    // Used to detect an unset field; behaves as ALL.
+    // Used to detect an unset field; behaves as ANY.
     RETURN_WHEN_UNSPECIFIED = 0;
     // Once every operation has finished.
     RETURN_WHEN_ALL = 1;
@@ -380,7 +382,8 @@ message WaitOperationsRequest {
   // started.
   repeated string names = 1;
 
-  // When to return; defaults to ALL.
+  // When to return; defaults to ANY. Use ALL only when you cannot act until
+  // every operation has finished.
   ReturnWhen return_when = 2;
 
   // Longest time to block, in seconds; defaults to 600.

@@ -21,7 +21,7 @@ func NewFilterInput(placeholder string) textarea.Model {
 		Base:        lipgloss.NewStyle(),
 		Text:        styles.TextStyle,
 		CursorLine:  styles.TextStyle,
-		Placeholder: styles.SubtleStyle,
+		Placeholder: styles.MutedStyle,
 		Prompt:      lipgloss.NewStyle().Foreground(styles.ColorBrand),
 	}
 	blurred := state

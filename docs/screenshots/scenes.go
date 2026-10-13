@@ -39,8 +39,9 @@ func init() {
 				{
 					text("Renaming the type and the map that holds it; the accessor methods keep their names.\n"),
 					toolCall("call_1", "diff", map[string]any{
-						"path": "internal/session/review.go",
-						"diff": renameDiff,
+						"tool_call_title": "Rename the type and its map",
+						"path":            "internal/session/review.go",
+						"diff":            renameDiff,
 					}),
 				},
 			},
@@ -58,7 +59,8 @@ func init() {
 			responses: [][]*aipb.Block{
 				{
 					toolCall("call_1", "read_files", map[string]any{
-						"paths": []any{"internal/session/review.go"},
+						"tool_call_title": "Read how reviews are registered",
+						"paths":           []any{"internal/session/review.go"},
 					}),
 				},
 				{
@@ -81,7 +83,8 @@ func init() {
 			responses: [][]*aipb.Block{
 				{
 					toolCall("call_1", "exec_shell", map[string]any{
-						"command": "gofmt -l internal/ && grep -c verdict internal/session/review.go",
+						"tool_call_title": "Check formatting and count verdicts",
+						"command":         "gofmt -l internal/ && grep -c verdict internal/session/review.go",
 					}),
 				},
 				{

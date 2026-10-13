@@ -128,6 +128,17 @@ func (r *Renderer) SetWidth(width int) error {
 	return nil
 }
 
+// Restyle rebuilds the renderer against the current palette, once the
+// terminal has reported its background.
+func (r *Renderer) Restyle() error {
+	newRenderer, err := NewRenderer(r.width)
+	if err != nil {
+		return err
+	}
+	*r = *newRenderer
+	return nil
+}
+
 // toMarkdownBlockIncremental renders streaming content incrementally,
 // delegating to append-only strategies per block type. The finalized pass in
 // ToMarkdown re-renders the full block once, correcting any streaming

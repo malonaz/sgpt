@@ -202,7 +202,7 @@ func (p *Picker) View() string {
 	}
 	more := ""
 	if hidden := len(p.matches) - p.top - rows; hidden > 0 {
-		more = styles.SubtleStyle.Render(fmt.Sprintf("  %s %d more", styles.GlyphEllipsis, hidden))
+		more = styles.MutedStyle.Render(fmt.Sprintf("  %s %d more", styles.GlyphEllipsis, hidden))
 	}
 	lines = append(lines, more, styles.Hints(
 		pickerKeyToggle.Hint(), pickerKeyAll.Hint(), pickerKeyClear.Hint(), pickerKeyApply.Hint(), pickerKeyCancel.Hint(),

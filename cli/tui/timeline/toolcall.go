@@ -135,16 +135,8 @@ func (i *ToolCallItem) DefaultCollapsed() bool { return !i.Pending }
 // Folded rows sit flush against each other: a run reads as one list.
 func (i *ToolCallItem) Compact(ctx RenderContext) bool { return ctx.Collapsed && !i.Pending }
 
-func (i *ToolCallItem) Content() (string, string) {
-	var b strings.Builder
-	bytes, _ := pbutil.JSONMarshalPretty(i.ToolCall.GetArguments())
-	b.WriteString(fmt.Sprintf("Tool Call: %s\n%s", i.ToolCall.GetName(), string(bytes)))
-	if i.Result != nil {
-		b.WriteString("\n\nResult:\n")
-		b.WriteString(toolResultText(i.Result))
-	}
-	return b.String(), "json"
-}
+// Content is the call as a plain markdown document, unabridged.
+func (i *ToolCallItem) Content() (string, string) { return i.document(), "md" }
 
 func (i *ToolCallItem) Render(ctx RenderContext) string {
 	switch {
@@ -164,7 +156,7 @@ func (i *ToolCallItem) Render(ctx RenderContext) string {
 	}
 	var b strings.Builder
 	b.WriteString(gutter(ctx) + i.row(ctx, summary, ctx.rowWidth(), false))
-	prefixLines(&b, gutter(ctx)+ruleMarker, i.body(ctx))
+	prefixLines(&b, gutter(ctx)+blankMarker, i.body(ctx))
 	return b.String()
 }
 
@@ -175,7 +167,7 @@ func (i *ToolCallItem) summary() tool.Summary {
 			return summary
 		}
 	}
-	summary := tool.Summary{Verb: humanize(i.ToolCall.GetName()), Subject: firstShortString(i.ToolCall.GetArguments())}
+	summary := tool.Summary{Verb: humanize(i.ToolCall.GetName()), Subject: firstShortString(requestFields(i.ToolCall))}
 	if err := i.Result.GetError(); err != nil {
 		summary.Outcome, _, _ = strings.Cut(strings.TrimSpace(err.GetMessage()), "\n")
 		summary.Failed = true
@@ -205,50 +197,58 @@ func (i *ToolCallItem) glyph(ctx RenderContext, summary tool.Summary) string {
 	return successStyle.Render(styles.GlyphSuccess)
 }
 
-// row lays out `glyph Verb Subject  display … Outcome` in exactly width
-// cells, truncating the subject (then the display message) so it never wraps.
+// row leads with the call's title (what it is for, in the model's words),
+// then its mechanics muted close by: `glyph Title  Verb subject · outcome`.
+// Untitled calls fall back to `glyph Verb subject · outcome`. It fills at
+// most width cells, truncating the subject first so it never wraps.
 func (i *ToolCallItem) row(ctx RenderContext, summary tool.Summary, width int, inlineDisplay bool) string {
-	var left strings.Builder
-	left.WriteString(i.glyph(ctx, summary) + " ")
-	used := markerWidth
+	var b strings.Builder
+	b.WriteString(i.glyph(ctx, summary) + " ")
+	room := width - markerWidth
 	if i.Origin != "" {
 		origin := truncate(styles.GlyphChild+" "+i.Origin, width/4)
-		left.WriteString(agentLabel.Render(origin) + " ")
-		used += lipgloss.Width(origin) + 1
+		b.WriteString(agentLabel.Render(origin) + " ")
+		room -= lipgloss.Width(origin) + 1
+	}
+	outcome := truncate(flatten(summary.Outcome), width/3)
+	if outcome != "" {
+		room -= lipgloss.Width(outcome) + 3
 	}
 	verb := truncate(summary.Verb, width/3)
-	left.WriteString(styles.TextStyle.Bold(true).Render(verb))
-	used += lipgloss.Width(verb)
-	if pad := verbWidth - lipgloss.Width(verb); pad > 0 {
-		left.WriteString(strings.Repeat(" ", pad))
-		used += pad
-	}
+	subject := flatten(summary.Subject)
 
-	outcome := truncate(flatten(summary.Outcome), width/3)
-	outcomeWidth := 0
+	if title := flatten(tool.Title(i.ToolCall)); title != "" {
+		title = truncate(title, room-lipgloss.Width(verb)-2)
+		b.WriteString(styles.TextStyle.Render(title))
+		room -= lipgloss.Width(title) + 2
+		if mechanics := truncate(strings.TrimSpace(verb+" "+subject), room); room > lipgloss.Width(verb) && mechanics != "" {
+			b.WriteString("  " + styles.MutedStyle.Render(mechanics))
+		}
+	} else {
+		b.WriteString(styles.TextStyle.Bold(true).Render(verb))
+		room -= lipgloss.Width(verb)
+		// Pad so subjects align down a list of untitled rows.
+		if pad := verbWidth - lipgloss.Width(verb); pad > 0 {
+			b.WriteString(strings.Repeat(" ", pad))
+			room -= pad
+		}
+		if subject = truncate(subject, room-1); subject != "" {
+			b.WriteString(" " + styles.MutedStyle.Render(subject))
+			room -= lipgloss.Width(subject) + 1
+		}
+		// A resolved row speaks through its outcome; the intent is noise by then.
+		if display := i.displayMessage(); inlineDisplay && outcome == "" && display != "" && room > 8 {
+			b.WriteString("  " + displayStyle.Render(truncate(flatten(display), room-2)))
+		}
+	}
 	if outcome != "" {
-		outcomeWidth = lipgloss.Width(outcome) + 2
+		style := styles.MutedStyle
+		if i.failed(summary) {
+			style = dangerStyle
+		}
+		b.WriteString(separator + style.Render(outcome))
 	}
-	room := width - used - outcomeWidth - 1
-	if subject := truncate(flatten(summary.Subject), room); subject != "" {
-		left.WriteString(" " + styles.MutedStyle.Render(subject))
-		used += lipgloss.Width(subject) + 1
-		room -= lipgloss.Width(subject) + 1
-	}
-	// A resolved row speaks through its outcome; the intent is noise by then.
-	if display := i.displayMessage(); inlineDisplay && outcome == "" && display != "" && room > 8 {
-		display = truncate(flatten(display), room-2)
-		left.WriteString("  " + displayStyle.Render(display))
-		used += lipgloss.Width(display) + 2
-	}
-	if outcome == "" {
-		return left.String()
-	}
-	style := styles.MutedStyle
-	if i.failed(summary) {
-		style = dangerStyle
-	}
-	return left.String() + strings.Repeat(" ", max(width-used-lipgloss.Width(outcome), 2)) + style.Render(outcome)
+	return b.String()
 }
 
 func (i *ToolCallItem) displayMessage() string {
@@ -275,7 +275,7 @@ func (i *ToolCallItem) body(ctx RenderContext) string {
 // row: a lone argument that is the subject. The review card still shows it,
 // since the row truncates.
 func (i *ToolCallItem) restatesSubject() bool {
-	fields := i.ToolCall.GetArguments().GetFields()
+	fields := requestFields(i.ToolCall)
 	if len(fields) != 1 {
 		return false
 	}
@@ -302,7 +302,22 @@ func (i *ToolCallItem) request(ctx RenderContext) (_ string, rendered bool) {
 			return renderMarkdown(ctx, i.seq, false, markdown.ParseBlocks(md)...), true
 		}
 	}
-	return formatFields(i.ToolCall.GetArguments().GetFields(), ctx.bodyWidth()), false
+	return formatFields(requestFields(i.ToolCall), ctx.bodyWidth(), timelineInk), false
+}
+
+// requestFields are the call's arguments minus its title, which the row shows.
+func requestFields(toolCall *aipb.ToolCall) map[string]*structpb.Value {
+	fields := toolCall.GetArguments().GetFields()
+	if _, ok := fields[tool.TitleArgument]; !ok {
+		return fields
+	}
+	request := make(map[string]*structpb.Value, len(fields)-1)
+	for key, value := range fields {
+		if key != tool.TitleArgument {
+			request[key] = value
+		}
+	}
+	return request
 }
 
 func (i *ToolCallItem) response(ctx RenderContext) string {
@@ -318,12 +333,12 @@ func (i *ToolCallItem) response(ctx RenderContext) string {
 		}
 	}
 	if structured := i.Result.GetStructuredContent().GetStructValue(); structured != nil {
-		return capLines(ctx, formatFields(structured.GetFields(), ctx.bodyWidth()))
+		return capLines(ctx, formatFields(structured.GetFields(), ctx.bodyWidth(), timelineInk))
 	}
 	// Raw output keeps its shape: lines truncate rather than re-wrap.
 	content := strings.ReplaceAll(strings.TrimRight(toolResultText(i.Result), "\n"), "\t", "    ")
 	if content == "" {
-		return styles.SubtleStyle.Render("(no output)")
+		return styles.MutedStyle.Render("(no output)")
 	}
 	lines := strings.Split(content, "\n")
 	for index, line := range lines {
@@ -338,7 +353,7 @@ func capLines(ctx RenderContext, rendered string) string {
 	if len(lines) <= resultLineCap+1 {
 		return rendered
 	}
-	more := styles.SubtleStyle.Render(fmt.Sprintf("%s %d more lines", styles.GlyphEllipsis, len(lines)-resultLineCap))
+	more := styles.MutedStyle.Render(fmt.Sprintf("%s %d more lines", styles.GlyphEllipsis, len(lines)-resultLineCap))
 	hint := styles.Hint(KeyOpenEditor.Key.Keys()[0], "open")
 	return strings.Join(lines[:resultLineCap], "\n") + "\n" + styles.Hints(more, hint)
 }
@@ -403,8 +418,7 @@ func humanize(name string) string {
 
 // firstShortString picks the argument that best names what a call acts on:
 // the first one-line string (or list of strings), by key order.
-func firstShortString(arguments *structpb.Struct) string {
-	fields := arguments.GetFields()
+func firstShortString(fields map[string]*structpb.Value) string {
 	for _, key := range sortedKeys(fields) {
 		switch value := fields[key].GetKind().(type) {
 		case *structpb.Value_StringValue:
@@ -435,43 +449,55 @@ func sortedKeys(fields map[string]*structpb.Value) []string {
 	return keys
 }
 
+// fieldInk styles formatted fields; the zero value is plain text.
+type fieldInk struct {
+	key, value, dash lipgloss.Style
+}
+
+// timelineInk is how fields read in the timeline.
+var timelineInk = fieldInk{key: styles.MutedStyle, value: styles.TextStyle, dash: styles.SubtleStyle}
+
 // formatFields renders a struct as `key: value` lines, nesting by indent,
-// so arguments read as data rather than JSON.
-func formatFields(fields map[string]*structpb.Value, width int) string {
+// so arguments read as data rather than JSON. Long values wrap at width;
+// width <= 0 never wraps.
+func formatFields(fields map[string]*structpb.Value, width int, ink fieldInk) string {
 	var lines []string
-	appendFields(&lines, fields, 0, width)
+	appendFields(&lines, fields, 0, width, ink)
 	return strings.Join(lines, "\n")
 }
 
-func appendFields(lines *[]string, fields map[string]*structpb.Value, depth, width int) {
+func appendFields(lines *[]string, fields map[string]*structpb.Value, depth, width int, ink fieldInk) {
 	for _, key := range sortedKeys(fields) {
-		appendValue(lines, styles.MutedStyle.Render(key+":"), lipgloss.Width(key)+1, fields[key], depth, width)
+		appendValue(lines, ink.key.Render(key+":"), lipgloss.Width(key)+1, fields[key], depth, width, ink)
 	}
 }
 
-func appendValue(lines *[]string, label string, labelWidth int, value *structpb.Value, depth, width int) {
+func appendValue(lines *[]string, label string, labelWidth int, value *structpb.Value, depth, width int, ink fieldInk) {
 	pad := strings.Repeat("  ", depth)
 	switch kind := value.GetKind().(type) {
 	case *structpb.Value_StructValue:
 		*lines = append(*lines, pad+label)
-		appendFields(lines, kind.StructValue.GetFields(), depth+1, width)
+		appendFields(lines, kind.StructValue.GetFields(), depth+1, width, ink)
 	case *structpb.Value_ListValue:
 		*lines = append(*lines, pad+label)
 		for _, element := range kind.ListValue.GetValues() {
-			appendValue(lines, styles.SubtleStyle.Render("-"), 1, element, depth+1, width)
+			appendValue(lines, ink.dash.Render("-"), 1, element, depth+1, width, ink)
 		}
 	default:
 		text := scalarText(value)
-		room := width - len(pad) - labelWidth - 1
-		if !strings.Contains(text, "\n") && lipgloss.Width(text) <= room {
-			*lines = append(*lines, pad+label+" "+styles.TextStyle.Render(text))
+		fits := width <= 0 || lipgloss.Width(text) <= width-len(pad)-labelWidth-1
+		if !strings.Contains(text, "\n") && fits {
+			*lines = append(*lines, pad+label+" "+ink.value.Render(text))
 			return
 		}
 		// Long or multi-line values hang below their key.
 		*lines = append(*lines, pad+label)
 		inner := pad + "  "
-		for _, line := range strings.Split(lipgloss.Wrap(text, max(width-len(inner), 1), ""), "\n") {
-			*lines = append(*lines, inner+styles.TextStyle.Render(line))
+		if width > 0 {
+			text = lipgloss.Wrap(text, max(width-len(inner), 1), "")
+		}
+		for _, line := range strings.Split(text, "\n") {
+			*lines = append(*lines, inner+ink.value.Render(line))
 		}
 	}
 }

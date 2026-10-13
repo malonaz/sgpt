@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -11,6 +12,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/store"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 func renderMarkdown(ctx RenderContext, seq int, finalized bool, blocks ...markdown.Block) string {
@@ -33,9 +35,9 @@ const (
 )
 
 var (
-	userRule   = lipgloss.NewStyle().Foreground(styles.ColorBrand).Render("┃") + " "
-	agentRule  = lipgloss.NewStyle().Foreground(styles.ColorAgent).Render("┃") + " "
-	agentLabel = lipgloss.NewStyle().Foreground(styles.ColorAgent).Bold(true)
+	userPrompt  = lipgloss.NewStyle().Foreground(styles.ColorBrand).Bold(true).Render(styles.GlyphPrompt) + " "
+	agentPrompt = lipgloss.NewStyle().Foreground(styles.ColorAgent).Bold(true).Render(styles.GlyphPrompt) + " "
+	agentLabel  = lipgloss.NewStyle().Foreground(styles.ColorAgent).Bold(true)
 )
 
 type TextItem struct {
@@ -50,6 +52,8 @@ type TextItem struct {
 	// bracketed first line, addressed to the model (operation and outcome).
 	sender string
 	note   string
+	// created is when the message was persisted; zero while streaming.
+	created time.Time
 }
 
 func (i *TextItem) ID() string { return i.id }
@@ -91,43 +95,83 @@ func (i *TextItem) blockFinalized(index int) bool {
 	return i.finalized || index < len(i.blocks)-1
 }
 
-func (i *TextItem) marker() string {
+// prompt is the turn's opening glyph; assistant prose has none.
+func (i *TextItem) prompt() string {
 	switch i.voice {
 	case voiceUser:
-		return userRule
+		return userPrompt
 	case voiceAgent:
-		return agentRule
+		return agentPrompt
 	}
 	return blankMarker
 }
 
-func (i *TextItem) SubOffsets(ctx RenderContext) []int {
-	offsets := make([]int, len(i.blocks))
+func (i *TextItem) SubSpans(ctx RenderContext) []span {
+	spans := make([]span, len(i.blocks))
 	line := len(i.headerLines(ctx))
+	if i.isTurn() {
+		line++ // the band's top padding
+	}
 	for j, block := range i.blocks {
 		if j > 0 {
 			line++ // the blank line between blocks
 		}
-		offsets[j] = line
+		start := line
+		if j == 0 {
+			start = 0 // the header belongs to the first block
+		}
 		line += strings.Count(renderMarkdown(ctx, i.seq+j, i.blockFinalized(j), block), "\n") + 1
+		spans[j] = span{start, line}
 	}
-	return offsets
+	return spans
 }
 
+// Render: a turn (user or agent) is a padded band opened by a prompt glyph;
+// assistant prose is plain.
 func (i *TextItem) Render(ctx RenderContext) string {
-	var b strings.Builder
-	marker := i.marker()
+	var lines []string
+	write := func(sub int, text string) {
+		for _, line := range strings.Split(text, "\n") {
+			marker := blankMarker
+			if len(lines) == 0 {
+				marker = i.prompt()
+			}
+			lines = append(lines, i.line(ctx, sub, marker+line))
+		}
+	}
 	for _, line := range i.headerLines(ctx) {
-		prefixLines(&b, subGutter(ctx, 0)+marker, line)
+		write(0, line)
 	}
 	for j, block := range i.blocks {
 		if j > 0 {
 			// Index -1 lights the separator only when the whole item is.
-			prefixLines(&b, subGutter(ctx, -1)+marker, "")
+			write(-1, "")
 		}
-		prefixLines(&b, subGutter(ctx, j)+marker, renderMarkdown(ctx, i.seq+j, i.blockFinalized(j), block))
+		write(j, renderMarkdown(ctx, i.seq+j, i.blockFinalized(j), block))
 	}
-	return b.String()
+	if i.isTurn() {
+		// Padding makes the turn read as a block, not a stripe.
+		padding := i.line(ctx, -1, "")
+		lines = append(append([]string{padding}, lines...), padding)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (i *TextItem) isTurn() bool { return i.voice != voiceAssistant }
+
+// line gutters a line and bands it when the item is a turn. A selected turn
+// keeps its band: the gutter bar marks the selection, so navigating never
+// swaps the turn's background.
+func (i *TextItem) line(ctx RenderContext, sub int, line string) string {
+	line = subGutter(ctx, sub) + line
+	if !i.isTurn() {
+		return line
+	}
+	surface := styles.ColorSurface
+	if i.voice == voiceUser {
+		surface = styles.ColorSurfaceTurn
+	}
+	return band(line, ctx.bandWidth(), surface)
 }
 
 // headerLines name an agent message's sender, then its muted note.
@@ -189,7 +233,7 @@ func (i *ThoughtItem) Render(ctx RenderContext) string {
 	b.WriteString(header)
 	wrapped := lipgloss.Wrap(strings.TrimSpace(i.text), min(ctx.bodyWidth(), markdown.MaxProseWidth), "")
 	for _, line := range strings.Split(wrapped, "\n") {
-		prefixLines(&b, gutter(ctx)+ruleMarker, thoughtStyle.Render(line))
+		prefixLines(&b, gutter(ctx)+blankMarker, thoughtStyle.Render(line))
 	}
 	return b.String()
 }
@@ -267,7 +311,7 @@ func (i *LineItem) Render(ctx RenderContext) string {
 	for index, line := range strings.Split(wrapped, "\n") {
 		marker := blankMarker
 		if index == 0 {
-			marker = i.style.Render(i.glyph) + " "
+			marker = markerStyle(ctx, i.style).Render(i.glyph) + " "
 		}
 		prefixLines(&b, gutter(ctx)+marker, i.style.Render(line))
 	}
@@ -304,7 +348,7 @@ func (i *SystemItem) Render(ctx RenderContext) string {
 	}
 	var b strings.Builder
 	b.WriteString(labelRow(ctx, " ", styles.MutedStyle, "System prompt", ""))
-	prefixLines(&b, gutter(ctx)+ruleMarker, renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(i.text)...))
+	prefixLines(&b, gutter(ctx)+blankMarker, renderMarkdown(ctx, i.seq, true, markdown.ParseBlocks(i.text)...))
 	return b.String()
 }
 
@@ -377,7 +421,12 @@ func (i *InjectedFileItem) CacheKey() string {
 // concatenates its files.
 func (i *InjectedFileItem) Content() (string, string) {
 	if len(i.paths) > 1 {
-		return strings.Join(i.contents, "\n\n"), "md"
+		// Headed and fenced, so a group reads as distinct files.
+		sections := make([]string, len(i.paths))
+		for index, path := range i.paths {
+			sections[index] = "### " + path + "\n\n" + tool.Fence(strings.TrimPrefix(filepath.Ext(path), "."), i.contents[index])
+		}
+		return strings.Join(sections, "\n\n"), "md"
 	}
 	return i.content, strings.TrimPrefix(filepath.Ext(i.path), ".")
 }
@@ -419,12 +468,12 @@ func basenames(paths []string) []string {
 	return names
 }
 
-func (i *InjectedFileItem) SubOffsets(RenderContext) []int {
-	offsets := make([]int, len(i.paths))
+func (i *InjectedFileItem) SubSpans(RenderContext) []span {
+	spans := make([]span, len(i.paths))
 	for index := range i.paths {
-		offsets[index] = index
+		spans[index] = span{index, index + 1}
 	}
-	return offsets
+	return spans
 }
 
 func plural(count int, noun string) string {

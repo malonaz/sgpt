@@ -118,8 +118,10 @@ func (i *Input) SetValue(text string) {
 	})
 }
 
+// Reset clears the input and rewinds history browsing to the newest entry.
 func (i *Input) Reset() {
 	i.edit(i.Textarea.Reset)
+	i.history.Reset()
 }
 
 // edit applies a change at full height, then fits the height to the result:
@@ -196,22 +198,29 @@ func wrappedRows(line string, width int) int {
 	return rows
 }
 
-func (i *Input) HandleKey(msg tea.KeyPressMsg) tea.Cmd {
+// IsHistoryKey reports whether msg browses the input history.
+func IsHistoryKey(msg tea.KeyPressMsg) bool {
+	return key.Matches(msg, keyInputPrevHistory.Key, keyInputNextHistory.Key)
+}
+
+// HandleKey handles the input's own bindings, reporting whether msg was one;
+// anything else is for the textarea.
+func (i *Input) HandleKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, keyInputPrevHistory.Key):
 		if entry, ok := i.history.Previous(i.Textarea.Value()); ok {
 			i.SetValue(entry)
 		}
-		return nil
 	case key.Matches(msg, keyInputNextHistory.Key):
 		if entry, ok := i.history.Next(); ok {
 			i.SetValue(entry)
 		}
-		return nil
 	case key.Matches(msg, keyInputOpenEditor.Key):
-		return editor.Open(i.Textarea.Value(), "md")
+		return editor.Open(i.Textarea.Value(), "md"), true
+	default:
+		return nil, false
 	}
-	return nil
+	return nil, true
 }
 
 func (i *Input) Update(msg tea.Msg) tea.Cmd {

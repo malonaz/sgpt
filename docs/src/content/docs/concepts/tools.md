@@ -32,8 +32,12 @@ enables all five.
 
 ## What you see
 
-Each call is one row: a state glyph, a verb, what it acts on, and once it
-resolves, what came of it.
+Each call is one row. Every tool's schema asks the model for a required
+`tool_call_title` (written first): a short phrase saying what the call does
+and why, such as *Find where pendingReview is used*. The row leads with it,
+followed in muted ink by the mechanics: a verb, what it acts on, and once it
+resolves, what came of it. Calls without a title (older chats) show the
+mechanics alone:
 
 ```
 ✓ Read     review.go +2                      3 files · 412 lines

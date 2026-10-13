@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"image/color"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -62,14 +64,15 @@ func main() {
 	width := flag.Int("width", 120, "terminal width")
 	height := flag.Int("height", 36, "terminal height")
 	text := flag.Bool("text", false, "also write a plain-text .txt (ANSI stripped) per scene")
+	background := flag.String("background", "#282a36", "terminal background the TUI is told about (surfaces derive from it)")
 	flag.Parse()
-	if err := run(*outDir, *fixtures, *only, *width, *height, *text); err != nil {
+	if err := run(*outDir, *fixtures, *only, *width, *height, *text, lipgloss.Color(*background)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(outDir, fixtures, only string, width, height int, text bool) error {
+func run(outDir, fixtures, only string, width, height int, text bool, background color.Color) error {
 	// Absolute: each scene chdirs into its own fixture copy.
 	outDir, err := filepath.Abs(outDir)
 	if err != nil {
@@ -85,7 +88,7 @@ func run(outDir, fixtures, only string, width, height int, text bool) error {
 		if !strings.Contains(sc.name, only) {
 			continue
 		}
-		frame, err := renderInCopy(fixtures, sc, width, height)
+		frame, err := renderInCopy(fixtures, sc, width, height, background)
 		if err != nil {
 			return fmt.Errorf("%s: %w", sc.name, err)
 		}
@@ -106,7 +109,7 @@ func run(outDir, fixtures, only string, width, height int, text bool) error {
 // renderInCopy renders a scene inside a fresh copy of the fixtures: tools
 // resolve paths against the cwd, and one scene's edits must not leak into the
 // next.
-func renderInCopy(fixtures string, sc scene, width, height int) (string, error) {
+func renderInCopy(fixtures string, sc scene, width, height int, background color.Color) (string, error) {
 	workDir, err := copyFixtures(fixtures)
 	if err != nil {
 		return "", err
@@ -115,10 +118,10 @@ func renderInCopy(fixtures string, sc scene, width, height int) (string, error) 
 	if err := os.Chdir(workDir); err != nil {
 		return "", err
 	}
-	return render(sc, width, height)
+	return render(sc, width, height, background)
 }
 
-func render(sc scene, width, height int) (string, error) {
+func render(sc scene, width, height int, background color.Color) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -168,6 +171,8 @@ func render(sc scene, width, height int) (string, error) {
 	r := newRuntime(app)
 	r.start()
 	r.send(tea.WindowSizeMsg{Width: width, Height: height})
+	// The answer to the app's background request, as a terminal would send.
+	r.send(tea.BackgroundColorMsg{Color: background})
 	r.settle(200 * time.Millisecond)
 	sc.drive(r, chatSession)
 	frame := r.view()

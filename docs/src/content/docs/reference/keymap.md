@@ -12,7 +12,7 @@ in-app cheat sheet.
 | Key | Action |
 |---|---|
 | <kbd>alt</kbd>+<kbd>h</kbd> | Toggle help (<kbd>pgup</kbd> / <kbd>pgdn</kbd> page it) |
-| <kbd>ctrl</kbd>+<kbd>c</kbd> | Quit (press twice) |
+| <kbd>ctrl</kbd>+<kbd>c</kbd> | Quit, once nothing is left to cancel (asks first) |
 | <kbd>ctrl</kbd>+<kbd>t</kbd> | New tab |
 | <kbd>ctrl</kbd>+<kbd>w</kbd> | Close tab |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>w</kbd> | Close idle sub-agent tabs |
@@ -36,8 +36,7 @@ in-app cheat sheet.
 | <kbd>esc</kbd> | Back to the input |
 | <kbd>pgup</kbd> | Page up |
 | <kbd>pgdn</kbd> | Page down |
-| mouse wheel | Scroll (<kbd>shift</kbd>+drag selects text) |
-| <kbd>alt</kbd>+<kbd>t</kbd> | Cycle reasoning effort |
+| <kbd>alt</kbd>+<kbd>t</kbd> | Cycle reasoning effort: model default, low, medium, high, xhigh, max |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd> | Toggle favorite |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>o</kbd> | Open chat in `$EDITOR` |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>t</kbd> | Pick tools |
@@ -89,3 +88,8 @@ in-app cheat sheet.
 | <kbd>alt</kbd>+<kbd>r</kbd> | Refresh |
 | <kbd>alt</kbd>+<kbd>&lt;</kbd> | Jump to search |
 | <kbd>alt</kbd>+<kbd>&gt;</kbd> | Jump to last chat |
+
+sgpt never captures the mouse: click-drag selects and copies text natively.
+In the timeline, <kbd>alt</kbd>+<kbd>w</kbd> copies the selected block raw
+(also over SSH, via OSC 52). <kbd>alt</kbd>+<kbd>p</kbd> / <kbd>alt</kbd>+<kbd>n</kbd>
+browse input history from either focus.

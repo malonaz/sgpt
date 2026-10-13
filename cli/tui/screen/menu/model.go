@@ -525,11 +525,20 @@ func (m *Model) previewWidth() int {
 func (m *Model) detailWidth() int {
 	// Never negative: a zero-size terminal (headless, pre-first-resize)
 	// must not crash renderers doing strings.Repeat(width).
-	return max(0, m.width-m.listWidth()-1)
+	return max(0, m.width-m.listWidth()-paneGap)
 }
+
+// paneGap separates the list from the preview.
+const paneGap = 3
 
 // headerHeight is the rows above the list: the filter box.
 const headerHeight = 3
+
+// Restyle re-renders against the palette the terminal's background implies.
+func (m *Model) Restyle() {
+	m.renderer.Restyle()
+	m.recalculateLayout()
+}
 
 func (m *Model) recalculateLayout() {
 	if m.width == 0 || m.height == 0 {

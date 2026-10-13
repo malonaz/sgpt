@@ -214,7 +214,7 @@ func TestCreateAgentsIsAsyncBoundedAndWaitable(t *testing.T) {
 	}
 	waited := make(chan *sgptpb.WaitOperationsResponse, 1)
 	go func() {
-		waited <- execute(t, m, ctx, tool.HandlerIDWaitOperations, map[string]any{"names": names}, &sgptpb.WaitOperationsResponse{})
+		waited <- execute(t, m, ctx, tool.HandlerIDWaitOperations, map[string]any{"names": names, "return_when": "RETURN_WHEN_ALL"}, &sgptpb.WaitOperationsResponse{})
 	}()
 	awaitWatched(t, m, created.GetOperations()[0].GetName())
 	// Tasks launch concurrently, in any order: each answers by its query.
@@ -347,7 +347,7 @@ func TestCancelDescendantsIsNotReportedBack(t *testing.T) {
 	m.CancelDescendants(parent)
 
 	names := []any{created.GetOperations()[0].GetName(), created.GetOperations()[1].GetName()}
-	got := execute(t, m, ctx, tool.HandlerIDWaitOperations, map[string]any{"names": names}, &sgptpb.WaitOperationsResponse{})
+	got := execute(t, m, ctx, tool.HandlerIDWaitOperations, map[string]any{"names": names, "return_when": "RETURN_WHEN_ALL"}, &sgptpb.WaitOperationsResponse{})
 	for _, op := range got.GetOperations() {
 		if op.GetState() != sgptpb.AgentOperation_STATE_CANCELLED {
 			t.Fatalf("operation %v, want cancelled", op)
