@@ -12,7 +12,6 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/permission"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
@@ -35,8 +34,6 @@ type LaunchRequest struct {
 	Files   []string
 	Tools   []string
 	Model   string
-	// Permissions narrow the caller's policy for this sub-agent.
-	Permissions []*sgptpb.PermissionRule
 }
 
 // LaunchResult is a sub-agent's outcome.
@@ -122,16 +119,6 @@ func (t *Tool) parse(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.Agen
 	if err := validateTools(agentRequest.GetTools(), caller.Tools); err != nil {
 		return nil, tool.Caller{}, err
 	}
-	for i, rule := range agentRequest.GetPermissions() {
-		// Compiled again in the child policy; failing here keeps the review
-		// honest about what will run.
-		if _, err := caller.Policy.Child([]*sgptpb.PermissionRule{rule}); err != nil {
-			return nil, tool.Caller{}, err
-		}
-		if rule.GetMode() == permission.ModeAllow {
-			return nil, tool.Caller{}, fmt.Errorf("permission rule %d (%s): sub-agents inherit this chat's permissions and rules may only tighten them (review or deny)", i+1, rule.GetTool())
-		}
-	}
 	return agentRequest, caller, nil
 }
 
@@ -176,13 +163,6 @@ func (t *Tool) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.Too
 	}
 	if agentRequest.GetModel() != "" {
 		parts = append(parts, "model: "+agentRequest.GetModel())
-	}
-	if rules := agentRequest.GetPermissions(); len(rules) > 0 {
-		described := make([]string, len(rules))
-		for i, rule := range rules {
-			described[i] = permission.Describe(rule)
-		}
-		parts = append(parts, "permissions: "+strings.Join(described, "; "))
 	}
 	return &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{Content: strings.Join(parts, " | ")},
@@ -232,14 +212,13 @@ func (t *Tool) launchRequest(agentRequest *sgptpb.AgentRequest, task *sgptpb.Age
 		model = agentRequest.GetModel()
 	}
 	return &LaunchRequest{
-		Caller:      caller,
-		Title:       task.GetTitle(),
-		Query:       task.GetQuery(),
-		Context:     agentRequest.GetContext(),
-		Files:       append(append([]string(nil), agentRequest.GetFiles()...), task.GetFiles()...),
-		Tools:       tools,
-		Model:       model,
-		Permissions: agentRequest.GetPermissions(),
+		Caller:  caller,
+		Title:   task.GetTitle(),
+		Query:   task.GetQuery(),
+		Context: agentRequest.GetContext(),
+		Files:   append(append([]string(nil), agentRequest.GetFiles()...), task.GetFiles()...),
+		Tools:   tools,
+		Model:   model,
 	}
 }
 

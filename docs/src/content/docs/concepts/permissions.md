@@ -47,15 +47,16 @@ field (`patches.search`) matches when any element does.
 
 ## Layers
 
-Policies stack, and the stack only tightens downward:
+Policies stack:
 
 1. **Your rules** (`chat.permissions`) form the root, applied to every chat.
 2. **Grants** — <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>a</kbd> "always accept"
    — allow a tool for the rest of that chat. A grant is your word, so it
    overrides rules.
-3. **Sub-agents** get a child policy: they inherit the launcher's decisions
-   (grants included, live), and the launch request may add `review` or
-   `deny` rules on top — never `allow`.
+3. **Sub-agents** inherit the launcher's decisions, grants included, live:
+   "always accept" in a chat cascades down to its sub-agents, never up. Their
+   calls that need review surface in the root chat (see
+   [sub-agents](/concepts/agents/)).
 
 A denied call resolves immediately as an error result naming the rule, so
 the model can route around it instead of retrying.

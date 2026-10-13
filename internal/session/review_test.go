@@ -9,17 +9,31 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/internal/permission"
+	"github.com/malonaz/sgpt/internal/review"
 )
 
 // newReviewSession builds the minimal session needed to exercise the review
 // handshake: no store, no registry, no turn loop.
 func newReviewSession(ctx context.Context) *Session {
-	return &Session{
-		ctx:            ctx,
-		pendingReviews: map[string]pendingReview{},
-		policy:         &permission.Policy{},
-		eventCh:        make(chan Event, 1024),
+	s := &Session{
+		ctx:     ctx,
+		policy:  &permission.Policy{},
+		eventCh: make(chan Event, 1024),
 	}
+	s.initReviews(nil)
+	return s
+}
+
+// newSubAgentSession builds a sub-agent of parent, wired as the launcher does.
+func newSubAgentSession(parent *Session) *Session {
+	s := &Session{
+		ctx:     parent.ctx,
+		chat:    &aipb.Chat{Title: "explore"},
+		policy:  parent.policy.Child(),
+		eventCh: make(chan Event, 1024),
+	}
+	s.initReviews(parent.reviews)
+	return s
 }
 
 func toolCall(id, name string) *aipb.ToolCall {
@@ -115,7 +129,7 @@ func TestAwaitVerdictCancellation(t *testing.T) {
 // Answering an unknown ID must be a no-op, not a panic or a blocked send.
 func TestAnswerVerdictUnknownID(t *testing.T) {
 	s := newReviewSession(context.Background())
-	if s.answerVerdict("nope", verdict{approved: true}) {
+	if s.answerVerdict("nope", review.Verdict{Approved: true}) {
 		t.Fatal("answerVerdict reported a waiting review for an unknown id")
 	}
 }
@@ -193,4 +207,78 @@ func TestConcurrentReviewAndRender(t *testing.T) {
 
 	close(stopCh)
 	wg.Wait()
+}
+
+// A sub-agent's call surfaces in the root chat and is answered there; the
+// sub-agent still sees only its own.
+func TestSubAgentReviewSurfacesInRoot(t *testing.T) {
+	root := newReviewSession(context.Background())
+	child := newSubAgentSession(root)
+
+	approvedCh := make(chan bool, 1)
+	go func() {
+		approved, _ := child.awaitVerdict(child.ctx, toolCall("call-child", "shell"))
+		approvedCh <- approved
+	}()
+
+	awaitPending(t, root, "call-child")
+	if got := root.State(); got != StateAwaitingReview {
+		t.Fatalf("root state = %v, want StateAwaitingReview", got)
+	}
+	escalated := root.EscalatedReviews()
+	if len(escalated) != 1 || escalated[0].Origin != "explore" {
+		t.Fatalf("escalated = %v, want the sub-agent's call from %q", escalated, "explore")
+	}
+	if !child.PendingToolCallIDs()["call-child"] || len(child.EscalatedReviews()) != 0 {
+		t.Fatal("sub-agent must see its own call, and nothing escalated")
+	}
+
+	root.ApproveToolCall("call-child")
+	if approved := <-approvedCh; !approved {
+		t.Fatal("sub-agent call was not approved from the root")
+	}
+}
+
+// A sub-agent sees none of the root's reviews, so it cannot answer them.
+func TestSubAgentCannotAnswerRootReview(t *testing.T) {
+	root := newReviewSession(context.Background())
+	child := newSubAgentSession(root)
+
+	approvedCh := make(chan bool, 1)
+	go func() {
+		approved, _ := root.awaitVerdict(root.ctx, toolCall("call-root", "shell"))
+		approvedCh <- approved
+	}()
+	awaitPending(t, root, "call-root")
+
+	if len(child.PendingToolCallIDs()) != 0 {
+		t.Fatalf("sub-agent pending = %v, want empty", child.PendingToolCallIDs())
+	}
+	child.ApproveToolCall("call-root")
+	root.RejectToolCall("call-root", "no")
+	if approved := <-approvedCh; approved {
+		t.Fatal("root call was approved by the sub-agent")
+	}
+}
+
+// "Always accept" in the root approves the sub-agent's pending call and
+// covers its future ones.
+func TestRootGrantCascadesToSubAgent(t *testing.T) {
+	root := newReviewSession(context.Background())
+	child := newSubAgentSession(root)
+
+	approvedCh := make(chan bool, 1)
+	go func() {
+		approved, _ := child.awaitVerdict(child.ctx, toolCall("call-child", "shell"))
+		approvedCh <- approved
+	}()
+	awaitPending(t, root, "call-child")
+
+	root.AlwaysApproveTool("shell")
+	if approved := <-approvedCh; !approved {
+		t.Fatal("sub-agent call was not approved by the root grant")
+	}
+	if child.policy.Decide(toolCall("call-next", "shell"), false).Mode != permission.ModeAllow {
+		t.Fatal("root grant did not cascade to the sub-agent")
+	}
 }

@@ -1,7 +1,7 @@
 // Package permission decides how tool calls are handled — run, ask the user,
-// or refuse — from layered policies: the user's configured rules at the root,
-// one child per sub-agent that can only tighten what its parent allows, and
-// in every layer the grants the user makes mid-session ("always accept").
+// or refuse — from the user's configured rules and the grants they make
+// mid-session ("always accept"). A sub-agent's policy is a child of its
+// launcher's: it inherits every decision, so grants cascade down, never up.
 package permission
 
 import (
@@ -72,20 +72,8 @@ type Policy struct {
 }
 
 // New compiles a root policy from the user's configured rules.
-func New(rules []*sgptpb.PermissionRule) (*Policy, error) {
-	return compile(nil, rules)
-}
-
-// Child derives a policy that can only tighten this one: a matching child
-// rule wins only when it is stricter than the parent's decision. Grants made
-// on the parent flow through live, so "always accept" in a chat also covers
-// the sub-agents it launched.
-func (p *Policy) Child(rules []*sgptpb.PermissionRule) (*Policy, error) {
-	return compile(p, rules)
-}
-
-func compile(parent *Policy, protoRules []*sgptpb.PermissionRule) (*Policy, error) {
-	policy := &Policy{parent: parent, rules: make([]rule, 0, len(protoRules))}
+func New(protoRules []*sgptpb.PermissionRule) (*Policy, error) {
+	policy := &Policy{rules: make([]rule, 0, len(protoRules))}
 	for i, protoRule := range protoRules {
 		if protoRule.GetTool() == "" {
 			return nil, fmt.Errorf("permission rule %d: tool is required", i+1)
@@ -107,6 +95,13 @@ func compile(parent *Policy, protoRules []*sgptpb.PermissionRule) (*Policy, erro
 		policy.rules = append(policy.rules, compiled)
 	}
 	return policy, nil
+}
+
+// Child derives a sub-agent's policy: it decides exactly as this one does,
+// live — so "always accept" in a chat also covers the sub-agents it launched
+// — while its own grants stay with it.
+func (p *Policy) Child() *Policy {
+	return &Policy{parent: p}
 }
 
 // Grant lets a tool run without review for the rest of this policy's life:
@@ -145,21 +140,16 @@ func (p *Policy) Decide(toolCall *aipb.ToolCall, autoExecute bool) Decision {
 	if p.granted(toolCall.GetName()) {
 		return Decision{Mode: ModeAllow}
 	}
-	own, matched := p.match(toolCall)
-	if p.parent == nil {
-		if matched {
-			return own
-		}
-		if autoExecute {
-			return Decision{Mode: ModeAllow}
-		}
-		return Decision{Mode: ModeReview}
+	if p.parent != nil {
+		return p.parent.Decide(toolCall, autoExecute)
 	}
-	inherited := p.parent.Decide(toolCall, autoExecute)
-	if matched && stricter(own.Mode, inherited.Mode) {
-		return own
+	if decision, ok := p.match(toolCall); ok {
+		return decision
 	}
-	return inherited
+	if autoExecute {
+		return Decision{Mode: ModeAllow}
+	}
+	return Decision{Mode: ModeReview}
 }
 
 func (p *Policy) match(toolCall *aipb.ToolCall) (Decision, bool) {
@@ -222,20 +212,4 @@ func leafValues(value *structpb.Value, path []string) []string {
 		}
 	}
 	return nil
-}
-
-// stricter orders modes allow < review < deny.
-func stricter(a, b sgptpb.PermissionMode) bool {
-	return rank(a) > rank(b)
-}
-
-func rank(mode sgptpb.PermissionMode) int {
-	switch mode {
-	case ModeDeny:
-		return 2
-	case ModeReview:
-		return 1
-	default:
-		return 0
-	}
 }

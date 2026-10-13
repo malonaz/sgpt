@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
-	"github.com/malonaz/sgpt/internal/permission"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
@@ -53,9 +52,6 @@ func (l *fakeLauncher) LaunchAgent(ctx context.Context, request *LaunchRequest) 
 
 func callerContext(t *testing.T, caller tool.Caller) context.Context {
 	t.Helper()
-	if caller.Policy == nil {
-		caller.Policy = &permission.Policy{}
-	}
 	return tool.WithCaller(context.Background(), func() tool.Caller { return caller })
 }
 
@@ -160,14 +156,6 @@ func TestRejections(t *testing.T) {
 		{"tool ceiling", callerContext(t, caller), map[string]any{"tasks": []any{task("a", "q")}, "tools": []any{"exec_shell"}}, "not available"},
 		{"too deep", callerContext(t, tool.Caller{Depth: 1}), map[string]any{"tasks": []any{task("a", "q")}}, "nest"},
 		{"outside session", context.Background(), map[string]any{"tasks": []any{task("a", "q")}}, "outside a session"},
-		{"loosening rule", callerContext(t, caller), map[string]any{
-			"tasks":       []any{task("a", "q")},
-			"permissions": []any{map[string]any{"tool": "read_files", "mode": "PERMISSION_MODE_ALLOW"}},
-		}, "only tighten"},
-		{"bad pattern", callerContext(t, caller), map[string]any{
-			"tasks":       []any{task("a", "q")},
-			"permissions": []any{map[string]any{"tool": "read_files", "argument": "paths", "pattern": "(", "mode": "PERMISSION_MODE_DENY"}},
-		}, "error parsing regexp"},
 	}
 	for _, c := range cases {
 		_, err := agentTool.Review(c.ctx, agentCall(t, c.arguments))

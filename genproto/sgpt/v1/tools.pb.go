@@ -1072,11 +1072,7 @@ type AgentRequest struct {
 	// unset inherits them all. Names outside this chat's tools are rejected.
 	Tools []string `protobuf:"bytes,4,rep,name=tools,proto3" json:"tools,omitempty"`
 	// Model for every sub-agent (name or alias); unset inherits this chat's.
-	Model string `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
-	// Permission rules for the sub-agents, first match wins. Rules can only
-	// tighten what this chat may do: "deny" a tool a task must not touch, or
-	// force "review" on one it should only use with the user watching.
-	Permissions   []*PermissionRule `protobuf:"bytes,6,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	Model         string `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1141,13 +1137,6 @@ func (x *AgentRequest) GetModel() string {
 	return ""
 }
 
-func (x *AgentRequest) GetPermissions() []*PermissionRule {
-	if x != nil {
-		return x.Permissions
-	}
-	return nil
-}
-
 func (x *AgentRequest) SetContext(v string) {
 	x.Context = v
 }
@@ -1168,10 +1157,6 @@ func (x *AgentRequest) SetModel(v string) {
 	x.Model = v
 }
 
-func (x *AgentRequest) SetPermissions(v []*PermissionRule) {
-	x.Permissions = v
-}
-
 type AgentRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1187,10 +1172,6 @@ type AgentRequest_builder struct {
 	Tools []string
 	// Model for every sub-agent (name or alias); unset inherits this chat's.
 	Model string
-	// Permission rules for the sub-agents, first match wins. Rules can only
-	// tighten what this chat may do: "deny" a tool a task must not touch, or
-	// force "review" on one it should only use with the user watching.
-	Permissions []*PermissionRule
 }
 
 func (b0 AgentRequest_builder) Build() *AgentRequest {
@@ -1202,7 +1183,6 @@ func (b0 AgentRequest_builder) Build() *AgentRequest {
 	x.Files = b.Files
 	x.Tools = b.Tools
 	x.Model = b.Model
-	x.Permissions = b.Permissions
 	return m0
 }
 
@@ -1724,7 +1704,7 @@ var File_sgpt_v1_tools_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\n" +
-	"\x13sgpt/v1/tools.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x12sgpt/v1/tool.proto\"?\n" +
+	"\x13sgpt/v1/tools.proto\x12\asgpt.v1\x1a\x1fgoogle/api/field_behavior.proto\"?\n" +
 	"\vDiffRequest\x12\x17\n" +
 	"\x04path\x18\x01 \x01(\tB\x03\xe0A\x02R\x04path\x12\x17\n" +
 	"\x04diff\x18\x02 \x01(\tB\x03\xe0A\x02R\x04diff\"G\n" +
@@ -1778,14 +1758,13 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x11ExecShellResponse\x12\x16\n" +
 	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"\xd4\x01\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\x99\x01\n" +
 	"\fAgentRequest\x12\x18\n" +
 	"\acontext\x18\x01 \x01(\tR\acontext\x12-\n" +
 	"\x05tasks\x18\x02 \x03(\v2\x12.sgpt.v1.AgentTaskB\x03\xe0A\x02R\x05tasks\x12\x14\n" +
 	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
 	"\x05tools\x18\x04 \x03(\tR\x05tools\x12\x14\n" +
-	"\x05model\x18\x05 \x01(\tR\x05model\x129\n" +
-	"\vpermissions\x18\x06 \x03(\v2\x17.sgpt.v1.PermissionRuleR\vpermissions\"m\n" +
+	"\x05model\x18\x05 \x01(\tR\x05model\"m\n" +
 	"\tAgentTask\x12\x19\n" +
 	"\x05title\x18\x01 \x01(\tB\x03\xe0A\x02R\x05title\x12\x19\n" +
 	"\x05query\x18\x02 \x01(\tB\x03\xe0A\x02R\x05query\x12\x14\n" +
@@ -1832,37 +1811,35 @@ var file_sgpt_v1_tools_proto_goTypes = []any{
 	(*SearchLoresResponse_Match)(nil), // 19: sgpt.v1.SearchLoresResponse.Match
 	nil,                               // 20: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
 	(*AgentResponse_Result)(nil),      // 21: sgpt.v1.AgentResponse.Result
-	(*PermissionRule)(nil),            // 22: sgpt.v1.PermissionRule
 }
 var file_sgpt_v1_tools_proto_depIdxs = []int32{
 	3,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
 	18, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
 	19, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
 	16, // 3: sgpt.v1.AgentRequest.tasks:type_name -> sgpt.v1.AgentTask
-	22, // 4: sgpt.v1.AgentRequest.permissions:type_name -> sgpt.v1.PermissionRule
-	21, // 5: sgpt.v1.AgentResponse.results:type_name -> sgpt.v1.AgentResponse.Result
-	20, // 6: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
-	0,  // 7: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
-	2,  // 8: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
-	5,  // 9: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
-	7,  // 10: sgpt.v1.ToolService.ReadImage:input_type -> sgpt.v1.ReadImageRequest
-	9,  // 11: sgpt.v1.ToolService.ReadDocument:input_type -> sgpt.v1.ReadDocumentRequest
-	13, // 12: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
-	11, // 13: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
-	15, // 14: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
-	1,  // 15: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
-	4,  // 16: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
-	6,  // 17: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
-	8,  // 18: sgpt.v1.ToolService.ReadImage:output_type -> sgpt.v1.ReadImageResponse
-	10, // 19: sgpt.v1.ToolService.ReadDocument:output_type -> sgpt.v1.ReadDocumentResponse
-	14, // 20: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
-	12, // 21: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
-	17, // 22: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
-	15, // [15:23] is the sub-list for method output_type
-	7,  // [7:15] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	21, // 4: sgpt.v1.AgentResponse.results:type_name -> sgpt.v1.AgentResponse.Result
+	20, // 5: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	0,  // 6: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
+	2,  // 7: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
+	5,  // 8: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
+	7,  // 9: sgpt.v1.ToolService.ReadImage:input_type -> sgpt.v1.ReadImageRequest
+	9,  // 10: sgpt.v1.ToolService.ReadDocument:input_type -> sgpt.v1.ReadDocumentRequest
+	13, // 11: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
+	11, // 12: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
+	15, // 13: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
+	1,  // 14: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
+	4,  // 15: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
+	6,  // 16: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
+	8,  // 17: sgpt.v1.ToolService.ReadImage:output_type -> sgpt.v1.ReadImageResponse
+	10, // 18: sgpt.v1.ToolService.ReadDocument:output_type -> sgpt.v1.ReadDocumentResponse
+	14, // 19: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
+	12, // 20: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
+	17, // 21: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_tools_proto_init() }
@@ -1870,7 +1847,6 @@ func file_sgpt_v1_tools_proto_init() {
 	if File_sgpt_v1_tools_proto != nil {
 		return
 	}
-	file_sgpt_v1_tool_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

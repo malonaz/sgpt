@@ -21,7 +21,6 @@ launching conversation, so everything they need travels in the request.
 | `context` | A briefing written **once** and shared by every task — background, constraints, what to report |
 | `tasks[]` | One sub-agent each: a `title` (the tab), a `query`, optional `files` and `model` |
 | `files` / `tools` / `model` | Defaults for every task |
-| `permissions` | Rules tightening what the sub-agents may do without review |
 
 The briefing becomes part of each sub-agent's system prompt, after the
 role's prompt and a short **contract**: you are a sub-agent, nobody will
@@ -37,21 +36,28 @@ widened:
 - **Tools** — the launcher's enabled tools, or the subset in `tools`. A
   tool the launcher lacks is rejected before anything runs.
 - **Model** — the launcher's, unless `model` (or a task's) says otherwise.
-- **Permissions** — a child of the launcher's [policy](/concepts/permissions/).
-  Request rules can force `review` or `deny`, not `allow`; and when you
-  "always accept" a tool in the launching chat, its sub-agents follow.
+- **Permissions** — the launcher's [policy](/concepts/permissions/), live:
+  when you "always accept" a tool in the launching chat, its sub-agents
+  follow. A sub-agent cannot set its own rules.
 - **Depth** — sub-agents may launch their own up to
   `chat.agent.max_depth` levels.
 
 ## What you see
 
 Launching is a manual-review call: the request shows the briefing and each
-task, the summary line shows the task count, tools, files, model and rules.
-Once approved, tabs open **in the background** — the tab bar marks them
-`●` while they work and `▶` when one paused for your verdict, with an alert
-naming it. Switch over (<kbd>alt</kbd>+<kbd>;</kbd>) and the tab lands on
-the call to review; it is an ordinary chat, so you can also intervene or
-keep talking to it afterwards.
+task, the summary line shows the task count, tools, files and model. Once
+approved, tabs open **in the background**; the tab bar marks them `●` while
+they work.
+
+When a sub-agent needs your verdict, its call **surfaces in the root chat**
+— the one you opened — as a pending call tagged `↳ {tab title}`, and you
+answer it there exactly like the chat's own: <kbd>ctrl</kbd>+<kbd>j</kbd>
+accepts, <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>r</kbd> rejects,
+<kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>a</kbd> always accepts the tool for the
+chat and every sub-agent under it. Calls are answered oldest first unless you
+select one. Nested sub-agents surface in the same root. The sub-agent's tab
+still marks `▶` and can answer its own calls; it is an ordinary chat, so you
+can also intervene or keep talking to it afterwards.
 
 At most `chat.agent.max_concurrent` sub-agents run at once; the rest of a
 batch queues. Cancelling the launching turn cancels them all. Sub-agent

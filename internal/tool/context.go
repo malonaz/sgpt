@@ -6,6 +6,7 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/internal/permission"
+	"github.com/malonaz/sgpt/internal/review"
 )
 
 // historyKey scopes the session-history accessor carried on tool-execution
@@ -64,6 +65,9 @@ type Caller struct {
 	Tools []string
 	// Policy governs the session's tool calls; children derive from it.
 	Policy *permission.Policy
+	// Reviews is the chat tree's review queue; sub-agents share it so their
+	// calls surface in the root chat.
+	Reviews *review.Queue
 }
 
 type callerKey struct{}

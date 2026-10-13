@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
@@ -20,6 +21,7 @@ import (
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/file"
 	"github.com/malonaz/sgpt/internal/permission"
+	"github.com/malonaz/sgpt/internal/review"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
@@ -35,18 +37,9 @@ const (
 	StateAwaitingReview
 )
 
-// verdict is the user's answer to a tool call review.
-type verdict struct {
-	approved bool
-	reason   string
-}
-
-// pendingReview is a tool call awaiting a verdict: the tool's name (so the
-// user can whitelist it) and the channel its turn goroutine is blocked on.
-type pendingReview struct {
-	toolName  string
-	verdictCh chan verdict
-}
+// sessionIDs hands out the identities sessions own their reviews by; chat
+// names are assigned lazily and so cannot serve.
+var sessionIDs atomic.Uint64
 
 // Params bundles per-chat parameters for a session.
 type Params struct {
@@ -80,6 +73,9 @@ type Params struct {
 	Policy *permission.Policy
 	// Depth is 0 for a user-opened chat, one more per sub-agent level.
 	Depth int
+	// Reviews is the launcher's review queue, for a sub-agent: its calls
+	// await the user's verdict in the root chat. Nil starts a new tree.
+	Reviews *review.Queue
 }
 
 // Session drives a single chat conversation.
@@ -109,12 +105,15 @@ type Session struct {
 	// refused; "always accept" is a grant on it.
 	policy *permission.Policy
 
-	// pendingReviews holds one entry per tool call currently awaiting user
-	// review. The turn goroutine blocks on the channel; the UI answers by
-	// tool call ID. This *is* the review state — there is nothing else to
-	// track, since a reviewed call executes immediately and its result is
-	// terminal.
-	pendingReviews map[string]pendingReview
+	// id identifies this session's requests in the review queue.
+	id uint64
+	// reviews holds the tool calls awaiting a verdict across the chat tree.
+	// This *is* the review state: a reviewed call executes immediately and
+	// its result is terminal.
+	reviews *review.Queue
+	// reviewsRoot marks the chat that started the tree: it shows every
+	// pending review, its sub-agents' included.
+	reviewsRoot bool
 
 	// injectedFilePaths are the files in the model context, mutable at
 	// runtime via SetInjectedFiles. Each path is persisted exactly once as a
@@ -182,7 +181,6 @@ func New(
 		chat:                          chat,
 		messages:                      messages,
 		policy:                        policy,
-		pendingReviews:                map[string]pendingReview{},
 		injectedFilePathToMessageName: map[string]string{},
 		lastModelUsage:                &aipb.ModelUsage{},
 		renderThrottle:                throttle{interval: renderInterval},
@@ -192,6 +190,7 @@ func New(
 	// registry is one instance shared across main chat and sub-agents):
 	// stamped on the context so tools can derive what the model has already
 	// seen, and what a sub-agent may inherit.
+	s.initReviews(params.Reviews)
 	s.ctx = tool.WithHistory(s.ctx, s.historyForTools)
 	s.ctx = tool.WithCaller(s.ctx, s.caller)
 	s.injectedFilePaths = s.normalizeInjectedPaths(params.InjectedFiles)
@@ -377,11 +376,12 @@ func (s *Session) caller() tool.Caller {
 	}
 	sort.Strings(tools)
 	return tool.Caller{
-		Chat:   s.chat.GetName(),
-		Depth:  s.params.Depth,
-		Model:  s.params.Model,
-		Tools:  tools,
-		Policy: s.policy,
+		Chat:    s.chat.GetName(),
+		Depth:   s.params.Depth,
+		Model:   s.params.Model,
+		Tools:   tools,
+		Policy:  s.policy,
+		Reviews: s.reviews,
 	}
 }
 
@@ -414,10 +414,11 @@ func (s *Session) StreamError() error {
 // stores it, so it can never go stale. A pending review outranks execution,
 // which outranks a turn merely being in flight.
 func (s *Session) State() State {
+	awaitingReview := len(s.visibleReviews()) > 0
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	switch {
-	case len(s.pendingReviews) > 0:
+	case awaitingReview:
 		return StateAwaitingReview
 	case s.executingToolCall != "":
 		return StateExecutingTools

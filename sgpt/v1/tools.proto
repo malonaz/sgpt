@@ -3,7 +3,6 @@ syntax = "proto3";
 package sgpt.v1;
 
 import "google/api/field_behavior.proto";
-import "sgpt/v1/tool.proto";
 
 option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
 
@@ -242,11 +241,6 @@ message AgentRequest {
 
   // Model for every sub-agent (name or alias); unset inherits this chat's.
   string model = 5;
-
-  // Permission rules for the sub-agents, first match wins. Rules can only
-  // tighten what this chat may do: "deny" a tool a task must not touch, or
-  // force "review" on one it should only use with the user watching.
-  repeated PermissionRule permissions = 6;
 }
 
 // One sub-agent's task.

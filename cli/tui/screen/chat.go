@@ -390,23 +390,23 @@ func (m *ChatScreen) submit() tea.Cmd {
 // when navigating the timeline, otherwise any pending call. Empty when nothing
 // is awaiting review.
 func (m *ChatScreen) reviewTarget() string {
-	pending := m.session.PendingToolCallIDs()
+	// One snapshot: sub-agents resolve reviews concurrently.
+	pending := m.session.PendingReviews()
 	if len(pending) == 0 {
 		return ""
 	}
 	if m.focusedComponent == FocusViewport {
 		if item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem); ok {
-			if toolCallID := item.ToolCall.GetId(); pending[toolCallID] {
-				return toolCallID
+			for _, request := range pending {
+				if request.ToolCall.GetId() == item.ToolCall.GetId() {
+					return request.ToolCall.GetId()
+				}
 			}
 		}
 	}
-	// Map iteration is unordered, but reviews are awaited one at a time, so
-	// there is normally exactly one pending call.
-	for toolCallID := range pending {
-		return toolCallID
-	}
-	return ""
+	// Oldest first: sub-agents may each park a call, and the hint and the
+	// verdict must name the same one.
+	return pending[0].ToolCall.GetId()
 }
 
 // withReviewTarget applies a verdict to the current review target, if any.
@@ -526,7 +526,7 @@ func (m *ChatScreen) deletableSelection(keyHint string) (string, tea.Cmd) {
 
 // maybeJumpToReview focuses a pending tool call when a turn pauses for review,
 // so the user lands directly on what needs their verdict. A background tab
-// (a sub-agent) cannot grab focus, so it raises an alert instead.
+// cannot grab focus, so it raises an alert instead.
 func (m *ChatScreen) maybeJumpToReview() tea.Cmd {
 	state := m.session.State()
 	entered := state == session.StateAwaitingReview && m.lastState != session.StateAwaitingReview
@@ -535,6 +535,10 @@ func (m *ChatScreen) maybeJumpToReview() tea.Cmd {
 		return nil
 	}
 	if !m.focused {
+		// A sub-agent's review also surfaces in the root chat, which alerts.
+		if m.session.ReviewsEscalate() {
+			return nil
+		}
 		return m.alert(fmt.Sprintf("%s: tool call awaits your review", m.Title()))
 	}
 	// Don't steal focus mid-composition: blurring the input silently drops
@@ -697,6 +701,10 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 		m.session.PendingToolCallIDs(),
 		m.session.Registry(),
 	)
+	// Sub-agents' calls awaiting a verdict here: answered like this chat's own.
+	for _, request := range m.session.EscalatedReviews() {
+		items = append(items, timeline.NewEscalatedToolCallItem(request.ToolCall, request.Origin, m.session.Registry()))
+	}
 	if err := m.session.StreamError(); err != nil {
 		if session.IsCancelError(err) {
 			items = append(items, timeline.NewCancelledItem("turn-cancelled"))

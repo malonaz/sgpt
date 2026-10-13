@@ -105,7 +105,6 @@ them. See [Sub-agents](/concepts/agents/).
 | `files` | string[] | Paths injected into every sub-agent. |
 | `tools` | string[] | Tools granted, narrowing the chat's own; unset inherits them all. |
 | `model` | string | Model for every sub-agent; unset inherits the chat's. |
-| `permissions` | `PermissionRule[]` | Rules tightening the chat's policy for the sub-agents (`review` or `deny` only). |
 
 Returns one result per task, in order: title, chat name, the final message,
 or an error when the sub-agent produced none.

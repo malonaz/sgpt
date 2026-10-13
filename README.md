@@ -73,8 +73,8 @@ Built-in tools: `read_files`, `read_image`, `read_document` (PDFs),
 sub-agents, one tab each, sharing one briefing). Side-effect-free tools
 auto-execute; everything else waits for your review — unless
 `chat.permissions` rules say otherwise, per tool or per argument regex.
-Sub-agents inherit their launcher's tools and permissions and can only be
-narrowed.
+Sub-agents inherit their launcher's tools and permissions; their reviews
+surface in the root chat.
 
 ## Develop
 

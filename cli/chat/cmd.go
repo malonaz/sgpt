@@ -296,7 +296,8 @@ func NewCmd(
 			app := tui.NewApp(ctx, chatStore, registry, chatSession, params)
 			app.SetAgentSessionFactory(func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, error) {
 				// Everything a sub-agent gets comes from its launcher —
-				// model, tools, policy — narrowed by the request.
+				// model, tools, policy, review queue — narrowed by the
+				// request.
 				caller := request.Caller
 				model := caller.Model
 				if request.Model != "" {
@@ -307,10 +308,6 @@ func NewCmd(
 					}
 				}
 				if err := validateToolNames(request.Tools); err != nil {
-					return nil, err
-				}
-				subPolicy, err := caller.Policy.Child(request.Permissions)
-				if err != nil {
 					return nil, err
 				}
 				subFiles, err := file.Parse(&file.InjectionOpts{Files: request.Files})
@@ -340,8 +337,9 @@ func NewCmd(
 					SystemPrompt:       agent.SystemPrompt(parsedRole.Prompt, request.Context),
 					InjectedFiles:      subFilePaths,
 					LoreNameForPath:    loreIndex.NameForPath,
-					Policy:             subPolicy,
+					Policy:             caller.Policy.Child(),
 					Depth:              caller.Depth + 1,
+					Reviews:            caller.Reviews,
 				}
 				return session.New(ctx, chatStore, registry, subChat, nil, subParams), nil
 			})

@@ -31,15 +31,6 @@ func mustNew(t *testing.T, rules ...*sgptpb.PermissionRule) *Policy {
 	return policy
 }
 
-func mustChild(t *testing.T, parent *Policy, rules ...*sgptpb.PermissionRule) *Policy {
-	t.Helper()
-	policy, err := parent.Child(rules)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return policy
-}
-
 func TestZeroValueFallsBackToTool(t *testing.T) {
 	var policy Policy
 	shell := call(t, "exec_shell", map[string]any{"command": "rm -rf /"})
@@ -98,35 +89,16 @@ func TestGrantOverridesRules(t *testing.T) {
 	}
 }
 
-func TestChildOnlyTightens(t *testing.T) {
-	parent := mustNew(t, newRule("exec_shell", "command", `^git log`, ModeAllow))
-	parent.Grant("read_files")
-	child := mustChild(t, parent,
-		newRule("exec_shell", "", "", ModeAllow), // cannot loosen
-		newRule("read_files", "", "", ModeDeny),  // tightens an inherited grant
-		newRule("diff", "", "", ModeReview),      // no-op: already review
-	)
-	cases := []struct {
-		call        *aipb.ToolCall
-		autoExecute bool
-		want        sgptpb.PermissionMode
-	}{
-		{call(t, "exec_shell", map[string]any{"command": "git log"}), false, ModeAllow},
-		{call(t, "exec_shell", map[string]any{"command": "rm x"}), false, ModeReview},
-		{call(t, "read_files", nil), true, ModeDeny},
-		{call(t, "diff", nil), false, ModeReview},
-		{call(t, "search_lores", nil), true, ModeAllow},
-	}
-	for _, c := range cases {
-		if got := child.Decide(c.call, c.autoExecute).Mode; got != c.want {
-			t.Errorf("%s: mode = %v, want %v", c.call.GetName(), got, c.want)
-		}
+func TestChildInheritsRules(t *testing.T) {
+	child := mustNew(t, newRule("exec_shell", "command", `^rm`, ModeDeny)).Child()
+	if got := child.Decide(call(t, "exec_shell", map[string]any{"command": "rm x"}), false).Mode; got != ModeDeny {
+		t.Fatalf("mode = %v, want deny inherited from the parent", got)
 	}
 }
 
 func TestParentGrantFlowsToChildLive(t *testing.T) {
 	parent := mustNew(t)
-	child := mustChild(t, parent)
+	child := parent.Child()
 	shell := call(t, "exec_shell", map[string]any{"command": "ls"})
 	if got := child.Decide(shell, false).Mode; got != ModeReview {
 		t.Fatalf("mode = %v, want review before grant", got)
@@ -137,12 +109,16 @@ func TestParentGrantFlowsToChildLive(t *testing.T) {
 	}
 }
 
-func TestChildGrantBeatsChildRule(t *testing.T) {
-	child := mustChild(t, mustNew(t), newRule("exec_shell", "", "", ModeReview))
+func TestChildGrantStaysInChild(t *testing.T) {
+	parent := mustNew(t)
+	child := parent.Child()
 	child.Grant("exec_shell")
 	shell := call(t, "exec_shell", map[string]any{"command": "ls"})
 	if got := child.Decide(shell, false).Mode; got != ModeAllow {
-		t.Fatalf("mode = %v, want allow", got)
+		t.Fatalf("child mode = %v, want allow", got)
+	}
+	if got := parent.Decide(shell, false).Mode; got != ModeReview {
+		t.Fatalf("parent mode = %v, want review: grants never cascade up", got)
 	}
 }
 
