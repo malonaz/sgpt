@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	sectionStyle   = lipgloss.NewStyle().Foreground(styles.ColorSubtle).PaddingLeft(2)
+	sectionStyle   = lipgloss.NewStyle().Foreground(styles.ColorMuted).PaddingLeft(2)
 	filterBoxStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
 	previewTitle   = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
 	agentStyle     = lipgloss.NewStyle().Foreground(styles.ColorAgent)
@@ -40,8 +40,9 @@ func (m *Model) View() string {
 	left = lipgloss.NewStyle().Width(m.listWidth()).Height(height).MaxHeight(height).Render(left)
 	body := left
 	if m.detailWidth() > 0 && m.width >= minPreviewWidth {
-		separator := styles.SubtleStyle.Render(strings.TrimSuffix(strings.Repeat(styles.GlyphRule+"\n", height), "\n"))
-		body = lipgloss.JoinHorizontal(lipgloss.Top, left, separator, m.detailViewport.View())
+		// Whitespace, not a rule: vertical bars mean selection.
+		gap := lipgloss.NewStyle().Width(paneGap).Height(height).Render("")
+		body = lipgloss.JoinHorizontal(lipgloss.Top, left, gap, m.detailViewport.View())
 	}
 	return body
 }

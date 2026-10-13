@@ -6,10 +6,11 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"golang.design/x/clipboard"
 
+	"github.com/malonaz/sgpt/cli/tui/clipboard"
 	"github.com/malonaz/sgpt/cli/tui/editor"
 	"github.com/malonaz/sgpt/cli/tui/keymap"
+	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/markdown"
 )
 
@@ -66,11 +67,13 @@ const renderCacheBudget = 512
 // virtualized scroll window: items are measured once (cached), and View only
 // materializes the lines intersecting the viewport.
 type Model struct {
-	// source is what the chat built; items is it with resolved runs folded.
+	// source is what the chat built; items is it with finished turns folded.
 	source []Item
 	items  []Item
-	// runOwner maps a folded call to its run, so the cursor survives folding.
-	runOwner  map[string]string
+	// workOwner maps a folded item to its work row, so the cursor survives
+	// folding; nested marks the children of an expanded work row.
+	workOwner map[string]string
+	nested    map[string]bool
 	cursorID  string
 	cursorSub int
 	navMode   NavMode
@@ -94,6 +97,7 @@ type Model struct {
 	volatileLines map[string][]string
 
 	renderer *markdown.Renderer
+	live     bool
 	frame    int
 	width    int
 	height   int
@@ -118,12 +122,12 @@ func (m *Model) SetItems(items []Item) {
 	m.rerender()
 }
 
-// fold lays out source items with runs folded per collapse state, moving the
-// cursor onto a run that swallowed the selected call.
+// fold lays out source items with finished turns folded per collapse state,
+// moving the cursor onto a work row that swallowed the selected item.
 func (m *Model) fold() {
-	m.items, m.runOwner = foldRuns(m.source, m.IsCollapsed)
-	if run, ok := m.runOwner[m.cursorID]; ok && m.cursorIndex() == -1 {
-		m.cursorID, m.cursorSub = run, 0
+	m.items, m.workOwner, m.nested = foldTurns(m.source, m.live, m.IsCollapsed)
+	if row, ok := m.workOwner[m.cursorID]; ok && m.cursorIndex() == -1 {
+		m.cursorID, m.cursorSub = row, 0
 	}
 }
 
@@ -150,7 +154,8 @@ func (m *Model) SetSize(width, height int) {
 		return
 	}
 	if width != m.width {
-		m.renderer.SetWidth(max(width-indent, 1))
+		// Nested children render at an inset; reserve it so they never overflow.
+		m.renderer.SetWidth(max(width-indent-nestInset, 1))
 		// Wrapping changed — every cached render is stale.
 		m.renderCache = map[string]renderEntry{}
 		// Volatile (streaming) memos were measured at the old width too.
@@ -161,6 +166,18 @@ func (m *Model) SetSize(width, height int) {
 	m.ready = true
 	m.rerender()
 }
+
+// Restyle drops every render baked with the previous palette.
+func (m *Model) Restyle() {
+	m.renderer.Restyle()
+	m.renderCache = map[string]renderEntry{}
+	m.volatileLines = map[string][]string{}
+	m.rerender()
+}
+
+// SetLive reports whether a turn is in flight: a live turn's work stays
+// visible until it yields back to the user. SetItems applies it.
+func (m *Model) SetLive(live bool) { m.live = live }
 
 func (m *Model) maxYOffset() int {
 	if m.totalLines <= m.height {
@@ -309,8 +326,7 @@ func (m *Model) HandleKey(msg tea.KeyPressMsg, alert func(string) tea.Cmd) tea.C
 		return alert("Navigation: code fences")
 	case key.Matches(msg, KeyCopy.Key):
 		if content, _ := m.selectedContent(); content != "" {
-			clipboard.Write(clipboard.FmtText, []byte(content))
-			return alert("Copied to clipboard!")
+			return tea.Batch(clipboard.Write(content), alert("Copied"))
 		}
 	case key.Matches(msg, KeyOpenEditor.Key):
 		if content, extension := m.selectedContent(); content != "" {
@@ -431,7 +447,7 @@ func (m *Model) toggleCollapse() {
 	}
 	m.collapsed[item.ID()] = !m.IsCollapsed(item)
 	m.cursorSub = 0
-	if _, ok := item.(*ToolRunItem); ok {
+	if _, ok := item.(*WorkItem); ok {
 		m.fold()
 	}
 	m.rerender()
@@ -445,10 +461,9 @@ func (m *Model) scrollToCursor() {
 	}
 	offset := m.offsets[index]
 	if m.navMode == NavModeFence && m.cursorSub > 0 {
-		if item, ok := m.items[index].(SubOffsetter); ok {
-			subOffsets := item.SubOffsets(m.renderContext(m.items[index]))
-			if m.cursorSub < len(subOffsets) {
-				offset += subOffsets[m.cursorSub]
+		if item, ok := m.items[index].(SubSpanner); ok {
+			if spans := item.SubSpans(m.renderContext(m.items[index])); m.cursorSub < len(spans) {
+				offset += spans[m.cursorSub].start
 			}
 		}
 	}
@@ -463,8 +478,13 @@ func (m *Model) renderContext(item Item) RenderContext {
 			selectedSub = m.cursorSub
 		}
 	}
+	inset := 0
+	if m.nested[item.ID()] {
+		inset = nestInset
+	}
 	return RenderContext{
 		Width:       m.width,
+		Inset:       inset,
 		Selected:    selected,
 		Focused:     m.focused,
 		Collapsed:   m.IsCollapsed(item),
@@ -481,8 +501,8 @@ func (m *Model) itemLines(item Item) []string {
 		ctx := m.renderContext(item)
 		// Render state participates in the key so selection/collapse/focus
 		// changes never serve stale output.
-		key = fmt.Sprintf("%s|%t|%t|%t|%d",
-			cacheable.CacheKey(), ctx.Selected, ctx.Focused, ctx.Collapsed, ctx.SelectedSub)
+		key = fmt.Sprintf("%s|%t|%t|%t|%d|%d",
+			cacheable.CacheKey(), ctx.Selected, ctx.Focused, ctx.Collapsed, ctx.SelectedSub, ctx.Inset)
 		if entry, ok := m.renderCache[key]; ok {
 			// Touch so the entry survives the next eviction sweep.
 			entry.usedGeneration = m.generation
@@ -492,7 +512,11 @@ func (m *Model) itemLines(item Item) []string {
 	} else if lines, ok := m.volatileLines[item.ID()]; ok {
 		return lines
 	}
-	lines := strings.Split(item.Render(m.renderContext(item)), "\n")
+	ctx := m.renderContext(item)
+	lines := strings.Split(item.Render(ctx), "\n")
+	if ctx.Selected {
+		paintSelection(item, ctx, lines)
+	}
 	if key != "" {
 		m.renderCache[key] = renderEntry{lines: lines, usedGeneration: m.generation}
 	} else {
@@ -516,8 +540,8 @@ func (m *Model) rerender() {
 	previousCompact := false
 	for i, item := range m.items {
 		compact := isCompact(item, m.renderContext(item))
-		if i > 0 && !(compact && previousCompact) {
-			m.gaps[i] = 1
+		if i > 0 {
+			m.gaps[i] = gap(item, compact && previousCompact)
 		}
 		previousCompact = compact
 		line += m.gaps[i]
@@ -545,6 +569,45 @@ func (m *Model) evictStaleRenders() {
 	}
 }
 
+// paintSelection bands the selected lines: the whole item, or only the
+// selected fence in fence navigation.
+func paintSelection(item Item, ctx RenderContext, lines []string) {
+	// The review card is framed and turns are banded: their gutter bar marks
+	// the selection.
+	if call, ok := item.(*ToolCallItem); ok && call.Pending {
+		return
+	}
+	if text, ok := item.(*TextItem); ok && text.isTurn() {
+		return
+	}
+	selected := span{0, len(lines)}
+	if spanner, ok := item.(SubSpanner); ok && ctx.SelectedSub >= 0 {
+		if spans := spanner.SubSpans(ctx); ctx.SelectedSub < len(spans) {
+			selected = spans[ctx.SelectedSub]
+		}
+	}
+	for index := selected.start; index < min(selected.end, len(lines)); index++ {
+		lines[index] = band(lines[index], ctx.bandWidth(), styles.ColorSurfaceStrong)
+	}
+}
+
+// gap is the blank lines above an item: user turns open a new section, and
+// one-row items sit flush against each other.
+func gap(item Item, flush bool) int {
+	switch {
+	case isTurn(item):
+		return 1
+	case flush:
+		return 0
+	}
+	return 1
+}
+
+func isTurn(item Item) bool {
+	text, ok := item.(*TextItem)
+	return ok && text.voice == voiceUser
+}
+
 func isCompact(item Item, ctx RenderContext) bool {
 	compact, ok := item.(Compact)
 	return ok && compact.Compact(ctx)
@@ -553,22 +616,19 @@ func isCompact(item Item, ctx RenderContext) bool {
 // RenderItems renders items statically (no cursor, no cache) — used by
 // read-only previews such as the menu detail pane.
 func RenderItems(items []Item, renderer *markdown.Renderer, width int) string {
-	renderer.SetWidth(max(width-indent, 1))
+	renderer.SetWidth(max(width-indent-nestInset, 1))
 	defaultCollapsed := func(item Item) bool {
 		collapsible, ok := item.(Collapsible)
 		return ok && collapsible.DefaultCollapsed()
 	}
-	items, _ = foldRuns(items, defaultCollapsed)
+	items, _, _ = foldTurns(items, false, defaultCollapsed)
 	var b strings.Builder
 	previousCompact := false
 	for i, item := range items {
 		ctx := RenderContext{Width: width, Renderer: renderer, Static: true, SelectedSub: -1, Collapsed: defaultCollapsed(item)}
 		compact := isCompact(item, ctx)
 		if i > 0 {
-			b.WriteString("\n")
-			if !(compact && previousCompact) {
-				b.WriteString("\n")
-			}
+			b.WriteString(strings.Repeat("\n", 1+gap(item, compact && previousCompact)))
 		}
 		previousCompact = compact
 		b.WriteString(item.Render(ctx))

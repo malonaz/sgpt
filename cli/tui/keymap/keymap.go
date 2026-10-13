@@ -77,7 +77,7 @@ var (
 			Padding(1, 2)
 	helpTitleStyle     = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
 	helpSectionStyle   = lipgloss.NewStyle().Foreground(styles.ColorMuted).Bold(true)
-	helpContinuedStyle = lipgloss.NewStyle().Foreground(styles.ColorSubtle).Bold(true)
+	helpContinuedStyle = lipgloss.NewStyle().Foreground(styles.ColorMuted).Bold(true)
 	helpKeyStyle       = lipgloss.NewStyle().Foreground(styles.ColorText)
 	helpActionStyle    = lipgloss.NewStyle().Foreground(styles.ColorMuted)
 )

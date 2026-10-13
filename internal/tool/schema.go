@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -83,7 +84,7 @@ func MustBuildTool(toolName, handlerID string, methodFullName protoreflect.FullN
 	if !ok {
 		panic(fmt.Sprintf("%s is not a method", methodFullName))
 	}
-	jsonSchema, err := pbjson.NewSchemaBuilder(schema).BuildSchema(methodFullName)
+	jsonSchema, err := pbjson.NewSchemaBuilder(schema).BuildSchema(methodFullName, pbjson.WithTitle(TitleDescription))
 	if err != nil {
 		panic(fmt.Sprintf("building JSON schema for %s: %v", methodFullName, err))
 	}
@@ -125,9 +126,19 @@ func NewStructuredToolResult(toolCall *aipb.ToolCall, responseMessage proto.Mess
 }
 
 // UnmarshalArguments parses a tool call's arguments into a typed request
-// proto. Lenient: unknown/partial fields are tolerated (streaming).
+// proto. Strict, so a misnamed argument reaches the model as an error rather
+// than silently dropping; only the injected title is set aside.
 func UnmarshalArguments(toolCall *aipb.ToolCall, requestMessage proto.Message) error {
-	if err := pbutil.UnmarshalFromStruct(requestMessage, toolCall.GetArguments()); err != nil {
+	fields := toolCall.GetArguments().GetFields()
+	if _, ok := fields[TitleArgument]; ok {
+		fields = maps.Clone(fields)
+		delete(fields, TitleArgument)
+	}
+	argumentsJSON, err := (&structpb.Struct{Fields: fields}).MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("parsing tool arguments: %w", err)
+	}
+	if err := pbutil.JSONUnmarshalStrict(argumentsJSON, requestMessage); err != nil {
 		return fmt.Errorf("parsing tool arguments: %w", err)
 	}
 	return nil

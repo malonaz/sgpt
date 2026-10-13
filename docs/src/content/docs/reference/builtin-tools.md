@@ -149,7 +149,7 @@ Returns the operations, in request order (oldest first when listing all).
 | Argument | Type | Description |
 |---|---|---|
 | `names` | string[] | Operations to wait for; empty waits for every unfinished one the chat started. |
-| `return_when` | enum | `RETURN_WHEN_ALL` (default) or `RETURN_WHEN_ANY`. |
+| `return_when` | enum | `RETURN_WHEN_ANY` (default: return at the first finish) or `RETURN_WHEN_ALL`. |
 | `timeout_seconds` | int | Longest time to block; default 600, capped at 3600. |
 
 Returns a `reason` — `REASON_COMPLETED`, `REASON_TIMEOUT`, or

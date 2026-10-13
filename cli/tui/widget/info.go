@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"cmp"
 	"fmt"
 	"sort"
 	"strings"
@@ -150,7 +151,7 @@ func infoSessionRows(info *session.Info) [][]string {
 	rows := [][]string{
 		{"model", ansi.Truncate(model, 32, styles.GlyphEllipsis)},
 		{"role", role},
-		{"reasoning", infoReasoning(info.Reasoning)},
+		{"reasoning", cmp.Or(session.ReasoningLabel(info.Reasoning), "model default")},
 		{"capabilities", infoCapabilities(info)},
 	}
 	if info.OutputLimit > 0 {
@@ -290,7 +291,7 @@ func infoInventory(info *session.Info, width, spare int) string {
 	rendered := make([]string, len(lists))
 	for i, list := range lists {
 		if len(list.entries) == 0 {
-			rendered[i] = infoWrap(list.label, []string{styles.SubtleStyle.Render(list.empty)}, labelWidth, width)[0]
+			rendered[i] = infoWrap(list.label, []string{styles.MutedStyle.Render(list.empty)}, labelWidth, width)[0]
 			continue
 		}
 		rendered[i] = infoListLine(list.label, list.entries, labelWidth, width, lines[i])
@@ -301,7 +302,7 @@ func infoInventory(info *session.Info, width, spare int) string {
 func infoToolEntry(name string, calls int, autoAccepted, disabled bool) string {
 	entry := styles.TextStyle.Render(name)
 	if disabled {
-		entry = styles.SubtleStyle.Render(name + " off")
+		entry = styles.MutedStyle.Render(name + " off")
 	}
 	var annotations []string
 	if calls > 0 {
@@ -334,7 +335,7 @@ func infoListLine(label string, entries []string, labelWidth, width, maxLines in
 	}
 	// Re-wrap with fewer entries until the summary fits in maxLines.
 	for shown := len(entries) - 1; shown > 0; shown-- {
-		more := styles.SubtleStyle.Render(fmt.Sprintf("+%d more", len(entries)-shown))
+		more := styles.MutedStyle.Render(fmt.Sprintf("+%d more", len(entries)-shown))
 		candidate := infoWrap(label, append(append([]string{}, entries[:shown]...), more), labelWidth, width)
 		if len(candidate) <= maxLines {
 			return strings.Join(candidate, "\n")
@@ -399,17 +400,4 @@ func infoCapabilities(info *session.Info) string {
 		return "text"
 	}
 	return strings.Join(capabilities, ", ")
-}
-
-func infoReasoning(effort aipb.ReasoningEffort) string {
-	switch effort {
-	case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
-		return "low"
-	case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
-		return "medium"
-	case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
-		return "high"
-	default:
-		return "none"
-	}
 }

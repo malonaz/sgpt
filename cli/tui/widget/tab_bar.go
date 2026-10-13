@@ -40,7 +40,7 @@ var (
 	tabActiveStyle   = lipgloss.NewStyle().Foreground(styles.ColorBrand).Background(styles.ColorSurface).Bold(true)
 	tabInactiveStyle = lipgloss.NewStyle().Foreground(styles.ColorMuted)
 	tabDepthStyle    = lipgloss.NewStyle().Foreground(styles.ColorAgent)
-	tabMarkerStyle   = styles.SubtleStyle
+	tabMarkerStyle   = styles.MutedStyle
 	// A hidden tab awaiting review tints its overflow marker.
 	tabMarkerReviewStyle = lipgloss.NewStyle().Foreground(styles.ColorWarning).Bold(true)
 )

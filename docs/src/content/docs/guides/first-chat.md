@@ -71,8 +71,8 @@ Roles come from `.sgpt/*.role.md` files in the repo (and its imports); see
   <kbd>alt</kbd>+<kbd>j</kbd> / <kbd>alt</kbd>+<kbd>;</kbd> switch. A tab
   working in the background shows `●`, one waiting on your review `▶`, and a
   finished one `✓` (or `✗`) until you visit it.
-- <kbd>ctrl</kbd>+<kbd>c</kbd> cancels the running turn or clears the input;
-  pressed twice when there's nothing to stop, it asks to quit.
+- <kbd>ctrl</kbd>+<kbd>c</kbd> does one thing per press: cancels the running
+  turn, else clears the input, else asks to quit.
 - <kbd>alt</kbd>+<kbd>m</kbd> opens the **menu**: every chat for your user,
   filterable, with favourites (<kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd>).
 - `sgpt chat -c` reopens the last chat; `sgpt chat --name <chat>` a specific

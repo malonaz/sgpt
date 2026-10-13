@@ -33,23 +33,28 @@ func init() {
 			responses: [][]*aipb.Block{
 				{
 					toolCall("call_1", "read_files", map[string]any{
-						"paths": []any{"internal/session/review.go", "internal/session/verdict.go"},
+						"tool_call_title": "Read the review and verdict code",
+						"paths":           []any{"internal/session/review.go", "internal/session/verdict.go"},
 					}),
 					toolCall("call_2", "exec_shell", map[string]any{
-						"command": "grep -n pendingReviews internal/session/review.go",
+						"tool_call_title": "Find where pendingReviews is used",
+						"command":         "grep -n pendingReviews internal/session/review.go",
 					}),
 					toolCall("call_3", "exec_shell", map[string]any{
-						"command": "test -f internal/session/verdict.go",
+						"tool_call_title": "Check verdict.go already exists",
+						"command":         "test -f internal/session/verdict.go",
 					}),
 				},
 				{
 					toolCall("call_4", "diff", map[string]any{
-						"path": "internal/session/review.go",
-						"diff": renameDiff,
+						"tool_call_title": "Rename pendingReview to awaitingVerdict",
+						"path":            "internal/session/review.go",
+						"diff":            renameDiff,
 					}),
 					toolCall("call_5", "diff", map[string]any{
-						"path": "internal/session/verdict.go",
-						"diff": "@@\n+package session\n+\n+// verdict is the user's answer to a reviewed tool call.\n+type verdict struct {\n+\taccepted bool\n+\treason   string\n+}\n",
+						"tool_call_title": "Move verdict into its own file",
+						"path":            "internal/session/verdict.go",
+						"diff":            "@@\n+package session\n+\n+// verdict is the user's answer to a reviewed tool call.\n+type verdict struct {\n+\taccepted bool\n+\treason   string\n+}\n",
 					}),
 				},
 				{
@@ -71,7 +76,8 @@ func init() {
 			responses: [][]*aipb.Block{
 				{
 					toolCall("call_1", "create_agents", map[string]any{
-						"context": "Redesign the TUI. Follow `.sgpt/lores/tui/design.md`.",
+						"tool_call_title": "Split the redesign across two agents",
+						"context":         "Redesign the TUI. Follow `.sgpt/lores/tui/design.md`.",
 						"tasks": []any{
 							map[string]any{"title": "Timeline rows", "query": "Render each tool call as one row."},
 							map[string]any{"title": "Tool summaries", "query": "Make every tool describe itself in one line."},

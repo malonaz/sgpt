@@ -34,7 +34,7 @@ func init() {
 			name:  "chrome-running",
 			title: "Slow tests",
 			responses: [][]*aipb.Block{
-				{toolCall("call_1", "exec_shell", map[string]any{"command": "sleep 3 && echo ok"})},
+				{toolCall("call_1", "exec_shell", map[string]any{"tool_call_title": "Run the slow test suite", "command": "sleep 3 && echo ok"})},
 				{text("Done.\n")},
 			},
 			drive: func(r *runtime, s *session.Session) {
@@ -52,7 +52,7 @@ func init() {
 			title: "Rename pendingReview",
 			responses: [][]*aipb.Block{{
 				text("Renaming the type and the map that holds it.\n"),
-				toolCall("call_1", "diff", map[string]any{"path": "internal/session/review.go", "diff": renameDiff}),
+				toolCall("call_1", "diff", map[string]any{"tool_call_title": "Rename pendingReview to awaitingVerdict", "path": "internal/session/review.go", "diff": renameDiff}),
 			}},
 			drive: func(r *runtime, s *session.Session) {
 				r.typeText("rename pendingReview to awaitingVerdict")
@@ -94,7 +94,7 @@ func init() {
 			},
 		},
 		scene{
-			// An idle ctrl+c: never destructive, it explains how to quit.
+			// An idle ctrl+c: one press opens the quit confirm.
 			name:  "chrome-ctrl-c",
 			title: "Quit doctrine",
 			drive: func(r *runtime, s *session.Session) {
@@ -112,7 +112,7 @@ func init() {
 		title: "Rename pendingReview",
 		responses: [][]*aipb.Block{{
 			text("Renaming the type and the map that holds it.\n"),
-			toolCall("call_1", "diff", map[string]any{"path": "internal/session/review.go", "diff": renameDiff}),
+			toolCall("call_1", "diff", map[string]any{"tool_call_title": "Rename pendingReview to awaitingVerdict", "path": "internal/session/review.go", "diff": renameDiff}),
 		}},
 		drive: func(r *runtime, s *session.Session) {
 			r.typeText("rename pendingReview to awaitingVerdict")

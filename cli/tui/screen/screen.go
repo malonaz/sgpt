@@ -62,6 +62,11 @@ type FocusAgentMsg struct {
 	Title string
 }
 
+// Restyler screens drop color-baked renders when the palette changes.
+type Restyler interface {
+	Restyle()
+}
+
 // AlertLevel grades an alert: it picks the toast's color and how long it
 // stays up.
 type AlertLevel int

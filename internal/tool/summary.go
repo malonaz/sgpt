@@ -11,6 +11,21 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// TitleArgument is the user-facing title a model writes first when the
+// tool's schema was built with pbjson.WithTitle.
+const TitleArgument = "tool_call_title"
+
+// TitleDescription documents TitleArgument for the model: the title is the
+// call's collapsed, user-facing description in the timeline.
+const TitleDescription = "A short user-facing title for this call, shown to the user in place of its arguments: " +
+	"what it does and why, at most 8 words, sentence case, no trailing period " +
+	"(e.g. 'Find where pendingReview is used', 'Run the timeline tests')."
+
+// Title returns the title the model gave the call, if any.
+func Title(toolCall *aipb.ToolCall) string {
+	return toolCall.GetArguments().GetFields()[TitleArgument].GetStringValue()
+}
+
 // workingDirectory is resolved once: summaries run on every render.
 var workingDirectory = sync.OnceValue(func() string {
 	directory, _ := os.Getwd()

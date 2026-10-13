@@ -18,6 +18,7 @@ go_library(
         "//third_party/go:github.com__malonaz__core__go__pbutil__pbjson",
         "//third_party/go:github.com__malonaz__core__go__pbutil__pbreflection",
         "//third_party/go:google.golang.org__grpc__reflection__grpc_reflection_v1",
+        "//third_party/go:google.golang.org__protobuf__proto",
         "//third_party/go:google.golang.org__protobuf__reflect__protoreflect",
         "//third_party/go:google.golang.org__protobuf__types__descriptorpb",
         "//third_party/go:google.golang.org__protobuf__types__dynamicpb",

@@ -3,9 +3,9 @@ package timeline
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	"github.com/malonaz/core/go/pbutil"
 
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/store"
@@ -151,6 +151,10 @@ func appendMessageItems(
 ) []Item {
 	baseSeq := messageIndex * 1000
 	messageName := message.GetName()
+	var created time.Time
+	if createTime := message.GetCreateTime(); createTime != nil {
+		created = createTime.AsTime()
+	}
 	switch message.GetRole() {
 	case aipb.Role_ROLE_USER:
 		// Injected files render in-place (injection order), label-detected:
@@ -193,6 +197,7 @@ func appendMessageItems(
 				messageName: messageName,
 				sender:      sender,
 				note:        note,
+				created:     created,
 			})
 		}
 
@@ -214,6 +219,7 @@ func appendMessageItems(
 					blocks:      markdown.ParseBlocks(text),
 					finalized:   finalized,
 					messageName: messageName,
+					created:     created,
 				})
 			} else if toolCall := block.GetToolCall(); toolCall != nil {
 				result := toolCall.GetResult()
@@ -265,60 +271,4 @@ func agentNote(text string) (note, rest string) {
 	}
 	note, rest, _ = strings.Cut(text, "\n")
 	return note, strings.TrimLeft(rest, "\n")
-}
-
-// ConversationText renders the entire chat as plain markdown — used by
-// alt+shift+o to open the full conversation in $EDITOR.
-func ConversationText(messages []*aipb.Message) string {
-	var b strings.Builder
-	for _, message := range messages {
-		switch message.GetRole() {
-		case aipb.Role_ROLE_USER:
-			author := "User"
-			if sender := store.MessageSender(message); sender != "" {
-				author = sender
-			}
-			b.WriteString("## " + author + "\n\n")
-			for _, block := range message.GetBlocks() {
-				if text := block.GetText(); text != "" {
-					b.WriteString(text)
-					b.WriteString("\n\n")
-				}
-			}
-		case aipb.Role_ROLE_ASSISTANT:
-			b.WriteString("## Assistant\n\n")
-			for _, block := range message.GetBlocks() {
-				if thought := block.GetThought(); thought != "" {
-					b.WriteString("*Thinking:* ")
-					b.WriteString(thought)
-					b.WriteString("\n\n")
-				}
-				if text := block.GetText(); text != "" {
-					b.WriteString(text)
-					b.WriteString("\n\n")
-				}
-				if toolCall := block.GetToolCall(); toolCall != nil {
-					bytes, _ := pbutil.JSONMarshalPretty(toolCall.GetArguments())
-					b.WriteString(fmt.Sprintf("Tool Call: %s\n```json\n%s\n```\n\n", toolCall.GetName(), string(bytes)))
-				}
-			}
-		case aipb.Role_ROLE_TOOL:
-			b.WriteString("## Tool Result\n\n")
-			for _, block := range message.GetBlocks() {
-				if toolResult := block.GetToolResult(); toolResult != nil {
-					b.WriteString(toolResultText(toolResult))
-					b.WriteString("\n\n")
-				}
-			}
-		case aipb.Role_ROLE_SYSTEM:
-			b.WriteString("## System\n\n")
-			for _, block := range message.GetBlocks() {
-				if text := block.GetText(); text != "" {
-					b.WriteString(text)
-					b.WriteString("\n\n")
-				}
-			}
-		}
-	}
-	return b.String()
 }

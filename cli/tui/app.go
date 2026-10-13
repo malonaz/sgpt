@@ -11,11 +11,12 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
-	"golang.design/x/clipboard"
 
+	"github.com/malonaz/sgpt/cli/tui/clipboard"
 	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
+	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/history"
@@ -30,8 +31,6 @@ const (
 	// Errors stay up long enough to be read in full; the rest just confirm.
 	toastDuration      = 2500 * time.Millisecond
 	errorToastDuration = 6 * time.Second
-	// quitWindow is how soon a second ctrl+c must follow the first to quit.
-	quitWindow = 1500 * time.Millisecond
 	// chromeHeight is the tab bar, the blank line under it, and the status
 	// bar.
 	chromeHeight = 3
@@ -86,7 +85,7 @@ type tab struct {
 }
 
 var (
-	keyQuit           = keymap.New("ctrl+c", "Quit (press twice)")
+	keyQuit           = keymap.New("ctrl+c", "Quit, once nothing is left to cancel")
 	keyNewTab         = keymap.New("ctrl+t", "New tab")
 	keyCloseTab       = keymap.New("ctrl+w", "Close tab")
 	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close idle sub-agent tabs")
@@ -138,8 +137,6 @@ type App struct {
 	alertVisible bool
 	helpVisible  bool
 	helpPage     int
-	// quitArmedAt is when an idle ctrl+c asked for a second one.
-	quitArmedAt time.Time
 	// confirm, when non-nil, is a modal awaiting y/enter; any other key
 	// dismisses it.
 	confirm  *confirmation
@@ -217,7 +214,7 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (to
 var _ agent.Launcher = (*App)(nil)
 
 func (a *App) Init() tea.Cmd {
-	var cmds []tea.Cmd
+	cmds := []tea.Cmd{tea.RequestBackgroundColor}
 	for i, t := range a.tabs {
 		cmds = append(cmds, t.screen.Init())
 		if i == a.activeTab {
@@ -238,6 +235,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openTabMsg:
 		return a, a.addTab(msg)
+
+	case tea.BackgroundColorMsg:
+		styles.SetBackground(msg.Color, msg.IsDark())
+		for _, t := range a.tabs {
+			if restyler, ok := t.screen.(screen.Restyler); ok {
+				restyler.Restyle()
+			}
+		}
+		return a, nil
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -351,9 +357,8 @@ func (a *App) View() tea.View {
 
 	view := tea.NewView(b.String())
 	view.AltScreen = true
+	// No mouse mode: native click-drag selection must keep working.
 	view.ReportFocus = true
-	// Wheel events scroll the timeline; shift+drag keeps native selection.
-	view.MouseMode = tea.MouseModeCellMotion
 	return view
 }
 
@@ -405,8 +410,7 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, keyCopyName.Key):
 		if chatScreen := a.activeChat(); chatScreen != nil {
 			if chatName := chatScreen.Session().Chat().GetName(); chatName != "" {
-				clipboard.Write(clipboard.FmtText, []byte(chatName))
-				return a.showAlert(screen.AlertMsg{Text: "Copied chat name: " + chatName, Level: screen.AlertSuccess})
+				return tea.Batch(clipboard.Write(chatName), a.showAlert(screen.AlertMsg{Text: "Copied chat name: " + chatName, Level: screen.AlertSuccess}))
 			}
 		}
 		return nil
@@ -477,20 +481,13 @@ func (a *App) focusAgent(msg screen.FocusAgentMsg) tea.Cmd {
 	return a.showAlert(screen.AlertMsg{Text: fmt.Sprintf("%s: its tab was closed", msg.Title)})
 }
 
-// interrupt is ctrl+c: never destructive. The active screen stops what it
-// can (turn, input); otherwise a first press arms and a second one, soon
-// after, asks to quit.
+// interrupt is ctrl+c: one press, one visible effect. The active screen
+// stops what it can (modal, turn, input); otherwise the quit confirm opens.
 func (a *App) interrupt() tea.Cmd {
 	if interrupter, ok := a.tabs[a.activeTab].screen.(screen.Interrupter); ok && interrupter.Interrupt() {
-		a.quitArmedAt = time.Time{}
 		return nil
 	}
-	if time.Since(a.quitArmedAt) < quitWindow {
-		a.quitArmedAt = time.Time{}
-		return a.requestQuit()
-	}
-	a.quitArmedAt = time.Now()
-	return a.showAlert(screen.AlertMsg{Text: "ctrl+c again to quit · ctrl+w closes the tab"})
+	return a.requestQuit()
 }
 
 // requestConfirm guards a screen's action behind the confirm modal.

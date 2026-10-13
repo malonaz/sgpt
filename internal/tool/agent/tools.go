@@ -417,7 +417,7 @@ func (t *waitOperationsTool) Execute(ctx context.Context, toolCall *aipb.ToolCal
 	if seconds := request.GetTimeoutSeconds(); seconds > 0 {
 		timeout = min(time.Duration(seconds)*time.Second, maxWaitTimeout)
 	}
-	reason, ops, err := t.m.wait(ctx, caller.Agent, request.GetNames(), request.GetReturnWhen() == sgptpb.WaitOperationsRequest_RETURN_WHEN_ANY, timeout)
+	reason, ops, err := t.m.wait(ctx, caller.Agent, request.GetNames(), request.GetReturnWhen() != sgptpb.WaitOperationsRequest_RETURN_WHEN_ALL, timeout)
 	if err != nil {
 		return nil, err
 	}

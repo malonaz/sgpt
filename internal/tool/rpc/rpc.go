@@ -2,7 +2,10 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +23,7 @@ import (
 	"github.com/malonaz/core/go/pbutil/pbjson"
 	"github.com/malonaz/core/go/pbutil/pbreflection"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
@@ -64,11 +68,33 @@ type Manager struct {
 	closers              []func()
 }
 
-func toolSetCacheKey(engineName string, index int) string {
+// toolSetCacheKey keys a tool set by its engine and request: a changed
+// request (e.g. a schema configuration) must not be served a stale schema.
+func toolSetCacheKey(engineName string, request *aienginepb.CreateServiceToolSetRequest) (string, error) {
+	requestBytes, err := pbutil.MarshalDeterministic(request)
+	if err != nil {
+		return "", fmt.Errorf("marshaling tool set request: %w", err)
+	}
 	// Engine names are selectors ("//dir:title", "@import//dir:title");
 	// flatten them into a safe file name.
 	sanitized := strings.NewReplacer("/", "_", ":", "_", "@", "_").Replace(engineName)
-	return fmt.Sprintf("%s%s_%d.pb", toolSetCacheKeyPrefix, sanitized, index)
+	return fmt.Sprintf("%s%s_%x.pb", toolSetCacheKeyPrefix, sanitized, sha256.Sum256(requestBytes)), nil
+}
+
+// withTitles returns the request with every schema configuration injecting
+// the tool call title, unless the configuration sets its own.
+func withTitles(request *aienginepb.CreateServiceToolSetRequest) *aienginepb.CreateServiceToolSetRequest {
+	request = proto.CloneOf(request)
+	if request.SchemaConfiguration == nil {
+		request.SchemaConfiguration = &aienginepb.SchemaConfiguration{}
+	}
+	schemaConfigurations := append(slices.Collect(maps.Values(request.GetMethodNameToSchemaConfiguration())), request.SchemaConfiguration)
+	for _, schemaConfiguration := range schemaConfigurations {
+		if schemaConfiguration.GetWithTitle() == "" {
+			schemaConfiguration.WithTitle = tool.TitleDescription
+		}
+	}
+	return request
 }
 
 // NewManager creates a lazy manager: no engine is contacted until
@@ -127,8 +153,12 @@ func (m *Manager) EnsureEngine(ctx context.Context, engineName string) ([]*aipb.
 		schemaBuilder:    pbjson.NewSchemaBuilder(schema),
 	}
 	var toolSets []*aipb.ToolSet
-	for i, request := range toolEngine.GetToolSets() {
-		cacheKey := toolSetCacheKey(toolEngine.GetName(), i)
+	for _, request := range toolEngine.GetToolSets() {
+		request = withTitles(request)
+		cacheKey, err := toolSetCacheKey(toolEngine.GetName(), request)
+		if err != nil {
+			return nil, err
+		}
 
 		cachedToolSet, ok := cache.Get(cacheKey, toolSetCacheMaxAge, &aipb.ToolSet{})
 		if ok && cachedToolSet.GetName() != "" {
@@ -356,13 +386,13 @@ func summarizeRPC(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) tool.Sum
 }
 
 // identifyingArgument picks the argument that best names what a request acts
-// on: an AIP resource name, then a parent, then the model's title for the call.
+// on: an AIP resource name, then a parent. The title is shown separately.
 func identifyingArgument(fields map[string]*structpb.Value) string {
 	// Models sometimes wrap the request in an {"arguments": {...}} envelope.
 	if envelope := fields["arguments"].GetStructValue(); envelope != nil {
 		fields = envelope.GetFields()
 	}
-	for _, key := range []string{"name", "parent", "tool_call_title"} {
+	for _, key := range []string{"name", "parent"} {
 		if value := fields[key].GetStringValue(); value != "" {
 			return value
 		}

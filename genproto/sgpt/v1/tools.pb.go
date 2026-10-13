@@ -91,7 +91,7 @@ func (x AgentOperation_State) Number() protoreflect.EnumNumber {
 type WaitOperationsRequest_ReturnWhen int32
 
 const (
-	// Used to detect an unset field; behaves as ALL.
+	// Used to detect an unset field; behaves as ANY.
 	WaitOperationsRequest_RETURN_WHEN_UNSPECIFIED WaitOperationsRequest_ReturnWhen = 0
 	// Once every operation has finished.
 	WaitOperationsRequest_RETURN_WHEN_ALL WaitOperationsRequest_ReturnWhen = 1
@@ -1942,7 +1942,8 @@ type WaitOperationsRequest struct {
 	// Operations to wait for; empty waits for every unfinished operation you
 	// started.
 	Names []string `protobuf:"bytes,1,rep,name=names,proto3" json:"names,omitempty"`
-	// When to return; defaults to ALL.
+	// When to return; defaults to ANY. Use ALL only when you cannot act until
+	// every operation has finished.
 	ReturnWhen WaitOperationsRequest_ReturnWhen `protobuf:"varint,2,opt,name=return_when,json=returnWhen,proto3,enum=sgpt.v1.WaitOperationsRequest_ReturnWhen" json:"return_when,omitempty"`
 	// Longest time to block, in seconds; defaults to 600.
 	TimeoutSeconds int32 `protobuf:"varint,3,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
@@ -2014,7 +2015,8 @@ type WaitOperationsRequest_builder struct {
 	// Operations to wait for; empty waits for every unfinished operation you
 	// started.
 	Names []string
-	// When to return; defaults to ALL.
+	// When to return; defaults to ANY. Use ALL only when you cannot act until
+	// every operation has finished.
 	ReturnWhen WaitOperationsRequest_ReturnWhen
 	// Longest time to block, in seconds; defaults to 600.
 	TimeoutSeconds int32

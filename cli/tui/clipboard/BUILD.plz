@@ -1,0 +1,9 @@
+go_library(
+    name = "clipboard",
+    srcs = ["clipboard.go"],
+    visibility = ["//..."],
+    deps = [
+        "//third_party/go:charm.land__bubbletea__v2",
+        "//third_party/go:golang.design__x__clipboard",
+    ],
+)

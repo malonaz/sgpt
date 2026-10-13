@@ -114,6 +114,7 @@ func (f *fakeAiService) CreateMessage(_ context.Context, request *aiservicepb.Cr
 	defer f.mu.Unlock()
 	message := proto.CloneOf(request.GetMessage())
 	message.Name = request.GetParent() + "/messages/" + f.next()
+	message.CreateTime = timestamppb.Now()
 	return message, nil
 }
 
@@ -167,6 +168,7 @@ func (f *fakeAiService) StreamGenerateMessage(request *aiservicepb.GenerateMessa
 		return err
 	}
 	message.Name = request.GetParent() + "/messages/" + f.next()
+	message.CreateTime = timestamppb.Now()
 	message.ModelUsage = usage
 	message.Price = usage.GetInputToken().GetPrice() + usage.GetOutputToken().GetPrice()
 	return stream.Send(&aiservicepb.StreamGenerateMessageResponse{

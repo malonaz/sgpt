@@ -16,6 +16,8 @@ type RenderContext struct {
 	// SelectedSub is the selected fence index within the item while in fence
 	// navigation mode; -1 means no fence-level selection.
 	SelectedSub int
+	// Inset shifts a nested item (a work row's child) right of its parent.
+	Inset int
 	// Static disables markdown render-caching — used for read-only previews
 	// (menu detail pane) where cache keys would collide across chats.
 	Static   bool
@@ -60,11 +62,14 @@ type SubNavigable interface {
 	SubContent(index int) (string, string)
 }
 
-// SubOffsetter exposes line offsets of sub-blocks (relative to the item's
-// first line) so the viewport can scroll to the selected fence.
-type SubOffsetter interface {
+// span is a half-open range of an item's rendered lines.
+type span struct{ start, end int }
+
+// SubSpanner exposes the lines of each sub-block (relative to the item's
+// first line) so the viewport can scroll to, and paint, the selected fence.
+type SubSpanner interface {
 	SubNavigable
-	SubOffsets(ctx RenderContext) []int
+	SubSpans(ctx RenderContext) []span
 }
 
 // Interactive items receive unhandled keys while selected.

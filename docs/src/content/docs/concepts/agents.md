@@ -74,9 +74,11 @@ operations live, rendering each state and, once finished, the report.
   its turn after launching and pick the work back up when reports land.
 - **`get_operations`** polls: the current state of named operations, or of
   every operation the chat started.
-- **`wait_operations`** blocks until all (`RETURN_WHEN_ALL`, the default) or
-  any (`RETURN_WHEN_ANY`) of the named operations — or every unfinished one
-  — finish, or `timeout_seconds` elapse (default 600, at most an hour). A
+- **`wait_operations`** blocks until any (`RETURN_WHEN_ANY`, the default) or
+  all (`RETURN_WHEN_ALL`) of the named operations — or every unfinished one
+  — finish, or `timeout_seconds` elapse (default 600, at most an hour). The
+  default lets a launcher act on each report as it lands (reply, follow up)
+  and wait again, instead of idling until the slowest sub-agent finishes. A
   wait takes the results it collects, so those are not also delivered as
   messages.
 

@@ -65,7 +65,6 @@ var (
 const (
 	// minTimelineHeight is what the input leaves the timeline as it grows.
 	minTimelineHeight = 4
-	wheelScrollLines  = 3
 )
 
 var (
@@ -122,9 +121,14 @@ type ChatScreen struct {
 	// starting and ending.
 	turnInFlight bool
 	turnStart    time.Time
-	// activeTool is the verb of the call running or under review, resolved on
-	// refresh rather than per frame.
-	activeTool string
+	// cancelling is set by ctrl+c until the cancelled turn winds down, so
+	// a press during the wind-down is visible and a further one moves on.
+	cancelling bool
+	// activeTool names the call running or under review, resolved on
+	// refresh rather than per frame; activeTitled marks it as the model's
+	// title, already a verb phrase.
+	activeTool   string
+	activeTitled bool
 	// unread is the outcome of a turn that ended while the tab was unfocused.
 	unread widget.TabState
 	// Decided at layout time, so View never renders a line the layout did
@@ -288,15 +292,6 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 
-	case tea.MouseWheelMsg:
-		switch msg.Button {
-		case tea.MouseWheelUp:
-			m.timeline.ScrollBy(-wheelScrollLines)
-		case tea.MouseWheelDown:
-			m.timeline.ScrollBy(wheelScrollLines)
-		}
-		return nil
-
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -348,22 +343,27 @@ func (m *ChatScreen) toast(level AlertLevel, text string) tea.Cmd {
 }
 
 // Interrupt is ctrl+c short of quitting: it closes a modal, cancels the
-// running turn, or clears the input, and reports whether it did any.
+// running turn, or clears the input, and reports whether it did any. Each
+// must be visible, or the press reads as ignored.
 func (m *ChatScreen) Interrupt() bool {
 	switch {
 	case m.info != nil:
 		m.info = nil
 	case m.picker != nil:
 		m.picker, m.pickerApply = nil, nil
-	case m.session.TurnInFlight():
+	case m.session.TurnInFlight() && !m.cancelling:
 		// CancelTurn aborts the turn wherever it is (streaming, tools,
 		// review) and it resolves cleanly: cancelled results, inputs
 		// re-queued.
 		m.session.CancelTurn()
-	case m.input.Textarea.Value() != "":
+		m.cancelling = true
+	case m.input.Value() != "":
 		m.input.Reset()
 		m.updateLayoutForInput()
 	default:
+		// Whitespace alone is invisible: clear it, but don't count it.
+		m.input.Reset()
+		m.updateLayoutForInput()
 		return false
 	}
 	return true
@@ -395,12 +395,17 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		})
 	case key.Matches(msg, chatKeyCycleReasoning.Key):
-		m.cycleReasoningEffort()
-		return nil
+		m.session.CycleReasoningEffort()
+		effort := session.ReasoningLabel(m.session.Params().ReasoningEffort)
+		if effort == "" {
+			effort = "model default"
+		}
+		// The status bar's reasoning fact is among the first to drop when narrow.
+		return m.alert("Reasoning effort: " + effort)
 	case key.Matches(msg, chatKeyToggleFavorite.Key):
 		return m.toggleFavorite()
 	case key.Matches(msg, chatKeyOpenAll.Key):
-		return editor.Open(timeline.ConversationText(m.session.Messages()), "md")
+		return editor.Open(timeline.ConversationText(m.session.Messages(), m.session.Registry()), "md")
 	case key.Matches(msg, chatKeyPickTools.Key):
 		return m.openToolPicker()
 	case key.Matches(msg, chatKeyPickFiles.Key):
@@ -435,13 +440,21 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 
 	// Timeline stays navigable at all times — including during tool review.
 	if m.focusedComponent == FocusViewport {
-		if key.Matches(msg, chatKeyBack.Key) {
-			return m.cycleFocus()
+		switch {
+		case key.Matches(msg, chatKeyBack.Key):
+			return m.focusInput()
+		case widget.IsHistoryKey(msg):
+			// History browsing is for the input wherever focus is.
+			focus := m.focusInput()
+			m.input.HandleKey(msg)
+			m.updateLayoutForInput()
+			return focus
 		}
 		return m.timeline.HandleKey(msg, m.alert)
 	}
 
-	if cmd := m.input.HandleKey(msg); cmd != nil {
+	if cmd, ok := m.input.HandleKey(msg); ok {
+		m.updateLayoutForInput()
 		return cmd
 	}
 	return m.updateInput(msg)
@@ -588,7 +601,7 @@ func (m *ChatScreen) editSelectedMessage() tea.Cmd {
 	m.timeline.ClearSelection()
 	m.input.SetValue(text)
 	m.updateLayoutForInput()
-	focus := m.cycleFocus()
+	focus := m.focusInput()
 	sess := m.session
 	wrap := m.wrap
 	return tea.Batch(focus, func() tea.Msg {
@@ -677,6 +690,9 @@ func (m *ChatScreen) noteTurnState() {
 	if started {
 		m.turnStart = time.Now()
 	}
+	if !inFlight {
+		m.cancelling = false
+	}
 	if !ended || m.focused {
 		return
 	}
@@ -752,6 +768,27 @@ func (m *ChatScreen) focusToolCall(toolCallID string) {
 		toolCallItem, ok := item.(*timeline.ToolCallItem)
 		return ok && toolCallItem.ToolCall.GetId() == toolCallID
 	})
+}
+
+// focusTimeline lands the selection where attention belongs: the call
+// awaiting review, else the latest item.
+func (m *ChatScreen) focusTimeline() {
+	if toolCallID := m.reviewTarget(); toolCallID != "" {
+		m.focusToolCall(toolCallID)
+		if m.timeline.SelectedItem() != nil {
+			return
+		}
+	}
+	m.focusedComponent = FocusViewport
+	m.input.Blur()
+	m.timeline.SetFocused(true)
+	m.timeline.SelectLast()
+}
+
+func (m *ChatScreen) focusInput() tea.Cmd {
+	m.focusedComponent = FocusTextarea
+	m.timeline.SetFocused(false)
+	return m.input.Focus()
 }
 
 func (m *ChatScreen) toggleFavorite() tea.Cmd {
@@ -841,34 +878,11 @@ func (m *ChatScreen) openFilePicker() tea.Cmd {
 }
 
 func (m *ChatScreen) cycleFocus() tea.Cmd {
-	switch m.focusedComponent {
-	case FocusTextarea:
-		m.focusedComponent = FocusViewport
-		m.input.Blur()
-		m.timeline.SetFocused(true)
-		if m.timeline.SelectedItem() == nil {
-			m.timeline.SelectLast()
-		}
-		return nil
-	default:
-		m.focusedComponent = FocusTextarea
-		m.timeline.SetFocused(false)
-		return m.input.Focus()
+	if m.focusedComponent == FocusViewport {
+		return m.focusInput()
 	}
-}
-
-func (m *ChatScreen) cycleReasoningEffort() {
-	params := m.session.Params()
-	switch params.ReasoningEffort {
-	case aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED:
-		m.session.SetReasoningEffort(aipb.ReasoningEffort_REASONING_EFFORT_LOW)
-	case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
-		m.session.SetReasoningEffort(aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM)
-	case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
-		m.session.SetReasoningEffort(aipb.ReasoningEffort_REASONING_EFFORT_HIGH)
-	case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
-		m.session.SetReasoningEffort(aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED)
-	}
+	m.focusTimeline()
+	return nil
 }
 
 func (m *ChatScreen) updateInput(msg tea.Msg) tea.Cmd {
@@ -914,11 +928,18 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 	return items
 }
 
+// Restyle re-renders against the palette the terminal's background implies.
+func (m *ChatScreen) Restyle() {
+	m.timeline.Restyle()
+	m.refresh()
+}
+
 func (m *ChatScreen) refresh() {
 	wasAtBottom := m.timeline.AtBottom()
 	items := m.buildItems()
+	m.timeline.SetLive(m.session.TurnInFlight())
 	m.timeline.SetItems(items)
-	m.activeTool = m.resolveActiveTool(items)
+	m.activeTool, m.activeTitled = m.resolveActiveTool(items)
 	m.refreshPlaceholder()
 	m.recalculateLayout()
 	if wasAtBottom {
@@ -937,24 +958,28 @@ func (m *ChatScreen) refreshPlaceholder() {
 	}
 }
 
-// resolveActiveTool names the call under review, else the one running.
-func (m *ChatScreen) resolveActiveTool(items []timeline.Item) string {
+// resolveActiveTool names the call under review, else the one running: by
+// the title the model gave it, else by its verb.
+func (m *ChatScreen) resolveActiveTool(items []timeline.Item) (string, bool) {
 	toolCallID := m.reviewTarget()
 	if toolCallID == "" {
 		toolCallID = m.session.ExecutingToolCallID()
 	}
 	if toolCallID == "" {
-		return ""
+		return "", false
 	}
 	for _, item := range items {
 		if toolCallItem, ok := item.(*timeline.ToolCallItem); ok && toolCallItem.ToolCall.GetId() == toolCallID {
-			if summary, ok := m.session.Registry().Summarize(toolCallItem.ToolCall, nil); ok && summary.Verb != "" {
-				return summary.Verb
+			if title := tool.Title(toolCallItem.ToolCall); title != "" {
+				return title, true
 			}
-			return toolCallItem.ToolCall.GetName()
+			if summary, ok := m.session.Registry().Summarize(toolCallItem.ToolCall, nil); ok && summary.Verb != "" {
+				return summary.Verb, false
+			}
+			return toolCallItem.ToolCall.GetName(), false
 		}
 	}
-	return ""
+	return "", false
 }
 
 func (m *ChatScreen) recalculateLayout() {
@@ -989,6 +1014,9 @@ func (m *ChatScreen) Status() widget.Status {
 }
 
 func (m *ChatScreen) turnState() string {
+	if m.cancelling {
+		return m.spinner.View() + " " + styles.TextStyle.Render("Cancelling"+styles.GlyphEllipsis)
+	}
 	state := m.session.State()
 	if state == session.StateAwaitingReview {
 		// No spinner: nothing moves until the user answers.
@@ -1003,6 +1031,8 @@ func (m *ChatScreen) turnState() string {
 	}
 	label := "Thinking"
 	switch {
+	case state == session.StateExecutingTools && m.activeTitled:
+		label = m.activeTool
 	case state == session.StateExecutingTools && m.activeTool != "":
 		label = "Running " + m.activeTool
 	case streamsText(m.session.StreamingMessage()):
@@ -1055,7 +1085,7 @@ func (m *ChatScreen) facts() []widget.Fact {
 	if modelName.UnmarshalString(params.Model.GetName()) == nil {
 		facts = append(facts, widget.Fact{Text: styles.MutedStyle.Render(modelName.Model), Priority: 4})
 	}
-	if effort := reasoningLabel(params.ReasoningEffort); effort != "" {
+	if effort := session.ReasoningLabel(params.ReasoningEffort); effort != "" {
 		facts = append(facts, widget.Fact{Text: styles.MutedStyle.Render(effort), Priority: 2})
 	}
 	if limit := int64(params.Model.GetTtt().GetContextTokenLimit()); limit > 0 {
@@ -1077,18 +1107,6 @@ func (m *ChatScreen) facts() []widget.Fact {
 		facts = append(facts, widget.Fact{Text: styles.MutedStyle.Render(format.Price(price)), Priority: 3})
 	}
 	return facts
-}
-
-func reasoningLabel(effort aipb.ReasoningEffort) string {
-	switch effort {
-	case aipb.ReasoningEffort_REASONING_EFFORT_LOW:
-		return "low"
-	case aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM:
-		return "medium"
-	case aipb.ReasoningEffort_REASONING_EFFORT_HIGH:
-		return "high"
-	}
-	return ""
 }
 
 // agentStrip renders the chat's launcher and sub-agents with their live

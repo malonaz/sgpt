@@ -20,11 +20,10 @@ var (
 	// ColorText is primary content: messages, values, the active tab.
 	ColorText = adaptive("#1F2328", "#E6E6E6")
 	// ColorMuted is secondary content: labels, metadata, hints, thoughts.
-	ColorMuted = adaptive("#6E7781", "#8B8F98")
-	// ColorSubtle is tertiary ink: rules, gutters, inactive chrome.
-	ColorSubtle = adaptive("#AFB8C1", "#4A505C")
-	// ColorSurface is a faint raised background: selection, user turns, bars.
-	ColorSurface = adaptive("#F3F4F6", "#1E222A")
+	// It stays ≥4.5:1 on white and Dracula, and ≥4:1 on the selection.
+	ColorMuted = adaptive("#59636E", "#A0A4AD")
+	// ColorSubtle is for non-text only: rules, separators, inactive gutters.
+	ColorSubtle = adaptive("#AFB8C1", "#5C6370")
 
 	// ColorBrand is sgpt's single accent: focus, selection, the user's voice.
 	ColorBrand = adaptive("#7C3AED", "#A78BFA")
@@ -52,7 +51,6 @@ const (
 	GlyphQueued    = "◌"
 	GlyphCancelled = "⊘"
 	GlyphPrompt    = "›"
-	GlyphRule      = "│"
 	GlyphSelected  = "▌"
 	GlyphChild     = "↳"
 	GlyphEllipsis  = "…"

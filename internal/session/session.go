@@ -513,10 +513,32 @@ func (s *Session) Price() float64 {
 	return s.chat.GetPrice()
 }
 
-func (s *Session) SetReasoningEffort(effort aipb.ReasoningEffort) {
+// reasoningEfforts is the cycle order: unset (the model's own behavior),
+// then rising effort.
+var reasoningEfforts = []aipb.ReasoningEffort{
+	aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED,
+	aipb.ReasoningEffort_REASONING_EFFORT_LOW,
+	aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM,
+	aipb.ReasoningEffort_REASONING_EFFORT_HIGH,
+	aipb.ReasoningEffort_REASONING_EFFORT_XHIGH,
+	aipb.ReasoningEffort_REASONING_EFFORT_MAX,
+}
+
+// CycleReasoningEffort steps to the next reasoning effort, wrapping to unset.
+func (s *Session) CycleReasoningEffort() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.params.ReasoningEffort = effort
+	next := slices.Index(reasoningEfforts, s.params.ReasoningEffort) + 1
+	s.params.ReasoningEffort = reasoningEfforts[next%len(reasoningEfforts)]
+}
+
+// ReasoningLabel names an effort as the UI shows it ("xhigh"); empty when
+// unset.
+func ReasoningLabel(effort aipb.ReasoningEffort) string {
+	if effort == aipb.ReasoningEffort_REASONING_EFFORT_UNSPECIFIED {
+		return ""
+	}
+	return strings.ToLower(strings.TrimPrefix(effort.String(), "REASONING_EFFORT_"))
 }
 
 // InjectedFiles returns the file paths currently injected into the context.
