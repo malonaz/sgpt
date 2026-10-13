@@ -19,10 +19,14 @@ go_library(
 
 go_test(
     name = "test",
-    srcs = ["attach_test.go"],
+    srcs = [
+        "attach_test.go",
+        "read_files_test.go",
+    ],
     deps = [
         ":io",
         "//internal/tool",
+        "//sgpt/v1",
         "//third_party/go:google.golang.org__protobuf__types__known__structpb",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],

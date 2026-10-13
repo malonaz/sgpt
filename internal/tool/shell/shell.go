@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
@@ -65,7 +66,8 @@ func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.Tool
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	execShellResponse := &sgptpb.ExecShellResponse{Output: string(output)}
+	// Proto strings must be UTF-8: binary output would fail the whole result.
+	execShellResponse := &sgptpb.ExecShellResponse{Output: strings.ToValidUTF8(string(output), "\uFFFD")}
 	if err != nil {
 		// Surface failures in the result so the model can react to them.
 		execShellResponse.Error = err.Error()
