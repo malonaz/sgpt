@@ -338,6 +338,7 @@ func NewCmd(
 				store.SetParentChatID(subChat, caller.Chat)
 				subParams := session.Params{
 					Model:              model,
+					ReasoningEffort:    request.ReasoningEffort,
 					Role:               parsedRole,
 					MaxTokens:          opts.MaxTokens,
 					Temperature:        opts.Temperature,

@@ -396,13 +396,14 @@ func (s *Session) caller() tool.Caller {
 	}
 	sort.Strings(tools)
 	return tool.Caller{
-		Chat:    s.chat.GetName(),
-		Depth:   s.params.Depth,
-		Model:   s.params.Model,
-		Tools:   tools,
-		Policy:  s.policy,
-		Reviews: s.reviews,
-		Agent:   s,
+		Chat:            s.chat.GetName(),
+		Depth:           s.params.Depth,
+		Model:           s.params.Model,
+		ReasoningEffort: s.params.ReasoningEffort,
+		Tools:           tools,
+		Policy:          s.policy,
+		Reviews:         s.reviews,
+		Agent:           s,
 	}
 }
 

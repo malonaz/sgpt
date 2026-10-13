@@ -61,6 +61,8 @@ type Caller struct {
 	Depth int
 	// Model is the session's current model.
 	Model *aipb.Model
+	// ReasoningEffort is the session's current reasoning effort.
+	ReasoningEffort aipb.ReasoningEffort
 	// Tools are the user-facing tool names enabled in the session.
 	Tools []string
 	// Policy governs the session's tool calls; children derive from it.

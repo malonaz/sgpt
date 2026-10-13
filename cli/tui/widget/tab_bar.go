@@ -31,9 +31,10 @@ type tabGlyph struct {
 
 var tabStateGlyphs = map[TabState]tabGlyph{
 	TabReviewing: {styles.GlyphReview, lipgloss.NewStyle().Foreground(styles.ColorWarning).Bold(true)},
-	TabBusy:      {styles.GlyphRunning, lipgloss.NewStyle().Foreground(styles.ColorInfo)},
-	TabDone:      {styles.GlyphSuccess, lipgloss.NewStyle().Foreground(styles.ColorSuccess)},
-	TabFailed:    {styles.GlyphFailure, lipgloss.NewStyle().Foreground(styles.ColorDanger)},
+	// Busy's glyph is the live spinner frame, Tab.Spinner.
+	TabBusy:   {"", lipgloss.NewStyle().Foreground(styles.ColorBrand)},
+	TabDone:   {styles.GlyphSuccess, lipgloss.NewStyle().Foreground(styles.ColorSuccess)},
+	TabFailed: {styles.GlyphFailure, lipgloss.NewStyle().Foreground(styles.ColorDanger)},
 }
 
 var (
@@ -57,6 +58,8 @@ type Tab struct {
 	State  TabState
 	// Depth is the sub-agent nesting level; 0 for user-opened tabs.
 	Depth int
+	// Spinner is the current spinner frame, shown while busy.
+	Spinner string
 }
 
 // RenderTabBar renders the tabs on one line. Titles share the width,
@@ -111,7 +114,11 @@ func renderTab(tab Tab, title string) string {
 		b.WriteString(base.Render(" "))
 	}
 	if mark, ok := tabStateGlyphs[tab.State]; ok {
-		b.WriteString(mark.style.Inherit(base).Render(mark.glyph))
+		glyph := mark.glyph
+		if tab.State == TabBusy {
+			glyph = tab.Spinner
+		}
+		b.WriteString(mark.style.Inherit(base).Render(glyph))
 		b.WriteString(base.Render(" "))
 	}
 	b.WriteString(base.Render(title + " "))

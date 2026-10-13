@@ -93,8 +93,6 @@ func (t *Tool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (
 	case errorText != "":
 		// Failed without an exit code: killed by a signal, or never started.
 		summary.Outcome, summary.Failed = errorText, true
-	default:
-		summary.Outcome = "exit 0"
 	}
 	return summary, true
 }

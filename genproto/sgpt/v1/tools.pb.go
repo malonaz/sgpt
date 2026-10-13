@@ -1236,9 +1236,12 @@ type CreateAgentsRequest struct {
 	// unset inherits them all. Names outside this chat's tools are rejected.
 	Tools []string `protobuf:"bytes,4,rep,name=tools,proto3" json:"tools,omitempty"`
 	// Model for every sub-agent (name or alias); unset inherits this chat's.
-	Model         string `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Model string `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
+	// Reasoning effort for every sub-agent: one of low, medium, high, xhigh,
+	// max; unset inherits this chat's.
+	ReasoningEffort string `protobuf:"bytes,6,opt,name=reasoning_effort,json=reasoningEffort,proto3" json:"reasoning_effort,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CreateAgentsRequest) Reset() {
@@ -1301,6 +1304,13 @@ func (x *CreateAgentsRequest) GetModel() string {
 	return ""
 }
 
+func (x *CreateAgentsRequest) GetReasoningEffort() string {
+	if x != nil {
+		return x.ReasoningEffort
+	}
+	return ""
+}
+
 func (x *CreateAgentsRequest) SetContext(v string) {
 	x.Context = v
 }
@@ -1321,6 +1331,10 @@ func (x *CreateAgentsRequest) SetModel(v string) {
 	x.Model = v
 }
 
+func (x *CreateAgentsRequest) SetReasoningEffort(v string) {
+	x.ReasoningEffort = v
+}
+
 type CreateAgentsRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1336,6 +1350,9 @@ type CreateAgentsRequest_builder struct {
 	Tools []string
 	// Model for every sub-agent (name or alias); unset inherits this chat's.
 	Model string
+	// Reasoning effort for every sub-agent: one of low, medium, high, xhigh,
+	// max; unset inherits this chat's.
+	ReasoningEffort string
 }
 
 func (b0 CreateAgentsRequest_builder) Build() *CreateAgentsRequest {
@@ -1347,6 +1364,7 @@ func (b0 CreateAgentsRequest_builder) Build() *CreateAgentsRequest {
 	x.Files = b.Files
 	x.Tools = b.Tools
 	x.Model = b.Model
+	x.ReasoningEffort = b.ReasoningEffort
 	return m0
 }
 
@@ -1362,9 +1380,11 @@ type AgentTask struct {
 	// ones.
 	Files []string `protobuf:"bytes,3,rep,name=files,proto3" json:"files,omitempty"`
 	// Model override for this task (name or alias).
-	Model         string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Model string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
+	// Reasoning effort override for this task (low, medium, high, xhigh, max).
+	ReasoningEffort string `protobuf:"bytes,5,opt,name=reasoning_effort,json=reasoningEffort,proto3" json:"reasoning_effort,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *AgentTask) Reset() {
@@ -1420,6 +1440,13 @@ func (x *AgentTask) GetModel() string {
 	return ""
 }
 
+func (x *AgentTask) GetReasoningEffort() string {
+	if x != nil {
+		return x.ReasoningEffort
+	}
+	return ""
+}
+
 func (x *AgentTask) SetTitle(v string) {
 	x.Title = v
 }
@@ -1436,6 +1463,10 @@ func (x *AgentTask) SetModel(v string) {
 	x.Model = v
 }
 
+func (x *AgentTask) SetReasoningEffort(v string) {
+	x.ReasoningEffort = v
+}
+
 type AgentTask_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1449,6 +1480,8 @@ type AgentTask_builder struct {
 	Files []string
 	// Model override for this task (name or alias).
 	Model string
+	// Reasoning effort override for this task (low, medium, high, xhigh, max).
+	ReasoningEffort string
 }
 
 func (b0 AgentTask_builder) Build() *AgentTask {
@@ -1459,6 +1492,7 @@ func (b0 AgentTask_builder) Build() *AgentTask {
 	x.Query = b.Query
 	x.Files = b.Files
 	x.Model = b.Model
+	x.ReasoningEffort = b.ReasoningEffort
 	return m0
 }
 
@@ -2518,18 +2552,20 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x11ExecShellResponse\x12\x16\n" +
 	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"\xa0\x01\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\xcb\x01\n" +
 	"\x13CreateAgentsRequest\x12\x18\n" +
 	"\acontext\x18\x01 \x01(\tR\acontext\x12-\n" +
 	"\x05tasks\x18\x02 \x03(\v2\x12.sgpt.v1.AgentTaskB\x03\xe0A\x02R\x05tasks\x12\x14\n" +
 	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
 	"\x05tools\x18\x04 \x03(\tR\x05tools\x12\x14\n" +
-	"\x05model\x18\x05 \x01(\tR\x05model\"m\n" +
+	"\x05model\x18\x05 \x01(\tR\x05model\x12)\n" +
+	"\x10reasoning_effort\x18\x06 \x01(\tR\x0freasoningEffort\"\x98\x01\n" +
 	"\tAgentTask\x12\x19\n" +
 	"\x05title\x18\x01 \x01(\tB\x03\xe0A\x02R\x05title\x12\x19\n" +
 	"\x05query\x18\x02 \x01(\tB\x03\xe0A\x02R\x05query\x12\x14\n" +
 	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
-	"\x05model\x18\x04 \x01(\tR\x05model\"O\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\x12)\n" +
+	"\x10reasoning_effort\x18\x05 \x01(\tR\x0freasoningEffort\"O\n" +
 	"\x14CreateAgentsResponse\x127\n" +
 	"\n" +
 	"operations\x18\x01 \x03(\v2\x17.sgpt.v1.AgentOperationR\n" +

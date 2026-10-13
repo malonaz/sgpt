@@ -47,7 +47,6 @@ const (
 	GlyphSuccess   = "✓"
 	GlyphFailure   = "✗"
 	GlyphReview    = "▶"
-	GlyphRunning   = "●"
 	GlyphQueued    = "◌"
 	GlyphCancelled = "⊘"
 	GlyphPrompt    = "›"

@@ -41,6 +41,8 @@ type LaunchRequest struct {
 	Files   []string
 	Tools   []string
 	Model   string
+	// ReasoningEffort is already resolved: the override or the caller's.
+	ReasoningEffort aipb.ReasoningEffort
 }
 
 // Launcher opens a sub-agent chat, ready to be messaged. Implemented by the

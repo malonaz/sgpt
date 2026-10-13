@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
@@ -125,6 +126,10 @@ type App struct {
 
 	tabs      []*tab
 	activeTab int
+	// tabSpinner animates busy tabs. The app owns it because screen ticks
+	// reach only the active tab; it ticks only while some tab is busy.
+	tabSpinner        spinner.Model
+	tabSpinnerTicking bool
 
 	program *tea.Program
 	width   int
@@ -151,6 +156,7 @@ func NewApp(
 	params session.Params,
 ) *App {
 	app := &App{
+		tabSpinner:    spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 		ctx:           ctx,
 		store:         chatStore,
 		registry:      registry,
@@ -225,6 +231,31 @@ func (a *App) Init() tea.Cmd {
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if tick, ok := msg.(spinner.TickMsg); ok && tick.ID == a.tabSpinner.ID() {
+		a.tabSpinnerTicking = a.anyTabBusy()
+		if !a.tabSpinnerTicking {
+			return a, nil
+		}
+		var cmd tea.Cmd
+		a.tabSpinner, cmd = a.tabSpinner.Update(tick)
+		return a, cmd
+	}
+	model, cmd := a.update(msg)
+	if !a.tabSpinnerTicking && a.anyTabBusy() {
+		a.tabSpinnerTicking = true
+		cmd = tea.Batch(cmd, a.tabSpinner.Tick)
+	}
+	return model, cmd
+}
+
+func (a *App) anyTabBusy() bool {
+	return slices.ContainsFunc(a.tabs, func(t *tab) bool {
+		chatScreen, ok := t.screen.(*screen.ChatScreen)
+		return ok && chatScreen.TabState() == widget.TabBusy
+	})
+}
+
+func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case alertDismissMsg:
 		// Drop the alert that just finished displaying, then show the next.
@@ -755,6 +786,7 @@ func (a *App) renderTabBar() string {
 		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
 			tabs[i].State = chatScreen.TabState()
 			tabs[i].Depth = chatScreen.Session().Params().Depth
+			tabs[i].Spinner = a.tabSpinner.View()
 		}
 	}
 	return widget.RenderTabBar(tabs, a.width)
