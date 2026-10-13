@@ -4,10 +4,18 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
+
+	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
+	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"github.com/malonaz/core/go/ai"
 
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 // An interjection that lands after the turn's last queue check — here from
@@ -183,5 +191,54 @@ func TestSendMessageContextCancelledBeforeStart(t *testing.T) {
 
 	if !IsCancelError(turnErr) {
 		t.Fatalf("turn error = %v, want a cancellation", turnErr)
+	}
+}
+
+// reviewedTool needs the user's verdict for every call.
+type reviewedTool struct{}
+
+func (reviewedTool) Review(context.Context, *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
+	return &sgptpb.ToolCallMetadata{}, nil
+}
+
+func (reviewedTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
+	return ai.NewToolResult(toolCall.GetName(), toolCall.GetId(), "ran"), nil
+}
+
+// Cancelling a turn parked in review resolves the call as cancelled; the
+// interjection typed during the review follows its result, then the next
+// message.
+func TestCancelInReviewKeepsInterjectionAfterToolResult(t *testing.T) {
+	fake := newFakeAI()
+	fake.generate = func(n int, stream *fakeStream) {
+		if n > 0 {
+			reply("answer")(stream)
+			return
+		}
+		toolCall := &aipb.ToolCall{Id: "call-1", Name: "reviewed", Annotations: map[string]string{tool.ToolHandlerIDAnnotation: "reviewed"}}
+		stream.responses <- &aiservicepb.StreamGenerateMessageResponse{Content: &aiservicepb.StreamGenerateMessageResponse_Block{
+			Block: ai.NewToolCallBlock(toolCall),
+		}}
+		close(stream.responses)
+	}
+	s := newTestSession(t, fake)
+	s.registry.Register("reviewed", reviewedTool{})
+
+	go s.SendMessage("first")
+	awaitPending(t, s, "call-1")
+	s.SendMessage("by the way")
+	s.CancelTurn()
+	awaitIdle(t, s)
+	s.SendMessage("next")
+
+	request := fake.requests[1].GetMessages()
+	if len(request) != 3 || request[0].GetRole() != aipb.Role_ROLE_TOOL {
+		t.Fatalf("retry request = %v, want [tool result, by the way, next]", request)
+	}
+	if got, want := messageTexts(request[1:]), []string{"by the way", "next"}; !slices.Equal(got, want) {
+		t.Fatalf("retry request texts = %q, want %q", got, want)
+	}
+	if result := request[0].GetBlocks()[0].GetToolResult(); !strings.Contains(result.String(), "cancelled") {
+		t.Fatalf("tool result = %v, want a cancellation", result)
 	}
 }
