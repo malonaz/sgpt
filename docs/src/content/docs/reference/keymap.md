@@ -63,14 +63,31 @@ in-app cheat sheet.
 | <kbd>alt</kbd>+<kbd>w</kbd> | Copy selection to clipboard |
 | <kbd>alt</kbd>+<kbd>o</kbd> | Open selection in `$EDITOR` |
 
-## Menu
+## Chats
+
+Typing searches chat titles server-side, across your whole history.
 
 | Key | Action |
 |---|---|
 | <kbd>ctrl</kbd>+<kbd>p</kbd> / <kbd>ctrl</kbd>+<kbd>n</kbd> | Move up / down |
+| <kbd>pgup</kbd> / <kbd>pgdn</kbd> | Page up / down |
 | <kbd>enter</kbd> | Open chat |
-| <kbd>alt</kbd>+<kbd>d</kbd> | Delete chat |
+| <kbd>esc</kbd> | Back to search |
+| <kbd>alt</kbd>+<kbd>d</kbd> | Delete chat (asks first) |
 | <kbd>alt</kbd>+<kbd>r</kbd> | Refresh |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd> | Toggle favourite |
 | <kbd>alt</kbd>+<kbd>s</kbd> | Show / hide sub-agent chats |
-| <kbd>alt</kbd>+<kbd>&lt;</kbd> / <kbd>alt</kbd>+<kbd>&gt;</kbd> | Jump to filter / last chat |
+| <kbd>alt</kbd>+<kbd>&lt;</kbd> / <kbd>alt</kbd>+<kbd>&gt;</kbd> | Jump to search / last chat |
+
+### Pickers
+
+The tool and file pickers (<kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>t</kbd>, <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>e</kbd>) fuzzy-filter as you type.
+
+| Key | Action |
+|---|---|
+| <kbd>ctrl</kbd>+<kbd>p</kbd> / <kbd>ctrl</kbd>+<kbd>n</kbd> | Move up / down |
+| <kbd>space</kbd> | Toggle |
+| <kbd>ctrl</kbd>+<kbd>a</kbd> | Select every visible item |
+| <kbd>ctrl</kbd>+<kbd>x</kbd> | Clear the selection |
+| <kbd>enter</kbd> | Apply |
+| <kbd>esc</kbd> | Cancel |

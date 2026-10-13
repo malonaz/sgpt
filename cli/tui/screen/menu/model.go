@@ -12,6 +12,7 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	"github.com/malonaz/sgpt/cli/tui/styles"
+	"github.com/malonaz/sgpt/cli/tui/widget"
 	"github.com/malonaz/sgpt/internal/markdown"
 	"github.com/malonaz/sgpt/internal/store"
 )
@@ -27,6 +28,11 @@ const (
 	// histories and their rendered markdown). Infinite scroll means an
 	// unbounded number of chats can be visited in one session.
 	previewCacheBudget = 64
+	// filterDebounce batches keystrokes into one server-side search.
+	filterDebounce = 200 * time.Millisecond
+	// minPreviewWidth is the narrowest terminal that still gets a preview
+	// pane; below it the list takes the full width.
+	minPreviewWidth = 70
 )
 
 type FocusTarget int
@@ -37,6 +43,9 @@ const (
 )
 
 type chatsLoadedMsg struct {
+	// generation ties the response to the request that asked for it, so
+	// results for a superseded filter are dropped.
+	generation    int
 	Favorites     []*aipb.Chat
 	Others        []*aipb.Chat
 	NextPageToken string
@@ -44,6 +53,12 @@ type chatsLoadedMsg struct {
 	// Append marks background loads that extend the list (infinite scroll)
 	// instead of replacing it.
 	Append bool
+}
+
+// filterSettledMsg fires filterDebounce after a keystroke; only the latest
+// keystroke's message triggers a search.
+type filterSettledMsg struct {
+	generation int
 }
 
 type chatDeletedMsg struct {
@@ -67,7 +82,7 @@ type chatMessagesLoadedMsg struct {
 
 // listLine is one visual line of the chat list. chatIndex >= 0 marks a chat
 // row (rendered lazily through rowCache); otherwise text is pre-rendered
-// (section headers, separators).
+// (section headers, spacing).
 type listLine struct {
 	text      string
 	chatIndex int
@@ -80,6 +95,8 @@ type Model struct {
 
 	favorites []*aipb.Chat
 	others    []*aipb.Chat
+	// displayed is favorites then others, rebuilt by refreshList.
+	displayed []*aipb.Chat
 
 	chatCursor    int
 	loading       bool
@@ -87,8 +104,19 @@ type Model struct {
 	err           error
 	nextPageToken string
 
+	// listGeneration increments with every fresh list request; cancelList
+	// aborts the request in flight when a newer one supersedes it.
+	listGeneration int
+	cancelList     context.CancelFunc
+
 	filterInput textarea.Model
-	filterText  string
+	// filterText is the query the list reflects (or is loading);
+	// filterGeneration identifies the latest keystroke, so only it searches.
+	filterText       string
+	filterGeneration int
+	// listFilter is the query behind the loaded list; it trails filterText
+	// while a search is pending.
+	listFilter string
 	// showAgents includes sub-agent chats, hidden by default so they don't
 	// bury the user's own conversations.
 	showAgents bool
@@ -120,12 +148,6 @@ type Model struct {
 	listYOffset     int
 	listHeight      int
 
-	// displayed memoizes filtered favorites+others; a single keypress
-	// previously recomputed the filter several times.
-	displayed         []*aipb.Chat
-	displayedFavCount int
-	displayedValid    bool
-
 	renderer       *markdown.Renderer
 	detailViewport viewport.Model
 	width          int
@@ -135,19 +157,12 @@ type Model struct {
 }
 
 func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Model {
-	filterInput := textarea.New()
-	filterInput.CharLimit = 256
-	filterInput.SetHeight(1)
-	filterInput.ShowLineNumbers = false
-	filterInput.Prompt = "/ "
-
 	renderer, _ := markdown.NewRenderer(styles.DefaultTextareaWidth)
-
 	m := &Model{
 		ctx:                ctx,
 		store:              chatStore,
 		wrap:               wrap,
-		filterInput:        filterInput,
+		filterInput:        widget.NewFilterInput(""),
 		renderer:           renderer,
 		detailCache:        map[string]string{},
 		rowCache:           map[string]string{},
@@ -161,9 +176,9 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 
 func (m *Model) updatePlaceholder() {
 	if m.showAgents {
-		m.filterInput.Placeholder = "Filter chats (incl. sub-agents)..."
+		m.filterInput.Placeholder = "Search chats and sub-agents" + styles.GlyphEllipsis
 	} else {
-		m.filterInput.Placeholder = "Filter chats..."
+		m.filterInput.Placeholder = "Search chats" + styles.GlyphEllipsis
 	}
 }
 
@@ -184,11 +199,9 @@ func (m *Model) parentChatLabel(chat *aipb.Chat) string {
 		return ""
 	}
 	suffix := "/" + id
-	for _, chats := range [][]*aipb.Chat{m.favorites, m.others} {
-		for _, candidate := range chats {
-			if strings.HasSuffix(candidate.GetName(), suffix) && candidate.GetTitle() != "" {
-				return candidate.GetTitle()
-			}
+	for _, candidate := range m.displayed {
+		if strings.HasSuffix(candidate.GetName(), suffix) && candidate.GetTitle() != "" {
+			return candidate.GetTitle()
 		}
 	}
 	return id
@@ -199,11 +212,11 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Title() string {
-	return "Menu"
+	return "Chats"
 }
 
 func (m *Model) ShortTitle() string {
-	return "Menu"
+	return "Chats"
 }
 
 func (m *Model) SetSize(width, height int) {
@@ -224,6 +237,7 @@ func (m *Model) OnBlur() {
 
 func (m *Model) applyFocus() tea.Cmd {
 	m.filterInput.Blur()
+	m.rowCache = map[string]string{}
 	if m.focusTarget == FocusFilter {
 		m.filterInput.Focus()
 		return textarea.Blink
@@ -249,34 +263,48 @@ func (m *Model) applyChats(msg *chatsLoadedMsg) {
 	m.refreshList()
 }
 
+// fetchChats loads a page of chats matching the current filter. A fresh load
+// supersedes (and cancels) whatever list request is still in flight.
 func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 	if appendPage {
 		m.loadingMore = true
 	} else {
 		m.loading = true
+		m.loadingMore = false
+		m.listFilter = m.filterText
+		m.listGeneration++
+		if m.cancelList != nil {
+			m.cancelList()
+		}
+	}
+	ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
+	if !appendPage {
+		m.cancelList = cancel
 	}
 	wrap := m.wrap
-	filter := store.UserChatFilter
+	chatStore := m.store
+	generation := m.listGeneration
+	titleFilter := store.TitleFilter(m.listFilter)
+	filter := store.AndFilters(store.UserChatFilter, titleFilter)
 	if m.showAgents {
-		filter = ""
+		filter = titleFilter
 	}
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 		defer cancel()
-
 		var favorites []*aipb.Chat
 		var err error
 		if !appendPage {
-			favorites, err = m.store.ListFavoriteChats(ctx, listPageSize)
+			favorites, err = chatStore.ListFavoriteChats(ctx, listPageSize, titleFilter)
 			if err != nil {
-				return wrap(chatsLoadedMsg{Err: err, Append: appendPage})
+				return wrap(chatsLoadedMsg{generation: generation, Err: err, Append: appendPage})
 			}
 		}
-		others, nextPageToken, err := m.store.ListChats(ctx, listPageSize, pageToken, filter)
+		others, nextPageToken, err := chatStore.ListChats(ctx, listPageSize, pageToken, filter)
 		if err != nil {
-			return wrap(chatsLoadedMsg{Err: err, Append: appendPage})
+			return wrap(chatsLoadedMsg{generation: generation, Err: err, Append: appendPage})
 		}
 		return wrap(chatsLoadedMsg{
+			generation:    generation,
 			Favorites:     favorites,
 			Others:        others,
 			NextPageToken: nextPageToken,
@@ -291,7 +319,7 @@ func (m *Model) maybeLoadMore() tea.Cmd {
 	if m.nextPageToken == "" || m.loadingMore || m.loading {
 		return nil
 	}
-	if m.chatCursor < len(m.displayedChats())-loadMoreThreshold {
+	if m.chatCursor < len(m.displayed)-loadMoreThreshold {
 		return nil
 	}
 	return m.fetchChats(m.nextPageToken, true)
@@ -299,38 +327,36 @@ func (m *Model) maybeLoadMore() tea.Cmd {
 
 func (m *Model) deleteChat(name string) tea.Cmd {
 	wrap := m.wrap
+	chatStore := m.store
+	ctx := m.ctx
 	return func() tea.Msg {
-		err := m.store.DeleteChat(m.ctx, name)
+		err := chatStore.DeleteChat(ctx, name)
 		return wrap(chatDeletedMsg{Name: name, Err: err})
 	}
 }
 
+// confirmDelete asks before deleting: a chat is unrecoverable from sgpt.
+func (m *Model) confirmDelete(chat *aipb.Chat) tea.Cmd {
+	return m.wrapCmd(screen.ConfirmMsg{
+		Title:  "Delete " + chatTitle(chat) + "?",
+		Body:   "The chat and its history leave your list for good.",
+		Action: m.deleteChat(chat.GetName()),
+	})
+}
+
 func (m *Model) toggleFavorite(chat *aipb.Chat) tea.Cmd {
 	wrap := m.wrap
+	chatStore := m.store
+	ctx := m.ctx
 	favorite := !store.IsFavorite(chat)
 	return func() tea.Msg {
-		_, err := m.store.SetFavorite(m.ctx, chat, favorite)
+		_, err := chatStore.SetFavorite(ctx, chat, favorite)
 		return wrap(chatFavoriteToggledMsg{
 			Name:      chat.GetName(),
 			Favorited: favorite,
 			Err:       err,
 		})
 	}
-}
-
-// displayedChats returns favorites then others, with client-side filter
-// applied; memoized until refreshList invalidates it.
-func (m *Model) displayedChats() []*aipb.Chat {
-	if !m.displayedValid {
-		favorites := m.applyFilter(m.favorites)
-		others := m.applyFilter(m.others)
-		m.displayed = make([]*aipb.Chat, 0, len(favorites)+len(others))
-		m.displayed = append(m.displayed, favorites...)
-		m.displayed = append(m.displayed, others...)
-		m.displayedFavCount = len(favorites)
-		m.displayedValid = true
-	}
-	return m.displayed
 }
 
 // maybeLoadMessages fetches the selected chat's history for the preview,
@@ -346,17 +372,13 @@ func (m *Model) maybeLoadMessages() tea.Cmd {
 	m.loadingMessagesSet[name] = true
 	wrap := m.wrap
 	chatStore := m.store
+	parent := m.ctx
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
+		ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 		defer cancel()
 		messages, err := chatStore.ListMessages(ctx, name)
 		return wrap(chatMessagesLoadedMsg{name: name, messages: messages, err: err})
 	}
-}
-
-func (m *Model) displayedFavoriteCount() int {
-	m.displayedChats()
-	return m.displayedFavCount
 }
 
 // touchPreview records a chat as most-recently-used and evicts the coldest
@@ -377,41 +399,18 @@ func (m *Model) touchPreview(name string) {
 	}
 }
 
-func (m *Model) applyFilter(chats []*aipb.Chat) []*aipb.Chat {
-	if m.filterText == "" {
-		return chats
-	}
-	lowerFilter := strings.ToLower(m.filterText)
-	var result []*aipb.Chat
-	for _, chat := range chats {
-		title := chat.GetTitle()
-		if strings.Contains(strings.ToLower(title), lowerFilter) || strings.Contains(strings.ToLower(chat.Name), lowerFilter) {
-			result = append(result, chat)
-		}
-	}
-	return result
-}
-
 func (m *Model) selectedChat() *aipb.Chat {
-	displayed := m.displayedChats()
-	if m.chatCursor >= 0 && m.chatCursor < len(displayed) {
-		return displayed[m.chatCursor]
+	if m.chatCursor >= 0 && m.chatCursor < len(m.displayed) {
+		return m.displayed[m.chatCursor]
 	}
 	return nil
 }
 
 func (m *Model) updateSelection() {
-	displayed := m.displayedChats()
-	if m.chatCursor >= len(displayed) {
-		m.chatCursor = len(displayed) - 1
-	}
-	if m.chatCursor < 0 {
-		m.chatCursor = 0
-	}
-	if m.chatCursor < len(displayed) {
-		m.selectedChatName = displayed[m.chatCursor].Name
-	} else {
-		m.selectedChatName = ""
+	m.chatCursor = max(0, min(m.chatCursor, len(m.displayed)-1))
+	m.selectedChatName = ""
+	if chat := m.selectedChat(); chat != nil {
+		m.selectedChatName = chat.GetName()
 	}
 
 	// Serve the preview from cache — rendering markdown for a whole chat on
@@ -431,50 +430,49 @@ func (m *Model) updateSelection() {
 }
 
 // refreshList re-derives the displayed slice and line layout after any data
-// or filter change. Cursor-only moves don't need it: selection is applied at
-// render time via rowCache.
+// change. Cursor-only moves don't need it: selection is applied at render
+// time via rowCache.
 func (m *Model) refreshList() {
-	m.displayedValid = false
+	m.displayed = make([]*aipb.Chat, 0, len(m.favorites)+len(m.others))
+	m.displayed = append(m.displayed, m.favorites...)
+	// Favorites are pinned above, so they aren't repeated among the rest.
+	for _, chat := range m.others {
+		if !store.IsFavorite(chat) {
+			m.displayed = append(m.displayed, chat)
+		}
+	}
 	m.rowCache = map[string]string{}
 	m.updateSelection()
 	m.rebuildListLines()
 	m.ensureCursorVisible()
 }
 
-// rebuildListLines flattens headers and chat rows into the line layout the
-// virtualized view slices.
+// rebuildListLines flattens section labels and chat rows into the line
+// layout the virtualized view slices.
 func (m *Model) rebuildListLines() {
-	displayed := m.displayedChats()
-	favoriteCount := m.displayedFavoriteCount()
-	listWidth := m.listWidth()
-
+	favoriteCount := len(m.favorites)
 	m.listLines = m.listLines[:0]
-	m.chatIndexToLine = make([]int, len(displayed))
+	m.chatIndexToLine = make([]int, len(m.displayed))
 
-	appendHeader := func(label string) {
-		rendered := styles.MenuHeaderStyle.Width(listWidth).Render(label)
-		for _, line := range strings.Split(rendered, "\n") {
-			m.listLines = append(m.listLines, listLine{text: line, chatIndex: -1})
+	appendSection := func(label string, start, end int) {
+		if start == end {
+			return
 		}
-	}
-	appendChatRows := func(start, end int) {
+		if len(m.listLines) > 0 {
+			m.listLines = append(m.listLines, listLine{chatIndex: -1})
+		}
+		m.listLines = append(m.listLines, listLine{text: sectionStyle.Render(label), chatIndex: -1})
 		for i := start; i < end; i++ {
 			m.chatIndexToLine[i] = len(m.listLines)
 			m.listLines = append(m.listLines, listLine{chatIndex: i})
 		}
 	}
-
-	if favoriteCount > 0 {
-		appendHeader("⭐ Favorites")
-		appendChatRows(0, favoriteCount)
-		if favoriteCount < len(displayed) {
-			m.listLines = append(m.listLines, listLine{chatIndex: -1})
-		}
+	recent := "Recent"
+	if m.listFilter != "" {
+		recent = "Matches"
 	}
-	if favoriteCount < len(displayed) {
-		appendHeader("📋 Chats")
-		appendChatRows(favoriteCount, len(displayed))
-	}
+	appendSection("★ Favorites", 0, favoriteCount)
+	appendSection(recent, favoriteCount, len(m.displayed))
 	m.clampListOffset()
 }
 
@@ -488,6 +486,10 @@ func (m *Model) ensureCursorVisible() {
 		return
 	}
 	line := m.chatIndexToLine[m.chatCursor]
+	// Keep a section label in view when its first row is selected.
+	if line-1 >= 0 && m.listLines[line-1].chatIndex < 0 && line-1 < m.listYOffset {
+		line--
+	}
 	if line < m.listYOffset {
 		m.listYOffset = line
 	} else if line >= m.listYOffset+m.listHeight {
@@ -497,20 +499,19 @@ func (m *Model) ensureCursorVisible() {
 }
 
 func (m *Model) clampListOffset() {
-	maxOffset := len(m.listLines) - m.listHeight
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
-	if m.listYOffset > maxOffset {
-		m.listYOffset = maxOffset
-	}
-	if m.listYOffset < 0 {
-		m.listYOffset = 0
-	}
+	m.listYOffset = max(0, min(m.listYOffset, len(m.listLines)-m.listHeight))
 }
 
 func (m *Model) listWidth() int {
-	return m.width / 2
+	if m.width < minPreviewWidth {
+		return m.width
+	}
+	return max(38, min(72, m.width*9/20))
+}
+
+// previewWidth is the width the conversation renders at inside the pane.
+func (m *Model) previewWidth() int {
+	return max(0, m.detailWidth()-1)
 }
 
 func (m *Model) detailWidth() int {
@@ -519,51 +520,37 @@ func (m *Model) detailWidth() int {
 	return max(0, m.width-m.listWidth()-1)
 }
 
+// Rows above the list (label, filter box) and below it (hints).
+const (
+	headerHeight = 4
+	footerHeight = 1
+)
+
 func (m *Model) recalculateLayout() {
 	if m.width == 0 || m.height == 0 {
 		return
 	}
-
-	inputHeight := 3
-	totalViewportHeight := m.height - 4
-	listViewportHeight := totalViewportHeight - inputHeight
-	if listViewportHeight < 1 {
-		listViewportHeight = 1
-	}
-	if totalViewportHeight < 1 {
-		totalViewportHeight = 1
-	}
-
-	listWidth := m.listWidth()
+	m.listHeight = max(1, m.height-headerHeight-footerHeight)
+	detailHeight := max(1, m.height-1-footerHeight)
 	detailWidth := m.detailWidth()
-
-	m.listHeight = listViewportHeight
-
 	if !m.ready {
-		m.detailViewport = viewport.New(
-			viewport.WithWidth(detailWidth),
-			viewport.WithHeight(totalViewportHeight),
-		)
+		m.detailViewport = viewport.New(viewport.WithWidth(detailWidth), viewport.WithHeight(detailHeight))
 		m.ready = true
 	} else {
 		m.detailViewport.SetWidth(detailWidth)
-		m.detailViewport.SetHeight(totalViewportHeight)
+		m.detailViewport.SetHeight(detailHeight)
 	}
-
-	rendererWidth := detailWidth - 4
-	if rendererWidth < 10 {
-		rendererWidth = 10
-	}
-	m.renderer.SetWidth(rendererWidth)
+	// Mirrors timeline.Model's own renderer sizing for the preview width.
+	m.renderer.SetWidth(max(10, m.previewWidth()-styles.MessageHorizontalFrameSize()-2))
 	// Width changes invalidate every cached preview and row (wrapping changed).
 	m.detailCache = map[string]string{}
 	m.rowCache = map[string]string{}
 	// messagesCache survives (fetches are width-independent), so previewOrder
 	// stays in sync with it rather than being cleared here.
+	m.updateSelection()
 	m.rebuildListLines()
 	m.ensureCursorVisible()
-
-	m.filterInput.SetWidth(listWidth - 6)
+	m.filterInput.SetWidth(max(1, m.listWidth()-filterBoxStyle.GetHorizontalFrameSize()-2))
 }
 
 var _ screen.Screen = (*Model)(nil)
