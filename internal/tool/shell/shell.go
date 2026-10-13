@@ -66,6 +66,10 @@ func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.Tool
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
+	// Only returned on a clean exit: a background child kept the pipe open.
+	if errors.Is(err, exec.ErrWaitDelay) {
+		err = nil
+	}
 	// Proto strings must be UTF-8: binary output would fail the whole result.
 	execShellResponse := &sgptpb.ExecShellResponse{Output: strings.ToValidUTF8(string(output), "\uFFFD")}
 	if err != nil {

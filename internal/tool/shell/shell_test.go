@@ -34,3 +34,11 @@ func TestExecuteNonUTF8Output(t *testing.T) {
 		t.Fatalf("response = %v, want the output with the invalid byte replaced", got)
 	}
 }
+
+// A background child holding the output pipe does not fail a command that
+// exited cleanly.
+func TestExecuteBackgroundChildSucceeds(t *testing.T) {
+	if got := execute(t, `sleep 3 & echo hi`); got.GetError() != "" || got.GetExitCode() != 0 {
+		t.Fatalf("response = %v, want success", got)
+	}
+}
