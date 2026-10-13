@@ -164,7 +164,7 @@ func (t *createAgentsTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 		op.cancelLaunch = cancel
 		go func() {
 			defer cancel()
-			t.m.launch(opCtx, op, launchRequest(request, task, caller), task.GetQuery())
+			t.m.launch(opCtx, op, launchRequest(request, task, caller, op.subAgent.name), task.GetQuery())
 		}()
 		response.Operations = append(response.Operations, t.m.snapshotLocked(op))
 	}
@@ -172,7 +172,7 @@ func (t *createAgentsTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 }
 
 // launchRequest merges the batch-wide settings with one task's overrides.
-func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, caller tool.Caller) *LaunchRequest {
+func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, caller tool.Caller, name string) *LaunchRequest {
 	model := cmp.Or(task.GetModel(), request.GetModel())
 	// Validated in parse, so the lookup cannot miss.
 	reasoningEffort := caller.ReasoningEffort
@@ -181,6 +181,7 @@ func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, 
 	}
 	return &LaunchRequest{
 		Caller:          caller,
+		Name:            name,
 		Title:           task.GetTitle(),
 		Context:         request.GetContext(),
 		Files:           append(append([]string(nil), request.GetFiles()...), task.GetFiles()...),
@@ -266,8 +267,8 @@ func (t *createAgentsTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.T
 
 // newSubAgentLocked registers a sub-agent. Caller holds the lock.
 func (m *Manager) newSubAgentLocked(parent tool.Agent, title string) *subAgent {
-	subAgent := &subAgent{name: fmt.Sprintf("agents/%d", len(m.agents)+1), title: title, parent: parent}
-	m.agents[subAgent.name] = subAgent
+	subAgent := &subAgent{name: newName("agents", m.nameToAgent), title: title, parent: parent}
+	m.addAgentLocked(subAgent)
 	return subAgent
 }
 
@@ -290,26 +291,26 @@ func (t *messageAgentTool) parse(ctx context.Context, toolCall *aipb.ToolCall) (
 	return request, caller, nil
 }
 
-// recipient resolves who a message is for: the caller's launcher, or one of
-// its own sub-agents.
-func (t *messageAgentTool) recipient(caller tool.Caller, name string) (*subAgent, error) {
+// recipient resolves who a message is for — the caller's launcher, or one of
+// its own sub-agents — and the session to deliver it to.
+func (t *messageAgentTool) recipient(caller tool.Caller, name string) (*subAgent, tool.Agent, error) {
 	t.m.mu.Lock()
 	defer t.m.mu.Unlock()
 	if name == parentAgent {
 		self, ok := t.m.handleToAgent[caller.Agent]
 		if !ok {
-			return nil, fmt.Errorf("this chat has no launcher: it is not a sub-agent")
+			return nil, nil, fmt.Errorf("this chat has no launcher: it is not a sub-agent")
 		}
-		return self, nil
+		return self, self.parent, nil
 	}
-	subAgent, ok := t.m.agents[name]
+	subAgent, ok := t.m.nameToAgent[name]
 	if !ok || subAgent.parent != caller.Agent {
-		return nil, fmt.Errorf("%s is not a sub-agent this chat launched", name)
+		return nil, nil, fmt.Errorf("%s is not a sub-agent this chat launched", name)
 	}
 	if subAgent.handle == nil {
-		return nil, fmt.Errorf("%s has not started yet; its launch operation is still queued", name)
+		return nil, nil, fmt.Errorf("%s has not started yet; its launch operation is still queued", name)
 	}
-	return subAgent, nil
+	return subAgent, subAgent.handle, nil
 }
 
 func (t *messageAgentTool) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
@@ -317,7 +318,7 @@ func (t *messageAgentTool) Review(ctx context.Context, toolCall *aipb.ToolCall) 
 	if err != nil {
 		return nil, err
 	}
-	if _, err := t.recipient(caller, request.GetAgent()); err != nil {
+	if _, _, err := t.recipient(caller, request.GetAgent()); err != nil {
 		return nil, err
 	}
 	// The sub-agents were approved at launch; talking to them is within that
@@ -330,13 +331,13 @@ func (t *messageAgentTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 	if err != nil {
 		return nil, err
 	}
-	recipient, err := t.recipient(caller, request.GetAgent())
+	recipient, handle, err := t.recipient(caller, request.GetAgent())
 	if err != nil {
 		return nil, err
 	}
 	if request.GetAgent() == parentAgent {
 		text := fmt.Sprintf("[message from sub-agent %s %q]\n\n%s", recipient.name, recipient.title, request.GetText())
-		if _, err := recipient.parent.Deliver(store.NewAgentMessage(recipient.title, text)); err != nil {
+		if _, err := handle.Deliver(store.NewAgentMessage(recipient.title, text)); err != nil {
 			return nil, fmt.Errorf("messaging your launcher: %w", err)
 		}
 		return tool.NewStructuredToolResult(toolCall, &sgptpb.MessageAgentResponse{})
@@ -346,7 +347,8 @@ func (t *messageAgentTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 	op := t.m.newOperationLocked(recipient)
 	op.launched = true
 	t.m.mu.Unlock()
-	outcomeCh, err := recipient.handle.Deliver(store.NewAgentMessage(launcherSender, "[message from your launcher]\n\n"+request.GetText()))
+	// A dormant sub-agent loads its session first.
+	outcomeCh, err := handle.Deliver(store.NewAgentMessage(launcherSender, "[message from your launcher]\n\n"+request.GetText()))
 	if err != nil {
 		t.m.complete(op, tool.TurnOutcome{Err: err})
 		return nil, fmt.Errorf("messaging %s: %w", recipient.name, err)
@@ -402,7 +404,7 @@ func (t *messageAgentTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.T
 func (m *Manager) title(name string) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if subAgent, ok := m.agents[name]; ok {
+	if subAgent, ok := m.nameToAgent[name]; ok {
 		return subAgent.title
 	}
 	return name

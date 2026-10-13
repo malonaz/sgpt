@@ -77,7 +77,9 @@ Side-effect-free tools auto-execute; everything else waits for your review
 — unless `chat.permissions` rules say otherwise, per tool or per argument
 regex.
 Sub-agents inherit their launcher's tools and permissions; their reviews
-surface in the root chat.
+surface in the root chat. Reopening a chat restores its sub-agents dormant:
+listed in the agents panel, and loaded only once opened or messaged, with the
+tools and reasoning effort they were launched with.
 
 ## Develop
 

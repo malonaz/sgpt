@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package sgpt.v1;
+
+import "malonaz/ai/v1/message.proto";
+
+option go_package = "github.com/malonaz/sgpt/genproto/sgpt/v1";
+
+// What a sub-agent was launched with and how it last fared, recorded on its
+// chat so a reopened launcher can restore and reopen it.
+message AgentMetadata {
+  // How a turn ended.
+  enum TurnOutcome {
+    // Unknown: no turn has ended yet.
+    TURN_OUTCOME_UNSPECIFIED = 0;
+    // The turn ended on a final answer.
+    TURN_OUTCOME_SUCCEEDED = 1;
+    // The turn ended on an error.
+    TURN_OUTCOME_FAILED = 2;
+    // The turn was cancelled.
+    TURN_OUTCOME_CANCELLED = 3;
+  }
+
+  // Resource name of the sub-agent in its launcher's chat ("agents/{agent}").
+  string name = 1;
+
+  // The tools the sub-agent was granted at launch.
+  repeated string tools = 2;
+
+  // The reasoning effort the sub-agent was launched with.
+  malonaz.ai.v1.ReasoningEffort reasoning_effort = 3;
+
+  // How the sub-agent's latest turn ended.
+  TurnOutcome last_turn_outcome = 4;
+}

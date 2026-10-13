@@ -8,12 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/store"
@@ -32,10 +34,17 @@ const (
 	launcherSender = "launcher"
 )
 
+var errNoLauncher = errors.New("sub-agent launching is not configured")
+
 // LaunchRequest is one sub-agent to open: what the launching session hands
 // down, narrowed by the request. Its task arrives as the first message.
 type LaunchRequest struct {
-	Caller  tool.Caller
+	Caller tool.Caller
+	// Name is the sub-agent's, recorded on its chat.
+	Name string
+	// Chat, when set, is a dormant sub-agent's chat to reopen, history and
+	// all, instead of creating one.
+	Chat    *aipb.Chat
 	Title   string
 	Context string
 	Files   []string
@@ -45,9 +54,9 @@ type LaunchRequest struct {
 	ReasoningEffort aipb.ReasoningEffort
 }
 
-// Launcher opens a sub-agent chat, ready to be messaged. Implemented by the
-// TUI App (it owns tabs); injected late via SetLauncher because the registry
-// is built before the App exists.
+// Launcher opens a sub-agent chat — new, or a dormant one reopened — ready to
+// be messaged. Implemented by the TUI App (it owns tabs); injected late via
+// SetLauncher because the registry is built before the App exists.
 type Launcher interface {
 	LaunchAgent(ctx context.Context, request *LaunchRequest) (tool.Agent, error)
 }
@@ -61,10 +70,13 @@ type Manager struct {
 	// blocking on its own sub-agents' slots while holding an ancestor's
 	// would deadlock.
 	slots []chan struct{}
+	chats ChatLister
 
 	mu       sync.Mutex
 	launcher Launcher
-	agents   map[string]*subAgent
+	// agents are every sub-agent, oldest first.
+	agents      []*subAgent
+	nameToAgent map[string]*subAgent
 	// handleToAgent finds the sub-agent a session is, to reach its launcher.
 	handleToAgent map[tool.Agent]*subAgent
 	// operations are every operation started, oldest first.
@@ -79,10 +91,15 @@ type Manager struct {
 type subAgent struct {
 	name  string
 	title string
-	// parent is the session that launched it.
+	// parent is the session that launched it, or its dormant stand-in.
 	parent tool.Agent
-	// handle is the sub-agent's session; nil until its launch completes.
+	// handle is the sub-agent's session: nil until its launch completes, a
+	// dormant stand-in while restored but not loaded.
 	handle tool.Agent
+	// latest is its latest operation; nil when restored and not messaged since.
+	latest *operation
+	// restoredState is the last known state of a restored sub-agent.
+	restoredState sgptpb.AgentOperation_State
 }
 
 // operation is one sub-agent turn requested by its launcher.
@@ -103,8 +120,9 @@ type operation struct {
 	cancelLaunch context.CancelFunc
 }
 
-// NewManager builds the manager from configuration (nil for defaults).
-func NewManager(configuration *sgptpb.AgentConfiguration) *Manager {
+// NewManager builds the manager from configuration (nil for defaults); chats
+// finds the sub-agents to restore.
+func NewManager(configuration *sgptpb.AgentConfiguration, chats ChatLister) *Manager {
 	maxConcurrent := int(configuration.GetMaxConcurrent())
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrent
@@ -120,7 +138,8 @@ func NewManager(configuration *sgptpb.AgentConfiguration) *Manager {
 	return &Manager{
 		maxDepth:        maxDepth,
 		slots:           slots,
-		agents:          map[string]*subAgent{},
+		chats:           chats,
+		nameToAgent:     map[string]*subAgent{},
 		handleToAgent:   map[tool.Agent]*subAgent{},
 		nameToOperation: map[string]*operation{},
 		changed:         make(chan struct{}),
@@ -144,10 +163,44 @@ func (m *Manager) Tools() map[string]tool.Tool {
 	}
 }
 
+// newName returns a name in collection that taken lacks. Random rather than
+// counted: a transcript's names from an earlier run must not collide with
+// this run's.
+func newName[V any](collection string, taken map[string]V) string {
+	for {
+		name := fmt.Sprintf("%s/%08x", collection, rand.Uint32())
+		if _, ok := taken[name]; !ok {
+			return name
+		}
+	}
+}
+
+// addAgentLocked registers a sub-agent. Caller holds the lock.
+func (m *Manager) addAgentLocked(subAgent *subAgent) {
+	m.agents = append(m.agents, subAgent)
+	m.nameToAgent[subAgent.name] = subAgent
+}
+
+// bindLocked makes handle the sub-agent's session, moving what it launched
+// over from the handle it replaces. Caller holds the lock.
+func (m *Manager) bindLocked(subAgent *subAgent, handle tool.Agent) {
+	if previous := subAgent.handle; previous != nil {
+		delete(m.handleToAgent, previous)
+		for _, child := range m.agents {
+			if child.parent == previous {
+				child.parent = handle
+			}
+		}
+	}
+	subAgent.handle = handle
+	m.handleToAgent[handle] = subAgent
+}
+
 func (m *Manager) newOperationLocked(subAgent *subAgent) *operation {
-	op := &operation{name: fmt.Sprintf("operations/%d", len(m.operations)+1), subAgent: subAgent}
+	op := &operation{name: newName("operations", m.nameToOperation), subAgent: subAgent}
 	m.operations = append(m.operations, op)
 	m.nameToOperation[op.name] = op
+	subAgent.latest = op
 	m.broadcastLocked()
 	return op
 }
@@ -165,13 +218,28 @@ func (m *Manager) liveSnapshots(recorded []*sgptpb.AgentOperation) []*sgptpb.Age
 	defer m.mu.Unlock()
 	live := make([]*sgptpb.AgentOperation, 0, len(recorded))
 	for _, snapshot := range recorded {
-		// Unknown after a restart: operations live in memory only.
-		if op, ok := m.nameToOperation[snapshot.GetName()]; ok {
-			snapshot = m.snapshotLocked(op)
-		}
-		live = append(live, snapshot)
+		live = append(live, m.liveSnapshotLocked(snapshot))
 	}
 	return live
+}
+
+// liveSnapshotLocked refreshes one recorded snapshot. An operation of an
+// earlier run keeps a final state, which can no longer change; otherwise it
+// was cut off or ended unseen, and takes its sub-agent's last known state.
+// Caller holds the lock.
+func (m *Manager) liveSnapshotLocked(recorded *sgptpb.AgentOperation) *sgptpb.AgentOperation {
+	if op, ok := m.nameToOperation[recorded.GetName()]; ok {
+		return m.snapshotLocked(op)
+	}
+	if isFinal(recorded.GetState()) {
+		return recorded
+	}
+	snapshot := proto.CloneOf(recorded)
+	snapshot.State = sgptpb.AgentOperation_STATE_UNSPECIFIED
+	if subAgent, ok := m.nameToAgent[recorded.GetAgent()]; ok {
+		snapshot.State = agentStateLocked(subAgent)
+	}
+	return snapshot
 }
 
 func (m *Manager) renderVersion() string {
@@ -202,7 +270,7 @@ func (m *Manager) launch(ctx context.Context, op *operation, request *LaunchRequ
 	launcher := m.launcher
 	m.mu.Unlock()
 	if launcher == nil {
-		m.complete(op, tool.TurnOutcome{Err: errors.New("sub-agent launching is not configured")})
+		m.complete(op, tool.TurnOutcome{Err: errNoLauncher})
 		return
 	}
 	handle, err := launcher.LaunchAgent(ctx, request)
@@ -215,8 +283,7 @@ func (m *Manager) launch(ctx context.Context, op *operation, request *LaunchRequ
 		return
 	}
 	m.mu.Lock()
-	op.subAgent.handle = handle
-	m.handleToAgent[handle] = op.subAgent
+	m.bindLocked(op.subAgent, handle)
 	op.launched = true
 	m.broadcastLocked()
 	m.mu.Unlock()
@@ -249,12 +316,13 @@ func (m *Manager) complete(op *operation, outcome tool.TurnOutcome) {
 	op.done = true
 	op.outcome = outcome
 	report := op.watchers == 0 && !op.cancelRequested
+	parent := op.subAgent.parent
 	m.broadcastLocked()
 	m.mu.Unlock()
 	if report {
 		// A closed launcher has nobody to tell; a launcher out of agent
 		// turns keeps the report queued and alerts the user itself.
-		op.subAgent.parent.Deliver(store.NewAgentMessage(op.subAgent.title, reportText(op)))
+		parent.Deliver(store.NewAgentMessage(op.subAgent.title, reportText(op)))
 	}
 }
 
@@ -291,6 +359,23 @@ func (m *Manager) snapshotLocked(op *operation) *sgptpb.AgentOperation {
 		}
 	}
 	return snapshot
+}
+
+// agentStateLocked is the state of the sub-agent's latest operation, or its
+// last known one while restored. Caller holds the lock.
+func agentStateLocked(subAgent *subAgent) sgptpb.AgentOperation_State {
+	if subAgent.latest != nil {
+		return stateLocked(subAgent.latest)
+	}
+	return subAgent.restoredState
+}
+
+func isFinal(state sgptpb.AgentOperation_State) bool {
+	switch state {
+	case sgptpb.AgentOperation_STATE_SUCCEEDED, sgptpb.AgentOperation_STATE_FAILED, sgptpb.AgentOperation_STATE_CANCELLED:
+		return true
+	}
+	return false
 }
 
 func stateLocked(op *operation) sgptpb.AgentOperation_State {
@@ -364,9 +449,10 @@ func (m *Manager) CancelDescendants(agent tool.Agent) {
 type Status struct {
 	Name  string
 	Title string
-	// Agent is the sub-agent's session; nil while its launch is queued.
+	// Agent is the sub-agent's session — dormant until opened or messaged
+	// when restored (see IsDormant); nil while its launch is queued.
 	Agent tool.Agent
-	// State is that of its latest operation.
+	// State is that of its latest operation; restored, its last known one.
 	State sgptpb.AgentOperation_State
 }
 
@@ -375,18 +461,10 @@ func (m *Manager) Children(agent tool.Agent) []Status {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var children []Status
-	nameToIndex := map[string]int{}
-	for _, op := range m.operations {
-		if op.subAgent.parent != agent {
-			continue
+	for _, subAgent := range m.agents {
+		if subAgent.parent == agent {
+			children = append(children, Status{Name: subAgent.name, Title: subAgent.title, Agent: subAgent.handle, State: agentStateLocked(subAgent)})
 		}
-		status := Status{Name: op.subAgent.name, Title: op.subAgent.title, Agent: op.subAgent.handle, State: stateLocked(op)}
-		if index, ok := nameToIndex[status.Name]; ok {
-			children[index] = status
-			continue
-		}
-		nameToIndex[status.Name] = len(children)
-		children = append(children, status)
 	}
 	return children
 }

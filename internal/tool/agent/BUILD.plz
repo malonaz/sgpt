@@ -3,6 +3,7 @@ go_library(
     srcs = [
         "agent.go",
         "prompt.go",
+        "restore.go",
         "tools.go",
     ],
     visibility = ["//..."],
@@ -19,9 +20,13 @@ go_library(
 
 go_test(
     name = "agent_test",
-    srcs = ["agent_test.go"],
+    srcs = [
+        "agent_test.go",
+        "restore_test.go",
+    ],
     deps = [
         ":agent",
+        "//internal/store",
         "//internal/tool",
         "//sgpt/v1",
         "//third_party/go:google.golang.org__protobuf__proto",

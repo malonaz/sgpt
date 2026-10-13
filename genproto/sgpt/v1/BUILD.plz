@@ -1,6 +1,7 @@
 go_library(
     name = "v1",
     srcs = [
+        "agent.pb.go",
         "configuration.pb.go",
         "labels.pb.go",
         "labels_aip.pb.go",
@@ -18,6 +19,7 @@ go_library(
         "//third_party/go:google.golang.org__protobuf__types__known__timestamppb",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
         "//third_party/proto:validate",
     ],

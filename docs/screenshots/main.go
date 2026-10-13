@@ -145,7 +145,7 @@ func render(sc scene, width, height int, background color.Color) (string, error)
 	registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
 	// The fixtures are the repo: search_lores searches their (empty) library.
 	registry.Register(tool.HandlerIDSearchLores, &lores.Tool{Index: lore.NewIndex(".", &repo.Imports{})})
-	for handlerID, agentTool := range agent.NewManager(nil).Tools() {
+	for handlerID, agentTool := range agent.NewManager(nil, nil).Tools() {
 		registry.Register(handlerID, agentTool)
 	}
 	for _, name := range tool.BuiltinNames() {
