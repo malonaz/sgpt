@@ -134,3 +134,35 @@ func TestContextFailureKeepsMessageUnsent(t *testing.T) {
 		t.Fatalf("history = %q, want %q", got, want)
 	}
 }
+
+// Once the server has sent the persisted assistant message the generation is
+// committed; a cancel landing before the trailing EOF must not requeue (and so
+// re-send) inputs the server already stored successfully.
+func TestCancelAfterPersistedMessageKeepsGeneration(t *testing.T) {
+	fake := newFakeAI()
+	persisted := make(chan struct{})
+	fake.generate = func(n int, stream *fakeStream) {
+		if n == 0 {
+			stream.text("answer")
+			stream.persisted("chats/1/messages/9")
+			// Received only once the persisted message has been handled.
+			stream.usage()
+			close(persisted)
+			// The EOF never comes: the cancel wins.
+			return
+		}
+		reply("answer")(stream)
+	}
+	s := newTestSession(t, fake)
+
+	go s.SendMessage("first")
+	<-persisted
+	s.CancelTurn()
+	awaitIdle(t, s)
+
+	s.SendMessage("second")
+
+	if got, want := fake.requestTexts()[1], []string{"second"}; !slices.Equal(got, want) {
+		t.Fatalf("next request = %q, want %q", got, want)
+	}
+}
