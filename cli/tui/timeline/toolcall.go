@@ -107,12 +107,12 @@ func (i *ToolCallItem) live() bool { return i.Partial || i.Executing }
 func (i *ToolCallItem) resolved() bool { return i.Result != nil && !i.live() && !i.Pending }
 
 // CacheKey: result attachment, review status and live render versions all
-// change the render; live and review renders opt out (spinner, hint).
+// change the render; live renders opt out (spinner).
 func (i *ToolCallItem) CacheKey() string {
-	if i.live() || i.Pending {
+	if i.live() {
 		return ""
 	}
-	key := fmt.Sprintf("%s|r%t", i.id, i.Result != nil)
+	key := fmt.Sprintf("%s|r%t|p%t", i.id, i.Result != nil, i.Pending)
 	if version := i.renderVersion(); version != "" {
 		key += "|v" + version
 	}
@@ -128,8 +128,9 @@ func (i *ToolCallItem) renderVersion() string {
 	return ""
 }
 
-// Resolved calls fold to one row; live ones stay open so you can watch them.
-func (i *ToolCallItem) DefaultCollapsed() bool { return i.Result != nil && !i.Executing }
+// Only a call awaiting review opens by default; running ones are a spinner
+// row, since their body would only repeat the request.
+func (i *ToolCallItem) DefaultCollapsed() bool { return !i.Pending }
 
 // Folded rows sit flush against each other: a run reads as one list.
 func (i *ToolCallItem) Compact(ctx RenderContext) bool { return ctx.Collapsed && !i.Pending }
@@ -260,7 +261,7 @@ func (i *ToolCallItem) body(ctx RenderContext) string {
 	if display := i.displayMessage(); display != "" {
 		sections = append(sections, displayStyle.Render(lipgloss.Wrap(display, min(ctx.bodyWidth(), markdown.MaxProseWidth), "")))
 	}
-	if request := i.request(ctx); request != "" {
+	if request, rendered := i.request(ctx); request != "" && (rendered || !i.restatesSubject()) {
 		sections = append(sections, request)
 	}
 	if i.Result != nil {
@@ -269,22 +270,38 @@ func (i *ToolCallItem) body(ctx RenderContext) string {
 	return strings.Join(sections, "\n\n")
 }
 
-func (i *ToolCallItem) request(ctx RenderContext) string {
+// restatesSubject reports whether the default request would only repeat the
+// row: a lone argument that is the subject. The review card still shows it,
+// since the row truncates.
+func (i *ToolCallItem) restatesSubject() bool {
+	fields := i.ToolCall.GetArguments().GetFields()
+	if len(fields) != 1 {
+		return false
+	}
+	for _, value := range fields {
+		return value.GetStringValue() == i.summary().Subject
+	}
+	return false
+}
+
+// request renders the call's arguments; rendered reports the tool's own
+// presentation rather than the key: value fallback.
+func (i *ToolCallItem) request(ctx RenderContext) (_ string, rendered bool) {
 	// Tools may dictate their own presentation (e.g. the diff tool's diff).
 	if i.RequestRenderer != nil {
 		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {
 			if i.lastGoodRequests != nil {
 				i.lastGoodRequests[i.ToolCall.GetId()] = md
 			}
-			return renderMarkdown(ctx, i.seq, !i.Partial, markdown.ParseBlocks(md)...)
+			return renderMarkdown(ctx, i.seq, !i.Partial, markdown.ParseBlocks(md)...), true
 		}
 		// Partial arguments may be momentarily unparsable by the tool's
 		// renderer; fall back to the last render that succeeded.
 		if md, ok := i.lastGoodRequests[i.ToolCall.GetId()]; ok {
-			return renderMarkdown(ctx, i.seq, false, markdown.ParseBlocks(md)...)
+			return renderMarkdown(ctx, i.seq, false, markdown.ParseBlocks(md)...), true
 		}
 	}
-	return formatFields(i.ToolCall.GetArguments().GetFields(), ctx.bodyWidth())
+	return formatFields(i.ToolCall.GetArguments().GetFields(), ctx.bodyWidth()), false
 }
 
 func (i *ToolCallItem) response(ctx RenderContext) string {
@@ -339,11 +356,8 @@ func (i *ToolCallItem) reviewCard(ctx RenderContext) string {
 	if display := i.displayMessage(); display != "" {
 		sections = append(sections, displayStyle.Render(lipgloss.Wrap(display, min(inner, markdown.MaxProseWidth), "")))
 	}
-	if request := i.request(ctx); request != "" {
+	if request, _ := i.request(ctx); request != "" {
 		sections = append(sections, request)
-	}
-	if ctx.ReviewHint != "" {
-		sections = append(sections, ctx.ReviewHint)
 	}
 
 	// The border takes the gutter's second column, the selection the first.

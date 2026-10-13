@@ -22,8 +22,6 @@ type RenderContext struct {
 	Renderer *markdown.Renderer
 	// Frame advances live spinners; only uncached (live) items read it.
 	Frame int
-	// ReviewHint is the review card's action line.
-	ReviewHint string
 }
 
 // Item is a single navigable unit in the timeline (an API block).
