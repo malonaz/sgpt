@@ -374,4 +374,3 @@ func TestCreateAgentsRejections(t *testing.T) {
 		})
 	}
 }
-
