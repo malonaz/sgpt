@@ -29,9 +29,9 @@ const renameDiff = `@@
 +	review, ok := s.awaitingVerdicts[toolCallID]
 `
 
-func scenes() []scene {
-	return []scene{
-		{
+func init() {
+	register(
+		scene{
 			// A diff tool call under review: the hero shot.
 			name:  "diff-review",
 			title: "Rename pendingReview",
@@ -51,7 +51,7 @@ func scenes() []scene {
 				r.settle(300 * time.Millisecond)
 			},
 		},
-		{
+		scene{
 			// Read-only tool auto-executes, then a rich markdown answer.
 			name:  "read-and-answer",
 			title: "Tool call verdicts",
@@ -74,7 +74,7 @@ func scenes() []scene {
 				r.settle(300 * time.Millisecond)
 			},
 		},
-		{
+		scene{
 			// Shell command reviewed, accepted, executed, summarised.
 			name:  "shell",
 			title: "Vet and tests",
@@ -98,7 +98,7 @@ func scenes() []scene {
 				r.settle(300 * time.Millisecond)
 			},
 		},
-		{
+		scene{
 			// The keymap overlay.
 			name:  "help",
 			title: "Keymap",
@@ -107,7 +107,7 @@ func scenes() []scene {
 				r.settle(200 * time.Millisecond)
 			},
 		},
-	}
+	)
 }
 
 func waitFor(condition func() bool, timeout time.Duration) {

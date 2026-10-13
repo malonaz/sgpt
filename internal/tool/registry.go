@@ -202,6 +202,41 @@ func (r *Registry) RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolRe
 	return renderer.RenderResult(toolCall, toolResult)
 }
 
+// Summary is a tool call's one-line identity in the timeline: a short label
+// for the tool (Verb), what it acts on (Subject), and once resolved, what came
+// of it (Outcome). Plain text; the timeline owns styling and truncation.
+type Summary struct {
+	// Verb names the action, stable across states: "Read", "Shell", "Edit".
+	Verb string
+	// Subject is what the call acts on: a path, a command, a query.
+	Subject string
+	// Outcome is the result in a few words ("120 lines", "exit 1"); empty
+	// while unresolved.
+	Outcome string
+}
+
+// Summarizer is implemented by tools that describe their calls in one line.
+type Summarizer interface {
+	Tool
+	// Summarize describes the call; toolResult is nil while unresolved.
+	// Returning false falls back to the default summary.
+	Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (Summary, bool)
+}
+
+// Summarize returns the tool-provided summary for a call, if its tool
+// implements Summarizer.
+func (r *Registry) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (Summary, bool) {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return Summary{}, false
+	}
+	summarizer, ok := tool.(Summarizer)
+	if !ok {
+		return Summary{}, false
+	}
+	return summarizer.Summarize(toolCall, toolResult)
+}
+
 // HeaderRenderer is implemented by tools that render their calls' header in
 // the timeline as markdown (e.g. the diff tool shows the edited file).
 type HeaderRenderer interface {

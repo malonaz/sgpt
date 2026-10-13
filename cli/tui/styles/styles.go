@@ -30,30 +30,32 @@ const (
 	TabBarHeight = 1
 )
 
+// Legacy color names, remapped onto the semantic palette (palette.go).
+// Deprecated: use the Color* tokens; these are removed once unused.
 var (
-	PrimaryColor           = lipgloss.Color("#7C3AED")
-	SecondaryColor         = lipgloss.Color("#06B6D4")
-	AccentColor            = lipgloss.Color("#F59E0B")
-	SuccessColor           = lipgloss.Color("#10B981")
-	ErrorColor             = lipgloss.Color("#EF4444")
-	MutedColor             = lipgloss.Color("#6B7280")
-	TextColor              = lipgloss.Color("#F9FAFB")
-	DimTextColor           = lipgloss.Color("#9CA3AF")
-	MessageColor           = lipgloss.Color("#E5E7EB")
-	ThoughtColor           = lipgloss.Color("#FCD34D")
-	FileColor              = lipgloss.Color("#F472B6")
-	AgentColor             = lipgloss.Color("#A3E635")
-	BorderColor            = lipgloss.Color("#4B5563")
-	DividerColor           = lipgloss.Color("#374151")
-	CodeBgColor            = lipgloss.Color("#374151")
-	MessageSelectedColor   = PrimaryColor
-	MessageUnselectedColor = lipgloss.Color("#9CA3AF")
-	BlockIndicatorColor    = lipgloss.Color("#4B5563")
+	PrimaryColor           = ColorBrand
+	SecondaryColor         = ColorInfo
+	AccentColor            = ColorWarning
+	SuccessColor           = ColorSuccess
+	ErrorColor             = ColorDanger
+	MutedColor             = ColorMuted
+	TextColor              = ColorText
+	DimTextColor           = ColorMuted
+	MessageColor           = ColorText
+	ThoughtColor           = ColorMuted
+	FileColor              = ColorFile
+	AgentColor             = ColorAgent
+	BorderColor            = ColorSubtle
+	DividerColor           = ColorSubtle
+	CodeBgColor            = ColorSurface
+	MessageSelectedColor   = ColorBrand
+	MessageUnselectedColor = ColorSubtle
+	BlockIndicatorColor    = ColorSubtle
 
-	TabActiveColor   = PrimaryColor
-	TabInactiveColor = lipgloss.Color("#374151")
-	TabTextColor     = TextColor
-	TabDimTextColor  = DimTextColor
+	TabActiveColor   = ColorBrand
+	TabInactiveColor = ColorSurface
+	TabTextColor     = ColorText
+	TabDimTextColor  = ColorMuted
 )
 
 var (
@@ -69,7 +71,7 @@ var (
 
 var (
 	TabBarStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#1F2937"))
+			Background(ColorSurface)
 
 	TabActiveStyle = lipgloss.NewStyle().
 			Background(TabActiveColor).

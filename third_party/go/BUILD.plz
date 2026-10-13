@@ -341,6 +341,18 @@ go_module(
 )
 
 go_module(
+    name = "charm.land__lipgloss__v2__compat",
+    download = ":_charm.land__lipgloss__v2#download",
+    install = ["compat"],
+    module = "charm.land/lipgloss/v2",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":github.com__charmbracelet__colorprofile",
+        "//third_party/go:charm.land__lipgloss__v2",
+    ],
+)
+
+go_module(
     name = "charm.land__lipgloss__v2__table",
     download = ":_charm.land__lipgloss__v2#download",
     install = ["table"],

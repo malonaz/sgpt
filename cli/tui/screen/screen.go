@@ -50,6 +50,24 @@ type FocusAgentMsg struct {
 	Title string
 }
 
+// AlertLevel grades an alert: it picks the toast's color and how long it
+// stays up.
+type AlertLevel int
+
+const (
+	AlertInfo AlertLevel = iota
+	AlertSuccess
+	AlertError
+)
+
 type AlertMsg struct {
-	Text string
+	Text  string
+	Level AlertLevel
+}
+
+// ConfirmMsg asks the app to guard Action behind a yes/no modal.
+type ConfirmMsg struct {
+	Title  string
+	Body   string
+	Action tea.Cmd
 }

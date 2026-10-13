@@ -10,9 +10,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"google.golang.org/grpc"
@@ -30,11 +32,7 @@ import (
 	"github.com/malonaz/sgpt/internal/tool/shell"
 )
 
-const (
-	width  = 120
-	height = 36
-	model  = "providers/anthropic/models/claude-opus-5"
-)
+const model = "providers/anthropic/models/claude-opus-5"
 
 // scene is one screenshot: scripted model responses plus the user actions
 // that drive the UI into the frame we want.
@@ -45,17 +43,27 @@ type scene struct {
 	drive     func(r *runtime, s *session.Session)
 }
 
+// registered holds every scene; each scenes_*.go file registers its own from
+// init, so areas of the UI add scenes without touching each other.
+var registered []scene
+
+func register(scenes ...scene) { registered = append(registered, scenes...) }
+
 func main() {
 	outDir := flag.String("out", "frames", "directory for ANSI frames")
 	workDir := flag.String("workdir", "", "directory with fixture files (default: temp copy of ./fixtures)")
+	only := flag.String("scene", "", "render only the scenes whose name contains this")
+	width := flag.Int("width", 120, "terminal width")
+	height := flag.Int("height", 36, "terminal height")
+	text := flag.Bool("text", false, "also write a plain-text .txt (ANSI stripped) per scene")
 	flag.Parse()
-	if err := run(*outDir, *workDir); err != nil {
+	if err := run(*outDir, *workDir, *only, *width, *height, *text); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(outDir, workDir string) error {
+func run(outDir, workDir, only string, width, height int, text bool) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
@@ -70,8 +78,11 @@ func run(outDir, workDir string) error {
 	if err := os.Chdir(workDir); err != nil {
 		return err
 	}
-	for _, sc := range scenes() {
-		frame, err := render(sc)
+	for _, sc := range registered {
+		if !strings.Contains(sc.name, only) {
+			continue
+		}
+		frame, err := render(sc, width, height)
 		if err != nil {
 			return fmt.Errorf("%s: %w", sc.name, err)
 		}
@@ -80,11 +91,16 @@ func run(outDir, workDir string) error {
 			return err
 		}
 		fmt.Println(path)
+		if text {
+			if err := os.WriteFile(strings.TrimSuffix(path, ".ansi")+".txt", []byte(ansi.Strip(frame)), 0o644); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
-func render(sc scene) (string, error) {
+func render(sc scene, width, height int) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
