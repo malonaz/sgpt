@@ -6,5 +6,6 @@ go_library(
         "//cli/tui/styles",
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__lipgloss__v2",
+        "//third_party/go:github.com__charmbracelet__x__ansi",
     ],
 )
