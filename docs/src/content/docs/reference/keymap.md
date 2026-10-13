@@ -12,12 +12,13 @@ in-app cheat sheet.
 | Key | Action |
 |---|---|
 | <kbd>ctrl</kbd>+<kbd>t</kbd> | New chat tab |
-| <kbd>ctrl</kbd>+<kbd>w</kbd> | Close tab |
+| <kbd>ctrl</kbd>+<kbd>w</kbd> | Close tab (asks first if it is still working) |
 | <kbd>alt</kbd>+<kbd>j</kbd> / <kbd>alt</kbd>+<kbd>;</kbd> | Previous / next tab |
+| <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>w</kbd> | Close idle sub-agent tabs |
 | <kbd>alt</kbd>+<kbd>m</kbd> | Open the chat menu |
 | <kbd>alt</kbd>+<kbd>c</kbd> | Copy the chat's resource name |
 | <kbd>alt</kbd>+<kbd>h</kbd> | Toggle help |
-| <kbd>ctrl</kbd>+<kbd>c</kbd> | Cancel stream / close tab / quit |
+| <kbd>ctrl</kbd>+<kbd>c</kbd> | Quit, after confirming; in a chat with a running turn, cancels it instead |
 
 ## Chat
 
@@ -38,6 +39,9 @@ in-app cheat sheet.
 | <kbd>alt</kbd>+<kbd>d</kbd> | Delete selected message |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>d</kbd> | Delete selected message and everything below |
 | <kbd>alt</kbd>+<kbd>e</kbd> | Edit selected user message and resend (truncates below) |
+| <kbd>ctrl</kbd>+<kbd>c</kbd> | Cancel the running turn and its sub-agents' turns |
+| <kbd>alt</kbd>+<kbd>u</kbd> | Go to the launcher's tab |
+| <kbd>alt</kbd>+<kbd>g</kbd> | Go to the next sub-agent's tab, one awaiting review first |
 
 ## Input
 
@@ -68,4 +72,5 @@ in-app cheat sheet.
 | <kbd>alt</kbd>+<kbd>d</kbd> | Delete chat |
 | <kbd>alt</kbd>+<kbd>r</kbd> | Refresh |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd> | Toggle favourite |
+| <kbd>alt</kbd>+<kbd>s</kbd> | Show / hide sub-agent chats |
 | <kbd>alt</kbd>+<kbd>&lt;</kbd> / <kbd>alt</kbd>+<kbd>&gt;</kbd> | Jump to filter / last chat |

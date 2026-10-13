@@ -69,10 +69,13 @@ Any directory may hold artifacts, addressed please-style (`//dir:title`,
 | Lore | `.sgpt/lores/{id}.md` | Durable knowledge the agent searches with `search_lores` |
 
 Built-in tools: `read_files`, `read_image`, `read_document` (PDFs),
-`exec_shell`, `diff`, `replace`, `search_lores`, `agent` (a batch of
-sub-agents, one tab each, sharing one briefing). Side-effect-free tools
-auto-execute; everything else waits for your review — unless
-`chat.permissions` rules say otherwise, per tool or per argument regex.
+`exec_shell`, `diff`, `replace`, `search_lores`, and the `agent` group
+(`create_agents`, `message_agent`, `get_operations`, `wait_operations`,
+`cancel_operations`): asynchronous sub-agents, one tab each, sharing one
+briefing, that report back as messages and can be messaged in turn.
+Side-effect-free tools auto-execute; everything else waits for your review
+— unless `chat.permissions` rules say otherwise, per tool or per argument
+regex.
 Sub-agents inherit their launcher's tools and permissions; their reviews
 surface in the root chat.
 

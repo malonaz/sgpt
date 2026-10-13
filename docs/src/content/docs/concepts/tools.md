@@ -18,13 +18,17 @@ then **execute**, then the result is sent back as a message.
 | `exec_shell` | Run a shell command | manual |
 | `diff` | Apply a unified diff to a file | manual |
 | `replace` | Apply exact search/replace patches | manual |
-| `agent` | Launch a [sub-agent](/concepts/agents/) | manual |
+| `create_agents` | Launch [sub-agents](/concepts/agents/), returning at once | manual |
+| `message_agent` | Message a sub-agent, or the launcher | auto |
+| `get_operations` / `wait_operations` | Poll / wait for sub-agent turns | auto |
+| `cancel_operations` | Stop sub-agent turns | auto |
 
 Auto-execution is not a hardcoded list: a tool auto-runs when its RPC is
 declared `idempotency_level = NO_SIDE_EFFECTS`. The same rule applies to
 remote tool engines, so a `GetIssue` runs silently while `UpdateIssue`
 waits for you. [Permission rules](/concepts/permissions/) override this
-default per tool — or per argument.
+default per tool — or per argument. The sub-agent tools are a group: `agent`
+enables all five.
 
 ## What you see
 

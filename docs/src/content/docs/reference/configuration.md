@@ -45,7 +45,7 @@ fields are rejected.
 | `default_tools` | string[] | Tools advertised in every chat, on top of role and `--tool`. |
 | `default_lores` | string[] | Lore selectors injected into every chat (`lores/x`, `@import//lores/x`). |
 | `permissions` | `PermissionRule[]` | Rules applied to every tool call, first match wins; see [Permissions](/concepts/permissions/). |
-| `agent` | `AgentConfiguration` | Sub-agent limits. |
+| `agent` | `AgentConfiguration` | Sub-agent limits; see [Sub-agents](/concepts/agents/#limits). |
 
 ## `PermissionRule`
 
@@ -60,8 +60,9 @@ fields are rejected.
 
 | Field | Type | Description |
 |---|---|---|
-| `max_concurrent` | int | Sub-agents running at once across the TUI, per nesting level; default 4. |
-| `max_depth` | int | Nesting depth: 1 lets a chat launch sub-agents but not those launch their own; default 2. |
+| `max_concurrent` | int | Sub-agents running their first turn at once across the TUI, per nesting level; the rest of a batch queues. Default 4. |
+| `max_depth` | int | Nesting depth: 1 lets a chat launch sub-agents but not those launch their own. Default 2. |
+| `max_agent_turns` | int | Turns a chat may start on messages from other agents (sub-agent reports, follow-ups) before you speak in it again; beyond, they queue until you resume the chat. Default 25. |
 
 ## `Import`
 
