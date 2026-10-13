@@ -7,11 +7,13 @@ go_library(
     visibility = ["//..."],
     deps = [
         "//cli/tui/editor",
+        "//cli/tui/format",
         "//cli/tui/keymap",
         "//cli/tui/styles",
         "//cli/tui/timeline",
         "//cli/tui/widget",
         "//internal/file",
+        "//internal/history",
         "//internal/review",
         "//internal/session",
         "//internal/tool",

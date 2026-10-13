@@ -359,6 +359,7 @@ func NewCmd(
 			})
 			agentManager.SetLauncher(app)
 			app.SetAgentManager(agentManager)
+			app.SetDefaultRole(config.Chat.GetDefaultRole())
 			program := tea.NewProgram(app, tea.WithContext(ctx))
 			app.SetProgram(program)
 			if _, err := program.Run(); err != nil {
