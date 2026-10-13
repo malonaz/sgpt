@@ -201,7 +201,7 @@ func (t *createAgentsTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool)
 		return "", false
 	}
 	var b strings.Builder
-	if facts := launchFacts(request.GetModel(), request.GetFiles(), request.GetTools()); facts != "" {
+	if facts := launchFacts(request.GetModel(), request.GetReasoningEffort(), request.GetFiles(), request.GetTools()); facts != "" {
 		b.WriteString(facts + "\n\n")
 	}
 	if briefing := strings.TrimSpace(request.GetContext()); briefing != "" {
@@ -209,7 +209,7 @@ func (t *createAgentsTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool)
 	}
 	for _, task := range request.GetTasks() {
 		fmt.Fprintf(&b, "**%s**\n\n", task.GetTitle())
-		if facts := launchFacts(task.GetModel(), task.GetFiles(), nil); facts != "" {
+		if facts := launchFacts(task.GetModel(), task.GetReasoningEffort(), task.GetFiles(), nil); facts != "" {
 			b.WriteString(facts + "\n\n")
 		}
 		b.WriteString(task.GetQuery() + "\n\n")
@@ -218,10 +218,13 @@ func (t *createAgentsTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool)
 }
 
 // launchFacts lists the settings a launch overrides on one line.
-func launchFacts(model string, files, tools []string) string {
+func launchFacts(model, reasoningEffort string, files, tools []string) string {
 	var facts []string
 	if model != "" {
 		facts = append(facts, "model: "+model)
+	}
+	if reasoningEffort != "" {
+		facts = append(facts, "reasoning: "+reasoningEffort)
 	}
 	if len(tools) > 0 {
 		facts = append(facts, "tools: "+strings.Join(tools, ", "))
