@@ -1,6 +1,9 @@
 go_library(
     name = "tui",
-    srcs = ["app.go"],
+    srcs = [
+        "app.go",
+        "panel.go",
+    ],
     visibility = ["//..."],
     deps = [
         "//cli/tui/clipboard",
@@ -10,6 +13,7 @@ go_library(
         "//cli/tui/styles",
         "//cli/tui/widget",
         "//internal/history",
+        "//internal/review",
         "//internal/session",
         "//internal/store",
         "//internal/tool",
@@ -18,6 +22,7 @@ go_library(
         "//third_party/go:charm.land__bubbles__v2__key",
         "//third_party/go:charm.land__bubbles__v2__spinner",
         "//third_party/go:charm.land__bubbletea__v2",
+        "//third_party/go:charm.land__lipgloss__v2",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )

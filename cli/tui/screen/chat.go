@@ -38,8 +38,11 @@ type sessionEventMsg struct {
 	event session.Event
 }
 
+// KeyCycleFocus cycles the input and the timeline; the app extends the cycle
+// to the docked agents panel.
+var KeyCycleFocus = keymap.New("tab", "Cycle input, timeline and agents panel")
+
 var (
-	chatKeyCycleFocus     = keymap.New("tab", "Switch input and timeline")
 	chatKeySubmit         = keymap.New("ctrl+j", "Send, or accept the review")
 	chatKeyAccept         = keymap.New("alt+y", "Accept the tool call")
 	chatKeyAcceptAll      = keymap.New("alt+shift+y", "Accept all tool calls")
@@ -124,6 +127,7 @@ type ChatScreen struct {
 	// starting and ending.
 	turnInFlight bool
 	turnStart    time.Time
+	turnEnd      time.Time
 	// cancelling is set by ctrl+c until the cancelled turn winds down, so
 	// a press during the wind-down is visible and a further one moves on.
 	cancelling bool
@@ -203,7 +207,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 	return []keymap.Map{
 		{Name: "Chat", Bindings: []keymap.Binding{
 			chatKeySubmit, chatKeyAccept, chatKeyAcceptAll, chatKeyAlwaysAccept,
-			chatKeyReject, chatKeyCancel, chatKeyCycleFocus, chatKeyBack,
+			chatKeyReject, chatKeyCancel, KeyCycleFocus, chatKeyBack,
 			chatKeyPageUp, chatKeyPageDown,
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
@@ -385,7 +389,7 @@ func (m *ChatScreen) Interrupt() bool {
 
 func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, chatKeyCycleFocus.Key):
+	case key.Matches(msg, KeyCycleFocus.Key):
 		return m.cycleFocus()
 	case key.Matches(msg, chatKeyAccept.Key):
 		return m.withReviewTarget(func(toolCallID string) tea.Cmd {
@@ -731,6 +735,9 @@ func (m *ChatScreen) noteTurnState() {
 	if started {
 		m.turnStart = time.Now()
 	}
+	if ended {
+		m.turnEnd = time.Now()
+	}
 	if !inFlight {
 		m.cancelling = false
 	}
@@ -1055,35 +1062,62 @@ func (m *ChatScreen) Status() widget.Status {
 }
 
 func (m *ChatScreen) turnState() string {
+	label := m.Activity()
+	switch {
+	case m.session.State() == session.StateAwaitingReview && !m.cancelling:
+		// No spinner: nothing moves until the user answers.
+		return reviewStateStyle.Render(styles.GlyphReview + " " + label)
+	case label == "":
+		return styles.MutedStyle.Render("Ready")
+	}
+	elapsed := ""
+	if turn := m.TurnElapsed(); turn > 0 {
+		elapsed = styles.MutedStyle.Render(" " + styles.GlyphSeparator + " " + format.Duration(turn))
+	}
+	return m.spinner.View() + " " + styles.TextStyle.Render(label) + elapsed
+}
+
+// Activity names what the chat is doing right now; empty when idle.
+func (m *ChatScreen) Activity() string {
 	if m.cancelling {
-		return m.spinner.View() + " " + styles.TextStyle.Render("Cancelling"+styles.GlyphEllipsis)
+		return "Cancelling" + styles.GlyphEllipsis
 	}
 	state := m.session.State()
 	if state == session.StateAwaitingReview {
-		// No spinner: nothing moves until the user answers.
-		label := styles.GlyphReview + " Review"
 		if m.activeTool != "" {
-			label += " " + styles.GlyphSeparator + " " + m.activeTool
+			return "Review " + styles.GlyphSeparator + " " + m.activeTool
 		}
-		return reviewStateStyle.Render(label)
+		return "Review"
 	}
-	if !m.session.TurnInFlight() {
-		return styles.MutedStyle.Render("Ready")
-	}
-	label := "Thinking"
 	switch {
+	case !m.session.TurnInFlight():
+		return ""
 	case state == session.StateExecutingTools && m.activeTitled:
-		label = m.activeTool
+		return m.activeTool
 	case state == session.StateExecutingTools && m.activeTool != "":
-		label = "Running " + m.activeTool
+		return "Running " + m.activeTool
 	case streamsText(m.session.StreamingMessage()):
-		label = "Streaming"
+		return "Streaming"
 	}
-	elapsed := ""
-	if !m.turnStart.IsZero() {
-		elapsed = styles.MutedStyle.Render(" " + styles.GlyphSeparator + " " + format.Duration(time.Since(m.turnStart)))
+	return "Thinking"
+}
+
+// TurnElapsed is how long the current turn has run, or the last one ran;
+// zero before the first.
+func (m *ChatScreen) TurnElapsed() time.Duration {
+	switch {
+	case m.turnStart.IsZero():
+		return 0
+	case m.turnInFlight:
+		return time.Since(m.turnStart)
 	}
-	return m.spinner.View() + " " + styles.TextStyle.Render(label) + elapsed
+	return m.turnEnd.Sub(m.turnStart)
+}
+
+// TimelineFocused reports whether keys go to the timeline, the last stop of
+// the chat's focus cycle.
+func (m *ChatScreen) TimelineFocused() bool {
+	return m.focusedComponent == FocusViewport
 }
 
 // streamsText reports whether the model has started its visible answer.
@@ -1108,7 +1142,7 @@ func (m *ChatScreen) hints() []string {
 	case m.focusedComponent == FocusViewport:
 		return []string{timeline.KeyToggleCollapse.WithShort("expand").Hint(), chatKeyBack.WithShort("input").Hint(), chatKeyEditMessage.WithShort("edit").Hint()}
 	}
-	return []string{chatKeySubmit.WithShort("send").Hint(), chatKeyCycleFocus.WithShort("timeline").Hint()}
+	return []string{chatKeySubmit.WithShort("send").Hint(), KeyCycleFocus.WithShort("timeline").Hint()}
 }
 
 func (m *ChatScreen) facts() []widget.Fact {

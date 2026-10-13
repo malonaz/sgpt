@@ -65,6 +65,17 @@ func RenderInfo(info *session.Info, width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, modal)
 }
 
+// RenderInfoSummary is the info modal's essentials stacked in a narrow
+// column: session facts, context gauge, usage and what is in context.
+func RenderInfoSummary(info *session.Info, width int) string {
+	return strings.Join([]string{
+		infoTable("Session", infoSessionRows(info), false),
+		infoContextGauge(info, width),
+		infoUsageTable(info),
+		infoInventory(info, width, 0),
+	}, "\n\n")
+}
+
 // infoChatLabel identifies the chat: its title when it has one, else the
 // chat ID; a brand-new chat has neither.
 func infoChatLabel(info *session.Info) string {

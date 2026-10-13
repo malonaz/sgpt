@@ -957,18 +957,36 @@ func (s *Session) advertisedToolSets() []*aipb.ToolSet {
 func (s *Session) lastAssistantText() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.lastAssistantTextLocked()
+}
+
+func (s *Session) lastAssistantTextLocked() string {
 	for i := len(s.messages) - 1; i >= 0; i-- {
-		message := s.messages[i]
-		if message.GetRole() != aipb.Role_ROLE_ASSISTANT {
-			continue
+		if message := s.messages[i]; message.GetRole() == aipb.Role_ROLE_ASSISTANT {
+			return messageText(message)
 		}
-		var parts []string
-		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
-			parts = append(parts, block.GetText())
-		}
-		return strings.Join(parts, "\n")
 	}
 	return ""
+}
+
+// LatestText is the agent's latest words: the answer streaming in, else its
+// last one.
+func (s *Session) LatestText() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if text := messageText(s.streamingMessage); text != "" {
+		return text
+	}
+	return s.lastAssistantTextLocked()
+}
+
+// messageText joins a message's text blocks.
+func messageText(message *aipb.Message) string {
+	var parts []string
+	for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
+		parts = append(parts, block.GetText())
+	}
+	return strings.Join(parts, "\n")
 }
 
 // isTypedByUser tells the user's own words from sgpt's context and other
@@ -987,11 +1005,7 @@ func (s *Session) UserMessageText(messageName string) string {
 		if message.GetName() != messageName || message.GetRole() != aipb.Role_ROLE_USER || !isTypedByUser(message) {
 			continue
 		}
-		var parts []string
-		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {
-			parts = append(parts, block.GetText())
-		}
-		return strings.Join(parts, "\n")
+		return messageText(message)
 	}
 	return ""
 }
