@@ -182,8 +182,10 @@ func (t *createAgentsTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolR
 	if tool.UnmarshalResult(toolResult, response) != nil {
 		return "", false
 	}
-	return renderOperations(response.GetOperations()), true
+	return renderOperations(t.m.liveSnapshots(response.GetOperations())), true
 }
+
+func (t *createAgentsTool) RenderVersion(*aipb.ToolCall) string { return t.m.renderVersion() }
 
 func (t *createAgentsTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	// Tolerates partial arguments: falls back to the bare label until the
@@ -310,8 +312,10 @@ func (t *messageAgentTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolR
 	if response.GetOperation() == nil {
 		return "delivered", true
 	}
-	return renderOperations([]*sgptpb.AgentOperation{response.GetOperation()}), true
+	return renderOperations(t.m.liveSnapshots([]*sgptpb.AgentOperation{response.GetOperation()})), true
 }
+
+func (t *messageAgentTool) RenderVersion(*aipb.ToolCall) string { return t.m.renderVersion() }
 
 func (t *messageAgentTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	request := &sgptpb.MessageAgentRequest{}
@@ -600,6 +604,8 @@ var (
 	_ tool.RequestRenderer = (*createAgentsTool)(nil)
 	_ tool.ResultRenderer  = (*createAgentsTool)(nil)
 	_ tool.HeaderRenderer  = (*createAgentsTool)(nil)
+	_ tool.LiveRenderer    = (*createAgentsTool)(nil)
+	_ tool.LiveRenderer    = (*messageAgentTool)(nil)
 	_ tool.RequestRenderer = (*messageAgentTool)(nil)
 	_ tool.ResultRenderer  = (*messageAgentTool)(nil)
 	_ tool.HeaderRenderer  = (*messageAgentTool)(nil)

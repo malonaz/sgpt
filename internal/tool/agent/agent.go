@@ -68,8 +68,10 @@ type Manager struct {
 	// operations are every operation started, oldest first.
 	operations      []*operation
 	nameToOperation map[string]*operation
-	// changed is closed, and replaced, on every operation state change.
-	changed chan struct{}
+	// changed is closed, and replaced, on every operation state change;
+	// revision counts those changes.
+	changed  chan struct{}
+	revision uint64
 }
 
 type subAgent struct {
@@ -151,6 +153,29 @@ func (m *Manager) newOperationLocked(subAgent *subAgent) *operation {
 func (m *Manager) broadcastLocked() {
 	close(m.changed)
 	m.changed = make(chan struct{})
+	m.revision++
+}
+
+// liveSnapshots refreshes recorded operation snapshots with their current
+// state, so a rendered result follows the operations it started.
+func (m *Manager) liveSnapshots(recorded []*sgptpb.AgentOperation) []*sgptpb.AgentOperation {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	live := make([]*sgptpb.AgentOperation, 0, len(recorded))
+	for _, snapshot := range recorded {
+		// Unknown after a restart: operations live in memory only.
+		if op, ok := m.nameToOperation[snapshot.GetName()]; ok {
+			snapshot = m.snapshotLocked(op)
+		}
+		live = append(live, snapshot)
+	}
+	return live
+}
+
+func (m *Manager) renderVersion() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return fmt.Sprint(m.revision)
 }
 
 // launch waits for a slot, opens the sub-agent and runs its first turn on

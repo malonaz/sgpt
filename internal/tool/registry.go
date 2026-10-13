@@ -224,3 +224,25 @@ func (r *Registry) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
 	}
 	return renderer.RenderHeader(toolCall)
 }
+
+// LiveRenderer is implemented by tools whose rendering keeps changing after
+// the call resolved (the sub-agent tools show live operation states).
+type LiveRenderer interface {
+	Tool
+	// RenderVersion changes whenever the call's rendering may have.
+	RenderVersion(toolCall *aipb.ToolCall) string
+}
+
+// RenderVersion returns the tool's render version for a call, or "" when its
+// rendering is fixed once resolved.
+func (r *Registry) RenderVersion(toolCall *aipb.ToolCall) string {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return ""
+	}
+	renderer, ok := tool.(LiveRenderer)
+	if !ok {
+		return ""
+	}
+	return renderer.RenderVersion(toolCall)
+}
