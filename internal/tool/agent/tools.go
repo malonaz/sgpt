@@ -190,6 +190,9 @@ func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, 
 	}
 }
 
+// FoldsRequest: briefings and queries run to pages; the row names the tasks.
+func (t *createAgentsTool) FoldsRequest(*aipb.ToolCall) bool { return true }
+
 // RenderRequest renders the tasks as markdown instead of raw JSON. Tolerates
 // partial arguments so the request is readable as it streams in.
 func (t *createAgentsTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
@@ -198,14 +201,35 @@ func (t *createAgentsTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool)
 		return "", false
 	}
 	var b strings.Builder
+	if facts := launchFacts(request.GetModel(), request.GetFiles(), request.GetTools()); facts != "" {
+		b.WriteString(facts + "\n\n")
+	}
 	if briefing := strings.TrimSpace(request.GetContext()); briefing != "" {
-		b.WriteString(briefing)
-		b.WriteString("\n\n")
+		b.WriteString(briefing + "\n\n")
 	}
 	for _, task := range request.GetTasks() {
-		fmt.Fprintf(&b, "**%s**\n\n%s\n\n", task.GetTitle(), task.GetQuery())
+		fmt.Fprintf(&b, "**%s**\n\n", task.GetTitle())
+		if facts := launchFacts(task.GetModel(), task.GetFiles(), nil); facts != "" {
+			b.WriteString(facts + "\n\n")
+		}
+		b.WriteString(task.GetQuery() + "\n\n")
 	}
 	return strings.TrimSpace(b.String()), true
+}
+
+// launchFacts lists the settings a launch overrides on one line.
+func launchFacts(model string, files, tools []string) string {
+	var facts []string
+	if model != "" {
+		facts = append(facts, "model: "+model)
+	}
+	if len(tools) > 0 {
+		facts = append(facts, "tools: "+strings.Join(tools, ", "))
+	}
+	if len(files) > 0 {
+		facts = append(facts, "files: "+strings.Join(files, ", "))
+	}
+	return strings.Join(facts, " · ")
 }
 
 func (t *createAgentsTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
@@ -226,7 +250,10 @@ func (t *createAgentsTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.T
 			titles = append(titles, title)
 		}
 	}
-	summary := tool.Summary{Verb: "Launch agents", Subject: strings.Join(titles, ", ")}
+	summary := tool.Summary{Verb: "Launch agents"}
+	if len(titles) > 0 {
+		summary.Subject = tool.Count(len(titles), "task", "tasks") + ": " + strings.Join(titles, ", ")
+	}
 	response := &sgptpb.CreateAgentsResponse{}
 	if toolResult != nil && tool.UnmarshalResult(toolResult, response) == nil {
 		summary.Outcome, summary.Failed = summarizeStates(t.m.liveSnapshots(response.GetOperations()))

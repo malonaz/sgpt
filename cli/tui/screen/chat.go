@@ -106,6 +106,9 @@ type ChatScreen struct {
 	// info, when non-nil, is the chat info modal: a read-only snapshot that
 	// swallows every key (any key closes it).
 	info *session.Info
+	// document, when non-nil, is a tool call's full request in a scrollable
+	// modal that captures all keys.
+	document *widget.Document
 
 	width            int
 	height           int
@@ -218,6 +221,9 @@ func (m *ChatScreen) SetSize(width, height int) {
 	if m.picker != nil {
 		m.picker.SetSize(width, height)
 	}
+	if m.document != nil {
+		m.document.SetSize(width, height)
+	}
 	m.recalculateLayout()
 }
 
@@ -305,6 +311,12 @@ func (m *ChatScreen) Update(msg tea.Msg) tea.Cmd {
 			m.info = nil
 			return nil
 		}
+		if m.document != nil {
+			if key.Matches(msg, timeline.KeyViewRequest.Key) || !m.document.HandleKey(msg) {
+				m.document = nil
+			}
+			return nil
+		}
 		if m.picker != nil {
 			return m.handlePickerKey(msg)
 		}
@@ -349,6 +361,8 @@ func (m *ChatScreen) Interrupt() bool {
 	switch {
 	case m.info != nil:
 		m.info = nil
+	case m.document != nil:
+		m.document = nil
 	case m.picker != nil:
 		m.picker, m.pickerApply = nil, nil
 	case m.session.TurnInFlight() && !m.cancelling:
@@ -425,6 +439,8 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		// turn never mutates the numbers under the reader's eyes.
 		m.info = m.session.Info()
 		return nil
+	case key.Matches(msg, timeline.KeyViewRequest.Key):
+		return m.viewRequest()
 	}
 
 	switch {
@@ -524,13 +540,38 @@ func (m *ChatScreen) withReviewTarget(verdict func(toolCallID string) tea.Cmd) t
 	return verdict(toolCallID)
 }
 
+// viewRequest opens the full request of the selected tool call, else of the
+// call awaiting review, so a folded request is readable from the input too.
+func (m *ChatScreen) viewRequest() tea.Cmd {
+	item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem)
+	if !ok || m.focusedComponent != FocusViewport {
+		item = m.toolCallItem(m.reviewTarget())
+	}
+	if item == nil {
+		return m.alert("Select a tool call to view its request")
+	}
+	title, md := item.Request()
+	m.document = widget.NewDocument(title, md, m.width, m.height)
+	return nil
+}
+
+// toolCallItem finds a tool call's timeline item; nil when absent.
+func (m *ChatScreen) toolCallItem(toolCallID string) *timeline.ToolCallItem {
+	if toolCallID == "" {
+		return nil
+	}
+	for _, item := range m.buildItems() {
+		if toolCallItem, ok := item.(*timeline.ToolCallItem); ok && toolCallItem.ToolCall.GetId() == toolCallID {
+			return toolCallItem
+		}
+	}
+	return nil
+}
+
 // toolNameForCall resolves a tool call ID to its tool name via the timeline.
 func (m *ChatScreen) toolNameForCall(toolCallID string) string {
-	for _, item := range m.buildItems() {
-		if toolCallItem, ok := item.(*timeline.ToolCallItem); ok &&
-			toolCallItem.ToolCall.GetId() == toolCallID {
-			return toolCallItem.ToolCall.GetName()
-		}
+	if item := m.toolCallItem(toolCallID); item != nil {
+		return item.ToolCall.GetName()
 	}
 	return ""
 }
@@ -1134,6 +1175,9 @@ func (m *ChatScreen) View() string {
 	}
 	if m.info != nil {
 		return widget.RenderInfo(m.info, m.width, m.height)
+	}
+	if m.document != nil {
+		return m.document.View()
 	}
 	if m.picker != nil {
 		return m.picker.View()

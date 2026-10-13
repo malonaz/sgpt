@@ -25,6 +25,7 @@ var (
 	KeyToggleNavMode  = keymap.New("alt+a", "Toggle fence or block steps")
 	KeyCopy           = keymap.New("alt+w", "Copy selection")
 	KeyOpenEditor     = keymap.New("alt+o", "Open selection in $EDITOR")
+	KeyViewRequest    = keymap.New("ctrl+x", "View the tool call's full request")
 )
 
 func Keymap() keymap.Map {
@@ -33,7 +34,7 @@ func Keymap() keymap.Map {
 		Bindings: []keymap.Binding{
 			KeyPrevItem, KeyNextItem, KeyToTop, KeyToBottom,
 			KeyScrollUp, KeyScrollDown, KeyToggleCollapse, KeyToggleNavMode,
-			KeyCopy, KeyOpenEditor,
+			KeyCopy, KeyOpenEditor, KeyViewRequest,
 		},
 	}
 }

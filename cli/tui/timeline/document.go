@@ -22,7 +22,7 @@ func (i *ToolCallItem) document() string {
 		facts = append(facts, summary.Outcome)
 	}
 	sections := []string{
-		"### " + cmp.Or(tool.Title(i.ToolCall), strings.TrimSpace(summary.Verb+" "+summary.Subject)),
+		"### " + i.heading(summary),
 		strings.Join(facts, " · "),
 		"**Request**",
 		i.requestDocument(),
@@ -31,6 +31,16 @@ func (i *ToolCallItem) document() string {
 		sections = append(sections, "**Result**", resultDocument(i.Result))
 	}
 	return strings.Join(sections, "\n\n")
+}
+
+// heading names the call: its title, else what it does.
+func (i *ToolCallItem) heading(summary tool.Summary) string {
+	return cmp.Or(tool.Title(i.ToolCall), strings.TrimSpace(summary.Verb+" "+summary.Subject))
+}
+
+// Request is the call's full request, titled, for reading in a modal.
+func (i *ToolCallItem) Request() (title, md string) {
+	return i.heading(i.summary()), i.requestDocument()
 }
 
 // requestDocument is the tool's own request markdown (a diff, a command),
