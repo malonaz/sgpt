@@ -12,6 +12,8 @@ then **execute**, then the result is sent back as a message.
 | Tool | Effect | Review |
 |---|---|---|
 | `read_files` | Read one or more files | auto |
+| `read_image` | Look at an image | auto |
+| `read_document` | Read a PDF | auto |
 | `search_lores` | Regex search over lore libraries | auto |
 | `exec_shell` | Run a shell command | manual |
 | `diff` | Apply a unified diff to a file | manual |

@@ -17,6 +17,28 @@ Read the contents of one or more files.
 Returns one entry per path, in request order, each with content or an
 error.
 
+## `read_image` — auto
+
+Look at an image file (PNG, JPEG, GIF or WebP), up to 5 MB.
+
+| Argument | Type | Description |
+|---|---|---|
+| `path` | string | Image path. |
+
+Returns `ok`; the image follows as a user message, since tool results
+cannot carry images.
+
+## `read_document` — auto
+
+Read a PDF, including its layout, tables and figures, up to 10 MB.
+
+| Argument | Type | Description |
+|---|---|---|
+| `path` | string | PDF path. |
+
+Returns `ok`; the document follows as a user message, titled with its file
+name.
+
 ## `search_lores` — auto
 
 Search the selected lore libraries with a grep-style regular expression.

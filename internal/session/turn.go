@@ -8,6 +8,8 @@ import (
 	"github.com/malonaz/core/go/ai"
 
 	"github.com/malonaz/sgpt/internal/debug"
+	"github.com/malonaz/sgpt/internal/store"
+	"github.com/malonaz/sgpt/internal/tool"
 )
 
 // turn owns one full exchange with the model: the generation loop, tool
@@ -20,11 +22,19 @@ type turn struct {
 	// executions, review waits — so one cancel aborts it wherever it is.
 	ctx    context.Context
 	cancel context.CancelFunc
+	// attachments are tool.Attach'd blocks awaiting the next tool message;
+	// unlocked since tools only run on the turn goroutine.
+	attachments []*aipb.Block
 }
 
 func newTurn(s *Session) *turn {
-	ctx, cancel := context.WithCancel(s.ctx)
-	return &turn{session: s, ctx: ctx, cancel: cancel}
+	t := &turn{session: s}
+	t.ctx, t.cancel = context.WithCancel(tool.WithAttach(s.ctx, t.attach))
+	return t
+}
+
+func (t *turn) attach(blocks ...*aipb.Block) {
+	t.attachments = append(t.attachments, blocks...)
 }
 
 // run executes the turn to completion: generate → resolve tool calls → loop.
@@ -108,11 +118,15 @@ func (t *turn) executeToolCalls(assistantMessage *aipb.Message, toolCalls []*aip
 		}
 	}
 
-	toolMessage := ai.NewToolMessage(resultBlocks...)
+	inputMessages := []*aipb.Message{ai.NewToolMessage(resultBlocks...)}
+	if len(t.attachments) > 0 {
+		inputMessages = append(inputMessages, store.NewAttachmentMessage(t.attachments))
+		t.attachments = nil
+	}
 	s.mu.Lock()
-	s.messages = append(s.messages, toolMessage)
-	// The tool message is persisted server-side as input to the next turn.
-	s.pendingInputMessages = append(s.pendingInputMessages, toolMessage)
+	s.messages = append(s.messages, inputMessages...)
+	// Persisted server-side as input to the next turn.
+	s.pendingInputMessages = append(s.pendingInputMessages, inputMessages...)
 	s.mu.Unlock()
 	s.refresh()
 }

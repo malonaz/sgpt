@@ -174,6 +174,8 @@ func NewCmd(
 			registry := tool.NewRegistry()
 			registry.Register(tool.HandlerIDShell, &shell.Tool{})
 			registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
+			registry.Register(tool.HandlerIDReadImage, &toolio.ReadImageTool{})
+			registry.Register(tool.HandlerIDReadDocument, &toolio.ReadDocumentTool{})
 			registry.Register(tool.HandlerIDDiff, &diff.Tool{})
 			registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
 			// Same instance everywhere: sub-agents can spawn sub-agents.

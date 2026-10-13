@@ -539,6 +539,217 @@ func (b0 ReadFilesResponse_builder) Build() *ReadFilesResponse {
 	return m0
 }
 
+// Request for the `read_image` tool.
+type ReadImageRequest struct {
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Path of the image file.
+	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadImageRequest) Reset() {
+	*x = ReadImageRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadImageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadImageRequest) ProtoMessage() {}
+
+func (x *ReadImageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReadImageRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ReadImageRequest) SetPath(v string) {
+	x.Path = v
+}
+
+type ReadImageRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Path of the image file.
+	Path string
+}
+
+func (b0 ReadImageRequest_builder) Build() *ReadImageRequest {
+	m0 := &ReadImageRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.Path = b.Path
+	return m0
+}
+
+// Result of the `read_image` tool: a bare acknowledgment. The image itself
+// follows as a user message, since tool results cannot carry images.
+type ReadImageResponse struct {
+	state         protoimpl.MessageState `protogen:"hybrid.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadImageResponse) Reset() {
+	*x = ReadImageResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadImageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadImageResponse) ProtoMessage() {}
+
+func (x *ReadImageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type ReadImageResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 ReadImageResponse_builder) Build() *ReadImageResponse {
+	m0 := &ReadImageResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
+// Request for the `read_document` tool.
+type ReadDocumentRequest struct {
+	state protoimpl.MessageState `protogen:"hybrid.v1"`
+	// Path of the PDF file.
+	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadDocumentRequest) Reset() {
+	*x = ReadDocumentRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadDocumentRequest) ProtoMessage() {}
+
+func (x *ReadDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReadDocumentRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ReadDocumentRequest) SetPath(v string) {
+	x.Path = v
+}
+
+type ReadDocumentRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Path of the PDF file.
+	Path string
+}
+
+func (b0 ReadDocumentRequest_builder) Build() *ReadDocumentRequest {
+	m0 := &ReadDocumentRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.Path = b.Path
+	return m0
+}
+
+// Result of the `read_document` tool: a bare acknowledgment. The document
+// itself follows as a user message, since tool results cannot carry
+// documents.
+type ReadDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"hybrid.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadDocumentResponse) Reset() {
+	*x = ReadDocumentResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadDocumentResponse) ProtoMessage() {}
+
+func (x *ReadDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type ReadDocumentResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 ReadDocumentResponse_builder) Build() *ReadDocumentResponse {
+	m0 := &ReadDocumentResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
 // Request for the `search_lores` tool.
 type SearchLoresRequest struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
@@ -553,7 +764,7 @@ type SearchLoresRequest struct {
 
 func (x *SearchLoresRequest) Reset() {
 	*x = SearchLoresRequest{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -565,7 +776,7 @@ func (x *SearchLoresRequest) String() string {
 func (*SearchLoresRequest) ProtoMessage() {}
 
 func (x *SearchLoresRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[7]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -628,7 +839,7 @@ type SearchLoresResponse struct {
 
 func (x *SearchLoresResponse) Reset() {
 	*x = SearchLoresResponse{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -640,7 +851,7 @@ func (x *SearchLoresResponse) String() string {
 func (*SearchLoresResponse) ProtoMessage() {}
 
 func (x *SearchLoresResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[8]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -691,7 +902,7 @@ type ExecShellRequest struct {
 
 func (x *ExecShellRequest) Reset() {
 	*x = ExecShellRequest{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -703,7 +914,7 @@ func (x *ExecShellRequest) String() string {
 func (*ExecShellRequest) ProtoMessage() {}
 
 func (x *ExecShellRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[9]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -770,7 +981,7 @@ type ExecShellResponse struct {
 
 func (x *ExecShellResponse) Reset() {
 	*x = ExecShellResponse{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -782,7 +993,7 @@ func (x *ExecShellResponse) String() string {
 func (*ExecShellResponse) ProtoMessage() {}
 
 func (x *ExecShellResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[10]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -866,7 +1077,7 @@ type AgentRequest struct {
 
 func (x *AgentRequest) Reset() {
 	*x = AgentRequest{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +1089,7 @@ func (x *AgentRequest) String() string {
 func (*AgentRequest) ProtoMessage() {}
 
 func (x *AgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[11]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +1193,7 @@ type AgentResponse struct {
 
 func (x *AgentResponse) Reset() {
 	*x = AgentResponse{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1205,7 @@ func (x *AgentResponse) String() string {
 func (*AgentResponse) ProtoMessage() {}
 
 func (x *AgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[12]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1046,7 +1257,7 @@ type ReadFilesResponse_File struct {
 
 func (x *ReadFilesResponse_File) Reset() {
 	*x = ReadFilesResponse_File{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1058,7 +1269,7 @@ func (x *ReadFilesResponse_File) String() string {
 func (*ReadFilesResponse_File) ProtoMessage() {}
 
 func (x *ReadFilesResponse_File) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[13]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1144,7 +1355,7 @@ type SearchLoresResponse_Match struct {
 
 func (x *SearchLoresResponse_Match) Reset() {
 	*x = SearchLoresResponse_Match{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +1367,7 @@ func (x *SearchLoresResponse_Match) String() string {
 func (*SearchLoresResponse_Match) ProtoMessage() {}
 
 func (x *SearchLoresResponse_Match) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[14]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1292,7 +1503,13 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x04File\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"D\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"+\n" +
+	"\x10ReadImageRequest\x12\x17\n" +
+	"\x04path\x18\x01 \x01(\tB\x03\xe0A\x02R\x04path\"\x13\n" +
+	"\x11ReadImageResponse\".\n" +
+	"\x13ReadDocumentRequest\x12\x17\n" +
+	"\x04path\x18\x01 \x01(\tB\x03\xe0A\x02R\x04path\"\x16\n" +
+	"\x14ReadDocumentResponse\"D\n" +
 	"\x12SearchLoresRequest\x12\x19\n" +
 	"\x05query\x18\x01 \x01(\tB\x03\xe0A\x02R\x05query\x12\x13\n" +
 	"\x05top_n\x18\x02 \x01(\x05R\x04topN\"\xe9\x02\n" +
@@ -1323,16 +1540,18 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x05tools\x18\x03 \x03(\tR\x05tools\x12\x14\n" +
 	"\x05model\x18\x04 \x01(\tR\x05model\"+\n" +
 	"\rAgentResponse\x12\x1a\n" +
-	"\bresponse\x18\x01 \x01(\tR\bresponse2\x94\x03\n" +
+	"\bresponse\x18\x01 \x01(\tR\bresponse2\xaf\x04\n" +
 	"\vToolService\x123\n" +
 	"\x04Diff\x12\x14.sgpt.v1.DiffRequest\x1a\x15.sgpt.v1.DiffResponse\x12<\n" +
 	"\aReplace\x12\x17.sgpt.v1.ReplaceRequest\x1a\x18.sgpt.v1.ReplaceResponse\x12G\n" +
-	"\tReadFiles\x12\x19.sgpt.v1.ReadFilesRequest\x1a\x1a.sgpt.v1.ReadFilesResponse\"\x03\x90\x02\x01\x12B\n" +
+	"\tReadFiles\x12\x19.sgpt.v1.ReadFilesRequest\x1a\x1a.sgpt.v1.ReadFilesResponse\"\x03\x90\x02\x01\x12G\n" +
+	"\tReadImage\x12\x19.sgpt.v1.ReadImageRequest\x1a\x1a.sgpt.v1.ReadImageResponse\"\x03\x90\x02\x01\x12P\n" +
+	"\fReadDocument\x12\x1c.sgpt.v1.ReadDocumentRequest\x1a\x1d.sgpt.v1.ReadDocumentResponse\"\x03\x90\x02\x01\x12B\n" +
 	"\tExecShell\x12\x19.sgpt.v1.ExecShellRequest\x1a\x1a.sgpt.v1.ExecShellResponse\x12M\n" +
 	"\vSearchLores\x12\x1b.sgpt.v1.SearchLoresRequest\x1a\x1c.sgpt.v1.SearchLoresResponse\"\x03\x90\x02\x01\x126\n" +
 	"\x05Agent\x12\x15.sgpt.v1.AgentRequest\x1a\x16.sgpt.v1.AgentResponseB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_sgpt_v1_tools_proto_goTypes = []any{
 	(*DiffRequest)(nil),               // 0: sgpt.v1.DiffRequest
 	(*DiffResponse)(nil),              // 1: sgpt.v1.DiffResponse
@@ -1341,35 +1560,43 @@ var file_sgpt_v1_tools_proto_goTypes = []any{
 	(*ReplaceResponse)(nil),           // 4: sgpt.v1.ReplaceResponse
 	(*ReadFilesRequest)(nil),          // 5: sgpt.v1.ReadFilesRequest
 	(*ReadFilesResponse)(nil),         // 6: sgpt.v1.ReadFilesResponse
-	(*SearchLoresRequest)(nil),        // 7: sgpt.v1.SearchLoresRequest
-	(*SearchLoresResponse)(nil),       // 8: sgpt.v1.SearchLoresResponse
-	(*ExecShellRequest)(nil),          // 9: sgpt.v1.ExecShellRequest
-	(*ExecShellResponse)(nil),         // 10: sgpt.v1.ExecShellResponse
-	(*AgentRequest)(nil),              // 11: sgpt.v1.AgentRequest
-	(*AgentResponse)(nil),             // 12: sgpt.v1.AgentResponse
-	(*ReadFilesResponse_File)(nil),    // 13: sgpt.v1.ReadFilesResponse.File
-	(*SearchLoresResponse_Match)(nil), // 14: sgpt.v1.SearchLoresResponse.Match
-	nil,                               // 15: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	(*ReadImageRequest)(nil),          // 7: sgpt.v1.ReadImageRequest
+	(*ReadImageResponse)(nil),         // 8: sgpt.v1.ReadImageResponse
+	(*ReadDocumentRequest)(nil),       // 9: sgpt.v1.ReadDocumentRequest
+	(*ReadDocumentResponse)(nil),      // 10: sgpt.v1.ReadDocumentResponse
+	(*SearchLoresRequest)(nil),        // 11: sgpt.v1.SearchLoresRequest
+	(*SearchLoresResponse)(nil),       // 12: sgpt.v1.SearchLoresResponse
+	(*ExecShellRequest)(nil),          // 13: sgpt.v1.ExecShellRequest
+	(*ExecShellResponse)(nil),         // 14: sgpt.v1.ExecShellResponse
+	(*AgentRequest)(nil),              // 15: sgpt.v1.AgentRequest
+	(*AgentResponse)(nil),             // 16: sgpt.v1.AgentResponse
+	(*ReadFilesResponse_File)(nil),    // 17: sgpt.v1.ReadFilesResponse.File
+	(*SearchLoresResponse_Match)(nil), // 18: sgpt.v1.SearchLoresResponse.Match
+	nil,                               // 19: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
 }
 var file_sgpt_v1_tools_proto_depIdxs = []int32{
 	3,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
-	13, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
-	14, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
-	15, // 3: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	17, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
+	18, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
+	19, // 3: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
 	0,  // 4: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
 	2,  // 5: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
 	5,  // 6: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
-	9,  // 7: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
-	7,  // 8: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
-	11, // 9: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
-	1,  // 10: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
-	4,  // 11: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
-	6,  // 12: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
-	10, // 13: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
-	8,  // 14: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
-	12, // 15: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
-	10, // [10:16] is the sub-list for method output_type
-	4,  // [4:10] is the sub-list for method input_type
+	7,  // 7: sgpt.v1.ToolService.ReadImage:input_type -> sgpt.v1.ReadImageRequest
+	9,  // 8: sgpt.v1.ToolService.ReadDocument:input_type -> sgpt.v1.ReadDocumentRequest
+	13, // 9: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
+	11, // 10: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
+	15, // 11: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
+	1,  // 12: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
+	4,  // 13: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
+	6,  // 14: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
+	8,  // 15: sgpt.v1.ToolService.ReadImage:output_type -> sgpt.v1.ReadImageResponse
+	10, // 16: sgpt.v1.ToolService.ReadDocument:output_type -> sgpt.v1.ReadDocumentResponse
+	14, // 17: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
+	12, // 18: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
+	16, // 19: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
+	12, // [12:20] is the sub-list for method output_type
+	4,  // [4:12] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -1386,7 +1613,7 @@ func file_sgpt_v1_tools_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_tools_proto_rawDesc), len(file_sgpt_v1_tools_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
