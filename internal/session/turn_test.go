@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -164,5 +165,23 @@ func TestCancelAfterPersistedMessageKeepsGeneration(t *testing.T) {
 
 	if got, want := fake.requestTexts()[1], []string{"second"}; !slices.Equal(got, want) {
 		t.Fatalf("next request = %q, want %q", got, want)
+	}
+}
+
+// A launcher's context scopes the turn it starts, even when it is cancelled
+// before the turn has armed — the window CancelTurn cannot reach.
+func TestSendMessageContextCancelledBeforeStart(t *testing.T) {
+	fake := newFakeAI()
+	fake.generate = func(int, *fakeStream) {} // never answers
+	s := newTestSession(t, fake)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var turnErr error
+	s.SetOnTurnComplete(func(_ string, err error) { turnErr = err })
+
+	s.SendMessageContext(ctx, "task")
+
+	if !IsCancelError(turnErr) {
+		t.Fatalf("turn error = %v, want a cancellation", turnErr)
 	}
 }

@@ -29,9 +29,17 @@ type turn struct {
 	attachments []*aipb.Block
 }
 
-func newTurn(s *Session) *turn {
+// newTurn arms a turn that scope can also cancel — from the moment it is
+// armed, a window CancelTurn cannot reach from another goroutine.
+func newTurn(s *Session, scope context.Context) *turn {
 	t := &turn{session: s}
-	t.ctx, t.cancel = context.WithCancel(tool.WithAttach(s.ctx, t.attach))
+	ctx, cancel := context.WithCancel(tool.WithAttach(s.ctx, t.attach))
+	stop := context.AfterFunc(scope, cancel)
+	t.ctx = ctx
+	t.cancel = func() {
+		stop()
+		cancel()
+	}
 	return t
 }
 
