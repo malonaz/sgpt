@@ -965,38 +965,39 @@ func (s *Session) UserMessageText(messageName string) string {
 }
 
 func (s *Session) SendMessage(text string) {
-	userMessage := ai.NewUserMessage(ai.NewTextBlock(text))
-
 	// The queue-or-start decision and the turn arming share one lock
 	// acquisition, so an interjection can never race a turn start.
 	s.mu.Lock()
+	// While a turn is in flight this is an interjection: queued — and
+	// rendered as queued — until the turn's next generation consumes it, after
+	// any tool results so the history stays valid.
+	s.queuedMessages = append(s.queuedMessages, ai.NewUserMessage(ai.NewTextBlock(text)))
 	if s.currentTurn != nil {
-		// A turn is in flight: interject. The message is queued — and
-		// rendered as queued — until the turn's next generation consumes it;
-		// it goes after any tool results so the history stays valid.
-		s.queuedMessages = append(s.queuedMessages, userMessage)
 		s.mu.Unlock()
 		s.refresh()
 		return
 	}
-	nextTurn := s.startTurnLocked([]*aipb.Message{userMessage})
+	nextTurn := s.startTurnLocked()
 	s.mu.Unlock()
 	for nextTurn != nil {
 		nextTurn = s.runTurn(nextTurn)
 	}
 }
 
-// startTurnLocked arms a turn for inputs. Caller holds the lock.
-func (s *Session) startTurnLocked(inputs []*aipb.Message) *turn {
+// startTurnLocked arms a turn for the queued messages; interjections a
+// cancelled turn left behind keep their place ahead of the newer message.
+// Caller holds the lock.
+func (s *Session) startTurnLocked() *turn {
 	t := newTurn(s)
-	t.inputs = inputs
+	t.inputs = s.queuedMessages
+	s.queuedMessages = nil
 	s.currentTurn = t
 	// Optimistic render: the user's message must appear immediately. The
 	// context RPCs (system prompt, injected files) are a network round trip
 	// that would otherwise leave the timeline empty.
 	s.streamError = nil
-	s.messages = append(s.messages, inputs...)
-	s.pendingInputMessages = append(s.pendingInputMessages, inputs...)
+	s.messages = append(s.messages, t.inputs...)
+	s.pendingInputMessages = append(s.pendingInputMessages, t.inputs...)
 	return t
 }
 
@@ -1038,8 +1039,7 @@ func (s *Session) endTurn(t *turn, completed bool) *turn {
 	if s.currentTurn == t {
 		s.currentTurn = nil
 		if completed && len(s.queuedMessages) > 0 {
-			nextTurn = s.startTurnLocked(s.queuedMessages)
-			s.queuedMessages = nil
+			nextTurn = s.startTurnLocked()
 		}
 	}
 	s.mu.Unlock()
