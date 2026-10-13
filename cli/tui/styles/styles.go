@@ -5,12 +5,7 @@ import (
 )
 
 const (
-	MinTextareaHeight    = 3
-	MaxTextareaHeight    = 20
 	DefaultTextareaWidth = 80
-	TextAreaPaddingLeft  = 1
-
-	MinViewportHeight = 1
 
 	MessagePaddingLeft = 2
 
@@ -26,8 +21,6 @@ const (
 	TruncateLength       = 100
 	TruncateSuffix       = "..."
 	TruncateSuffixLength = 3
-
-	TabBarHeight = 1
 )
 
 // Legacy color names, remapped onto the semantic palette (palette.go).
@@ -51,42 +44,13 @@ var (
 	MessageSelectedColor   = ColorBrand
 	MessageUnselectedColor = ColorSubtle
 	BlockIndicatorColor    = ColorSubtle
-
-	TabActiveColor   = ColorBrand
-	TabInactiveColor = ColorSurface
-	TabTextColor     = ColorText
-	TabDimTextColor  = ColorMuted
 )
 
 var (
 	TitleStyle = lipgloss.NewStyle().
-			Background(PrimaryColor).
-			Foreground(TextColor).
-			Bold(true)
-
-	StatusStyle = lipgloss.NewStyle().
-			Foreground(DimTextColor).
-			Background(PrimaryColor)
-)
-
-var (
-	TabBarStyle = lipgloss.NewStyle().
-			Background(ColorSurface)
-
-	TabActiveStyle = lipgloss.NewStyle().
-			Background(TabActiveColor).
-			Foreground(TabTextColor).
-			Bold(true).
-			Padding(0, 1)
-
-	TabInactiveStyle = lipgloss.NewStyle().
-				Background(TabInactiveColor).
-				Foreground(TabDimTextColor).
-				Padding(0, 1)
-
-	TabStreamingIndicator = lipgloss.NewStyle().
-				Foreground(AccentColor).
-				Bold(true)
+		Background(PrimaryColor).
+		Foreground(TextColor).
+		Bold(true)
 )
 
 var (
@@ -183,18 +147,6 @@ var (
 	ErrorStyle = lipgloss.NewStyle().
 		Foreground(ErrorColor).
 		Bold(true)
-)
-
-var (
-	TextAreaStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(PrimaryColor).
-		PaddingLeft(TextAreaPaddingLeft)
-)
-
-var (
-	SpinnerStyle = lipgloss.NewStyle().
-		Foreground(SecondaryColor)
 )
 
 var (

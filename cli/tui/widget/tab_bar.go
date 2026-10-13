@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -9,7 +10,7 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 )
 
-// TabState is the activity a tab label signals, most urgent first.
+// TabState is the activity a tab label signals.
 type TabState int
 
 const (
@@ -23,21 +24,34 @@ const (
 	TabFailed
 )
 
-var tabStateGlyphs = map[TabState]string{
-	TabReviewing: "▶ ",
-	TabBusy:      "● ",
-	TabDone:      "✓ ",
-	TabFailed:    "✗ ",
+type tabGlyph struct {
+	glyph string
+	style lipgloss.Style
 }
 
+var tabStateGlyphs = map[TabState]tabGlyph{
+	TabReviewing: {styles.GlyphReview, lipgloss.NewStyle().Foreground(styles.ColorWarning).Bold(true)},
+	TabBusy:      {styles.GlyphRunning, lipgloss.NewStyle().Foreground(styles.ColorInfo)},
+	TabDone:      {styles.GlyphSuccess, lipgloss.NewStyle().Foreground(styles.ColorSuccess)},
+	TabFailed:    {styles.GlyphFailure, lipgloss.NewStyle().Foreground(styles.ColorDanger)},
+}
+
+var (
+	tabActiveStyle   = lipgloss.NewStyle().Foreground(styles.ColorBrand).Background(styles.ColorSurface).Bold(true)
+	tabInactiveStyle = lipgloss.NewStyle().Foreground(styles.ColorMuted)
+	tabDepthStyle    = lipgloss.NewStyle().Foreground(styles.ColorAgent)
+	tabMarkerStyle   = styles.SubtleStyle
+	// A hidden tab awaiting review tints its overflow marker.
+	tabMarkerReviewStyle = lipgloss.NewStyle().Foreground(styles.ColorWarning).Bold(true)
+)
+
 const (
-	tabSeparator   = " "
-	tabMarkerLeft  = "‹"
-	tabMarkerRight = "›"
+	tabSeparator = " "
+	// minTabTitleWidth is the narrowest titles shrink to before tabs scroll.
+	minTabTitleWidth = 12
 )
 
 type Tab struct {
-	ID     string
 	Title  string
 	Active bool
 	State  TabState
@@ -45,34 +59,99 @@ type Tab struct {
 	Depth int
 }
 
-// RenderTabBar renders the tabs on one line; when they overflow, a window
-// around the active tab is shown with markers for the hidden ones.
+// RenderTabBar renders the tabs on one line. Titles share the width,
+// shrinking longest first; past a floor, a window around the active tab is
+// shown with a count of the hidden tabs on each side.
 func RenderTabBar(tabs []Tab, width int) string {
-	labels := make([]string, len(tabs))
-	widths := make([]int, len(tabs))
+	titleWidths := make([]int, len(tabs))
+	chrome := make([]int, len(tabs))
 	active := 0
 	for i, tab := range tabs {
-		style := styles.TabInactiveStyle
+		titleWidths[i] = ansi.StringWidth(tab.Title)
+		chrome[i] = lipgloss.Width(renderTab(tab, ""))
 		if tab.Active {
-			style = styles.TabActiveStyle
 			active = i
 		}
-		labels[i] = style.Render(strings.Repeat("↳", tab.Depth) + tabStateGlyphs[tab.State] + tab.Title)
+	}
+	limit := titleLimit(titleWidths, chrome, width)
+
+	labels := make([]string, len(tabs))
+	widths := make([]int, len(tabs))
+	for i, tab := range tabs {
+		labels[i] = renderTab(tab, ansi.Truncate(tab.Title, limit, styles.GlyphEllipsis))
 		widths[i] = lipgloss.Width(labels[i])
 	}
+
 	lo, hi := visibleWindow(widths, active, width)
 	var parts []string
 	if lo > 0 {
-		parts = append(parts, tabMarkerLeft)
+		parts = append(parts, overflowMarker("‹", tabs[:lo]))
 	}
 	parts = append(parts, labels[lo:hi]...)
 	if hi < len(labels) {
-		parts = append(parts, tabMarkerRight)
+		parts = append(parts, overflowMarker("›", tabs[hi:]))
 	}
 	// A lone tab wider than the bar is cut rather than wrapped.
-	bar := ansi.Truncate(strings.Join(parts, tabSeparator), width, ellipsis)
-	return styles.TabBarStyle.Width(width).Render(bar)
+	return ansi.Truncate(strings.Join(parts, tabSeparator), width, styles.GlyphEllipsis)
 }
+
+// renderTab renders a tab's label: its depth and state marks, then title.
+// Every piece carries the tab's base style, so marks keep its background.
+func renderTab(tab Tab, title string) string {
+	base := tabInactiveStyle
+	if tab.Active {
+		base = tabActiveStyle
+	}
+	var b strings.Builder
+	b.WriteString(base.Render(" "))
+	if tab.Depth > 0 {
+		// Tabs are ordered as a tree: one arrow, deeper levels indented.
+		b.WriteString(base.Render(strings.Repeat(" ", tab.Depth-1)))
+		b.WriteString(tabDepthStyle.Inherit(base).Render(styles.GlyphChild))
+		b.WriteString(base.Render(" "))
+	}
+	if mark, ok := tabStateGlyphs[tab.State]; ok {
+		b.WriteString(mark.style.Inherit(base).Render(mark.glyph))
+		b.WriteString(base.Render(" "))
+	}
+	b.WriteString(base.Render(title + " "))
+	return b.String()
+}
+
+// titleLimit is the widest title that lets every tab fit, floored at
+// minTabTitleWidth.
+func titleLimit(titleWidths, chrome []int, width int) int {
+	limit := 0
+	for _, w := range titleWidths {
+		limit = max(limit, w)
+	}
+	for ; limit > minTabTitleWidth; limit-- {
+		total := (len(titleWidths) - 1) * len(tabSeparator)
+		for i, w := range titleWidths {
+			total += chrome[i] + min(w, limit)
+		}
+		if total <= width {
+			break
+		}
+	}
+	return limit
+}
+
+func overflowMarker(arrow string, hidden []Tab) string {
+	style := tabMarkerStyle
+	for _, tab := range hidden {
+		if tab.State == TabReviewing {
+			style = tabMarkerReviewStyle
+		}
+	}
+	if arrow == "‹" {
+		return style.Render(arrow + strconv.Itoa(len(hidden)))
+	}
+	return style.Render(strconv.Itoa(len(hidden)) + arrow)
+}
+
+// overflowMarkerWidth bounds a marker's width: an arrow and up to two digits.
+const overflowMarkerWidth = 3
 
 // visibleWindow returns the range [lo, hi) of tabs to show within width:
 // always the active tab, grown alternately right and left while it fits,
@@ -87,10 +166,10 @@ func visibleWindow(widths []int, active, width int) (lo, hi int) {
 			total += w
 		}
 		if lo > 0 {
-			total += ansi.StringWidth(tabMarkerLeft) + len(tabSeparator)
+			total += overflowMarkerWidth + len(tabSeparator)
 		}
 		if hi < len(widths) {
-			total += ansi.StringWidth(tabMarkerRight) + len(tabSeparator)
+			total += overflowMarkerWidth + len(tabSeparator)
 		}
 		return total
 	}

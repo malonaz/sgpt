@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
+	"github.com/malonaz/sgpt/cli/tui/format"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/internal/session"
 )
@@ -365,7 +366,7 @@ func infoReasoning(effort aipb.ReasoningEffort) string {
 }
 
 func infoTokens(count int64) string {
-	return formatTokenCount(count)
+	return format.Tokens(count)
 }
 
 // infoTokensWithShare annotates a token count with its share of a total —
