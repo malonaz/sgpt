@@ -32,6 +32,14 @@ go_library(
 
 go_test(
     name = "timeline_test",
-    srcs = ["layout_test.go"],
-    deps = [":timeline"],
+    srcs = [
+        "layout_test.go",
+        "toolcall_test.go",
+    ],
+    deps = [
+        ":timeline",
+        "//internal/markdown",
+        "//third_party/go:google.golang.org__protobuf__types__known__structpb",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
 )

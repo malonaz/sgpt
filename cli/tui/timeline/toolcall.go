@@ -33,6 +33,12 @@ type Summarizer interface {
 	Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool)
 }
 
+// RequestFolder keeps a tool's long request out of the timeline: the row and
+// review summary stand in for it, and KeyViewRequest opens it.
+type RequestFolder interface {
+	FoldsRequest(toolCall *aipb.ToolCall) bool
+}
+
 // RenderVersioner reports a version that changes whenever a resolved call's
 // rendering may have; "" when it is fixed once resolved.
 type RenderVersioner interface {
@@ -286,8 +292,12 @@ func (i *ToolCallItem) restatesSubject() bool {
 }
 
 // request renders the call's arguments; rendered reports the tool's own
-// presentation rather than the key: value fallback.
+// presentation rather than the key: value fallback. A folded request is
+// only a hint to open it.
 func (i *ToolCallItem) request(ctx RenderContext) (_ string, rendered bool) {
+	if i.folded() {
+		return styles.Hint(KeyViewRequest.Key.Keys()[0], "view request"), true
+	}
 	// Tools may dictate their own presentation (e.g. the diff tool's diff).
 	if i.RequestRenderer != nil {
 		if md, ok := i.RequestRenderer.RenderRequest(i.ToolCall); ok {
@@ -303,6 +313,11 @@ func (i *ToolCallItem) request(ctx RenderContext) (_ string, rendered bool) {
 		}
 	}
 	return formatFields(requestFields(i.ToolCall), ctx.bodyWidth(), timelineInk), false
+}
+
+func (i *ToolCallItem) folded() bool {
+	folder, ok := i.RequestRenderer.(RequestFolder)
+	return ok && folder.FoldsRequest(i.ToolCall)
 }
 
 // requestFields are the call's arguments minus its title, which the row shows.

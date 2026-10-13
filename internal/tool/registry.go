@@ -186,6 +186,24 @@ func (r *Registry) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	return renderer.RenderRequest(toolCall)
 }
 
+// RequestFolder is implemented by tools whose rendered request is too long
+// to sit in the timeline: the row and review summary stand in for it, and
+// the full request opens on demand.
+type RequestFolder interface {
+	Tool
+	FoldsRequest(toolCall *aipb.ToolCall) bool
+}
+
+// FoldsRequest reports whether a call's request stays folded in the timeline.
+func (r *Registry) FoldsRequest(toolCall *aipb.ToolCall) bool {
+	tool, err := r.lookup(toolCall)
+	if err != nil {
+		return false
+	}
+	folder, ok := tool.(RequestFolder)
+	return ok && folder.FoldsRequest(toolCall)
+}
+
 // ResultRenderer is implemented by tools that dictate how their result
 // renders in the timeline (e.g. search_lores renders highlighted matches).
 type ResultRenderer interface {
