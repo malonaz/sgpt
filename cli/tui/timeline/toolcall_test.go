@@ -16,7 +16,7 @@ const longRequest = "a briefing far too long for the timeline"
 type foldingRenderer struct{}
 
 func (foldingRenderer) RenderRequest(*aipb.ToolCall) (string, bool) { return longRequest, true }
-func (foldingRenderer) FoldsRequest(*aipb.ToolCall) bool             { return true }
+func (foldingRenderer) FoldsRequest(*aipb.ToolCall) bool            { return true }
 
 func TestFoldedRequestStaysOutOfTheTimeline(t *testing.T) {
 	// Multi-line, so the fallback row summary does not quote it either.
