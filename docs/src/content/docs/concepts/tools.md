@@ -32,13 +32,34 @@ enables all five.
 
 ## What you see
 
-Each tool renders its own request:
+Each call is one row: a state glyph, a verb, what it acts on, and once it
+resolves, what came of it.
 
-- `exec_shell` shows the command as a `sh` code block;
-- `diff` and `replace` show a **unified diff computed at review time** — the
+```
+✓ Read     review.go +2                      3 files · 412 lines
+✓ Shell    go test ./internal/session/...    exit 0
+✗ Shell    go vet ./...                      exit 1
+✓ Edit     internal/session/review.go        +12 −4
+✓ Search lores “tui|design”                  2 matches
+● Launch agents  Timeline, Tools             2 running · 1 done
+```
+
+Expanding a row shows the request and the result:
+
+- `exec_shell` shows the command as a `sh` code block and its output as
+  plain text; the exit code is the row's outcome;
+- `diff` and `replace` show a **unified diff computed at review time**: the
   patch has already been applied to a copy and validated, so what you
   approve is exactly what lands;
-- engine RPCs show `Service/Method` and the request as JSON.
+- `read_files` lists the files read and their line counts, not their
+  contents;
+- `search_lores` shows each matching lore with its snippets, matches
+  highlighted;
+- the sub-agent tools list their operations with live state glyphs
+  (`◌` queued, `●` running, `▶` in review, `✓` done, `✗` failed,
+  `⊘` cancelled);
+- engine RPCs read as their method (`List contacts`) and the resource they
+  act on.
 
 ![exec_shell reviewed, accepted and summarised](../../../assets/screenshots/shell.svg)
 
