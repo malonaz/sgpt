@@ -3,11 +3,16 @@ go_library(
     srcs = [
         "block.go",
         "render.go",
+        "style.go",
     ],
     visibility = ["//..."],
     deps = [
+        "//cli/tui/styles",
         "//third_party/go:charm.land__glamour__v2",
         "//third_party/go:charm.land__glamour__v2__ansi",
         "//third_party/go:charm.land__glamour__v2__styles",
+        "//third_party/go:charm.land__lipgloss__v2",
+        "//third_party/go:charm.land__lipgloss__v2__compat",
+        "//third_party/go:github.com__charmbracelet__x__ansi",
     ],
 )
