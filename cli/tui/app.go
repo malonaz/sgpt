@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/clipboard"
@@ -129,10 +130,11 @@ type App struct {
 
 	tabs      []*tab
 	activeTab int
-	// tabSpinner animates busy tabs. The app owns it because screen ticks
-	// reach only the active tab; it ticks only while some tab is busy.
-	tabSpinner        spinner.Model
-	tabSpinnerTicking bool
+	// busySpinner animates busy tabs and agents. The app owns it because
+	// screen ticks reach only the active tab; it ticks only while some tab
+	// is busy.
+	busySpinner        spinner.Model
+	busySpinnerTicking bool
 
 	program *tea.Program
 	width   int
@@ -149,6 +151,8 @@ type App struct {
 	// dismisses it.
 	confirm  *confirmation
 	quitting bool
+
+	panel agentPanel
 }
 
 func NewApp(
@@ -159,7 +163,7 @@ func NewApp(
 	params session.Params,
 ) *App {
 	app := &App{
-		tabSpinner:    spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		busySpinner:   spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 		ctx:           ctx,
 		store:         chatStore,
 		registry:      registry,
@@ -234,19 +238,19 @@ func (a *App) Init() tea.Cmd {
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if tick, ok := msg.(spinner.TickMsg); ok && tick.ID == a.tabSpinner.ID() {
-		a.tabSpinnerTicking = a.anyTabBusy()
-		if !a.tabSpinnerTicking {
+	if tick, ok := msg.(spinner.TickMsg); ok && tick.ID == a.busySpinner.ID() {
+		a.busySpinnerTicking = a.anyTabBusy()
+		if !a.busySpinnerTicking {
 			return a, nil
 		}
 		var cmd tea.Cmd
-		a.tabSpinner, cmd = a.tabSpinner.Update(tick)
+		a.busySpinner, cmd = a.busySpinner.Update(tick)
 		return a, cmd
 	}
 	model, cmd := a.update(msg)
-	if !a.tabSpinnerTicking && a.anyTabBusy() {
-		a.tabSpinnerTicking = true
-		cmd = tea.Batch(cmd, a.tabSpinner.Tick)
+	if !a.busySpinnerTicking && a.anyTabBusy() {
+		a.busySpinnerTicking = true
+		cmd = tea.Batch(cmd, a.busySpinner.Tick)
 	}
 	return model, cmd
 }
@@ -283,10 +287,13 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width = msg.Width
 		a.height = msg.Height
 		a.ready = true
-		contentHeight := a.contentHeight()
-		for _, t := range a.tabs {
-			t.screen.SetSize(a.width, contentHeight)
+		// The panel's wearing follows the width: modal when narrow, else docked.
+		if a.width >= panelMinWidth {
+			a.panel.modal = false
+		} else {
+			a.panel.focused = false
 		}
+		a.layout()
 		return a, nil
 
 	case screen.TabMsg:
@@ -357,6 +364,22 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, keyQuit.Key) {
 			return a, a.requestQuit()
 		}
+		if key.Matches(msg, keyTogglePanel.Key) {
+			a.togglePanel()
+			return a, nil
+		}
+		// The modal takes every key; the docked panel lets global keys through.
+		switch {
+		case a.panel.modal:
+			return a, a.handlePanelKey(msg)
+		case a.panelHasKeys():
+			if cmd := a.handleGlobalKey(msg); cmd != nil {
+				return a, cmd
+			}
+			return a, a.handlePanelKey(msg)
+		case key.Matches(msg, screen.KeyCycleFocus.Key) && a.cycleFocusIntoPanel():
+			return a, nil
+		}
 		if cmd := a.handleGlobalKey(msg); cmd != nil {
 			return a, cmd
 		}
@@ -387,9 +410,7 @@ func (a *App) View() tea.View {
 	var b strings.Builder
 	b.WriteString(a.renderTabBar())
 	b.WriteString("\n\n")
-	if a.activeTab < len(a.tabs) {
-		b.WriteString(a.tabs[a.activeTab].screen.View())
-	}
+	b.WriteString(a.renderContent())
 	b.WriteString("\n")
 	b.WriteString(a.renderStatusBar())
 
@@ -407,8 +428,22 @@ func (a *App) modalView() string {
 	case a.helpVisible:
 		view, _ := keymap.RenderHelpPage(a.keymaps(), a.width, a.height, a.helpPage)
 		return view
+	case a.panel.modal:
+		return widget.RenderAgentModal(a.agentPanelModel(), a.width, a.height)
 	}
 	return ""
+}
+
+// renderContent renders the active screen, with the agents panel docked on
+// its right when there is room.
+func (a *App) renderContent() string {
+	content := a.tabs[a.activeTab].screen.View()
+	if !a.panelDocked() {
+		return content
+	}
+	// Placed in its full box so the panel lines up whatever the screen drew.
+	content = lipgloss.Place(a.contentWidth(), a.contentHeight(), lipgloss.Left, lipgloss.Top, content)
+	return lipgloss.JoinHorizontal(lipgloss.Top, content, widget.RenderAgentDock(a.agentPanelModel(), panelWidth, a.contentHeight()))
 }
 
 // keymaps composes the global bindings with the active screen's, so the help
@@ -418,9 +453,9 @@ func (a *App) keymaps() []keymap.Map {
 		Name: "Global",
 		Bindings: []keymap.Binding{
 			keyHelp, keyInterrupt, keyQuit, keyNewTab, keyCloseTab, keyCloseAgentTabs, keyPrevTab,
-			keyNextTab, keyOpenMenu, keyCopyName,
+			keyNextTab, keyOpenMenu, keyCopyName, keyTogglePanel,
 		},
-	}}
+	}, panelKeymap}
 	if a.activeTab < len(a.tabs) {
 		if keymapper, ok := a.tabs[a.activeTab].screen.(keymap.Keymapper); ok {
 			maps = append(maps, keymapper.Keymaps()...)
@@ -654,7 +689,7 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 }
 
 func (a *App) addTab(msg openTabMsg) tea.Cmd {
-	msg.screen.SetSize(a.width, a.contentHeight())
+	msg.screen.SetSize(a.contentWidth(), a.contentHeight())
 	index := a.insertionIndex(msg.launcher)
 	a.tabs = slices.Insert(a.tabs, index, &tab{id: msg.id, screen: msg.screen})
 	if index <= a.activeTab {
@@ -793,7 +828,7 @@ func (a *App) renderTabBar() string {
 		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
 			tabs[i].State = chatScreen.TabState()
 			tabs[i].Depth = chatScreen.Session().Params().Depth
-			tabs[i].Spinner = a.tabSpinner.View()
+			tabs[i].Spinner = a.busySpinner.View()
 		}
 	}
 	return widget.RenderTabBar(tabs, a.width)

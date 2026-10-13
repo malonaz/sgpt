@@ -1,6 +1,7 @@
 go_library(
     name = "widget",
     srcs = [
+        "agent_panel.go",
         "agents.go",
         "confirm.go",
         "document.go",
@@ -34,6 +35,15 @@ go_library(
 
 go_test(
     name = "widget_test",
-    srcs = ["tab_bar_test.go"],
-    deps = [":widget"],
+    srcs = [
+        "agent_panel_test.go",
+        "tab_bar_test.go",
+    ],
+    deps = [
+        ":widget",
+        "//internal/session",
+        "//sgpt/v1",
+        "//third_party/go:charm.land__lipgloss__v2",
+        "//third_party/go:github.com__charmbracelet__x__ansi",
+    ],
 )
