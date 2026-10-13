@@ -61,23 +61,22 @@ func (m *Model) status() string {
 	switch {
 	case m.err != nil:
 		return ""
-	case m.loading || m.filterText != m.listFilter:
-		if m.filterText != "" {
-			return "Searching" + styles.GlyphEllipsis
-		}
+	case m.filterText != "" && (m.loading || m.loadingMore || m.nextPageToken != ""):
+		return "Searching" + styles.GlyphEllipsis
+	case m.loading:
 		return "Loading" + styles.GlyphEllipsis
 	case m.loadingMore:
 		return "Loading more" + styles.GlyphEllipsis
 	}
 	noun := "chats"
 	switch {
-	case m.listFilter != "" && len(m.displayed) == 1 && m.nextPageToken == "":
+	case m.filterText != "" && len(m.displayed) == 1:
 		noun = "match"
-	case m.listFilter != "":
+	case m.filterText != "":
 		noun = "matches"
 	}
 	count := fmt.Sprintf("%d", len(m.displayed))
-	if m.nextPageToken != "" {
+	if m.filterText == "" && m.nextPageToken != "" {
 		// More pages exist server-side; they load as the cursor nears them.
 		count += "+"
 	}
@@ -117,8 +116,10 @@ func (m *Model) renderList() string {
 		switch {
 		case m.loading:
 			return "\n" + styles.MutedStyle.Render("  Loading chats"+styles.GlyphEllipsis)
-		case m.listFilter != "":
-			return "\n" + styles.MutedStyle.Render(fmt.Sprintf("  No chats match %q", m.listFilter))
+		case m.filterText != "" && m.nextPageToken != "":
+			return "\n" + styles.MutedStyle.Render("  Searching"+styles.GlyphEllipsis)
+		case m.filterText != "":
+			return "\n" + styles.MutedStyle.Render(fmt.Sprintf("  No chats match %q", m.filterText))
 		}
 		return "\n" + styles.MutedStyle.Render("  No chats yet")
 	}

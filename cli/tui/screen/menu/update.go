@@ -2,7 +2,6 @@ package menu
 
 import (
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -56,15 +55,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		m.applyChats(&msg)
-		return m.maybeLoadMessages()
-
-	case filterSettledMsg:
-		if msg.generation != m.filterGeneration {
-			return nil
-		}
-		m.chatCursor = 0
-		m.listYOffset = 0
-		return m.fetchChats("", false)
+		return tea.Batch(m.maybeLoadMore(), m.maybeLoadMessages())
 
 	case chatDeletedMsg:
 		if msg.Err != nil {
@@ -224,8 +215,8 @@ func (m *Model) moveCursorTo(index int) tea.Cmd {
 	return tea.Batch(focusCmd, m.maybeLoadMore(), m.maybeLoadMessages())
 }
 
-// handleFilterInput edits the query and schedules a debounced server-side
-// search; the list keeps its current rows until the results land.
+// handleFilterInput edits the query and re-filters the loaded chats; the
+// remaining pages stream in behind it.
 func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
 	var cmd tea.Cmd
 	m.filterInput, cmd = m.filterInput.Update(msg)
@@ -235,12 +226,10 @@ func (m *Model) handleFilterInput(msg tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 	m.filterText = query
-	m.filterGeneration++
-	generation := m.filterGeneration
-	wrap := m.wrap
-	return tea.Batch(cmd, tea.Tick(filterDebounce, func(time.Time) tea.Msg {
-		return wrap(filterSettledMsg{generation: generation})
-	}))
+	m.chatCursor = 0
+	m.listYOffset = 0
+	m.refreshList()
+	return tea.Batch(cmd, m.maybeLoadMore(), m.maybeLoadMessages())
 }
 
 func (m *Model) wrapCmd(msg tea.Msg) tea.Cmd {

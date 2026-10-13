@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -64,33 +63,17 @@ func (f *fakeAiService) UpdateChat(_ context.Context, request *aiservicepb.Updat
 	return request.GetChat(), nil
 }
 
-// titlePattern extracts the `title = "*query*"` clauses store.TitleFilter
-// emits.
-var titlePattern = regexp.MustCompile(`title = "\*((?:[^"\\]|\\.)*)\*"`)
-
 // ListChats emulates the server's filtering for the clauses sgpt sends:
-// favorites, the user-chat category and title search. Pages are offsets.
+// favorites and the user-chat category. Pages are offsets.
 func (f *fakeAiService) ListChats(_ context.Context, request *aiservicepb.ListChatsRequest) (*aiservicepb.ListChatsResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	filter := request.GetFilter()
 	favoritesOnly := strings.Contains(filter, store.FavoriteFilter)
 	userOnly := strings.Contains(filter, "("+store.UserChatFilter+")")
-	var queries []string
-	for _, match := range titlePattern.FindAllStringSubmatch(filter, -1) {
-		query, err := strconv.Unquote(`"` + match[1] + `"`)
-		if err != nil {
-			return nil, err
-		}
-		queries = append(queries, query)
-	}
-
 	var chats []*aipb.Chat
 	for _, chat := range f.chats {
 		if favoritesOnly && !store.IsFavorite(chat) || userOnly && store.IsAgentChat(chat) {
-			continue
-		}
-		if len(queries) > 0 && !slices.ContainsFunc(queries, func(query string) bool { return strings.Contains(chat.GetTitle(), query) }) {
 			continue
 		}
 		chats = append(chats, chat)

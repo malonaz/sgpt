@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -152,7 +150,7 @@ func (s *Store) ListChats(ctx context.Context, pageSize int32, pageToken, filter
 		Parent:    s.parent(),
 		PageSize:  pageSize,
 		PageToken: pageToken,
-		Filter:    AndFilters(VisibleFilter, filter),
+		Filter:    andFilters(VisibleFilter, filter),
 		OrderBy:   "create_time desc",
 	}
 	listChatsResponse, err := s.aiServiceClient.ListChats(ctx, listChatsRequest)
@@ -162,15 +160,14 @@ func (s *Store) ListChats(ctx context.Context, pageSize int32, pageToken, filter
 	return listChatsResponse.Chats, listChatsResponse.NextPageToken, nil
 }
 
-// ListFavoriteChats returns the first page of favorite chats, narrowed by an
-// optional extra filter.
-func (s *Store) ListFavoriteChats(ctx context.Context, pageSize int32, filter string) ([]*aipb.Chat, error) {
-	chats, _, err := s.ListChats(ctx, pageSize, "", AndFilters(FavoriteFilter, filter))
+// ListFavoriteChats returns the first page of favorite chats.
+func (s *Store) ListFavoriteChats(ctx context.Context, pageSize int32) ([]*aipb.Chat, error) {
+	chats, _, err := s.ListChats(ctx, pageSize, "", FavoriteFilter)
 	return chats, err
 }
 
-// AndFilters conjoins the non-empty AIP-160 filters.
-func AndFilters(filters ...string) string {
+// andFilters conjoins the non-empty AIP-160 filters.
+func andFilters(filters ...string) string {
 	var clauses []string
 	for _, filter := range filters {
 		if filter != "" {
@@ -178,47 +175,6 @@ func AndFilters(filters ...string) string {
 		}
 	}
 	return strings.Join(clauses, " AND ")
-}
-
-// TitleFilter matches chats whose title or ID contains query. The server's
-// wildcard match is case-sensitive, so a lowercase query is smart-cased: it
-// also matches its capitalized and title-cased forms, which covers how
-// generated titles are written. A query with any capital matches exactly.
-func TitleFilter(query string) string {
-	query = strings.TrimSpace(query)
-	if query == "" {
-		return ""
-	}
-	variants := []string{query}
-	if query == strings.ToLower(query) {
-		variants = append(variants, capitalize(query), titleCase(query))
-	}
-	var clauses []string
-	seen := map[string]bool{}
-	for _, variant := range variants {
-		if seen[variant] {
-			continue
-		}
-		seen[variant] = true
-		clauses = append(clauses, fmt.Sprintf("title = %q", "*"+variant+"*"))
-	}
-	clauses = append(clauses, fmt.Sprintf("name = %q", "*"+query+"*"))
-	return strings.Join(clauses, " OR ")
-}
-
-func capitalize(s string) string {
-	r, size := utf8.DecodeRuneInString(s)
-	return string(unicode.ToUpper(r)) + s[size:]
-}
-
-func titleCase(s string) string {
-	words := strings.Split(s, " ")
-	for i, word := range words {
-		if word != "" {
-			words[i] = capitalize(word)
-		}
-	}
-	return strings.Join(words, " ")
 }
 
 // LatestChat returns the most recently created chat.

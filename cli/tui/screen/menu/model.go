@@ -28,8 +28,6 @@ const (
 	// histories and their rendered markdown). Infinite scroll means an
 	// unbounded number of chats can be visited in one session.
 	previewCacheBudget = 64
-	// filterDebounce batches keystrokes into one server-side search.
-	filterDebounce = 200 * time.Millisecond
 	// minPreviewWidth is the narrowest terminal that still gets a preview
 	// pane; below it the list takes the full width.
 	minPreviewWidth = 70
@@ -53,12 +51,6 @@ type chatsLoadedMsg struct {
 	// Append marks background loads that extend the list (infinite scroll)
 	// instead of replacing it.
 	Append bool
-}
-
-// filterSettledMsg fires filterDebounce after a keystroke; only the latest
-// keystroke's message triggers a search.
-type filterSettledMsg struct {
-	generation int
 }
 
 type chatDeletedMsg struct {
@@ -95,8 +87,10 @@ type Model struct {
 
 	favorites []*aipb.Chat
 	others    []*aipb.Chat
-	// displayed is favorites then others, rebuilt by refreshList.
-	displayed []*aipb.Chat
+	// displayed is the matching favorites then others, rebuilt by
+	// refreshList; favoriteCount of them are favorites.
+	displayed     []*aipb.Chat
+	favoriteCount int
 
 	chatCursor    int
 	loading       bool
@@ -110,13 +104,9 @@ type Model struct {
 	cancelList     context.CancelFunc
 
 	filterInput textarea.Model
-	// filterText is the query the list reflects (or is loading);
-	// filterGeneration identifies the latest keystroke, so only it searches.
-	filterText       string
-	filterGeneration int
-	// listFilter is the query behind the loaded list; it trails filterText
-	// while a search is pending.
-	listFilter string
+	// filterText narrows the loaded chats client-side (title or ID); the
+	// server's title match is case-sensitive, so it can't do this for us.
+	filterText string
 	// showAgents includes sub-agent chats, hidden by default so they don't
 	// bury the user's own conversations.
 	showAgents bool
@@ -271,7 +261,6 @@ func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 	} else {
 		m.loading = true
 		m.loadingMore = false
-		m.listFilter = m.filterText
 		m.listGeneration++
 		if m.cancelList != nil {
 			m.cancelList()
@@ -284,17 +273,16 @@ func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 	wrap := m.wrap
 	chatStore := m.store
 	generation := m.listGeneration
-	titleFilter := store.TitleFilter(m.listFilter)
-	filter := store.AndFilters(store.UserChatFilter, titleFilter)
+	filter := store.UserChatFilter
 	if m.showAgents {
-		filter = titleFilter
+		filter = ""
 	}
 	return func() tea.Msg {
 		defer cancel()
 		var favorites []*aipb.Chat
 		var err error
 		if !appendPage {
-			favorites, err = chatStore.ListFavoriteChats(ctx, listPageSize, titleFilter)
+			favorites, err = chatStore.ListFavoriteChats(ctx, listPageSize)
 			if err != nil {
 				return wrap(chatsLoadedMsg{generation: generation, Err: err, Append: appendPage})
 			}
@@ -314,12 +302,14 @@ func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 }
 
 // maybeLoadMore extends the list in the background as the cursor approaches
-// the end — infinite scroll instead of explicit pagination.
+// the end — infinite scroll instead of explicit pagination. While a filter
+// is active it keeps loading until the history is exhausted, since matches
+// may live on any page.
 func (m *Model) maybeLoadMore() tea.Cmd {
 	if m.nextPageToken == "" || m.loadingMore || m.loading {
 		return nil
 	}
-	if m.chatCursor < len(m.displayed)-loadMoreThreshold {
+	if m.filterText == "" && m.chatCursor < len(m.displayed)-loadMoreThreshold {
 		return nil
 	}
 	return m.fetchChats(m.nextPageToken, true)
@@ -434,10 +424,15 @@ func (m *Model) updateSelection() {
 // time via rowCache.
 func (m *Model) refreshList() {
 	m.displayed = make([]*aipb.Chat, 0, len(m.favorites)+len(m.others))
-	m.displayed = append(m.displayed, m.favorites...)
+	for _, chat := range m.favorites {
+		if m.matches(chat) {
+			m.displayed = append(m.displayed, chat)
+		}
+	}
+	m.favoriteCount = len(m.displayed)
 	// Favorites are pinned above, so they aren't repeated among the rest.
 	for _, chat := range m.others {
-		if !store.IsFavorite(chat) {
+		if !store.IsFavorite(chat) && m.matches(chat) {
 			m.displayed = append(m.displayed, chat)
 		}
 	}
@@ -447,10 +442,21 @@ func (m *Model) refreshList() {
 	m.ensureCursorVisible()
 }
 
+// matches reports whether chat's title or ID contains the filter,
+// case-insensitively.
+func (m *Model) matches(chat *aipb.Chat) bool {
+	if m.filterText == "" {
+		return true
+	}
+	query := strings.ToLower(m.filterText)
+	return strings.Contains(strings.ToLower(chat.GetTitle()), query) ||
+		strings.Contains(strings.ToLower(resourceID(chat.GetName())), query)
+}
+
 // rebuildListLines flattens section labels and chat rows into the line
 // layout the virtualized view slices.
 func (m *Model) rebuildListLines() {
-	favoriteCount := len(m.favorites)
+	favoriteCount := m.favoriteCount
 	m.listLines = m.listLines[:0]
 	m.chatIndexToLine = make([]int, len(m.displayed))
 
@@ -468,7 +474,7 @@ func (m *Model) rebuildListLines() {
 		}
 	}
 	recent := "Recent"
-	if m.listFilter != "" {
+	if m.filterText != "" {
 		recent = "Matches"
 	}
 	appendSection("★ Favorites", 0, favoriteCount)
