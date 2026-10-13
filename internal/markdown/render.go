@@ -257,7 +257,12 @@ func (r *Renderer) renderBlock(block Block) string {
 }
 
 func (r *Renderer) renderProse(content string) string {
-	return render(r.prose, content)
+	width := min(r.width, MaxProseWidth)
+	// Glamour's word wrap ignores list indentation, so an item can overrun by
+	// a cell or two; rewrap rather than lose words.
+	return fitLines(render(r.prose, content), width, func(line string) string {
+		return lipgloss.Wrap(line, width, "")
+	})
 }
 
 // renderCode highlights a fence; diffs bypass glamour, whose chroma lexer
@@ -266,7 +271,25 @@ func (r *Renderer) renderCode(language, code string) string {
 	if language == "diff" || language == "patch" {
 		return renderDiff(code, r.width)
 	}
-	return render(r.code, "```"+language+"\n"+code+"\n```")
+	// Glamour never wraps code; long lines are cut, and alt+o shows them whole.
+	return fitLines(render(r.code, "```"+language+"\n"+code+"\n```"), r.width, func(line string) string {
+		return ansi.Truncate(line, r.width, styles.GlyphEllipsis)
+	})
+}
+
+// fitLines passes every line wider than width through fit, so a render never
+// overflows the column the layout reserved.
+func fitLines(rendered string, width int, fit func(string) string) string {
+	if width <= 0 {
+		return rendered
+	}
+	lines := strings.Split(rendered, "\n")
+	for index, line := range lines {
+		if ansi.StringWidth(line) > width {
+			lines[index] = fit(line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func render(renderer *glamour.TermRenderer, content string) string {
