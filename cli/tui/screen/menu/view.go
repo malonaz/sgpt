@@ -20,7 +20,11 @@ func (m *Model) View() string {
 
 	var b strings.Builder
 
-	header := styles.TitleStyle.Width(m.width).Render(" 📋 Chat History ")
+	headerText := " 📋 Chat History "
+	if m.showAgents {
+		headerText += "(incl. sub-agents) "
+	}
+	header := styles.TitleStyle.Width(m.width).Render(headerText)
 	b.WriteString(header)
 	b.WriteString("\n")
 
@@ -43,7 +47,7 @@ func (m *Model) View() string {
 	if m.loadingMore {
 		status += " (loading more...)"
 	}
-	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+f: favorite │ Alt+r: refresh │ Alt+h: help │ %s", status)
+	helpText := fmt.Sprintf("C-p/C-n: navigate │ Enter: open │ Alt+d: delete │ Alt+f: favorite │ Alt+s: sub-agents │ Alt+r: refresh │ Alt+h: help │ %s", status)
 	b.WriteString(styles.HelpStyle.Render(helpText))
 
 	return b.String()
@@ -112,6 +116,11 @@ func (m *Model) renderChatRow(chat *aipb.Chat, globalIndex int) string {
 	if titleWidth < 20 {
 		titleWidth = 20
 	}
+	agent := store.IsAgentChat(chat)
+	if agent {
+		// Reserve the marker's columns so the metadata stays aligned.
+		titleWidth -= 2
+	}
 	title := styles.Truncate(chat.GetTitle(), titleWidth)
 	updated := relativeTime(chat.GetUpdateTime().AsTime())
 	tags := styles.Truncate(strings.Join(store.Tags(chat), ","), tagWidth)
@@ -124,6 +133,10 @@ func (m *Model) renderChatRow(chat *aipb.Chat, globalIndex int) string {
 	style := styles.MenuItemStyle
 	if selected {
 		style = styles.MenuSelectedStyle
+	}
+	if agent {
+		// Unstyled: an inner ANSI reset would cut the row style short.
+		line = "↳ " + line
 	}
 	row := style.Width(listWidth).Render(line + coloredTags)
 	m.rowCache[cacheKey] = row
@@ -155,6 +168,10 @@ func (m *Model) renderDetail() string {
 	b.WriteString("\n")
 	b.WriteString(styles.DimTextStyle.Render(" " + styles.Truncate(chat.GetName(), detailWidth-2)))
 	b.WriteString("\n")
+	if parent := m.parentChatLabel(chat); parent != "" {
+		b.WriteString(styles.DimTextStyle.Render(" ↳ Launched by: " + parent))
+		b.WriteString("\n")
+	}
 	if model := store.CurrentModel(chat); model != "" {
 		b.WriteString(styles.DimTextStyle.Render(" Model: " + model))
 		b.WriteString("\n")

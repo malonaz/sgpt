@@ -47,6 +47,10 @@ type TextItem struct {
 	finalized bool
 	// messageName is the resource name of the message this item renders.
 	messageName string
+	// sender, when set, heads a message another agent sent; note is its
+	// bracketed first line, addressed to the model (operation and outcome).
+	sender string
+	note   string
 }
 
 func (i *TextItem) ID() string { return i.id }
@@ -91,6 +95,9 @@ func (i *TextItem) blockFinalized(index int) bool {
 func (i *TextItem) SubOffsets(ctx RenderContext) []int {
 	offsets := make([]int, len(i.blocks))
 	line := 1 // account for the frame's top border
+	if header := i.header(ctx); header != "" {
+		line += strings.Count(header, "\n") + 1
+	}
 	for j, block := range i.blocks {
 		offsets[j] = line
 		line += strings.Count(renderMarkdown(ctx, i.seq+j, i.blockFinalized(j), block), "\n") + 1
@@ -99,15 +106,32 @@ func (i *TextItem) SubOffsets(ctx RenderContext) []int {
 }
 
 func (i *TextItem) Render(ctx RenderContext) string {
-	var b strings.Builder
-	for j, block := range i.blocks {
-		if j > 0 {
-			b.WriteString("\n")
-		}
-		rendered := renderMarkdown(ctx, i.seq+j, i.blockFinalized(j), block)
-		b.WriteString(i.gutter(ctx, j, rendered))
+	parts := make([]string, 0, len(i.blocks)+1)
+	if header := i.header(ctx); header != "" {
+		parts = append(parts, header)
 	}
-	return frame(ctx, i.style, b.String())
+	for j, block := range i.blocks {
+		rendered := renderMarkdown(ctx, i.seq+j, i.blockFinalized(j), block)
+		parts = append(parts, i.gutter(ctx, j, rendered))
+	}
+	return frame(ctx, i.style, strings.Join(parts, "\n"))
+}
+
+// header renders an agent message's sender and dimmed note, pre-wrapped to
+// the frame's content width so SubOffsets counts the lines the frame shows.
+func (i *TextItem) header(ctx RenderContext) string {
+	if i.sender == "" {
+		return ""
+	}
+	lines := []string{styles.AgentLabelStyle.Render("↳ " + i.sender)}
+	if i.note != "" {
+		width := ctx.Width - 2*styles.MessageHorizontalFrameSize() - 2
+		for _, line := range strings.Split(lipgloss.Wrap(i.note, width, ""), "\n") {
+			lines = append(lines, styles.DimTextStyle.Render(line))
+		}
+	}
+	// Blank gutter keeps the header aligned with the blocks below.
+	return "  " + strings.Join(lines, "\n  ")
 }
 
 // gutter prefixes every line with a permanent two-column gutter so layout
@@ -185,6 +209,12 @@ type ResultRenderer interface {
 	RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool)
 }
 
+// RenderVersioner reports a version that changes whenever a resolved call's
+// rendering may have; "" when it is fixed once resolved.
+type RenderVersioner interface {
+	RenderVersion(toolCall *aipb.ToolCall) string
+}
+
 // ---- ToolCallItem: request/response pair rendered adjacently ----
 
 type ToolCallItem struct {
@@ -216,13 +246,27 @@ func (i *ToolCallItem) ID() string { return i.id }
 
 func (i *ToolCallItem) MessageName() string { return i.messageName }
 
-// CacheKey: result attachment, execution and review status all change the render.
+// CacheKey: result attachment, execution, review status and live render
+// versions all change the render.
 func (i *ToolCallItem) CacheKey() string {
 	// Partial calls mutate every tick — opt out of render caching.
 	if i.Partial {
 		return ""
 	}
-	return fmt.Sprintf("%s|r%t|e%t|p%t", i.id, i.Result != nil, i.Executing, i.Pending)
+	key := fmt.Sprintf("%s|r%t|e%t|p%t", i.id, i.Result != nil, i.Executing, i.Pending)
+	if version := i.renderVersion(); version != "" {
+		key += "|v" + version
+	}
+	return key
+}
+
+// renderVersion is non-empty for calls whose rendering changes after they
+// resolved (e.g. sub-agent operation states).
+func (i *ToolCallItem) renderVersion() string {
+	if versioner, ok := i.RequestRenderer.(RenderVersioner); ok {
+		return versioner.RenderVersion(i.ToolCall)
+	}
+	return ""
 }
 
 // Resolved calls fold to a one-line summary; pending/executing stay expanded.
@@ -242,8 +286,12 @@ func (i *ToolCallItem) Content() (string, string) {
 }
 
 func (i *ToolCallItem) Render(ctx RenderContext) string {
-	if i.Origin != "" {
+	switch {
+	case i.Origin != "":
 		// Not in this chat's history, so outside its render-cache index space.
+		ctx.Static = true
+	case i.renderVersion() != "":
+		// The markdown cache is keyed by seq alone; live renders change under it.
 		ctx.Static = true
 	}
 	var b strings.Builder
@@ -394,10 +442,21 @@ func NewErrorItem(id, text string) *LineItem {
 	return &LineItem{id: id, text: "Error: " + text, style: styles.MessageErrorStyle}
 }
 
-// NewQueuedItem renders a user interjection waiting to join the next
-// generation (typed while a turn was running).
-func NewQueuedItem(id, text string) *LineItem {
-	return &LineItem{id: id, text: "⏳ Queued: " + flatten(text), style: styles.DimTextStyle}
+// NewQueuedItem renders a message waiting to join the next generation (typed
+// or delivered while a turn was running), naming its sender when another
+// agent sent it.
+func NewQueuedItem(id string, message *aipb.Message) *LineItem {
+	label := "⏳ Queued: "
+	if sender := store.MessageSender(message); sender != "" {
+		label = "⏳ Queued ↳ " + sender + ": "
+	}
+	var texts []string
+	for _, block := range message.GetBlocks() {
+		if text := block.GetText(); text != "" {
+			texts = append(texts, text)
+		}
+	}
+	return &LineItem{id: id, text: label + flatten(strings.Join(texts, " ")), style: styles.DimTextStyle}
 }
 
 // NewCancelledItem marks a user-cancelled turn — an interruption, not a
@@ -756,20 +815,32 @@ func appendMessageItems(
 			return items
 		}
 		// One rectangle per user message; fences navigable within it.
+		sender := store.MessageSender(message)
+		var note string
 		var mdBlocks []markdown.Block
-		for _, block := range message.GetBlocks() {
-			if text := block.GetText(); text != "" {
+		for blockIndex, block := range message.GetBlocks() {
+			text := block.GetText()
+			if sender != "" && blockIndex == 0 {
+				note, text = agentNote(text)
+			}
+			if text != "" {
 				mdBlocks = append(mdBlocks, markdown.ParseBlocks(text)...)
 			}
 		}
-		if len(mdBlocks) > 0 {
+		style := styles.UserMessageStyle
+		if sender != "" {
+			style = styles.AgentMessageStyle
+		}
+		if len(mdBlocks) > 0 || sender != "" {
 			items = append(items, &TextItem{
 				id:          fmt.Sprintf("m%d-user", messageIndex),
 				seq:         baseSeq,
-				style:       styles.UserMessageStyle,
+				style:       style,
 				blocks:      mdBlocks,
 				finalized:   finalized,
 				messageName: messageName,
+				sender:      sender,
+				note:        note,
 			})
 		}
 
@@ -837,6 +908,15 @@ func appendMessageItems(
 	return items
 }
 
+// agentNote splits the bracketed first line off an agent message's text.
+func agentNote(text string) (note, rest string) {
+	if !strings.HasPrefix(text, "[") {
+		return "", text
+	}
+	note, rest, _ = strings.Cut(text, "\n")
+	return note, strings.TrimLeft(rest, "\n")
+}
+
 // ConversationText renders the entire chat as plain markdown — used by
 // alt+shift+o to open the full conversation in $EDITOR.
 func ConversationText(messages []*aipb.Message) string {
@@ -844,7 +924,11 @@ func ConversationText(messages []*aipb.Message) string {
 	for _, message := range messages {
 		switch message.GetRole() {
 		case aipb.Role_ROLE_USER:
-			b.WriteString("## User\n\n")
+			author := "User"
+			if sender := store.MessageSender(message); sender != "" {
+				author = sender
+			}
+			b.WriteString("## " + author + "\n\n")
 			for _, block := range message.GetBlocks() {
 				if text := block.GetText(); text != "" {
 					b.WriteString(text)

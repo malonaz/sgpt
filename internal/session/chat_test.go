@@ -38,7 +38,7 @@ func TestChatEditDuringFlushIsPersisted(t *testing.T) {
 	s := newPersistedChatSession(fake)
 	// Mid-turn, so the toggle relies on the turn's flush to persist it.
 	s.mu.Lock()
-	s.currentTurn = newTurn(s, context.Background())
+	s.currentTurn = newTurn(s)
 	s.mu.Unlock()
 
 	flushed := make(chan struct{})

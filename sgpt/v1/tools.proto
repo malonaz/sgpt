@@ -57,18 +57,46 @@ service ToolService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // Launch one or more sub-agents, each in its own chat tab, and wait for
-  // all of them. Every task runs concurrently with its own fresh context:
-  // the shared `context` plus its own `query`, and nothing from this
-  // conversation. Write everything a task needs to know — background,
-  // constraints, what to report back — once in `context` rather than
-  // repeating it per task. Each sub-agent works its task to completion
-  // without asking questions and its final message comes back verbatim, so
-  // tell it exactly what to return. Use this to fan out independent work
-  // (explore several areas, refactor many files, run parallel
-  // investigations) while you keep the overall picture. Sub-agents inherit
-  // this chat's tools unless `tools` narrows them, and never get more.
-  rpc Agent(AgentRequest) returns (AgentResponse);
+  // Launch one or more sub-agents, each in its own chat tab, and return at
+  // once with one operation per task. Every task runs concurrently with its
+  // own fresh context: the shared `context` plus its own `query`, and nothing
+  // from this conversation. Write everything a task needs to know —
+  // background, constraints, what to report back — once in `context` rather
+  // than repeating it per task. A sub-agent's final message is its report:
+  // when it finishes you receive it as a message (and wake up if you were
+  // idle), unless you were already blocked on it in `wait_operations`. You
+  // can keep working meanwhile, or call `wait_operations` to block. Use this
+  // to fan out independent work (explore several areas, refactor many files,
+  // run parallel investigations) while you keep the overall picture.
+  // Sub-agents inherit this chat's tools unless `tools` narrows them, and
+  // never get more.
+  rpc CreateAgents(CreateAgentsRequest) returns (CreateAgentsResponse);
+
+  // Send a message to one of the sub-agents you launched, or to your own
+  // launcher with agent "parent". A sub-agent that is working receives it
+  // before its next step; an idle one starts a new turn. Messaging a
+  // sub-agent returns an operation resolving to its reply (delivered to you
+  // like a launch's report); messaging "parent" returns nothing — its answer,
+  // if any, arrives as your next message.
+  rpc MessageAgent(MessageAgentRequest) returns (MessageAgentResponse);
+
+  // Get the current state of operations you started, without blocking.
+  // Returns the response of every finished one.
+  rpc GetOperations(GetOperationsRequest) returns (GetOperationsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Block until operations you started finish — all of them, or the first
+  // with `return_when` ANY. Returns early when the timeout elapses or a
+  // message arrives for you (a sub-agent's question, the user typing), so
+  // you can react to it; the message follows this result.
+  rpc WaitOperations(WaitOperationsRequest) returns (WaitOperationsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Cancel operations you started: the sub-agent stops its current turn.
+  // It stays available for further messages.
+  rpc CancelOperations(CancelOperationsRequest) returns (CancelOperationsResponse);
 }
 
 // Request for the `diff` tool.
@@ -223,8 +251,8 @@ message ExecShellResponse {
   string error = 3;
 }
 
-// Request for the `agent` tool.
-message AgentRequest {
+// Request for the `create_agents` tool.
+message CreateAgentsRequest {
   // Briefing shared by every task, prepended to each sub-agent's system
   // prompt: background, constraints, conventions, expected output format.
   string context = 1;
@@ -260,24 +288,134 @@ message AgentTask {
   string model = 4;
 }
 
-// Result of the `agent` tool.
-message AgentResponse {
-  // One sub-agent's outcome.
-  message Result {
-    // The task's title.
-    string title = 1;
+// Result of the `create_agents` tool.
+message CreateAgentsResponse {
+  // One operation per task, in request order.
+  repeated AgentOperation operations = 1;
+}
 
-    // Resource name of the sub-agent's chat.
-    string chat = 2;
-
-    // The sub-agent's final message; empty when it failed.
-    string response = 3;
-
-    // Why the sub-agent produced no answer (launch rejected, turn failed,
-    // cancelled); empty on success.
-    string error = 4;
+// One sub-agent turn: a launch or a message, resolving to the sub-agent's
+// final message once that turn ends.
+message AgentOperation {
+  // The operation's state.
+  enum State {
+    // Used to detect an unset field.
+    STATE_UNSPECIFIED = 0;
+    // Waiting for a free sub-agent slot.
+    STATE_QUEUED = 1;
+    // The sub-agent is working.
+    STATE_RUNNING = 2;
+    // The sub-agent is blocked on the user's review of a tool call.
+    STATE_AWAITING_REVIEW = 3;
+    // Finished: `response` holds the sub-agent's final message.
+    STATE_SUCCEEDED = 4;
+    // Finished without an answer: `error` says why.
+    STATE_FAILED = 5;
+    // Cancelled before it finished.
+    STATE_CANCELLED = 6;
   }
 
-  // One result per task, in request order.
-  repeated Result results = 1;
+  // Resource name of the operation ("operations/{operation}").
+  string name = 1;
+
+  // Resource name of the sub-agent ("agents/{agent}"), the handle to
+  // message it.
+  string agent = 2;
+
+  // The sub-agent's title.
+  string title = 3;
+
+  // The operation's state.
+  State state = 4;
+
+  // The sub-agent's final message; set once succeeded.
+  string response = 5;
+
+  // Why the operation produced no answer; set once failed or cancelled.
+  string error = 6;
+}
+
+// Request for the `message_agent` tool.
+message MessageAgentRequest {
+  // Recipient: the name of a sub-agent you launched ("agents/{agent}"), or
+  // "parent" for your own launcher.
+  string agent = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // The message.
+  string text = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `message_agent` tool.
+message MessageAgentResponse {
+  // The operation resolving to the sub-agent's reply; unset when messaging
+  // "parent".
+  AgentOperation operation = 1;
+}
+
+// Request for the `get_operations` tool.
+message GetOperationsRequest {
+  // Operations to get; empty gets every operation you started.
+  repeated string names = 1;
+}
+
+// Result of the `get_operations` tool.
+message GetOperationsResponse {
+  // The operations, in request order (oldest first when listing all).
+  repeated AgentOperation operations = 1;
+}
+
+// Request for the `wait_operations` tool.
+message WaitOperationsRequest {
+  // When a wait over several operations returns.
+  enum ReturnWhen {
+    // Used to detect an unset field; behaves as ALL.
+    RETURN_WHEN_UNSPECIFIED = 0;
+    // Once every operation has finished.
+    RETURN_WHEN_ALL = 1;
+    // As soon as any operation has finished.
+    RETURN_WHEN_ANY = 2;
+  }
+
+  // Operations to wait for; empty waits for every unfinished operation you
+  // started.
+  repeated string names = 1;
+
+  // When to return; defaults to ALL.
+  ReturnWhen return_when = 2;
+
+  // Longest time to block, in seconds; defaults to 600.
+  int32 timeout_seconds = 3;
+}
+
+// Result of the `wait_operations` tool.
+message WaitOperationsResponse {
+  // Why the wait returned.
+  enum Reason {
+    // Used to detect an unset field.
+    REASON_UNSPECIFIED = 0;
+    // The operations finished as requested by `return_when`.
+    REASON_COMPLETED = 1;
+    // The timeout elapsed first.
+    REASON_TIMEOUT = 2;
+    // A message arrived for you first; it follows this result.
+    REASON_MESSAGE = 3;
+  }
+
+  // Why the wait returned.
+  Reason reason = 1;
+
+  // The waited-for operations, in request order.
+  repeated AgentOperation operations = 2;
+}
+
+// Request for the `cancel_operations` tool.
+message CancelOperationsRequest {
+  // Operations to cancel.
+  repeated string names = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Result of the `cancel_operations` tool.
+message CancelOperationsResponse {
+  // The operations, in request order; finished ones are left untouched.
+  repeated AgentOperation operations = 1;
 }

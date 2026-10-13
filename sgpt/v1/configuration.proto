@@ -111,13 +111,19 @@ message ChatConfiguration {
 
 // Sub-agent settings.
 message AgentConfiguration {
-  // Sub-agents allowed to run at once across the whole TUI; the rest of a
-  // batch queues. Defaults to 4.
+  // Sub-agents allowed to run their first turn at once per nesting level;
+  // the rest of a batch queues. Defaults to 4.
   int32 max_concurrent = 1;
 
   // How deep sub-agents may nest: 1 lets a chat launch sub-agents but not
   // those sub-agents launch their own. Defaults to 2.
   int32 max_depth = 2;
+
+  // Turns a chat may start on messages from other agents (sub-agent reports,
+  // follow-ups) before the user speaks in it again; beyond, such messages
+  // queue until the user resumes the chat. Bounds agents talking back and
+  // forth unattended. Defaults to 25.
+  int32 max_agent_turns = 3;
 }
 
 // A role defines a persona with a system prompt. Persisted as a

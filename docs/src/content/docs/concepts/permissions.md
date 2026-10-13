@@ -56,7 +56,8 @@ Policies stack:
 3. **Sub-agents** inherit the launcher's decisions, grants included, live:
    "always accept" in a chat cascades down to its sub-agents, never up. Their
    calls that need review surface in the root chat (see
-   [sub-agents](/concepts/agents/)).
+   [sub-agents](/concepts/agents/)). Launching them is always reviewed;
+   messaging and cancelling them is within that grant and auto-executes.
 
 A denied call resolves immediately as an error result naming the rule, so
 the model can route around it instead of retrying.

@@ -104,10 +104,12 @@ func render(sc scene) (string, error) {
 	registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
 	registry.Register(tool.HandlerIDDiff, &diff.Tool{})
 	registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
-	registry.Register(tool.HandlerIDAgent, &agent.Tool{})
+	for handlerID, agentTool := range agent.NewManager(nil).Tools() {
+		registry.Register(handlerID, agentTool)
+	}
 	for _, name := range tool.BuiltinNames() {
-		builtin, _ := tool.Builtin(name)
-		registry.AddTools(builtin)
+		builtinTools, _ := tool.Builtin(name)
+		registry.AddTools(builtinTools...)
 	}
 	toolNames := []string{"read_files", "exec_shell", "diff"}
 

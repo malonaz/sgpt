@@ -89,6 +89,9 @@ type Model struct {
 
 	filterInput textarea.Model
 	filterText  string
+	// showAgents includes sub-agent chats, hidden by default so they don't
+	// bury the user's own conversations.
+	showAgents bool
 
 	// messagesCache holds each chat's fetched history for the detail
 	// preview; loadingMessagesSet guards against duplicate fetches.
@@ -133,7 +136,6 @@ type Model struct {
 
 func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Model {
 	filterInput := textarea.New()
-	filterInput.Placeholder = "Filter chats..."
 	filterInput.CharLimit = 256
 	filterInput.SetHeight(1)
 	filterInput.ShowLineNumbers = false
@@ -141,7 +143,7 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 
 	renderer, _ := markdown.NewRenderer(styles.DefaultTextareaWidth)
 
-	return &Model{
+	m := &Model{
 		ctx:                ctx,
 		store:              chatStore,
 		wrap:               wrap,
@@ -153,6 +155,43 @@ func New(ctx context.Context, chatStore *store.Store, wrap screen.WrapFunc) *Mod
 		loadingMessagesSet: map[string]bool{},
 		focusTarget:        FocusFilter,
 	}
+	m.updatePlaceholder()
+	return m
+}
+
+func (m *Model) updatePlaceholder() {
+	if m.showAgents {
+		m.filterInput.Placeholder = "Filter chats (incl. sub-agents)..."
+	} else {
+		m.filterInput.Placeholder = "Filter chats..."
+	}
+}
+
+// toggleAgents flips sub-agent chat visibility and reloads, since the
+// filter is applied server-side to keep pagination correct.
+func (m *Model) toggleAgents() tea.Cmd {
+	m.showAgents = !m.showAgents
+	m.updatePlaceholder()
+	m.detailCache = map[string]string{}
+	return m.fetchChats("", false)
+}
+
+// parentChatLabel names the chat that launched an agent chat: its title if
+// loaded, else its ID.
+func (m *Model) parentChatLabel(chat *aipb.Chat) string {
+	id := store.ParentChatID(chat)
+	if id == "" {
+		return ""
+	}
+	suffix := "/" + id
+	for _, chats := range [][]*aipb.Chat{m.favorites, m.others} {
+		for _, candidate := range chats {
+			if strings.HasSuffix(candidate.GetName(), suffix) && candidate.GetTitle() != "" {
+				return candidate.GetTitle()
+			}
+		}
+	}
+	return id
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -217,6 +256,10 @@ func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 		m.loading = true
 	}
 	wrap := m.wrap
+	filter := store.UserChatFilter
+	if m.showAgents {
+		filter = ""
+	}
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 		defer cancel()
@@ -229,7 +272,7 @@ func (m *Model) fetchChats(pageToken string, appendPage bool) tea.Cmd {
 				return wrap(chatsLoadedMsg{Err: err, Append: appendPage})
 			}
 		}
-		others, nextPageToken, err := m.store.ListChats(ctx, listPageSize, pageToken, "")
+		others, nextPageToken, err := m.store.ListChats(ctx, listPageSize, pageToken, filter)
 		if err != nil {
 			return wrap(chatsLoadedMsg{Err: err, Append: appendPage})
 		}

@@ -664,12 +664,17 @@ func (b0 ChatConfiguration_builder) Build() *ChatConfiguration {
 // Sub-agent settings.
 type AgentConfiguration struct {
 	state protoimpl.MessageState `protogen:"hybrid.v1"`
-	// Sub-agents allowed to run at once across the whole TUI; the rest of a
-	// batch queues. Defaults to 4.
+	// Sub-agents allowed to run their first turn at once per nesting level;
+	// the rest of a batch queues. Defaults to 4.
 	MaxConcurrent int32 `protobuf:"varint,1,opt,name=max_concurrent,json=maxConcurrent,proto3" json:"max_concurrent,omitempty"`
 	// How deep sub-agents may nest: 1 lets a chat launch sub-agents but not
 	// those sub-agents launch their own. Defaults to 2.
-	MaxDepth      int32 `protobuf:"varint,2,opt,name=max_depth,json=maxDepth,proto3" json:"max_depth,omitempty"`
+	MaxDepth int32 `protobuf:"varint,2,opt,name=max_depth,json=maxDepth,proto3" json:"max_depth,omitempty"`
+	// Turns a chat may start on messages from other agents (sub-agent reports,
+	// follow-ups) before the user speaks in it again; beyond, such messages
+	// queue until the user resumes the chat. Bounds agents talking back and
+	// forth unattended. Defaults to 25.
+	MaxAgentTurns int32 `protobuf:"varint,3,opt,name=max_agent_turns,json=maxAgentTurns,proto3" json:"max_agent_turns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -713,6 +718,13 @@ func (x *AgentConfiguration) GetMaxDepth() int32 {
 	return 0
 }
 
+func (x *AgentConfiguration) GetMaxAgentTurns() int32 {
+	if x != nil {
+		return x.MaxAgentTurns
+	}
+	return 0
+}
+
 func (x *AgentConfiguration) SetMaxConcurrent(v int32) {
 	x.MaxConcurrent = v
 }
@@ -721,15 +733,24 @@ func (x *AgentConfiguration) SetMaxDepth(v int32) {
 	x.MaxDepth = v
 }
 
+func (x *AgentConfiguration) SetMaxAgentTurns(v int32) {
+	x.MaxAgentTurns = v
+}
+
 type AgentConfiguration_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Sub-agents allowed to run at once across the whole TUI; the rest of a
-	// batch queues. Defaults to 4.
+	// Sub-agents allowed to run their first turn at once per nesting level;
+	// the rest of a batch queues. Defaults to 4.
 	MaxConcurrent int32
 	// How deep sub-agents may nest: 1 lets a chat launch sub-agents but not
 	// those sub-agents launch their own. Defaults to 2.
 	MaxDepth int32
+	// Turns a chat may start on messages from other agents (sub-agent reports,
+	// follow-ups) before the user speaks in it again; beyond, such messages
+	// queue until the user resumes the chat. Bounds agents talking back and
+	// forth unattended. Defaults to 25.
+	MaxAgentTurns int32
 }
 
 func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
@@ -738,6 +759,7 @@ func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
 	_, _ = b, x
 	x.MaxConcurrent = b.MaxConcurrent
 	x.MaxDepth = b.MaxDepth
+	x.MaxAgentTurns = b.MaxAgentTurns
 	return m0
 }
 
@@ -1042,10 +1064,11 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\rdefault_tools\x18\x05 \x03(\tR\fdefaultTools\x12#\n" +
 	"\rdefault_lores\x18\x06 \x03(\tR\fdefaultLores\x129\n" +
 	"\vpermissions\x18\a \x03(\v2\x17.sgpt.v1.PermissionRuleR\vpermissions\x121\n" +
-	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"X\n" +
+	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"\x80\x01\n" +
 	"\x12AgentConfiguration\x12%\n" +
 	"\x0emax_concurrent\x18\x01 \x01(\x05R\rmaxConcurrent\x12\x1b\n" +
-	"\tmax_depth\x18\x02 \x01(\x05R\bmaxDepth\"\xc1\x01\n" +
+	"\tmax_depth\x18\x02 \x01(\x05R\bmaxDepth\x12&\n" +
+	"\x0fmax_agent_turns\x18\x03 \x01(\x05R\rmaxAgentTurns\"\xc1\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +

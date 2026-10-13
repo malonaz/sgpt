@@ -44,7 +44,9 @@ One **turn** is a full exchange: send, stream, and any number of tool-call
 rounds until the model produces a final answer. The session is
 single-threaded by design — every state change is a blocking call driven
 from the UI's command goroutines, and cancelling the turn context aborts it
-wherever it is.
+wherever it is. A message arriving mid-turn — yours, or one from another
+agent such as a sub-agent's report — queues for the next generation; one
+arriving while the chat is idle starts a turn.
 
 Tool calls appear in the stream before the model has finished. The session
 resolves them **eagerly**: each call is *reviewed* (metadata attached, a

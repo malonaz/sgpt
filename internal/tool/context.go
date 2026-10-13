@@ -68,6 +68,8 @@ type Caller struct {
 	// Reviews is the chat tree's review queue; sub-agents share it so their
 	// calls surface in the root chat.
 	Reviews *review.Queue
+	// Agent is the session itself: the parent of the sub-agents it launches.
+	Agent Agent
 }
 
 type callerKey struct{}

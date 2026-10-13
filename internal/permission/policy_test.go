@@ -135,10 +135,3 @@ func TestCompileErrors(t *testing.T) {
 		}
 	}
 }
-
-func TestDescribe(t *testing.T) {
-	got := Describe(newRule("exec_shell", "command", `^git`, ModeDeny))
-	if want := "exec_shell.command ~ /^git/ → deny"; got != want {
-		t.Fatalf("Describe = %q, want %q", got, want)
-	}
-}

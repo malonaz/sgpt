@@ -90,10 +90,24 @@ Edit a file by applying exact search/replace patches, sequentially.
 
 Returns the path and the number of patches applied.
 
-## `agent` — review
+## `agent` group
 
-Launch one or more sub-agents, each in its own tab, and wait for all of
-them. See [Sub-agents](/concepts/agents/).
+Five tools enabled together by the name `agent`. See
+[Sub-agents](/concepts/agents/) for the model behind them. Results carry
+`AgentOperation`s:
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | `operations/{operation}` |
+| `agent` | string | The sub-agent, `agents/{agent}` — the handle to message it. |
+| `title` | string | The sub-agent's title. |
+| `state` | enum | `STATE_QUEUED`, `STATE_RUNNING`, `STATE_AWAITING_REVIEW`, `STATE_SUCCEEDED`, `STATE_FAILED` or `STATE_CANCELLED`. |
+| `response` | string | The sub-agent's final message; set once succeeded. |
+| `error` | string | Why there is no answer; set once failed or cancelled. |
+
+### `create_agents` — review
+
+Launch one or more sub-agents, each in its own tab, and return at once.
 
 | Argument | Type | Description |
 |---|---|---|
@@ -103,8 +117,51 @@ them. See [Sub-agents](/concepts/agents/).
 | `tasks[].files` | string[] | Paths injected for this task, on top of `files`. |
 | `tasks[].model` | string | Model override for this task. |
 | `files` | string[] | Paths injected into every sub-agent. |
-| `tools` | string[] | Tools granted, narrowing the chat's own; unset inherits them all. |
+| `tools` | string[] | Tools granted, narrowing the chat's own; unset inherits them all. The `agent` group is always added. |
 | `model` | string | Model for every sub-agent; unset inherits the chat's. |
 
-Returns one result per task, in order: title, chat name, the final message,
-or an error when the sub-agent produced none.
+Returns one operation per task, in request order. Rejected before review
+when nesting is at `max_depth`, a task lacks a title or query, or `tools`
+names a tool the chat lacks.
+
+### `message_agent` — auto
+
+Message a sub-agent this chat launched, or this chat's own launcher.
+
+| Argument | Type | Description |
+|---|---|---|
+| `agent` | string | `agents/{agent}`, or `parent` for your launcher. |
+| `text` | string | The message. |
+
+Returns the operation resolving to the sub-agent's reply; empty when
+messaging `parent`. Auto-executes: the sub-agents were approved at launch.
+
+### `get_operations` — auto
+
+| Argument | Type | Description |
+|---|---|---|
+| `names` | string[] | Operations to get; empty gets every operation the chat started. |
+
+Returns the operations, in request order (oldest first when listing all).
+
+### `wait_operations` — auto
+
+| Argument | Type | Description |
+|---|---|---|
+| `names` | string[] | Operations to wait for; empty waits for every unfinished one the chat started. |
+| `return_when` | enum | `RETURN_WHEN_ALL` (default) or `RETURN_WHEN_ANY`. |
+| `timeout_seconds` | int | Longest time to block; default 600, capped at 3600. |
+
+Returns a `reason` — `REASON_COMPLETED`, `REASON_TIMEOUT`, or
+`REASON_MESSAGE` when a message for the chat arrived first (it follows the
+result) — and the waited-for operations. Results a wait collects are not
+also delivered as messages.
+
+### `cancel_operations` — auto
+
+| Argument | Type | Description |
+|---|---|---|
+| `names` | string[] | Operations to cancel. |
+
+Returns the operations, in request order; finished ones are left untouched.
+Auto-executes: stopping delegated work only ever saves tokens.

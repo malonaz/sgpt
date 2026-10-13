@@ -19,6 +19,7 @@ var (
 	keyToTop        = keymap.New("alt+<", "Jump to filter")
 	keyToBottom     = keymap.New("alt+>", "Jump to last chat")
 	keyMenuFavorite = keymap.New("alt+shift+f", "Toggle favorite")
+	keyToggleAgents = keymap.New("alt+s", "Show/hide sub-agent chats")
 )
 
 func (m *Model) Keymaps() []keymap.Map {
@@ -26,7 +27,7 @@ func (m *Model) Keymaps() []keymap.Map {
 		Name: "Menu",
 		Bindings: []keymap.Binding{
 			keyUp, keyDown, keyOpen, keyDelete, keyMenuFavorite,
-			keyRefresh, keyToTop, keyToBottom,
+			keyToggleAgents, keyRefresh, keyToTop, keyToBottom,
 		},
 	}}
 }
@@ -149,6 +150,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 		}
 		return nil
+
+	case key.Matches(msg, keyToggleAgents.Key):
+		return m.toggleAgents()
 
 	case key.Matches(msg, keyRefresh.Key):
 		m.detailCache = map[string]string{}

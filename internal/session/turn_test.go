@@ -19,21 +19,14 @@ import (
 )
 
 // An interjection that lands after the turn's last queue check — here from
-// the completion callback, just before the turn is released — must still be
-// answered rather than left queued with no turn to consume it.
+// the turn's completion, just before it is released — must still be answered
+// rather than left queued with no turn to consume it.
 func TestInterjectionAtTurnEndIsAnswered(t *testing.T) {
 	fake := newFakeAI()
 	fake.generate = func(n int, stream *fakeStream) { reply("answer")(stream) }
 	s := newTestSession(t, fake)
-	interjected := false
-	s.SetOnTurnComplete(func(string, error) {
-		if !interjected {
-			interjected = true
-			s.SendMessage("by the way")
-		}
-	})
 
-	s.SendMessage("hello")
+	sendWithWaiter(s, "hello", func(tool.TurnOutcome) { s.SendMessage("by the way") })
 
 	if queued := s.QueuedMessages(); len(queued) != 0 {
 		t.Fatalf("queued = %v, want the interjection sent", messageTexts(queued))
@@ -119,9 +112,7 @@ func TestContextFailureKeepsMessageUnsent(t *testing.T) {
 	fake.generate = func(n int, stream *fakeStream) { reply("answer")(stream) }
 	s := newTestSession(t, fake)
 	var turnErr error
-	s.SetOnTurnComplete(func(_ string, err error) { turnErr = err })
-
-	s.SendMessage("lost")
+	sendWithWaiter(s, "lost", func(outcome tool.TurnOutcome) { turnErr = outcome.Err })
 
 	if turnErr == nil {
 		t.Fatal("turn reported success despite the context failure")
@@ -173,24 +164,6 @@ func TestCancelAfterPersistedMessageKeepsGeneration(t *testing.T) {
 
 	if got, want := fake.requestTexts()[1], []string{"second"}; !slices.Equal(got, want) {
 		t.Fatalf("next request = %q, want %q", got, want)
-	}
-}
-
-// A launcher's context scopes the turn it starts, even when it is cancelled
-// before the turn has armed — the window CancelTurn cannot reach.
-func TestSendMessageContextCancelledBeforeStart(t *testing.T) {
-	fake := newFakeAI()
-	fake.generate = func(int, *fakeStream) {} // never answers
-	s := newTestSession(t, fake)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	var turnErr error
-	s.SetOnTurnComplete(func(_ string, err error) { turnErr = err })
-
-	s.SendMessageContext(ctx, "task")
-
-	if !IsCancelError(turnErr) {
-		t.Fatalf("turn error = %v, want a cancellation", turnErr)
 	}
 }
 
