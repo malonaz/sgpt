@@ -7,6 +7,7 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/debug"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
@@ -42,12 +43,40 @@ func newTurn(s *Session) *turn {
 // outcome is known, before it is released.
 func (t *turn) complete(text string, err error) {
 	s := t.session
+	s.recordTurnOutcome(err)
 	s.mu.Lock()
 	waiters := t.waiters
 	t.waiters = nil
 	s.mu.Unlock()
 	for _, waiter := range waiters {
 		waiter(tool.TurnOutcome{Text: text, Err: err})
+	}
+}
+
+// recordTurnOutcome stamps how a turn ended into a sub-agent chat's
+// metadata, for the turn's closing flush to persist: a reopened launcher
+// reads it as the dormant sub-agent's last known state.
+func (s *Session) recordTurnOutcome(turnErr error) {
+	metadata := store.AgentMetadata(s.Chat())
+	if metadata == nil {
+		return
+	}
+	metadata.LastTurnOutcome = turnOutcome(turnErr)
+	var err error
+	s.editChat(func(chat *aipb.Chat) { err = store.SetAgentMetadata(chat, metadata) })
+	if err != nil {
+		s.emitError(err)
+	}
+}
+
+func turnOutcome(err error) sgptpb.AgentMetadata_TurnOutcome {
+	switch {
+	case err == nil:
+		return sgptpb.AgentMetadata_TURN_OUTCOME_SUCCEEDED
+	case IsCancelError(err):
+		return sgptpb.AgentMetadata_TURN_OUTCOME_CANCELLED
+	default:
+		return sgptpb.AgentMetadata_TURN_OUTCOME_FAILED
 	}
 }
 

@@ -1,6 +1,7 @@
 filegroup(
     name = "proto",
     srcs = [
+        "agent.proto",
         "configuration.proto",
         "labels.proto",
         "lore.proto",
@@ -21,6 +22,7 @@ proto_descriptor_set(
         ":v1",
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
         "//third_party/proto:validate",
     ],
@@ -29,6 +31,7 @@ proto_descriptor_set(
 proto_library(
     name = "v1",
     srcs = [
+        "agent.proto",
         "configuration.proto",
         "labels.proto",
         "lore.proto",
@@ -44,6 +47,7 @@ proto_library(
     deps = [
         "//third_party/proto:google__api__annotations",
         "//third_party/proto:malonaz__core__genproto__ai__ai_engine__v1",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
         "//third_party/proto:malonaz__core__genproto__codegen__aip__v1",
         "//third_party/proto:validate",
     ],

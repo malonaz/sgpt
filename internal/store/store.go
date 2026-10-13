@@ -12,6 +12,7 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"github.com/malonaz/core/go/aip"
+	"github.com/malonaz/core/go/pbutil"
 	"github.com/malonaz/core/go/pbutil/pbfieldmask"
 	"github.com/malonaz/core/go/uuid"
 	"google.golang.org/protobuf/proto"
@@ -50,6 +51,9 @@ const (
 	// SenderAnnotation stores, on a message another agent sent (a launcher's
 	// task, a sub-agent's report), who sent it, for display.
 	SenderAnnotation = "sgpt.com/sender"
+	// AgentMetadataAnnotation stores, on a sub-agent chat, its
+	// sgpt.v1.AgentMetadata as JSON.
+	AgentMetadataAnnotation = "sgpt.com/agent-metadata"
 )
 
 // Store wraps the ai service client, which owns the chat data layer.
@@ -158,6 +162,29 @@ func (s *Store) ListChats(ctx context.Context, pageSize int32, pageToken, filter
 		return nil, "", fmt.Errorf("listing chats: %w", err)
 	}
 	return listChatsResponse.Chats, listChatsResponse.NextPageToken, nil
+}
+
+// ListChildChats returns the sub-agent chats launched by any of the chats
+// with the given IDs, oldest first.
+func (s *Store) ListChildChats(ctx context.Context, parentChatIDs []string) ([]*aipb.Chat, error) {
+	// No clause would match every chat.
+	if len(parentChatIDs) == 0 {
+		return nil, nil
+	}
+	clauses := make([]string, len(parentChatIDs))
+	for i, id := range parentChatIDs {
+		clauses[i] = fmt.Sprintf("labels.%q = %q", sgptpb.Labels.ParentChat.GetKey(), id)
+	}
+	listChatsRequest := &aiservicepb.ListChatsRequest{
+		Parent:  s.parent(),
+		Filter:  strings.Join(clauses, " OR "),
+		OrderBy: "create_time asc",
+	}
+	chats, err := aip.Paginate[*aipb.Chat](ctx, listChatsRequest, s.aiServiceClient.ListChats)
+	if err != nil {
+		return nil, fmt.Errorf("listing sub-agent chats: %w", err)
+	}
+	return chats, nil
 }
 
 // ListFavoriteChats returns the first page of favorite chats.
@@ -301,11 +328,44 @@ func ParentChatID(chat *aipb.Chat) string {
 // SetParentChatID labels a chat with the ID segment of the chat that
 // launched it. No-op when the parent is unnamed (not yet persisted).
 func SetParentChatID(chat *aipb.Chat, parentChatName string) {
-	chatRn := &aipb.ChatRn{}
-	if err := chatRn.UnmarshalString(parentChatName); err != nil {
-		return
+	if id := ChatID(parentChatName); id != "" {
+		aip.SetLabel(chat, sgptpb.Labels.ParentChat.GetKey(), id)
 	}
-	aip.SetLabel(chat, sgptpb.Labels.ParentChat.GetKey(), chatRn.Chat)
+}
+
+// ChatID returns the ID segment of a chat resource name; "" for anything
+// else, such as the empty name of a chat not yet persisted.
+func ChatID(chatName string) string {
+	chatRn := &aipb.ChatRn{}
+	if err := chatRn.UnmarshalString(chatName); err != nil {
+		return ""
+	}
+	return chatRn.Chat
+}
+
+// AgentMetadata returns a sub-agent chat's metadata; nil when it has none —
+// a user's chat, or one launched before it was recorded — or it is
+// unreadable.
+func AgentMetadata(chat *aipb.Chat) *sgptpb.AgentMetadata {
+	raw, ok := chat.GetAnnotations()[AgentMetadataAnnotation]
+	if !ok {
+		return nil
+	}
+	metadata := &sgptpb.AgentMetadata{}
+	if err := pbutil.JSONUnmarshal([]byte(raw), metadata); err != nil {
+		return nil
+	}
+	return metadata
+}
+
+// SetAgentMetadata records a sub-agent chat's metadata in place.
+func SetAgentMetadata(chat *aipb.Chat, metadata *sgptpb.AgentMetadata) error {
+	bytes, err := pbutil.JSONMarshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshaling agent metadata: %w", err)
+	}
+	setChatAnnotation(chat, AgentMetadataAnnotation, string(bytes))
+	return nil
 }
 
 // Tags returns a chat's tags.

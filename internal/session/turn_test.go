@@ -15,6 +15,7 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
@@ -213,5 +214,37 @@ func TestCancelInReviewKeepsInterjectionAfterToolResult(t *testing.T) {
 	}
 	if result := request[0].GetBlocks()[0].GetToolResult(); !strings.Contains(result.String(), "cancelled") {
 		t.Fatalf("tool result = %v, want a cancellation", result)
+	}
+}
+
+// How a sub-agent's turn ended reaches the server inside its metadata, with
+// the turn's closing flush; a user's chat records nothing.
+func TestTurnOutcomeIsRecordedOnSubAgentChats(t *testing.T) {
+	fake := newFakeAI()
+	fake.generate = func(n int, stream *fakeStream) {
+		if n == 1 {
+			stream.fail(errors.New("unavailable"))
+			return
+		}
+		reply("answer")(stream)
+	}
+	var lastWrite *aipb.Chat
+	fake.updateChat = func(request *aiservicepb.UpdateChatRequest) { lastWrite = request.GetChat() }
+	chat := &aipb.Chat{}
+	if err := store.SetAgentMetadata(chat, &sgptpb.AgentMetadata{Name: "agents/1"}); err != nil {
+		t.Fatal(err)
+	}
+	s := New(context.Background(), store.New(&sgptpb.Configuration{}, fake), tool.NewRegistry(), chat, nil, Params{Model: &aipb.Model{Name: "models/test"}})
+
+	for _, want := range []sgptpb.AgentMetadata_TurnOutcome{sgptpb.AgentMetadata_TURN_OUTCOME_SUCCEEDED, sgptpb.AgentMetadata_TURN_OUTCOME_FAILED} {
+		s.SendMessage("go")
+		if metadata := store.AgentMetadata(lastWrite); metadata.GetName() != "agents/1" || metadata.GetLastTurnOutcome() != want {
+			t.Fatalf("persisted metadata = %v, want outcome %v", metadata, want)
+		}
+	}
+
+	newTestSession(t, fake).SendMessage("go")
+	if metadata := store.AgentMetadata(lastWrite); metadata != nil {
+		t.Fatalf("user chat persisted agent metadata %v", metadata)
 	}
 }

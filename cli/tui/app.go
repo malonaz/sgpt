@@ -40,6 +40,10 @@ const (
 
 type alertDismissMsg struct{}
 
+// agentsRestoredMsg re-renders the panel and result rows over a restored
+// sub-agent tree.
+type agentsRestoredMsg struct{}
+
 type openTabMsg struct {
 	id     string
 	screen screen.Screen
@@ -76,6 +80,15 @@ func (d *agentDirectory) Parent(child tool.Agent) tool.Agent {
 		return nil
 	}
 	return d.manager.Parent(child)
+}
+
+// dormant returns the dormant sub-agent whose chat is chatName; nil when
+// there is none.
+func (d *agentDirectory) dormant(chatName string) tool.Agent {
+	if d.manager == nil || chatName == "" {
+		return nil
+	}
+	return d.manager.DormantAgent(chatName)
 }
 
 // AgentSessionFactory builds a ready-to-run session for a sub-agent launch
@@ -229,12 +242,28 @@ var _ agent.Launcher = (*App)(nil)
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{tea.RequestBackgroundColor}
 	for i, t := range a.tabs {
-		cmds = append(cmds, t.screen.Init())
+		cmds = append(cmds, t.screen.Init(), a.restoreAgents(t.screen))
 		if i == a.activeTab {
 			cmds = append(cmds, t.screen.OnFocus())
 		}
 	}
 	return tea.Batch(cmds...)
+}
+
+// restoreAgents rebuilds, off the UI loop, the sub-agent tree a chat the
+// user reopened launched in an earlier run.
+func (a *App) restoreAgents(s screen.Screen) tea.Cmd {
+	chatScreen, ok := s.(*screen.ChatScreen)
+	if !ok || a.agents.manager == nil || chatScreen.Session().Chat().GetName() == "" {
+		return nil
+	}
+	root := chatScreen.Session()
+	return func() tea.Msg {
+		if err := a.agents.manager.Restore(a.ctx, root); err != nil {
+			return screen.AlertMsg{Text: fmt.Sprintf("Restoring sub-agents failed: %v", err), Level: screen.AlertError}
+		}
+		return agentsRestoredMsg{}
+	}
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -273,6 +302,9 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openTabMsg:
 		return a, a.addTab(msg)
+
+	case agentsRestoredMsg:
+		return a, nil
 
 	case tea.BackgroundColorMsg:
 		styles.SetBackground(msg.Color, msg.IsDark())
@@ -551,7 +583,17 @@ func (a *App) focusAgent(msg screen.FocusAgentMsg) tea.Cmd {
 	if index := a.agentTabIndex(msg.Agent); index >= 0 {
 		return a.switchTab(index)
 	}
-	return a.showAlert(screen.AlertMsg{Text: fmt.Sprintf("%s: its tab was closed", msg.Title)})
+	if !agent.IsDormant(msg.Agent) {
+		return a.showAlert(screen.AlertMsg{Text: fmt.Sprintf("%s: its tab was closed", msg.Title)})
+	}
+	// Loading opens its tab in the background; the focus follows.
+	return func() tea.Msg {
+		live, err := a.agents.manager.Wake(msg.Agent)
+		if err != nil {
+			return screen.AlertMsg{Text: fmt.Sprintf("Opening %s failed: %v", msg.Title, err), Level: screen.AlertError}
+		}
+		return screen.FocusAgentMsg{Agent: live, Title: msg.Title}
+	}
 }
 
 // interrupt is ctrl+c: one press, one visible effect. The active screen
@@ -695,12 +737,17 @@ func (a *App) addTab(msg openTabMsg) tea.Cmd {
 	if index <= a.activeTab {
 		a.activeTab++
 	}
+	cmd := msg.screen.Init()
+	// A sub-agent's tree is already the manager's.
+	if msg.launcher == nil {
+		cmd = tea.Batch(cmd, a.restoreAgents(msg.screen))
+	}
 	if msg.background {
-		return msg.screen.Init()
+		return cmd
 	}
 	a.tabs[a.activeTab].screen.OnBlur()
 	a.activeTab = index
-	return tea.Batch(msg.screen.Init(), msg.screen.OnFocus())
+	return tea.Batch(cmd, msg.screen.OnFocus())
 }
 
 // insertionIndex places a sub-agent's tab after its launcher's subtree, so
@@ -725,6 +772,11 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 				chatScreen.Session().Chat().GetName() == msg.Chat.Name {
 				return a.switchTab(i)
 			}
+		}
+		// A dormant sub-agent's chat opens as that sub-agent, so its
+		// launcher never loads a second session on it.
+		if dormant := a.agents.dormant(msg.Chat.Name); dormant != nil {
+			return a.focusAgent(screen.FocusAgentMsg{Agent: dormant, Title: msg.Chat.GetTitle()})
 		}
 	}
 

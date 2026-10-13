@@ -6,7 +6,10 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 )
 
 func toolCallBlock(id, name string) *aipb.Block {
@@ -99,4 +102,34 @@ func TestOrphanedToolCallsAttachedResultStillNeedsToolMessage(t *testing.T) {
 	toolCall.Result = ai.NewToolResult("shell", "call-1", "done")
 	messages := []*aipb.Message{ai.NewAssistantMessage(ai.NewToolCallBlock(toolCall))}
 	assertIDs(t, OrphanedToolCalls(messages), "call-1")
+}
+
+// Agent metadata round-trips; fields a later version adds are dropped, and
+// an absent or unreadable annotation reads as no metadata.
+func TestAgentMetadata(t *testing.T) {
+	chat := &aipb.Chat{}
+	if metadata := AgentMetadata(chat); metadata != nil {
+		t.Fatalf("metadata = %v on a chat without any", metadata)
+	}
+	metadata := &sgptpb.AgentMetadata{
+		Name:            "agents/1",
+		Tools:           []string{"read_files", "agent"},
+		ReasoningEffort: aipb.ReasoningEffort_REASONING_EFFORT_HIGH,
+		LastTurnOutcome: sgptpb.AgentMetadata_TURN_OUTCOME_SUCCEEDED,
+	}
+	if err := SetAgentMetadata(chat, metadata); err != nil {
+		t.Fatal(err)
+	}
+	if got := AgentMetadata(chat); !proto.Equal(got, metadata) {
+		t.Fatalf("metadata = %v, want %v", got, metadata)
+	}
+
+	chat.Annotations[AgentMetadataAnnotation] = `{"name": "agents/1", "added_later": true}`
+	if got := AgentMetadata(chat); got.GetName() != "agents/1" {
+		t.Fatalf("metadata = %v, want unknown fields dropped", got)
+	}
+	chat.Annotations[AgentMetadataAnnotation] = "{not json"
+	if got := AgentMetadata(chat); got != nil {
+		t.Fatalf("metadata = %v from a malformed annotation, want none", got)
+	}
 }

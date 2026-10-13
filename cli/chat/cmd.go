@@ -166,7 +166,7 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
-			agentManager := agent.NewManager(config.GetChat().GetAgent())
+			agentManager := agent.NewManager(config.GetChat().GetAgent(), chatStore)
 			maxAgentTurns := int(config.GetChat().GetAgent().GetMaxAgentTurns())
 			if maxAgentTurns <= 0 {
 				maxAgentTurns = defaultMaxAgentTurns
@@ -304,6 +304,36 @@ func NewCmd(
 
 			chatSession := session.New(ctx, chatStore, registry, chat, messages, params)
 			app := tui.NewApp(ctx, chatStore, registry, chatSession, params)
+			// agentChat is the chat a sub-agent runs on: the dormant one
+			// reopened with its history, or a new one recording what the
+			// sub-agent was launched with.
+			agentChat := func(launchCtx context.Context, request *agent.LaunchRequest, model *aipb.Model) (*aipb.Chat, []*aipb.Message, error) {
+				if request.Chat != nil {
+					messages, err := chatStore.ListMessages(launchCtx, request.Chat.GetName())
+					return request.Chat, messages, err
+				}
+				subFiles, err := file.Parse(&file.InjectionOpts{Files: request.Files})
+				if err != nil {
+					return nil, nil, err
+				}
+				subFilePaths := make([]string, len(subFiles))
+				for i, parsedFile := range subFiles {
+					subFilePaths[i] = parsedFile.Path
+				}
+				// Mirror the CLI-launched chat context assembly exactly.
+				subChat := &aipb.Chat{}
+				// Agent-provided title: skips auto-generation and labels the tab.
+				subChat.Title = request.Title
+				store.SetCategory(subChat, sgptpb.Labels.Category.Agent)
+				store.SetFiles(subChat, subFilePaths)
+				store.SetCurrentModel(subChat, model.Name)
+				store.SetParentChatID(subChat, request.Caller.Chat)
+				metadata := &sgptpb.AgentMetadata{Name: request.Name, Tools: request.Tools, ReasoningEffort: request.ReasoningEffort}
+				if err := store.SetAgentMetadata(subChat, metadata); err != nil {
+					return nil, nil, err
+				}
+				return subChat, nil, nil
+			}
 			app.SetAgentSessionFactory(func(launchCtx context.Context, request *agent.LaunchRequest) (*session.Session, error) {
 				// Everything a sub-agent gets comes from its launcher —
 				// model, tools, policy, review queue — narrowed by the
@@ -320,22 +350,10 @@ func NewCmd(
 				if err := validateToolNames(request.Tools); err != nil {
 					return nil, err
 				}
-				subFiles, err := file.Parse(&file.InjectionOpts{Files: request.Files})
+				subChat, messages, err := agentChat(launchCtx, request, model)
 				if err != nil {
 					return nil, err
 				}
-				subFilePaths := make([]string, len(subFiles))
-				for i, parsedFile := range subFiles {
-					subFilePaths[i] = parsedFile.Path
-				}
-				// Mirror the CLI-launched chat context assembly exactly.
-				subChat := &aipb.Chat{}
-				// Agent-provided title: skips auto-generation and labels the tab.
-				subChat.Title = request.Title
-				store.SetCategory(subChat, sgptpb.Labels.Category.Agent)
-				store.SetFiles(subChat, subFilePaths)
-				store.SetCurrentModel(subChat, model.Name)
-				store.SetParentChatID(subChat, caller.Chat)
 				subParams := session.Params{
 					Model:              model,
 					ReasoningEffort:    request.ReasoningEffort,
@@ -346,7 +364,7 @@ func NewCmd(
 					AvailableToolNames: availableToolNames,
 					ResolveTool:        resolveTool,
 					SystemPrompt:       agent.SystemPrompt(parsedRole.Prompt, request.Context),
-					InjectedFiles:      subFilePaths,
+					InjectedFiles:      store.Files(subChat),
 					LoreNameForPath:    loreIndex.NameForPath,
 					Policy:             caller.Policy.Child(),
 					Depth:              caller.Depth + 1,
@@ -356,7 +374,13 @@ func NewCmd(
 				}
 				// The app's context, not the launch's: the tab outlives the
 				// launcher's turn, which only scopes the first turn.
-				return session.New(ctx, chatStore, registry, subChat, nil, subParams), nil
+				subSession := session.New(ctx, chatStore, registry, subChat, messages, subParams)
+				// A reopened chat may end on tool calls its last run never
+				// answered; delivering on top of them would fail.
+				if err := subSession.RepairHistory(); err != nil {
+					return nil, err
+				}
+				return subSession, nil
 			})
 			agentManager.SetLauncher(app)
 			app.SetAgentManager(agentManager)

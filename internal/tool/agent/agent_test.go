@@ -21,6 +21,9 @@ import (
 // with reply's answer when set.
 type fakeAgent struct {
 	reply func(text string) tool.TurnOutcome
+	chat  *aipb.Chat
+	depth int
+	tools []string
 
 	mu        sync.Mutex
 	delivered []string
@@ -29,9 +32,9 @@ type fakeAgent struct {
 	pending []chan tool.TurnOutcome
 }
 
-func newFakeAgent() *fakeAgent { return &fakeAgent{} }
+func newFakeAgent() *fakeAgent { return &fakeAgent{chat: &aipb.Chat{}} }
 
-func (a *fakeAgent) Chat() *aipb.Chat     { return &aipb.Chat{} }
+func (a *fakeAgent) Chat() *aipb.Chat     { return a.chat }
 func (a *fakeAgent) AwaitingReview() bool { return false }
 func (a *fakeAgent) Price() float64       { return 0 }
 
@@ -51,6 +54,10 @@ func (a *fakeAgent) Deliver(message *aipb.Message) (<-chan tool.TurnOutcome, err
 }
 
 func (a *fakeAgent) CancelTurn() { a.finish(tool.TurnOutcome{Err: context.Canceled}) }
+
+func (a *fakeAgent) Caller() tool.Caller {
+	return tool.Caller{Chat: a.chat.GetName(), Depth: a.depth, Tools: a.tools, Agent: a}
+}
 
 // Inbox is closed while a message is unread, like a session's; tests block
 // on it only once something is.
@@ -108,6 +115,11 @@ func (l *fakeLauncher) LaunchAgent(_ context.Context, request *LaunchRequest) (t
 	}
 	subAgent := newFakeAgent()
 	subAgent.reply = l.reply
+	subAgent.depth = request.Caller.Depth + 1
+	subAgent.tools = request.Tools
+	if request.Chat != nil {
+		subAgent.chat = request.Chat
+	}
 	l.launched <- subAgent
 	return subAgent, nil
 }
@@ -186,7 +198,7 @@ func awaitMessages(t *testing.T, agent *fakeAgent, count int) []string {
 // A launch returns at once; at most max_concurrent first turns run per level,
 // and results a wait collects are not also reported as messages.
 func TestCreateAgentsIsAsyncBoundedAndWaitable(t *testing.T) {
-	m := NewManager(&sgptpb.AgentConfiguration{MaxConcurrent: 2})
+	m := NewManager(&sgptpb.AgentConfiguration{MaxConcurrent: 2}, nil)
 	launcher := newFakeLauncher()
 	m.SetLauncher(launcher)
 	parent := newFakeAgent()
@@ -257,7 +269,7 @@ func TestCreateAgentsIsAsyncBoundedAndWaitable(t *testing.T) {
 // A result nobody waits for is reported to the launcher as a message: that is
 // what wakes an idle launcher.
 func TestUnwatchedResultIsReportedToTheLauncher(t *testing.T) {
-	m := NewManager(nil)
+	m := NewManager(nil, nil)
 	launcher := newFakeLauncher()
 	launcher.reply = func(string) tool.TurnOutcome { return tool.TurnOutcome{Text: "the report"} }
 	launcher.fail = map[string]bool{"broken": true}
@@ -276,7 +288,7 @@ func TestUnwatchedResultIsReportedToTheLauncher(t *testing.T) {
 // A sub-agent's question must reach a launcher blocked on that very
 // sub-agent, or both wait forever.
 func TestWaitReturnsWhenAMessageArrives(t *testing.T) {
-	m := NewManager(nil)
+	m := NewManager(nil, nil)
 	launcher := newFakeLauncher()
 	m.SetLauncher(launcher)
 	parent := newFakeAgent()
@@ -309,7 +321,7 @@ func TestWaitReturnsWhenAMessageArrives(t *testing.T) {
 // Following up with a sub-agent is another operation, resolving to its reply;
 // only the launcher may address it.
 func TestMessageAgentFollowUp(t *testing.T) {
-	m := NewManager(nil)
+	m := NewManager(nil, nil)
 	launcher := newFakeLauncher()
 	launcher.reply = func(text string) tool.TurnOutcome { return tool.TurnOutcome{Text: "re: " + text} }
 	m.SetLauncher(launcher)
@@ -336,7 +348,7 @@ func TestMessageAgentFollowUp(t *testing.T) {
 // Stopping a chat stops its sub-agents silently: reporting the cancellations
 // would wake the chat the user just stopped.
 func TestCancelDescendantsIsNotReportedBack(t *testing.T) {
-	m := NewManager(&sgptpb.AgentConfiguration{MaxConcurrent: 1})
+	m := NewManager(&sgptpb.AgentConfiguration{MaxConcurrent: 1}, nil)
 	launcher := newFakeLauncher()
 	m.SetLauncher(launcher)
 	parent := newFakeAgent()
@@ -360,7 +372,7 @@ func TestCancelDescendantsIsNotReportedBack(t *testing.T) {
 }
 
 func TestCreateAgentsRejections(t *testing.T) {
-	m := NewManager(&sgptpb.AgentConfiguration{MaxDepth: 1})
+	m := NewManager(&sgptpb.AgentConfiguration{MaxDepth: 1}, nil)
 	m.SetLauncher(newFakeLauncher())
 	caller := tool.Caller{Agent: newFakeAgent(), Tools: []string{"read_files"}}
 	deep := caller

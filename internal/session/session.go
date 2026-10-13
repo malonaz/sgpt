@@ -212,7 +212,7 @@ func New(
 	// seen, and what a sub-agent may inherit.
 	s.initReviews(params.Reviews)
 	s.ctx = tool.WithHistory(s.ctx, s.historyForTools)
-	s.ctx = tool.WithCaller(s.ctx, s.caller)
+	s.ctx = tool.WithCaller(s.ctx, s.Caller)
 	s.injectedFilePaths = s.normalizeInjectedPaths(params.InjectedFiles)
 	// Sort once (on a copy — the slice is shared across sessions via the
 	// app's default params): the tool picker reads this on every open.
@@ -385,9 +385,9 @@ func (s *Session) Messages() []*aipb.Message {
 	return append([]*aipb.Message(nil), s.messages...)
 }
 
-// caller is the identity tools see while executing: what the agent tool may
+// Caller is the identity tools see while executing: what the agent tool may
 // hand down to a sub-agent.
-func (s *Session) caller() tool.Caller {
+func (s *Session) Caller() tool.Caller {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tools := make([]string, 0, len(s.enabledUserToolNameSet))
