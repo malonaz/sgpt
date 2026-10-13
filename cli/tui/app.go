@@ -53,6 +53,8 @@ type confirmation struct {
 	title  string
 	body   string
 	action func() tea.Cmd
+	// quit marks the quit confirm, which the quit keys accept rather than dismiss.
+	quit bool
 }
 
 // agentDirectory serves the sub-agent tree to chat screens; the manager is
@@ -86,7 +88,8 @@ type tab struct {
 }
 
 var (
-	keyQuit           = keymap.New("ctrl+c", "Quit, once nothing is left to cancel")
+	keyInterrupt      = keymap.New("ctrl+c", "Interrupt; quit once nothing is left to cancel")
+	keyQuit           = keymap.New("ctrl+d", "Quit")
 	keyNewTab         = keymap.New("ctrl+t", "New tab")
 	keyCloseTab       = keymap.New("ctrl+w", "Close tab")
 	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close idle sub-agent tabs")
@@ -328,7 +331,7 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Modals swallow every key: y/enter confirms, anything else cancels.
 		if confirm := a.confirm; confirm != nil {
 			a.confirm = nil
-			if key.Matches(msg, widget.KeyConfirm.Key) {
+			if key.Matches(msg, widget.KeyConfirm.Key) || confirm.quit && key.Matches(msg, keyQuit.Key, keyInterrupt.Key) {
 				return a, confirm.action()
 			}
 			return a, nil
@@ -349,6 +352,10 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, keyHelp.Key) {
 			a.helpVisible, a.helpPage = true, 0
 			return a, nil
+		}
+		// Handled here so ctrl+d never reaches the textarea's delete-forward.
+		if key.Matches(msg, keyQuit.Key) {
+			return a, a.requestQuit()
 		}
 		if cmd := a.handleGlobalKey(msg); cmd != nil {
 			return a, cmd
@@ -410,7 +417,7 @@ func (a *App) keymaps() []keymap.Map {
 	maps := []keymap.Map{{
 		Name: "Global",
 		Bindings: []keymap.Binding{
-			keyHelp, keyQuit, keyNewTab, keyCloseTab, keyCloseAgentTabs, keyPrevTab,
+			keyHelp, keyInterrupt, keyQuit, keyNewTab, keyCloseTab, keyCloseAgentTabs, keyPrevTab,
 			keyNextTab, keyOpenMenu, keyCopyName,
 		},
 	}}
@@ -424,7 +431,7 @@ func (a *App) keymaps() []keymap.Map {
 
 func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, keyQuit.Key):
+	case key.Matches(msg, keyInterrupt.Key):
 		return a.interrupt()
 	case key.Matches(msg, keyNewTab.Key):
 		return a.createNewChat()
@@ -542,7 +549,7 @@ func (a *App) requestQuit() tea.Cmd {
 	case inFlight > 1:
 		body = fmt.Sprintf("%d chats still have a turn in flight; quitting cancels them.", inFlight)
 	}
-	a.confirm = &confirmation{title: "Quit sgpt?", body: body, action: func() tea.Cmd {
+	a.confirm = &confirmation{title: "Quit sgpt?", body: body, quit: true, action: func() tea.Cmd {
 		a.quitting = true
 		return tea.Quit
 	}}
