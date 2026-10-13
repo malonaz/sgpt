@@ -10,6 +10,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.4
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
+	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/golang/protobuf v1.5.4
 	github.com/malonaz/core v0.0.0-20261007152900-b81ebf90879f
 	github.com/pkg/errors v0.9.1
@@ -49,7 +50,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260511121909-c840852527f3 // indirect
-	github.com/charmbracelet/x/ansi v0.11.7 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20260511125431-fe5d686e0c99 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
