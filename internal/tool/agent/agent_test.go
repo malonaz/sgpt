@@ -374,6 +374,7 @@ func TestCreateAgentsRejections(t *testing.T) {
 		{"no tasks", callerContext(caller), map[string]any{}, "no tasks"},
 		{"no query", callerContext(caller), map[string]any{"tasks": []any{task("a", " ")}}, "no query"},
 		{"tool ceiling", callerContext(caller), map[string]any{"tasks": []any{task("a", "q")}, "tools": []any{"exec_shell"}}, "not available"},
+		{"bad reasoning effort", callerContext(caller), map[string]any{"tasks": []any{task("a", "q")}, "reasoning_effort": "huge"}, "unknown reasoning_effort"},
 		{"too deep", callerContext(deep), map[string]any{"tasks": []any{task("a", "q")}}, "nest"},
 		{"outside session", context.Background(), map[string]any{"tasks": []any{task("a", "q")}}, "outside a session"},
 	}

@@ -271,6 +271,10 @@ message CreateAgentsRequest {
 
   // Model for every sub-agent (name or alias); unset inherits this chat's.
   string model = 5;
+
+  // Reasoning effort for every sub-agent: one of low, medium, high, xhigh,
+  // max; unset inherits this chat's.
+  string reasoning_effort = 6;
 }
 
 // One sub-agent's task.
@@ -288,6 +292,9 @@ message AgentTask {
 
   // Model override for this task (name or alias).
   string model = 4;
+
+  // Reasoning effort override for this task (low, medium, high, xhigh, max).
+  string reasoning_effort = 5;
 }
 
 // Result of the `create_agents` tool.

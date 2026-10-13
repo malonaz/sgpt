@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"sort"
@@ -70,11 +71,34 @@ func (t *createAgentsTool) parse(ctx context.Context, toolCall *aipb.ToolCall) (
 		if strings.TrimSpace(task.GetTitle()) == "" {
 			return nil, tool.Caller{}, fmt.Errorf("task %d: no title specified", i+1)
 		}
+		if err := validateReasoningEffort(task.GetReasoningEffort()); err != nil {
+			return nil, tool.Caller{}, fmt.Errorf("task %d: %w", i+1, err)
+		}
+	}
+	if err := validateReasoningEffort(request.GetReasoningEffort()); err != nil {
+		return nil, tool.Caller{}, err
 	}
 	if err := validateTools(request.GetTools(), caller.Tools); err != nil {
 		return nil, tool.Caller{}, err
 	}
 	return request, caller, nil
+}
+
+// reasoningEfforts maps the request's effort names to the provider enum.
+var reasoningEfforts = map[string]aipb.ReasoningEffort{
+	"low":    aipb.ReasoningEffort_REASONING_EFFORT_LOW,
+	"medium": aipb.ReasoningEffort_REASONING_EFFORT_MEDIUM,
+	"high":   aipb.ReasoningEffort_REASONING_EFFORT_HIGH,
+	"xhigh":  aipb.ReasoningEffort_REASONING_EFFORT_XHIGH,
+	"max":    aipb.ReasoningEffort_REASONING_EFFORT_MAX,
+}
+
+// validateReasoningEffort accepts an empty effort (inherit) or a known name.
+func validateReasoningEffort(effort string) error {
+	if _, ok := reasoningEfforts[effort]; effort != "" && !ok {
+		return fmt.Errorf("unknown reasoning_effort %q: want low, medium, high, xhigh or max", effort)
+	}
+	return nil
 }
 
 // validateTools enforces the grant ceiling: a sub-agent never gets a tool
@@ -115,6 +139,9 @@ func (t *createAgentsTool) Review(ctx context.Context, toolCall *aipb.ToolCall) 
 	if request.GetModel() != "" {
 		parts = append(parts, "model: "+request.GetModel())
 	}
+	if request.GetReasoningEffort() != "" {
+		parts = append(parts, "reasoning: "+request.GetReasoningEffort())
+	}
 	return &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{Content: strings.Join(parts, " · ")},
 	}, nil
@@ -146,17 +173,20 @@ func (t *createAgentsTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 
 // launchRequest merges the batch-wide settings with one task's overrides.
 func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, caller tool.Caller) *LaunchRequest {
-	model := task.GetModel()
-	if model == "" {
-		model = request.GetModel()
+	model := cmp.Or(task.GetModel(), request.GetModel())
+	// Validated in parse, so the lookup cannot miss.
+	reasoningEffort := caller.ReasoningEffort
+	if effort := cmp.Or(task.GetReasoningEffort(), request.GetReasoningEffort()); effort != "" {
+		reasoningEffort = reasoningEfforts[effort]
 	}
 	return &LaunchRequest{
-		Caller:  caller,
-		Title:   task.GetTitle(),
-		Context: request.GetContext(),
-		Files:   append(append([]string(nil), request.GetFiles()...), task.GetFiles()...),
-		Tools:   childTools(request.GetTools(), caller.Tools),
-		Model:   model,
+		Caller:          caller,
+		Title:           task.GetTitle(),
+		Context:         request.GetContext(),
+		Files:           append(append([]string(nil), request.GetFiles()...), task.GetFiles()...),
+		Tools:           childTools(request.GetTools(), caller.Tools),
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
 	}
 }
 
