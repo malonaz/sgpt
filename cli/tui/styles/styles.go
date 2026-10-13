@@ -17,12 +17,6 @@ const (
 	BlockIndicatorChar  = "┃"
 	BlockIndicatorWidth = 2
 
-	ConfirmPaddingHorizontal = 2
-	ConfirmPaddingVertical   = 1
-	ConfirmMarginTop         = 1
-
-	HelpMarginTop = 1
-
 	TruncateLength       = 100
 	TruncateSuffix       = "..."
 	TruncateSuffixLength = 3
@@ -198,84 +192,11 @@ var (
 )
 
 var (
-	HelpStyle = lipgloss.NewStyle().
-		Foreground(MutedColor).
-		Italic(true).
-		MarginTop(HelpMarginTop)
-)
-
-var (
-	ConfirmBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(AccentColor).
-			Padding(ConfirmPaddingVertical, ConfirmPaddingHorizontal).
-			MarginTop(ConfirmMarginTop)
-
-	ConfirmTitleStyle = lipgloss.NewStyle().
-				Foreground(AccentColor).
-				Bold(true)
-
-	ConfirmCommandStyle = lipgloss.NewStyle().
-				Foreground(TextColor).
-				Background(CodeBgColor)
-)
-
-var (
 	ViewportStyle = lipgloss.NewStyle().Margin(0).Padding(0)
-)
-
-var (
-	DividerStyle = lipgloss.NewStyle().
-		Foreground(DividerColor)
-)
-
-var (
-	MenuSelectedStyle = lipgloss.NewStyle().
-				Background(PrimaryColor).
-				Foreground(TextColor).
-				Bold(true).
-				Padding(0, 1)
-
-	MenuItemStyle = lipgloss.NewStyle().
-			Foreground(TextColor).
-			Padding(0, 1)
-
-	MenuHeaderStyle = lipgloss.NewStyle().
-			Foreground(DimTextColor).
-			Bold(true).
-			Padding(0, 1).
-			BorderBottom(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(DividerColor)
-
-	MenuDimStyle = lipgloss.NewStyle().
-			Foreground(DimTextColor)
-
-	MenuTitleStyle = lipgloss.NewStyle().
-			Foreground(SecondaryColor)
-
-	MenuTagStyle = lipgloss.NewStyle().
-			Foreground(AccentColor).
-			Italic(true)
-)
-
-var (
-	SearchInputStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(SecondaryColor).
-				PaddingLeft(1)
-
-	SearchPromptStyle = lipgloss.NewStyle().
-				Foreground(SecondaryColor).
-				Bold(true)
 )
 
 func MessageHorizontalFrameSize() int {
 	return AIMessageStyle.GetHorizontalFrameSize()
-}
-
-func Divider(width int) string {
-	return DividerStyle.Render(lipgloss.NewStyle().Width(width).Render("─"))
 }
 
 func Truncate(s string, maxLen int) string {
