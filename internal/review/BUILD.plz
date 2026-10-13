@@ -1,0 +1,15 @@
+go_library(
+    name = "review",
+    srcs = ["queue.go"],
+    visibility = ["//..."],
+    deps = ["//third_party/proto:malonaz__core__genproto__ai__v1"],
+)
+
+go_test(
+    name = "review_test",
+    srcs = ["queue_test.go"],
+    deps = [
+        ":review",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)

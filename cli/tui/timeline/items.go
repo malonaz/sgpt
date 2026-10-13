@@ -198,6 +198,9 @@ type ToolCallItem struct {
 	Pending bool
 	// Partial marks a call still streaming in; arguments may be incomplete.
 	Partial bool
+	// Origin is the sub-agent chat a call awaiting review here came from;
+	// empty for this chat's own calls.
+	Origin string
 	// RequestRenderer, when set, overrides the raw-JSON request rendering.
 	RequestRenderer RequestRenderer
 	// lastGoodRequests persists the last successful tool-dictated render,
@@ -239,6 +242,10 @@ func (i *ToolCallItem) Content() (string, string) {
 }
 
 func (i *ToolCallItem) Render(ctx RenderContext) string {
+	if i.Origin != "" {
+		// Not in this chat's history, so outside its render-cache index space.
+		ctx.Static = true
+	}
 	var b strings.Builder
 	b.WriteString(i.header(ctx))
 	if !ctx.Collapsed {
@@ -267,6 +274,9 @@ func (i *ToolCallItem) header(ctx RenderContext) string {
 		i.headerContent(ctx),
 		suffix,
 	)
+	if i.Origin != "" {
+		header = styles.ThoughtLabelStyle.Render("↳ "+i.Origin) + " " + header
+	}
 	metadata, _ := tool.ParseToolCallMetadata(i.ToolCall)
 	displayMessage := metadata.GetDisplayMessage().GetContent()
 	if displayMessage == "" {
@@ -366,6 +376,18 @@ type LineItem struct {
 	// summary, when set, makes the item collapsible: it folds to this single
 	// line by default (system prompts are long and rarely re-read).
 	summary string
+}
+
+// NewEscalatedToolCallItem renders a sub-agent's call awaiting the user's
+// verdict in the root chat.
+func NewEscalatedToolCallItem(toolCall *aipb.ToolCall, origin string, requestRenderer RequestRenderer) *ToolCallItem {
+	return &ToolCallItem{
+		id:              "review-" + toolCall.GetId(),
+		ToolCall:        toolCall,
+		Pending:         true,
+		Origin:          origin,
+		RequestRenderer: requestRenderer,
+	}
 }
 
 func NewErrorItem(id, text string) *LineItem {

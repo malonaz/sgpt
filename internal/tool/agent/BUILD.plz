@@ -8,3 +8,15 @@ go_library(
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
+
+go_test(
+    name = "agent_test",
+    srcs = ["agent_test.go"],
+    deps = [
+        ":agent",
+        "//internal/tool",
+        "//sgpt/v1",
+        "//third_party/go:google.golang.org__protobuf__types__known__structpb",
+        "//third_party/proto:malonaz__core__genproto__ai__v1",
+    ],
+)

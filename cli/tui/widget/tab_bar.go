@@ -11,6 +11,8 @@ type Tab struct {
 	Title     string
 	Active    bool
 	Streaming bool
+	// Reviewing marks a tab whose turn is parked on a tool call verdict.
+	Reviewing bool
 }
 
 func RenderTabBar(tabs []Tab, width int) string {
@@ -21,7 +23,10 @@ func RenderTabBar(tabs []Tab, width int) string {
 			style = styles.TabActiveStyle
 		}
 		label := tab.Title
-		if tab.Streaming {
+		switch {
+		case tab.Reviewing:
+			label = "▶ " + label
+		case tab.Streaming:
 			label = "● " + label
 		}
 		parts = append(parts, style.Render(label))

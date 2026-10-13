@@ -12,6 +12,8 @@ go_library(
     deps = [
         "//internal/debug",
         "//internal/file",
+        "//internal/permission",
+        "//internal/review",
         "//internal/store",
         "//internal/tool",
         "//sgpt/v1",
@@ -29,6 +31,8 @@ go_test(
     srcs = ["review_test.go"],
     deps = [
         ":session",
+        "//internal/permission",
+        "//internal/review",
         "//third_party/proto:malonaz__core__genproto__ai__v1",
     ],
 )
