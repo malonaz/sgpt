@@ -29,6 +29,7 @@ go_library(
 go_test(
     name = "test",
     srcs = [
+        "chat_test.go",
         "fake_test.go",
         "review_test.go",
         "turn_test.go",

@@ -18,6 +18,7 @@ import (
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
+	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/file"
@@ -86,8 +87,13 @@ type Session struct {
 	store    *store.Store
 	registry *tool.Registry
 
-	mu   sync.Mutex
+	mu sync.Mutex
+	// chat is replaced, never mutated in place: callers read the snapshots
+	// Chat returns without the lock.
 	chat *aipb.Chat
+	// chatRevision counts local chat edits, so a write never adopts a
+	// response that predates one.
+	chatRevision uint64
 	// messages is the local mirror of the chat's server-side message
 	// history, oldest first. Input messages appended locally may lack a
 	// resource name (the server persists them without echoing them back).
@@ -1144,23 +1150,42 @@ func (s *Session) saveChat() error {
 // locally-owned field (title included). The server returns the full payload,
 // adopted as the new local chat — no cloning, no local re-patching.
 func (s *Session) updateChat() error {
-	s.mu.Lock()
-	chat := s.chat
-	s.mu.Unlock()
+	for {
+		s.mu.Lock()
+		chat, revision := s.chat, s.chatRevision
+		s.mu.Unlock()
 
-	// Not yet persisted (lazy creation): local mutations are carried by the
-	// eventual CreateChat on the first send.
-	if chat.GetName() == "" {
-		return nil
+		// Not yet persisted (lazy creation): local mutations are carried by the
+		// eventual CreateChat on the first send.
+		if chat.GetName() == "" {
+			return nil
+		}
+		updatedChat, err := s.store.UpdateChat(s.ctx, chat, "annotations", "labels", "title")
+		if err != nil {
+			return err
+		}
+		s.mu.Lock()
+		edited := s.chatRevision != revision
+		if !edited {
+			s.chat = updatedChat
+		}
+		s.mu.Unlock()
+		// An edit landed mid-write: adopting the response would revert it, and
+		// it still has to be persisted.
+		if !edited {
+			return nil
+		}
 	}
-	updatedChat, err := s.store.UpdateChat(s.ctx, chat, "annotations", "labels", "title")
-	if err != nil {
-		return err
-	}
+}
+
+// editChat applies a local edit to a copy of the chat.
+func (s *Session) editChat(edit func(chat *aipb.Chat)) {
 	s.mu.Lock()
-	s.chat = updatedChat
-	s.mu.Unlock()
-	return nil
+	defer s.mu.Unlock()
+	chat := proto.CloneOf(s.chat)
+	edit(chat)
+	s.chat = chat
+	s.chatRevision++
 }
 
 // flushChat is the end-of-turn chat write; errors surface as alerts.
@@ -1208,10 +1233,10 @@ func (s *Session) maybeGenerateTitle() {
 		s.mu.Lock()
 		s.titleGenerating = false
 		discard := err != nil || title == "" || s.chat.GetTitle() != ""
-		if !discard {
-			s.chat.Title = title
-		}
 		s.mu.Unlock()
+		if !discard {
+			s.editChat(func(chat *aipb.Chat) { chat.Title = title })
+		}
 		if err != nil {
 			s.emitError(fmt.Errorf("generating title: %w", err))
 		}
@@ -1231,10 +1256,11 @@ func (s *Session) maybeGenerateTitle() {
 // ToggleFavorite flips the favorite tag on the chat and persists.
 // Returns true if the chat is now a favorite.
 func (s *Session) ToggleFavorite() bool {
-	s.mu.Lock()
-	favorite := !store.IsFavorite(s.chat)
-	store.SetFavoriteLabel(s.chat, favorite)
-	s.mu.Unlock()
+	var favorite bool
+	s.editChat(func(chat *aipb.Chat) {
+		favorite = !store.IsFavorite(chat)
+		store.SetFavoriteLabel(chat, favorite)
+	})
 
 	if err := s.saveChat(); err != nil {
 		s.emitError(fmt.Errorf("saving favorite: %w", err))

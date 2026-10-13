@@ -65,14 +65,12 @@ func (f *fakeAI) CreateChat(_ context.Context, request *aiservicepb.CreateChatRe
 }
 
 func (f *fakeAI) UpdateChat(_ context.Context, request *aiservicepb.UpdateChatRequest, _ ...grpc.CallOption) (*aipb.Chat, error) {
-	// Serializing is what the real transport does with the request.
-	if _, err := proto.Marshal(request); err != nil {
-		return nil, err
-	}
+	// The real transport serializes the request as it is sent.
+	request = proto.CloneOf(request)
 	if f.updateChat != nil {
 		f.updateChat(request)
 	}
-	return proto.CloneOf(request.GetChat()), nil
+	return request.GetChat(), nil
 }
 
 func (f *fakeAI) CreateMessage(_ context.Context, request *aiservicepb.CreateMessageRequest, _ ...grpc.CallOption) (*aipb.Message, error) {
