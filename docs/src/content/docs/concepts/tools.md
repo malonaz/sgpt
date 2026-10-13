@@ -65,8 +65,9 @@ Expanding a row shows the request and the result:
 
 ## Verdicts
 
-When a call awaits review the status line says so and the input box turns
-into a reason field:
+When a call awaits review it opens in an amber card, the status bar shows
+`▶ Review` with the verdict keys, and whatever you type in the input becomes
+the rejection reason:
 
 | Key | Verdict |
 |---|---|
