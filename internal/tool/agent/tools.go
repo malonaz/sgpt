@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"google.golang.org/protobuf/proto"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/store"
@@ -105,7 +106,7 @@ func (t *createAgentsTool) Review(ctx context.Context, toolCall *aipb.ToolCall) 
 	// Sub-agents spend tokens and may be granted mutating tools: never
 	// auto-execute. Summarize the grant so the user reviews scope, not JSON.
 	parts := []string{
-		fmt.Sprintf("%d task(s)", len(request.GetTasks())),
+		tool.Count(len(request.GetTasks()), "task", "tasks"),
 		"tools: " + strings.Join(childTools(request.GetTools(), caller.Tools), ", "),
 	}
 	if len(request.GetFiles()) > 0 {
@@ -115,7 +116,7 @@ func (t *createAgentsTool) Review(ctx context.Context, toolCall *aipb.ToolCall) 
 		parts = append(parts, "model: "+request.GetModel())
 	}
 	return &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{Content: strings.Join(parts, " | ")},
+		DisplayMessage: &sgptpb.DisplayMessage{Content: strings.Join(parts, " · ")},
 	}, nil
 }
 
@@ -172,7 +173,7 @@ func (t *createAgentsTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool)
 		b.WriteString("\n\n")
 	}
 	for _, task := range request.GetTasks() {
-		fmt.Fprintf(&b, "### %s\n\n%s\n\n", task.GetTitle(), task.GetQuery())
+		fmt.Fprintf(&b, "**%s**\n\n%s\n\n", task.GetTitle(), task.GetQuery())
 	}
 	return strings.TrimSpace(b.String()), true
 }
@@ -187,20 +188,20 @@ func (t *createAgentsTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolR
 
 func (t *createAgentsTool) RenderVersion(*aipb.ToolCall) string { return t.m.renderVersion() }
 
-func (t *createAgentsTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	// Tolerates partial arguments: falls back to the bare label until the
-	// titles stream in.
-	request := &sgptpb.CreateAgentsRequest{}
-	if tool.UnmarshalArguments(toolCall, request) != nil || len(request.GetTasks()) == 0 {
-		return agentIcon + " create agents", true
-	}
-	titles := make([]string, 0, len(request.GetTasks()))
-	for _, task := range request.GetTasks() {
-		if task.GetTitle() != "" {
-			titles = append(titles, task.GetTitle())
+// Summarize names the tasks and, once launched, their live states.
+func (t *createAgentsTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	var titles []string
+	for _, task := range tool.Argument(toolCall, "tasks").GetListValue().GetValues() {
+		if title := task.GetStructValue().GetFields()["title"].GetStringValue(); title != "" {
+			titles = append(titles, title)
 		}
 	}
-	return agentIcon + " create agents: " + strings.Join(titles, ", "), true
+	summary := tool.Summary{Verb: "Launch agents", Subject: strings.Join(titles, ", ")}
+	response := &sgptpb.CreateAgentsResponse{}
+	if toolResult != nil && tool.UnmarshalResult(toolResult, response) == nil {
+		summary.Outcome, summary.Failed = summarizeStates(t.m.liveSnapshots(response.GetOperations()))
+	}
+	return summary, true
 }
 
 // newSubAgentLocked registers a sub-agent. Caller holds the lock.
@@ -310,23 +311,31 @@ func (t *messageAgentTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolR
 		return "", false
 	}
 	if response.GetOperation() == nil {
-		return "delivered", true
+		return "Delivered to the launcher.", true
 	}
 	return renderOperations(t.m.liveSnapshots([]*sgptpb.AgentOperation{response.GetOperation()})), true
 }
 
 func (t *messageAgentTool) RenderVersion(*aipb.ToolCall) string { return t.m.renderVersion() }
 
-func (t *messageAgentTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	request := &sgptpb.MessageAgentRequest{}
-	if tool.UnmarshalArguments(toolCall, request) != nil || request.GetAgent() == "" {
-		return agentIcon + " message agent", true
-	}
-	recipient := request.GetAgent()
-	if recipient != parentAgent {
+// Summarize names the recipient and, for a sub-agent, its reply's state.
+func (t *messageAgentTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	recipient := tool.Argument(toolCall, "agent").GetStringValue()
+	if recipient == parentAgent {
+		recipient = launcherSender
+	} else if recipient != "" {
 		recipient = t.m.title(recipient)
 	}
-	return agentIcon + " message → " + recipient, true
+	summary := tool.Summary{Verb: "Message", Subject: recipient}
+	response := &sgptpb.MessageAgentResponse{}
+	switch {
+	case toolResult == nil || tool.UnmarshalResult(toolResult, response) != nil:
+	case response.GetOperation() == nil:
+		summary.Outcome = "delivered"
+	default:
+		summary.Outcome, summary.Failed = summarizeStates(t.m.liveSnapshots([]*sgptpb.AgentOperation{response.GetOperation()}))
+	}
+	return summary, true
 }
 
 // title returns a sub-agent's title, or its name when unknown.
@@ -380,8 +389,8 @@ func (t *getOperationsTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.Tool
 	return renderOperations(response.GetOperations()), true
 }
 
-func (t *getOperationsTool) RenderHeader(*aipb.ToolCall) (string, bool) {
-	return agentIcon + " get operations", true
+func (t *getOperationsTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	return t.m.summarizeOperations("Check agents", toolCall, toolResult, &sgptpb.GetOperationsResponse{}), true
 }
 
 // ---- wait_operations ----
@@ -481,19 +490,31 @@ func (t *waitOperationsTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.Too
 	if tool.UnmarshalResult(toolResult, response) != nil {
 		return "", false
 	}
-	var b strings.Builder
-	switch response.GetReason() {
-	case sgptpb.WaitOperationsResponse_REASON_TIMEOUT:
-		b.WriteString("*timed out*\n\n")
-	case sgptpb.WaitOperationsResponse_REASON_MESSAGE:
-		b.WriteString("*interrupted by a message*\n\n")
+	rendered := renderOperations(response.GetOperations())
+	if reason := waitReason(response.GetReason()); reason != "" {
+		rendered = "*" + reason + "*\n\n" + rendered
 	}
-	b.WriteString(renderOperations(response.GetOperations()))
-	return b.String(), true
+	return rendered, true
 }
 
-func (t *waitOperationsTool) RenderHeader(*aipb.ToolCall) (string, bool) {
-	return agentIcon + " wait for operations", true
+func (t *waitOperationsTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	response := &sgptpb.WaitOperationsResponse{}
+	summary := t.m.summarizeOperations("Wait", toolCall, toolResult, response)
+	if reason := waitReason(response.GetReason()); reason != "" {
+		summary.Outcome += " · " + reason
+	}
+	return summary, true
+}
+
+// waitReason names why a wait returned before its operations finished.
+func waitReason(reason sgptpb.WaitOperationsResponse_Reason) string {
+	switch reason {
+	case sgptpb.WaitOperationsResponse_REASON_TIMEOUT:
+		return "timed out"
+	case sgptpb.WaitOperationsResponse_REASON_MESSAGE:
+		return "interrupted by a message"
+	}
+	return ""
 }
 
 // ---- cancel_operations ----
@@ -554,14 +575,11 @@ func (t *cancelOperationsTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.T
 	return renderOperations(response.GetOperations()), true
 }
 
-func (t *cancelOperationsTool) RenderHeader(*aipb.ToolCall) (string, bool) {
-	return agentIcon + " cancel operations", true
+func (t *cancelOperationsTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	return t.m.summarizeOperations("Cancel", toolCall, toolResult, &sgptpb.CancelOperationsResponse{}), true
 }
 
 // ---- rendering ----
-
-// agentIcon marks sub-agent activity; distinct from the model's 🤖.
-const agentIcon = "👥"
 
 // StateGlyph is the one-character state marker shared by the timeline and
 // the TUI's agent views.
@@ -583,15 +601,95 @@ func StateGlyph(state sgptpb.AgentOperation_State) string {
 	return "?"
 }
 
+// stateWords name the states in outcomes, most actionable first.
+var stateWords = []struct {
+	state sgptpb.AgentOperation_State
+	word  string
+}{
+	{sgptpb.AgentOperation_STATE_AWAITING_REVIEW, "in review"},
+	{sgptpb.AgentOperation_STATE_RUNNING, "running"},
+	{sgptpb.AgentOperation_STATE_QUEUED, "queued"},
+	{sgptpb.AgentOperation_STATE_FAILED, "failed"},
+	{sgptpb.AgentOperation_STATE_CANCELLED, "cancelled"},
+	{sgptpb.AgentOperation_STATE_SUCCEEDED, "done"},
+}
+
+func stateWord(state sgptpb.AgentOperation_State) string {
+	for _, stateWord := range stateWords {
+		if stateWord.state == state {
+			return stateWord.word
+		}
+	}
+	return "unknown"
+}
+
+// summarizeStates counts operations per state ("2 running · 1 done"); failed
+// reports whether any of them failed.
+func summarizeStates(ops []*sgptpb.AgentOperation) (outcome string, failed bool) {
+	if len(ops) == 1 {
+		state := ops[0].GetState()
+		return stateWord(state), state == sgptpb.AgentOperation_STATE_FAILED
+	}
+	stateToCount := map[sgptpb.AgentOperation_State]int{}
+	for _, op := range ops {
+		stateToCount[op.GetState()]++
+	}
+	parts := make([]string, 0, len(stateToCount))
+	for _, stateWord := range stateWords {
+		if count := stateToCount[stateWord.state]; count > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", count, stateWord.word))
+		}
+	}
+	return strings.Join(parts, " · "), stateToCount[sgptpb.AgentOperation_STATE_FAILED] > 0
+}
+
+// operationsResponse is the response shape shared by the operation tools.
+type operationsResponse interface {
+	proto.Message
+	GetOperations() []*sgptpb.AgentOperation
+}
+
+// summarizeOperations is the summary shared by the operation tools: the
+// operations' titles (all of them when unnamed) and their recorded states.
+func (m *Manager) summarizeOperations(verb string, toolCall *aipb.ToolCall, toolResult *aipb.ToolResult, response operationsResponse) tool.Summary {
+	summary := tool.Summary{Verb: verb, Subject: "all"}
+	if names := tool.StringList(tool.Argument(toolCall, "names")); len(names) > 0 {
+		summary.Subject = strings.Join(m.operationTitles(names), ", ")
+	}
+	if toolResult != nil && tool.UnmarshalResult(toolResult, response) == nil {
+		if ops := response.GetOperations(); len(ops) > 0 {
+			summary.Outcome, summary.Failed = summarizeStates(ops)
+		} else {
+			summary.Outcome = "none"
+		}
+	}
+	return summary
+}
+
+// operationTitles resolves operation names to their sub-agents' titles,
+// keeping the name of any it doesn't know.
+func (m *Manager) operationTitles(names []string) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	titles := make([]string, 0, len(names))
+	for _, name := range names {
+		if op, ok := m.nameToOperation[name]; ok {
+			name = op.subAgent.title
+		}
+		titles = append(titles, name)
+	}
+	return titles
+}
+
 // renderOperations renders operations as markdown: a state line each, with
 // the report or error of finished ones below it.
 func renderOperations(ops []*sgptpb.AgentOperation) string {
 	var b strings.Builder
 	for _, op := range ops {
-		fmt.Fprintf(&b, "%s **%s** `%s`\n\n", StateGlyph(op.GetState()), op.GetTitle(), op.GetName())
+		fmt.Fprintf(&b, "%s **%s** · %s\n\n", StateGlyph(op.GetState()), op.GetTitle(), op.GetName())
 		switch {
 		case op.GetError() != "":
-			fmt.Fprintf(&b, "**%s:** %s\n\n", strings.ToLower(strings.TrimPrefix(op.GetState().String(), "STATE_")), op.GetError())
+			fmt.Fprintf(&b, "%s\n\n", op.GetError())
 		case op.GetResponse() != "":
 			b.WriteString(op.GetResponse())
 			b.WriteString("\n\n")
@@ -603,16 +701,16 @@ func renderOperations(ops []*sgptpb.AgentOperation) string {
 var (
 	_ tool.RequestRenderer = (*createAgentsTool)(nil)
 	_ tool.ResultRenderer  = (*createAgentsTool)(nil)
-	_ tool.HeaderRenderer  = (*createAgentsTool)(nil)
+	_ tool.Summarizer      = (*createAgentsTool)(nil)
 	_ tool.LiveRenderer    = (*createAgentsTool)(nil)
-	_ tool.LiveRenderer    = (*messageAgentTool)(nil)
 	_ tool.RequestRenderer = (*messageAgentTool)(nil)
 	_ tool.ResultRenderer  = (*messageAgentTool)(nil)
-	_ tool.HeaderRenderer  = (*messageAgentTool)(nil)
+	_ tool.Summarizer      = (*messageAgentTool)(nil)
+	_ tool.LiveRenderer    = (*messageAgentTool)(nil)
 	_ tool.ResultRenderer  = (*getOperationsTool)(nil)
-	_ tool.HeaderRenderer  = (*getOperationsTool)(nil)
+	_ tool.Summarizer      = (*getOperationsTool)(nil)
 	_ tool.ResultRenderer  = (*waitOperationsTool)(nil)
-	_ tool.HeaderRenderer  = (*waitOperationsTool)(nil)
+	_ tool.Summarizer      = (*waitOperationsTool)(nil)
 	_ tool.ResultRenderer  = (*cancelOperationsTool)(nil)
-	_ tool.HeaderRenderer  = (*cancelOperationsTool)(nil)
+	_ tool.Summarizer      = (*cancelOperationsTool)(nil)
 )

@@ -175,7 +175,14 @@ func (m *Manager) liveSnapshots(recorded []*sgptpb.AgentOperation) []*sgptpb.Age
 func (m *Manager) renderVersion() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return fmt.Sprint(m.revision)
+	version := fmt.Sprint(m.revision)
+	// Entering or leaving review doesn't broadcast, yet changes rendered states.
+	for i, op := range m.operations {
+		if op.launched && !op.done && op.subAgent.handle.AwaitingReview() {
+			version += fmt.Sprintf(".%d", i)
+		}
+	}
+	return version
 }
 
 // launch waits for a slot, opens the sub-agent and runs its first turn on
