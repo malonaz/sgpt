@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,7 @@ import (
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
@@ -34,6 +36,35 @@ type openTabMsg struct {
 	screen screen.Screen
 	// background opens the tab without focusing it.
 	background bool
+	// launcher, for a sub-agent's tab, places it in its launcher's subtree.
+	launcher tool.Agent
+}
+
+// confirmation is a pending yes/no modal guarding an action.
+type confirmation struct {
+	title  string
+	body   string
+	action func() tea.Cmd
+}
+
+// agentDirectory serves the sub-agent tree to chat screens; the manager is
+// set after the App is built, and may never be.
+type agentDirectory struct {
+	manager *agent.Manager
+}
+
+func (d *agentDirectory) Children(parent tool.Agent) []agent.Status {
+	if d.manager == nil {
+		return nil
+	}
+	return d.manager.Children(parent)
+}
+
+func (d *agentDirectory) Parent(child tool.Agent) tool.Agent {
+	if d.manager == nil {
+		return nil
+	}
+	return d.manager.Parent(child)
 }
 
 // AgentSessionFactory builds a ready-to-run session for a sub-agent launch
@@ -47,23 +78,25 @@ type tab struct {
 }
 
 var (
-	keyQuit     = keymap.New("ctrl+c", "Quit")
-	keyNewTab   = keymap.New("ctrl+t", "New chat tab")
-	keyCloseTab = keymap.New("ctrl+w", "Close tab")
-	keyPrevTab  = keymap.New("alt+j", "Previous tab")
-	keyNextTab  = keymap.New("alt+;", "Next tab")
-	keyOpenMenu = keymap.New("alt+m", "Open menu")
-	keyCopyName = keymap.New("alt+c", "Copy chat name")
-	keyHelp     = keymap.New("alt+h", "Toggle this help")
-	keyTab1     = key.NewBinding(key.WithKeys("alt+f1"))
-	keyTab2     = key.NewBinding(key.WithKeys("alt+f2"))
-	keyTab3     = key.NewBinding(key.WithKeys("alt+f3"))
-	keyTab4     = key.NewBinding(key.WithKeys("alt+f4"))
-	keyTab5     = key.NewBinding(key.WithKeys("alt+f5"))
-	keyTab6     = key.NewBinding(key.WithKeys("alt+f6"))
-	keyTab7     = key.NewBinding(key.WithKeys("alt+f7"))
-	keyTab8     = key.NewBinding(key.WithKeys("alt+f8"))
-	keyTab9     = key.NewBinding(key.WithKeys("alt+f9"))
+	keyQuit           = keymap.New("ctrl+c", "Quit (asks first; cancels the active chat's turn instead)")
+	keyNewTab         = keymap.New("ctrl+t", "New chat tab")
+	keyCloseTab       = keymap.New("ctrl+w", "Close tab (asks first if it is still working)")
+	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close every idle sub-agent tab")
+	keyConfirm        = key.NewBinding(key.WithKeys("y", "enter"))
+	keyPrevTab        = keymap.New("alt+j", "Previous tab")
+	keyNextTab        = keymap.New("alt+;", "Next tab")
+	keyOpenMenu       = keymap.New("alt+m", "Open menu")
+	keyCopyName       = keymap.New("alt+c", "Copy chat name")
+	keyHelp           = keymap.New("alt+h", "Toggle this help")
+	keyTab1           = key.NewBinding(key.WithKeys("alt+f1"))
+	keyTab2           = key.NewBinding(key.WithKeys("alt+f2"))
+	keyTab3           = key.NewBinding(key.WithKeys("alt+f3"))
+	keyTab4           = key.NewBinding(key.WithKeys("alt+f4"))
+	keyTab5           = key.NewBinding(key.WithKeys("alt+f5"))
+	keyTab6           = key.NewBinding(key.WithKeys("alt+f6"))
+	keyTab7           = key.NewBinding(key.WithKeys("alt+f7"))
+	keyTab8           = key.NewBinding(key.WithKeys("alt+f8"))
+	keyTab9           = key.NewBinding(key.WithKeys("alt+f9"))
 )
 
 var tabIndexKeys = []key.Binding{keyTab1, keyTab2, keyTab3, keyTab4, keyTab5, keyTab6, keyTab7, keyTab8, keyTab9}
@@ -76,6 +109,7 @@ type App struct {
 	defaultParams session.Params
 
 	agentSessionFactory AgentSessionFactory
+	agents              *agentDirectory
 	agentTabCounter     atomic.Int64
 	// newTabCounter uniquifies tab IDs for chats not yet persisted.
 	newTabCounter atomic.Int64
@@ -93,7 +127,10 @@ type App struct {
 	alertQueue   []string
 	alertVisible bool
 	helpVisible  bool
-	quitting     bool
+	// confirm, when non-nil, is a modal awaiting y/enter; any other key
+	// dismisses it.
+	confirm  *confirmation
+	quitting bool
 }
 
 func NewApp(
@@ -108,12 +145,13 @@ func NewApp(
 		store:         chatStore,
 		registry:      registry,
 		defaultParams: params,
+		agents:        &agentDirectory{},
 	}
 
 	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
 
 	tabID := app.tabIDForChat(chatSession.Chat())
-	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession)
+	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, app.agents)
 
 	app.tabs = []*tab{
 		{id: menuTabID, screen: menuScreen},
@@ -131,6 +169,11 @@ func (a *App) SetAgentSessionFactory(factory AgentSessionFactory) {
 	a.agentSessionFactory = factory
 }
 
+// SetAgentManager lets chat screens show and navigate the sub-agent tree.
+func (a *App) SetAgentManager(manager *agent.Manager) {
+	a.agents.manager = manager
+}
+
 // LaunchAgent implements agent.Launcher: it opens the sub-agent's tab in
 // the background — a batch would otherwise yank focus once per task while the
 // user watches the launcher. Called from a tool goroutine, never the
@@ -146,8 +189,8 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (to
 	// Chat names are assigned lazily on first save; use a local counter for a
 	// unique tab ID.
 	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
-	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
-	a.program.Send(openTabMsg{id: tabID, screen: chatScreen, background: true})
+	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, a.agents)
+	a.program.Send(openTabMsg{id: tabID, screen: chatScreen, background: true, launcher: request.Caller.Agent})
 	return chatSession, nil
 }
 
@@ -174,7 +217,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.displayNextAlert()
 
 	case openTabMsg:
-		return a, a.addTab(msg.id, msg.screen, msg.background)
+		return a, a.addTab(msg)
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -195,7 +238,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case screen.OpenChatMsg:
 					return a, a.openChat(innerMsg)
 				case screen.CloseTabMsg:
-					return a, a.closeTab(msg.TabID)
+					return a, a.requestCloseTab(msg.TabID)
 				default:
 					cmd := t.screen.Update(innerMsg)
 					return a, cmd
@@ -214,10 +257,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.focusMenu()
 
 	case screen.CloseTabMsg:
-		return a, a.closeTab(msg.TabID)
+		return a, a.requestCloseTab(msg.TabID)
+
+	case screen.FocusAgentMsg:
+		return a, a.focusAgent(msg)
 
 	case tea.KeyPressMsg:
-		// The help modal swallows every key: alt+h opens, anything closes.
+		// Modals swallow every key: y/enter confirms, anything else cancels.
+		if confirm := a.confirm; confirm != nil {
+			a.confirm = nil
+			if key.Matches(msg, keyConfirm) {
+				return a, confirm.action()
+			}
+			return a, nil
+		}
+		// alt+h opens help, anything closes it.
 		if a.helpVisible {
 			a.helpVisible = false
 			return a, nil
@@ -246,8 +300,8 @@ func (a *App) View() tea.View {
 		return tea.NewView("Initializing...")
 	}
 
-	if a.helpVisible {
-		view := tea.NewView(keymap.RenderHelp(a.keymaps(), a.width, a.height))
+	if modal := a.modalView(); modal != "" {
+		view := tea.NewView(modal)
 		view.AltScreen = true
 		view.ReportFocus = true
 		return view
@@ -275,14 +329,24 @@ func (a *App) View() tea.View {
 	return view
 }
 
+func (a *App) modalView() string {
+	switch {
+	case a.confirm != nil:
+		return widget.RenderConfirm(a.confirm.title, a.confirm.body, a.width, a.height)
+	case a.helpVisible:
+		return keymap.RenderHelp(a.keymaps(), a.width, a.height)
+	}
+	return ""
+}
+
 // keymaps composes the global bindings with the active screen's, so the help
 // modal always reflects exactly what is currently reachable.
 func (a *App) keymaps() []keymap.Map {
 	maps := []keymap.Map{{
 		Name: "Global",
 		Bindings: []keymap.Binding{
-			keyHelp, keyQuit, keyNewTab, keyCloseTab, keyPrevTab, keyNextTab,
-			keyOpenMenu, keyCopyName,
+			keyHelp, keyQuit, keyNewTab, keyCloseTab, keyCloseAgentTabs, keyPrevTab,
+			keyNextTab, keyOpenMenu, keyCopyName,
 		},
 	}}
 	if a.activeTab < len(a.tabs) {
@@ -296,17 +360,18 @@ func (a *App) keymaps() []keymap.Map {
 func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyQuit.Key):
-		if a.activeTab < len(a.tabs) {
-			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok && chatScreen.IsStreaming() {
-				break
-			}
+		// The active chat's turn — review pauses included — takes ctrl+c
+		// to cancel it.
+		if chatScreen := a.activeChat(); chatScreen != nil && chatScreen.Session().TurnInFlight() {
+			return nil
 		}
-		a.quitting = true
-		return tea.Quit
+		return a.requestQuit()
 	case key.Matches(msg, keyNewTab.Key):
 		return a.createNewChat()
 	case key.Matches(msg, keyCloseTab.Key):
-		return a.closeTab("")
+		return a.requestCloseTab("")
+	case key.Matches(msg, keyCloseAgentTabs.Key):
+		return a.closeIdleAgentTabs()
 	case key.Matches(msg, keyNextTab.Key):
 		return a.switchTab(a.activeTab + 1)
 	case key.Matches(msg, keyPrevTab.Key):
@@ -314,13 +379,10 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, keyOpenMenu.Key):
 		return a.focusMenu()
 	case key.Matches(msg, keyCopyName.Key):
-		if a.activeTab < len(a.tabs) {
-			if chatScreen, ok := a.tabs[a.activeTab].screen.(*screen.ChatScreen); ok {
-				chatName := chatScreen.Session().Chat().GetName()
-				if chatName != "" {
-					clipboard.Write(clipboard.FmtText, []byte(chatName))
-					return a.showAlert("Copied chat name: " + chatName)
-				}
+		if chatScreen := a.activeChat(); chatScreen != nil {
+			if chatName := chatScreen.Session().Chat().GetName(); chatName != "" {
+				clipboard.Write(clipboard.FmtText, []byte(chatName))
+				return a.showAlert("Copied chat name: " + chatName)
 			}
 		}
 		return nil
@@ -346,36 +408,161 @@ func (a *App) switchTab(index int) tea.Cmd {
 	return a.tabs[a.activeTab].screen.OnFocus()
 }
 
-func (a *App) closeTab(tabID string) tea.Cmd {
-	removeIndex := a.activeTab
-	if tabID != "" {
-		for i, t := range a.tabs {
-			if t.id == tabID {
-				removeIndex = i
-				break
-			}
-		}
+func (a *App) activeChat() *screen.ChatScreen {
+	if a.activeTab < len(a.tabs) {
+		chatScreen, _ := a.tabs[a.activeTab].screen.(*screen.ChatScreen)
+		return chatScreen
 	}
-	if a.isMenuTab(removeIndex) {
-		return nil
-	}
-	nonMenuTabs := 0
+	return nil
+}
+
+// chats returns the chat screens of every open tab.
+func (a *App) chats() []*screen.ChatScreen {
+	var chats []*screen.ChatScreen
 	for _, t := range a.tabs {
-		if t.id != menuTabID {
-			nonMenuTabs++
+		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
+			chats = append(chats, chatScreen)
 		}
 	}
-	if nonMenuTabs <= 1 {
+	return chats
+}
+
+func (a *App) tabIndex(tabID string) int {
+	return slices.IndexFunc(a.tabs, func(t *tab) bool { return t.id == tabID })
+}
+
+// agentTabIndex finds the tab of an agent's chat; -1 once it is closed.
+func (a *App) agentTabIndex(target tool.Agent) int {
+	return slices.IndexFunc(a.tabs, func(t *tab) bool {
+		chatScreen, ok := t.screen.(*screen.ChatScreen)
+		return ok && chatScreen.Session() == target
+	})
+}
+
+func (a *App) tabDepth(index int) int {
+	if chatScreen, ok := a.tabs[index].screen.(*screen.ChatScreen); ok {
+		return chatScreen.Session().Params().Depth
+	}
+	return 0
+}
+
+func (a *App) focusAgent(msg screen.FocusAgentMsg) tea.Cmd {
+	if index := a.agentTabIndex(msg.Agent); index >= 0 {
+		return a.switchTab(index)
+	}
+	return a.showAlert(fmt.Sprintf("%s: its tab was closed", msg.Title))
+}
+
+// requestQuit asks before quitting: never exit on a single keystroke.
+func (a *App) requestQuit() tea.Cmd {
+	inFlight := 0
+	for _, chatScreen := range a.chats() {
+		if chatScreen.Session().TurnInFlight() {
+			inFlight++
+		}
+	}
+	body := "No chat has a turn in flight."
+	switch {
+	case inFlight == 1:
+		body = "1 chat still has a turn in flight; quitting cancels it."
+	case inFlight > 1:
+		body = fmt.Sprintf("%d chats still have a turn in flight; quitting cancels them.", inFlight)
+	}
+	a.confirm = &confirmation{title: "Quit sgpt?", body: body, action: func() tea.Cmd {
 		a.quitting = true
 		return tea.Quit
+	}}
+	return nil
+}
+
+// requestCloseTab closes a tab (the active one for an empty ID), asking first
+// when that would quit or cut work short.
+func (a *App) requestCloseTab(tabID string) tea.Cmd {
+	index := a.activeTab
+	if tabID != "" {
+		index = a.tabIndex(tabID)
 	}
-	a.tabs[removeIndex].screen.OnBlur()
+	if index < 0 || a.isMenuTab(index) {
+		return nil
+	}
+	if len(a.chats()) <= 1 {
+		return a.requestQuit()
+	}
+	t := a.tabs[index]
+	chatScreen, ok := t.screen.(*screen.ChatScreen)
+	if !ok {
+		return a.closeTab(t.id)
+	}
+	var work []string
+	if chatScreen.Session().TurnInFlight() {
+		work = append(work, "its turn is in flight")
+	}
+	if working := a.workingSubAgents(chatScreen.Session()); working > 0 {
+		work = append(work, fmt.Sprintf("%d of its sub-agents are working", working))
+	}
+	if len(work) == 0 {
+		return a.closeTab(t.id)
+	}
+	a.confirm = &confirmation{
+		title:  fmt.Sprintf("Close %q?", t.screen.Title()),
+		body:   "Closing cancels it: " + strings.Join(work, " and ") + ".",
+		action: func() tea.Cmd { return a.closeTab(t.id) },
+	}
+	return nil
+}
+
+func (a *App) workingSubAgents(launcher tool.Agent) int {
+	working := 0
+	for _, child := range a.agents.Children(launcher) {
+		switch child.State {
+		case sgptpb.AgentOperation_STATE_QUEUED, sgptpb.AgentOperation_STATE_RUNNING, sgptpb.AgentOperation_STATE_AWAITING_REVIEW:
+			working++
+		}
+	}
+	return working
+}
+
+// closeIdleAgentTabs closes every sub-agent tab whose turn is over; their
+// launchers can no longer message them.
+func (a *App) closeIdleAgentTabs() tea.Cmd {
+	var tabIDs []string
+	for _, t := range a.tabs {
+		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok &&
+			chatScreen.Session().Params().Depth > 0 && !chatScreen.Session().TurnInFlight() {
+			tabIDs = append(tabIDs, t.id)
+		}
+	}
+	if len(tabIDs) == 0 {
+		return a.showAlert("No idle sub-agent tabs")
+	}
+	cmds := make([]tea.Cmd, 0, len(tabIDs)+1)
+	for _, tabID := range tabIDs {
+		cmds = append(cmds, a.closeTab(tabID))
+	}
+	cmds = append(cmds, a.showAlert(fmt.Sprintf("Closed %d sub-agent tabs", len(tabIDs))))
+	return tea.Batch(cmds...)
+}
+
+func (a *App) closeTab(tabID string) tea.Cmd {
+	index := a.tabIndex(tabID)
+	if index < 0 || a.isMenuTab(index) {
+		return nil
+	}
+	closed := a.tabs[index].screen
 	// The tab is the only handle on its session: left running it would
 	// stream on unseen, or park forever on a review nobody can answer.
-	if chatScreen, ok := a.tabs[removeIndex].screen.(*screen.ChatScreen); ok {
+	if chatScreen, ok := closed.(*screen.ChatScreen); ok {
 		chatScreen.Session().Close()
 	}
-	a.tabs = append(a.tabs[:removeIndex], a.tabs[removeIndex+1:]...)
+	a.tabs = slices.Delete(a.tabs, index, index+1)
+	switch {
+	case index < a.activeTab:
+		a.activeTab--
+		return nil
+	case index > a.activeTab:
+		return nil
+	}
+	closed.OnBlur()
 	if a.activeTab >= len(a.tabs) {
 		a.activeTab = len(a.tabs) - 1
 	}
@@ -385,17 +572,32 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 	return a.tabs[a.activeTab].screen.OnFocus()
 }
 
-func (a *App) addTab(id string, s screen.Screen, background bool) tea.Cmd {
-	s.SetSize(a.width, a.contentHeight())
-	a.tabs = append(a.tabs, &tab{id: id, screen: s})
-	if background {
-		return s.Init()
+func (a *App) addTab(msg openTabMsg) tea.Cmd {
+	msg.screen.SetSize(a.width, a.contentHeight())
+	index := a.insertionIndex(msg.launcher)
+	a.tabs = slices.Insert(a.tabs, index, &tab{id: msg.id, screen: msg.screen})
+	if index <= a.activeTab {
+		a.activeTab++
 	}
-	if a.activeTab < len(a.tabs)-1 {
-		a.tabs[a.activeTab].screen.OnBlur()
+	if msg.background {
+		return msg.screen.Init()
 	}
-	a.activeTab = len(a.tabs) - 1
-	return tea.Batch(s.Init(), s.OnFocus())
+	a.tabs[a.activeTab].screen.OnBlur()
+	a.activeTab = index
+	return tea.Batch(msg.screen.Init(), msg.screen.OnFocus())
+}
+
+// insertionIndex places a sub-agent's tab after its launcher's subtree, so
+// tabs read as a tree; any other tab goes last.
+func (a *App) insertionIndex(launcher tool.Agent) int {
+	index := a.agentTabIndex(launcher)
+	if index < 0 {
+		return len(a.tabs)
+	}
+	depth := a.tabDepth(index)
+	for index++; index < len(a.tabs) && a.tabDepth(index) > depth; index++ {
+	}
+	return index
 }
 
 func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
@@ -436,7 +638,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		tabID := a.tabIDForChat(chat)
 
 		chatSession := session.New(a.ctx, a.store, a.registry, chat, messages, params)
-		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
+		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, a.agents)
 		return openTabMsg{id: tabID, screen: chatScreen}
 	}
 }
@@ -503,20 +705,13 @@ func (a *App) contentHeight() int {
 }
 
 func (a *App) renderTabBar() string {
-	var tabs []widget.Tab
+	tabs := make([]widget.Tab, len(a.tabs))
 	for i, t := range a.tabs {
-		var streaming, reviewing bool
+		tabs[i] = widget.Tab{ID: t.id, Title: t.screen.ShortTitle(), Active: i == a.activeTab}
 		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
-			streaming = chatScreen.IsStreaming()
-			reviewing = chatScreen.IsAwaitingReview()
+			tabs[i].State = chatScreen.TabState()
+			tabs[i].Depth = chatScreen.Session().Params().Depth
 		}
-		tabs = append(tabs, widget.Tab{
-			ID:        t.id,
-			Title:     t.screen.ShortTitle(),
-			Active:    i == a.activeTab,
-			Streaming: streaming,
-			Reviewing: reviewing,
-		})
 	}
 	return widget.RenderTabBar(tabs, a.width)
 }

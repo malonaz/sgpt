@@ -42,6 +42,7 @@ var (
 	MessageColor           = lipgloss.Color("#E5E7EB")
 	ThoughtColor           = lipgloss.Color("#FCD34D")
 	FileColor              = lipgloss.Color("#F472B6")
+	AgentColor             = lipgloss.Color("#A3E635")
 	BorderColor            = lipgloss.Color("#4B5563")
 	DividerColor           = lipgloss.Color("#374151")
 	CodeBgColor            = lipgloss.Color("#374151")
@@ -102,6 +103,9 @@ var (
 			BorderForeground(SecondaryColor).
 			MarginRight(10)
 
+	// AgentMessageStyle frames messages other agents sent into this chat.
+	AgentMessageStyle = UserMessageStyle.BorderForeground(AgentColor)
+
 	AIThoughtStyle = lipgloss.NewStyle().
 			Inherit(AIMessageStyle).
 			BorderForeground(ThoughtColor)
@@ -112,6 +116,10 @@ var (
 
 	UserLabelStyle = lipgloss.NewStyle().
 			Foreground(SuccessColor).
+			Bold(true)
+
+	AgentLabelStyle = lipgloss.NewStyle().
+			Foreground(AgentColor).
 			Bold(true)
 
 	AILabelStyle = lipgloss.NewStyle().

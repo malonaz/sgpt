@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/cli/tui/editor"
@@ -15,8 +16,12 @@ import (
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/timeline"
 	"github.com/malonaz/sgpt/cli/tui/widget"
+	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/file"
+	"github.com/malonaz/sgpt/internal/review"
 	"github.com/malonaz/sgpt/internal/session"
+	"github.com/malonaz/sgpt/internal/tool"
+	"github.com/malonaz/sgpt/internal/tool/agent"
 )
 
 type FocusedComponent int
@@ -37,7 +42,7 @@ var (
 	chatKeyAcceptAll      = keymap.New("alt+shift+y", "Accept all pending tool calls")
 	chatKeyAlwaysAccept   = keymap.New("alt+shift+a", "Always accept this tool (session)")
 	chatKeyReject         = keymap.New("alt+shift+r", "Reject tool call under review (input text = reason)")
-	chatKeyCancel         = keymap.New("ctrl+c", "Cancel stream / close tab")
+	chatKeyCancel         = keymap.New("ctrl+c", "Cancel the running turn (and its sub-agents')")
 	chatKeyCycleReasoning = keymap.New("alt+t", "Cycle reasoning effort")
 	chatKeyToggleFavorite = keymap.New("alt+shift+f", "Toggle favorite")
 	chatKeyOpenAll        = keymap.New("alt+shift+o", "Open entire chat in $EDITOR")
@@ -47,10 +52,15 @@ var (
 	chatKeyDeleteBelow    = keymap.New("alt+shift+d", "Delete selected message and everything below it")
 	chatKeyEditMessage    = keymap.New("alt+e", "Edit selected user message and resend (truncates below)")
 	chatKeyInfo           = keymap.New("alt+i", "Show chat info (context, tokens, cost)")
+	chatKeyFocusLauncher  = keymap.New("alt+u", "Go to the launcher's tab")
+	chatKeyNextAgent      = keymap.New("alt+g", "Go to the next sub-agent's tab (awaiting review first)")
 )
+
+var reviewGlyphStyle = lipgloss.NewStyle().Foreground(styles.AccentColor).Bold(true)
 
 type ChatScreen struct {
 	session *session.Session
+	agents  AgentDirectory
 	wrap    WrapFunc
 	send    SendFunc
 
@@ -76,14 +86,26 @@ type ChatScreen struct {
 	ready            bool
 	focused          bool
 	focusedComponent FocusedComponent
-	// lastState detects the transition into review, to auto-jump exactly once.
-	lastState session.State
+	// seenReviews are the pending tool calls already announced: each new one
+	// jumps or alerts exactly once.
+	seenReviews map[string]bool
+	// agentCursor is the sub-agent alt+g last went to.
+	agentCursor int
+	// turnInFlight is the last observed TurnInFlight, to catch turns ending.
+	turnInFlight bool
+	// unread is the outcome of a turn that ended while the tab was unfocused.
+	unread widget.TabState
+	// Decided at layout time, so View never renders a line the layout did
+	// not reserve.
+	showStatus bool
+	showAgents bool
 }
 
 func NewChatScreen(
 	wrap WrapFunc,
 	send SendFunc,
 	chatSession *session.Session,
+	agents AgentDirectory,
 ) *ChatScreen {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -91,6 +113,7 @@ func NewChatScreen(
 
 	cs := &ChatScreen{
 		session:          chatSession,
+		agents:           agents,
 		wrap:             wrap,
 		send:             send,
 		titlebar:         widget.NewTitleBar(),
@@ -99,6 +122,7 @@ func NewChatScreen(
 		input:            widget.NewInput(),
 		spinner:          sp,
 		focusedComponent: FocusTextarea,
+		agentCursor:      -1,
 	}
 	cs.refreshTitle()
 	cs.lastInputHeight = cs.input.Height()
@@ -151,6 +175,7 @@ func (m *ChatScreen) Keymaps() []keymap.Map {
 			chatKeyCycleReasoning, chatKeyToggleFavorite,
 			chatKeyOpenAll, chatKeyPickTools, chatKeyPickFiles,
 			chatKeyDeleteMessage, chatKeyDeleteBelow, chatKeyEditMessage, chatKeyInfo,
+			chatKeyFocusLauncher, chatKeyNextAgent,
 		}},
 		timeline.Keymap(),
 		widget.InputKeymap(),
@@ -168,18 +193,21 @@ func (m *ChatScreen) SetSize(width, height int) {
 
 func (m *ChatScreen) OnFocus() tea.Cmd {
 	m.focused = true
+	m.unread = widget.TabIdle
+	// Ticks reach only the active tab, so a background spinner's chain died.
+	cmds := []tea.Cmd{m.spinner.Tick}
 	// Arriving at a tab that paused for review while in the background:
 	// land on the call, as if the pause had happened in view.
-	if m.IsAwaitingReview() && m.input.Value() == "" {
+	if m.session.State() == session.StateAwaitingReview && m.input.Value() == "" {
 		if toolCallID := m.reviewTarget(); toolCallID != "" {
 			m.focusToolCall(toolCallID)
-			return nil
+			return tea.Batch(cmds...)
 		}
 	}
 	if m.focusedComponent == FocusTextarea {
-		return m.input.Focus()
+		cmds = append(cmds, m.input.Focus())
 	}
-	return nil
+	return tea.Batch(cmds...)
 }
 
 func (m *ChatScreen) OnBlur() {
@@ -187,16 +215,16 @@ func (m *ChatScreen) OnBlur() {
 	m.input.Blur()
 }
 
-// IsStreaming reports whether the session is busy — drives the tab indicator
-// and the quit guard.
-func (m *ChatScreen) IsStreaming() bool {
-	return m.session.Busy()
-}
-
-// IsAwaitingReview reports whether a tool call is parked on the user's
-// verdict — drives the tab indicator so a background sub-agent is noticed.
-func (m *ChatScreen) IsAwaitingReview() bool {
-	return m.session.State() == session.StateAwaitingReview
+// TabState is the activity the tab label signals, so background chats are
+// noticed.
+func (m *ChatScreen) TabState() widget.TabState {
+	switch {
+	case m.session.State() == session.StateAwaitingReview:
+		return widget.TabReviewing
+	case m.session.TurnInFlight():
+		return widget.TabBusy
+	}
+	return m.unread
 }
 
 func (m *ChatScreen) Session() *session.Session {
@@ -267,6 +295,7 @@ func (m *ChatScreen) handleSessionEvent(event session.Event) tea.Cmd {
 	}
 	if _, ok := event.(session.RefreshEvent); ok {
 		m.refresh()
+		m.noteTurnEnd()
 		cmds = append(cmds, m.maybeJumpToReview())
 	}
 	return tea.Batch(cmds...)
@@ -319,6 +348,10 @@ func (m *ChatScreen) handleKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 		return m.deleteMessagesBelowSelected()
 	case key.Matches(msg, chatKeyEditMessage.Key):
 		return m.editSelectedMessage()
+	case key.Matches(msg, chatKeyFocusLauncher.Key):
+		return m.focusLauncher()
+	case key.Matches(msg, chatKeyNextAgent.Key):
+		return m.focusNextAgent()
 	case key.Matches(msg, chatKeyInfo.Key):
 		// Snapshotted on open: the modal is a still frame, so a streaming
 		// turn never mutates the numbers under the reader's eyes.
@@ -377,9 +410,7 @@ func (m *ChatScreen) submit() tea.Cmd {
 	}
 	cmds = append(cmds, m.spinner.Tick, func() tea.Msg {
 		// Queues an interjection when a turn is in flight; starts a turn
-		// otherwise. Refreshes arrive on the session event channel; emitting
-		// one here too would double-invoke maybeJumpToReview and can consume
-		// the idle→review edge it keys off.
+		// otherwise. Refreshes arrive on the session event channel.
 		sess.SendMessage(text)
 		return nil
 	})
@@ -524,32 +555,125 @@ func (m *ChatScreen) deletableSelection(keyHint string) (string, tea.Cmd) {
 	return messageName, nil
 }
 
-// maybeJumpToReview focuses a pending tool call when a turn pauses for review,
-// so the user lands directly on what needs their verdict. A background tab
-// cannot grab focus, so it raises an alert instead.
+// maybeJumpToReview announces each newly pending review: a focused chat lands
+// on the call, a background one alerts.
 func (m *ChatScreen) maybeJumpToReview() tea.Cmd {
-	state := m.session.State()
-	entered := state == session.StateAwaitingReview && m.lastState != session.StateAwaitingReview
-	m.lastState = state
-	if !entered {
-		return nil
-	}
-	if !m.focused {
-		// A sub-agent's review also surfaces in the root chat, which alerts.
-		if m.session.ReviewsEscalate() {
-			return nil
+	pending := m.session.PendingReviews()
+	seen := make(map[string]bool, len(pending))
+	var fresh []*review.Request
+	for _, request := range pending {
+		toolCallID := request.ToolCall.GetId()
+		seen[toolCallID] = true
+		if !m.seenReviews[toolCallID] {
+			fresh = append(fresh, request)
 		}
-		return m.alert(fmt.Sprintf("%s: tool call awaits your review", m.Title()))
+	}
+	m.seenReviews = seen
+	if len(fresh) == 0 {
+		return nil
 	}
 	// Don't steal focus mid-composition: blurring the input silently drops
 	// keystrokes into the timeline while the user is typing a message.
-	if m.input.Value() != "" {
+	if m.focused && m.input.Value() == "" {
+		if !m.pendingReviewSelected(seen) {
+			m.focusToolCall(fresh[0].ToolCall.GetId())
+		}
 		return nil
 	}
-	if toolCallID := m.reviewTarget(); toolCallID != "" {
-		m.focusToolCall(toolCallID)
+	// A sub-agent's review also surfaces in the root chat, which alerts.
+	if !m.focused && m.session.ReviewsEscalate() {
+		return nil
 	}
-	return nil
+	cmds := make([]tea.Cmd, len(fresh))
+	for i, request := range fresh {
+		origin := request.Origin
+		if origin == "" {
+			origin = m.Title()
+		}
+		cmds[i] = m.alert(fmt.Sprintf("%s: tool call awaits your review", origin))
+	}
+	return tea.Batch(cmds...)
+}
+
+// pendingReviewSelected reports whether the timeline cursor already rests on
+// a call awaiting review — the user is mid-verdict, so a newer one waits.
+func (m *ChatScreen) pendingReviewSelected(pending map[string]bool) bool {
+	if m.focusedComponent != FocusViewport {
+		return false
+	}
+	item, ok := m.timeline.SelectedItem().(*timeline.ToolCallItem)
+	return ok && pending[item.ToolCall.GetId()]
+}
+
+// noteTurnEnd records how a turn ended out of sight, until the tab is focused.
+func (m *ChatScreen) noteTurnEnd() {
+	inFlight := m.session.TurnInFlight()
+	ended := m.turnInFlight && !inFlight
+	m.turnInFlight = inFlight
+	if !ended || m.focused {
+		return
+	}
+	m.unread = widget.TabDone
+	if err := m.session.StreamError(); err != nil && !session.IsCancelError(err) {
+		m.unread = widget.TabFailed
+	}
+}
+
+// focusLauncher asks for the tab of the agent that launched this chat.
+func (m *ChatScreen) focusLauncher() tea.Cmd {
+	var launcher tool.Agent
+	if m.agents != nil {
+		launcher = m.agents.Parent(m.session)
+	}
+	if launcher == nil {
+		return m.alert("This chat was not launched by an agent")
+	}
+	return focusAgent(launcher, agentTitle(launcher))
+}
+
+// focusNextAgent asks for the tab of the next sub-agent, those awaiting
+// review first.
+func (m *ChatScreen) focusNextAgent() tea.Cmd {
+	children := m.children()
+	if len(children) == 0 {
+		return m.alert("This chat has no sub-agents")
+	}
+	m.agentCursor = nextAgent(children, m.agentCursor)
+	child := children[m.agentCursor]
+	if child.Agent == nil {
+		return m.alert(fmt.Sprintf("%s has not launched yet", child.Title))
+	}
+	return focusAgent(child.Agent, child.Title)
+}
+
+// nextAgent picks the sub-agent after index after, preferring one awaiting
+// review; otherwise the next in launch order.
+func nextAgent(children []agent.Status, after int) int {
+	for i := 1; i <= len(children); i++ {
+		if j := (after + i) % len(children); children[j].State == sgptpb.AgentOperation_STATE_AWAITING_REVIEW {
+			return j
+		}
+	}
+	return (after + 1) % len(children)
+}
+
+func focusAgent(target tool.Agent, title string) tea.Cmd {
+	return func() tea.Msg { return FocusAgentMsg{Agent: target, Title: title} }
+}
+
+// agentTitle names an agent's chat, untitled until its first exchange.
+func agentTitle(target tool.Agent) string {
+	if title := target.Chat().GetTitle(); title != "" {
+		return title
+	}
+	return "launcher"
+}
+
+func (m *ChatScreen) children() []agent.Status {
+	if m.agents == nil {
+		return nil
+	}
+	return m.agents.Children(m.session)
 }
 
 // focusToolCall moves timeline focus onto the given call's item.
@@ -715,20 +839,9 @@ func (m *ChatScreen) buildItems() []timeline.Item {
 	// Interjections render at the bottom until the turn consumes them into
 	// the history proper.
 	for i, queuedMessage := range m.session.QueuedMessages() {
-		items = append(items, timeline.NewQueuedItem(fmt.Sprintf("queued-%d", i), messageText(queuedMessage)))
+		items = append(items, timeline.NewQueuedItem(fmt.Sprintf("queued-%d", i), queuedMessage))
 	}
 	return items
-}
-
-// messageText joins a message's text blocks for single-line display.
-func messageText(message *aipb.Message) string {
-	var parts []string
-	for _, block := range message.GetBlocks() {
-		if block.GetText() != "" {
-			parts = append(parts, block.GetText())
-		}
-	}
-	return strings.Join(parts, " ")
 }
 
 func (m *ChatScreen) refresh() {
@@ -763,10 +876,15 @@ func (m *ChatScreen) recalculateLayout() {
 
 	m.titlebar.SetWidth(m.width)
 
-	// The input stays visible while busy — interjections are typed mid-turn —
-	// with a one-line status (spinner) above it.
+	// The input stays visible mid-turn — interjections are typed then — with
+	// a one-line status above it, and the agent strip above that.
+	m.showStatus = m.session.TurnInFlight() || m.session.State() == session.StateAwaitingReview
+	m.showAgents = len(m.children()) > 0 || (m.agents != nil && m.agents.Parent(m.session) != nil)
 	bottomHeight := m.input.Height()
-	if m.session.Busy() {
+	if m.showStatus {
+		bottomHeight++
+	}
+	if m.showAgents {
 		bottomHeight++
 	}
 	viewportHeight := m.height - m.titlebar.Height() - bottomHeight - 1
@@ -784,11 +902,36 @@ func (m *ChatScreen) recalculateLayout() {
 	}
 }
 
-func (m *ChatScreen) busyLabel() string {
-	if m.session.State() == session.StateExecutingTools {
-		return "executing tool... (ctrl+j: queue a message · ctrl+c: cancel)"
+// statusLine is the one-line state of the turn above the input.
+func (m *ChatScreen) statusLine() string {
+	switch m.session.State() {
+	case session.StateAwaitingReview:
+		// No spinner: nothing moves until the user answers.
+		hint := "ctrl+j: accept · alt+shift+r: reject"
+		if m.session.TurnInFlight() {
+			hint += " · ctrl+c: cancel"
+		}
+		return reviewGlyphStyle.Render("▶") + " " + styles.DimTextStyle.Render("awaiting your review ("+hint+")")
+	case session.StateExecutingTools:
+		return m.spinner.View() + " " + styles.DimTextStyle.Render("executing tool... (ctrl+j: queue a message · ctrl+c: cancel)")
 	}
-	return "thinking... (ctrl+j: queue a message · ctrl+c: cancel)"
+	return m.spinner.View() + " " + styles.DimTextStyle.Render("thinking... (ctrl+j: queue a message · ctrl+c: cancel)")
+}
+
+// agentStrip renders the chat's launcher and sub-agents with their live
+// states.
+func (m *ChatScreen) agentStrip() string {
+	var strip widget.AgentStrip
+	if launcher := m.agents.Parent(m.session); launcher != nil {
+		strip.Launcher = agentTitle(launcher)
+	}
+	for _, child := range m.children() {
+		strip.Children = append(strip.Children, widget.AgentEntry{Title: child.Title, State: child.State})
+		if child.Agent != nil {
+			strip.Price += child.Agent.Price()
+		}
+	}
+	return widget.RenderAgentStrip(strip, m.width)
 }
 
 func (m *ChatScreen) View() string {
@@ -807,10 +950,12 @@ func (m *ChatScreen) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.timeline.View())
 	b.WriteString("\n")
-	if m.session.Busy() {
-		b.WriteString(m.spinner.View())
-		b.WriteString(" ")
-		b.WriteString(styles.DimTextStyle.Render(m.busyLabel()))
+	if m.showAgents {
+		b.WriteString(m.agentStrip())
+		b.WriteString("\n")
+	}
+	if m.showStatus {
+		b.WriteString(m.statusLine())
 		b.WriteString("\n")
 	}
 	b.WriteString(m.input.View())

@@ -358,6 +358,7 @@ func NewCmd(
 				return session.New(ctx, chatStore, registry, subChat, nil, subParams), nil
 			})
 			agentManager.SetLauncher(app)
+			app.SetAgentManager(agentManager)
 			program := tea.NewProgram(app, tea.WithContext(ctx))
 			app.SetProgram(program)
 			if _, err := program.Run(); err != nil {
