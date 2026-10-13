@@ -213,3 +213,21 @@ func awaitIdle(t *testing.T, s *Session) {
 		time.Sleep(time.Millisecond)
 	}
 }
+
+// sendWithWaiter sends a user message like SendMessage, telling waiter how
+// the turn consuming it ends.
+func sendWithWaiter(s *Session, text string, waiter func(tool.TurnOutcome)) {
+	nextTurn, _ := s.enqueue(ai.NewUserMessage(ai.NewTextBlock(text)), waiter, false)
+	s.runTurns(nextTurn)
+}
+
+func awaitOutcome(t *testing.T, outcomeCh <-chan tool.TurnOutcome) tool.TurnOutcome {
+	t.Helper()
+	select {
+	case outcome := <-outcomeCh:
+		return outcome
+	case <-time.After(2 * time.Second):
+		t.Fatal("no turn outcome")
+		return tool.TurnOutcome{}
+	}
+}

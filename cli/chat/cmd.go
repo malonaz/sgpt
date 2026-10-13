@@ -166,7 +166,11 @@ func NewCmd(
 				tags = append(tags, githubRepo)
 			}
 
-			agentTool := agent.NewTool(config.GetChat().GetAgent())
+			agentManager := agent.NewManager(config.GetChat().GetAgent())
+			maxAgentTurns := int(config.GetChat().GetAgent().GetMaxAgentTurns())
+			if maxAgentTurns <= 0 {
+				maxAgentTurns = defaultMaxAgentTurns
+			}
 			// The root of every session's policy: the user's configured
 			// rules; sub-agents derive children that can only tighten it.
 			policy, err := permission.New(config.GetChat().GetPermissions())
@@ -185,15 +189,17 @@ func NewCmd(
 			registry.Register(tool.HandlerIDReadDocument, &toolio.ReadDocumentTool{})
 			registry.Register(tool.HandlerIDDiff, &diff.Tool{})
 			registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
-			// Same instance everywhere: sub-agents can spawn sub-agents.
-			registry.Register(tool.HandlerIDAgent, agentTool)
+			// Same manager everywhere: sub-agents can spawn sub-agents.
+			for handlerID, agentTool := range agentManager.Tools() {
+				registry.Register(handlerID, agentTool)
+			}
 			// search_lores searches every reachable library.
 			registry.Register(tool.HandlerIDSearchLores, searchLoresTool)
 
 			availableToolNames := tool.BuiltinNames()
 			for _, name := range tool.BuiltinNames() {
-				builtinTool, _ := tool.Builtin(name)
-				registry.AddTools(builtinTool)
+				builtinTools, _ := tool.Builtin(name)
+				registry.AddTools(builtinTools...)
 			}
 			// Engines are listed (picker candidates) but NOT dialed here:
 			// initialization happens on first enablement, via resolveTool.
@@ -215,8 +221,10 @@ func NewCmd(
 				if names, ok := resolvedToolNames[name]; ok {
 					return names, nil
 				}
-				if _, ok := tool.Builtin(name); ok {
-					resolvedToolNames[name] = []string{name}
+				if builtinTools, ok := tool.Builtin(name); ok {
+					for _, builtinTool := range builtinTools {
+						resolvedToolNames[name] = append(resolvedToolNames[name], builtinTool.GetName())
+					}
 					return resolvedToolNames[name], nil
 				}
 				toolSets, err := toolEngineManager.EnsureEngine(ctx, name)
@@ -290,6 +298,8 @@ func NewCmd(
 				ResolveTool:        resolveTool,
 				LoreNameForPath:    loreIndex.NameForPath,
 				Policy:             policy,
+				Supervisor:         agentManager,
+				MaxAgentTurns:      maxAgentTurns,
 			}
 
 			chatSession := session.New(ctx, chatStore, registry, chat, messages, params)
@@ -340,12 +350,14 @@ func NewCmd(
 					Policy:             caller.Policy.Child(),
 					Depth:              caller.Depth + 1,
 					Reviews:            caller.Reviews,
+					Supervisor:         agentManager,
+					MaxAgentTurns:      maxAgentTurns,
 				}
 				// The app's context, not the launch's: the tab outlives the
 				// launcher's turn, which only scopes the first turn.
 				return session.New(ctx, chatStore, registry, subChat, nil, subParams), nil
 			})
-			agentTool.SetLauncher(app)
+			agentManager.SetLauncher(app)
 			program := tea.NewProgram(app, tea.WithContext(ctx))
 			app.SetProgram(program)
 			if _, err := program.Run(); err != nil {
@@ -410,6 +422,10 @@ func NewCmd(
 
 	return cmd
 }
+
+// defaultMaxAgentTurns bounds agents talking to a chat unattended; see
+// AgentConfiguration.max_agent_turns.
+const defaultMaxAgentTurns = 25
 
 func filterModels(models []*aipb.Model, prefix string) []string {
 	var names []string

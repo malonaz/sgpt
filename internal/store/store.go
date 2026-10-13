@@ -43,6 +43,9 @@ const (
 	// FilePathAnnotation stores, on an injected-file message, the path of the
 	// file whose content the message carries.
 	FilePathAnnotation = "sgpt.com/file-path"
+	// SenderAnnotation stores, on a message another agent sent (a launcher's
+	// task, a sub-agent's report), who sent it, for display.
+	SenderAnnotation = "sgpt.com/sender"
 )
 
 // Store wraps the ai service client, which owns the chat data layer.
@@ -361,6 +364,20 @@ func NewAttachmentMessage(blocks []*aipb.Block) *aipb.Message {
 	message := ai.NewUserMessage(blocks...)
 	aip.SetLabel(message, sgptpb.Labels.Context.GetKey(), aip.LabelValueTrue)
 	return message
+}
+
+// NewAgentMessage builds a message another agent sends this chat; sender
+// describes it for display, the text carries what the model must know.
+func NewAgentMessage(sender, text string) *aipb.Message {
+	message := ai.NewUserMessage(ai.NewTextBlock(text))
+	message.Annotations = map[string]string{SenderAnnotation: sender}
+	return message
+}
+
+// MessageSender returns who sent a message from another agent, or "" when
+// the user typed it.
+func MessageSender(message *aipb.Message) string {
+	return message.GetAnnotations()[SenderAnnotation]
 }
 
 // InjectedFilePath returns the injected file path of a message, or "" when

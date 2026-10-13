@@ -41,11 +41,6 @@ type openTabMsg struct {
 // owns tool/file/role resolution.
 type AgentSessionFactory func(ctx context.Context, request *agent.LaunchRequest) (*session.Session, error)
 
-type agentResult struct {
-	text string
-	err  error
-}
-
 type tab struct {
 	id     string
 	screen screen.Screen
@@ -136,9 +131,11 @@ func (a *App) SetAgentSessionFactory(factory AgentSessionFactory) {
 	a.agentSessionFactory = factory
 }
 
-// LaunchAgent implements agent.Launcher. Called from a session's tool-execute
-// goroutine — never the bubbletea loop — so the tab is opened via program.Send.
-func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (*agent.LaunchResult, error) {
+// LaunchAgent implements agent.Launcher: it opens the sub-agent's tab in
+// the background — a batch would otherwise yank focus once per task while the
+// user watches the launcher. Called from a tool goroutine, never the
+// bubbletea loop, so the tab is opened via program.Send.
+func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (tool.Agent, error) {
 	if a.agentSessionFactory == nil {
 		return nil, fmt.Errorf("sub-agent launching is not configured")
 	}
@@ -146,40 +143,12 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (*a
 	if err != nil {
 		return nil, err
 	}
-
-	resultCh := make(chan agentResult, 1)
-	chatSession.SetOnTurnComplete(func(text string, err error) {
-		// Only the first terminal turn is the sub-agent's answer; the user may
-		// keep chatting in the tab afterwards — those completions are dropped.
-		select {
-		case resultCh <- agentResult{text: text, err: err}:
-		default:
-		}
-	})
-
 	// Chat names are assigned lazily on first save; use a local counter for a
 	// unique tab ID.
 	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
 	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession)
-	// In the background: a batch would otherwise yank focus once per task
-	// while the user is watching the launcher.
 	a.program.Send(openTabMsg{id: tabID, screen: chatScreen, background: true})
-
-	// SendMessage blocks for the whole turn; run it off this goroutine so we
-	// can honor ctx cancellation while waiting. ctx scopes the turn: when the
-	// launcher gives up, the sub-agent stops rather than burn tokens nobody
-	// will read.
-	go chatSession.SendMessageContext(ctx, request.Query)
-
-	select {
-	case result := <-resultCh:
-		if result.err != nil {
-			return nil, result.err
-		}
-		return &agent.LaunchResult{Chat: chatSession.Chat().GetName(), Response: result.text}, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+	return chatSession, nil
 }
 
 var _ agent.Launcher = (*App)(nil)
@@ -401,10 +370,10 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 		return tea.Quit
 	}
 	a.tabs[removeIndex].screen.OnBlur()
-	// The tab is the only handle on its turn: left running it would stream
-	// on unseen, or park forever on a review nobody can answer.
+	// The tab is the only handle on its session: left running it would
+	// stream on unseen, or park forever on a review nobody can answer.
 	if chatScreen, ok := a.tabs[removeIndex].screen.(*screen.ChatScreen); ok {
-		chatScreen.Session().CancelTurn()
+		chatScreen.Session().Close()
 	}
 	a.tabs = append(a.tabs[:removeIndex], a.tabs[removeIndex+1:]...)
 	if a.activeTab >= len(a.tabs) {

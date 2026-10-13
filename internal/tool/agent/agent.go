@@ -1,71 +1,106 @@
-// Package agent implements the `agent` tool: fanning a batch of tasks out to
-// sub-agent chats and returning their final answers to the launcher.
+// Package agent implements the sub-agent tools: launching sub-agent chats,
+// messaging them (and a sub-agent its launcher) and following their turns as
+// operations — asynchronously, so a launcher keeps working, polls or blocks
+// as it sees fit.
 package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sort"
-	"strings"
+	"slices"
 	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 )
 
 const (
 	defaultMaxConcurrent = 4
 	defaultMaxDepth      = 2
+
+	// GroupName is the user-facing name enabling every sub-agent tool.
+	GroupName = "agent"
+	// parentAgent addresses a sub-agent's launcher in message_agent.
+	parentAgent = "parent"
+	// launcherSender labels, in a sub-agent's chat, what its launcher sent.
+	launcherSender = "launcher"
 )
 
-// Definition is the tool definition for launching sub-agents, built from
-// the ToolService.Agent method.
-var Definition = tool.MustBuildTool("agent", tool.HandlerIDAgent, "sgpt.v1.ToolService.Agent")
-
-// LaunchRequest is one sub-agent to run: the task, its context and exactly
-// what the launching session hands down.
+// LaunchRequest is one sub-agent to open: what the launching session hands
+// down, narrowed by the request. Its task arrives as the first message.
 type LaunchRequest struct {
 	Caller  tool.Caller
 	Title   string
-	Query   string
 	Context string
 	Files   []string
 	Tools   []string
 	Model   string
 }
 
-// LaunchResult is a sub-agent's outcome.
-type LaunchResult struct {
-	// Chat is the sub-agent's chat resource name.
-	Chat string
-	// Response is the sub-agent's final message.
-	Response string
-}
-
-// Launcher runs a sub-agent chat and blocks until it produces a final answer.
-// Implemented by the TUI App (it owns tabs); injected late via SetLauncher
-// because the registry is built before the App exists.
+// Launcher opens a sub-agent chat, ready to be messaged. Implemented by the
+// TUI App (it owns tabs); injected late via SetLauncher because the registry
+// is built before the App exists.
 type Launcher interface {
-	LaunchAgent(ctx context.Context, request *LaunchRequest) (*LaunchResult, error)
+	LaunchAgent(ctx context.Context, request *LaunchRequest) (tool.Agent, error)
 }
 
-// Tool launches sub-agents in new chat tabs. One instance serves every
+// Manager owns the sub-agents and their operations. One instance serves every
 // session, so the concurrency cap is TUI-wide.
-type Tool struct {
+type Manager struct {
 	maxDepth int
-	// slots bounds the sub-agents running at once per nesting level; a batch
-	// beyond it queues. Per level, since a sub-agent's own launches waiting on
-	// slots its ancestors hold would deadlock.
+	// slots bounds the sub-agents running their first turn at once per
+	// nesting level; a batch beyond it queues. Per level, since a sub-agent
+	// blocking on its own sub-agents' slots while holding an ancestor's
+	// would deadlock.
 	slots []chan struct{}
 
 	mu       sync.Mutex
 	launcher Launcher
+	agents   map[string]*subAgent
+	// handleToAgent finds the sub-agent a session is, to reach its launcher.
+	handleToAgent map[tool.Agent]*subAgent
+	// operations are every operation started, oldest first.
+	operations      []*operation
+	nameToOperation map[string]*operation
+	// changed is closed, and replaced, on every operation state change.
+	changed chan struct{}
 }
 
-// NewTool builds the agent tool from configuration (nil for defaults).
-func NewTool(configuration *sgptpb.AgentConfiguration) *Tool {
+type subAgent struct {
+	name  string
+	title string
+	// parent is the session that launched it.
+	parent tool.Agent
+	// handle is the sub-agent's session; nil until its launch completes.
+	handle tool.Agent
+}
+
+// operation is one sub-agent turn requested by its launcher.
+type operation struct {
+	name     string
+	subAgent *subAgent
+	launched bool
+	done     bool
+	outcome  tool.TurnOutcome
+	// cancelRequested marks a cancellation the launcher (or the user, through
+	// it) asked for: reporting it back would be noise, or wake a chat the
+	// user just stopped.
+	cancelRequested bool
+	// watchers counts the waits blocked on the operation: one of them takes
+	// the result, so it is not also reported as a message.
+	watchers int
+	// cancelLaunch aborts a launch still queued for a slot.
+	cancelLaunch context.CancelFunc
+}
+
+// NewManager builds the manager from configuration (nil for defaults).
+func NewManager(configuration *sgptpb.AgentConfiguration) *Manager {
 	maxConcurrent := int(configuration.GetMaxConcurrent())
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrent
@@ -78,260 +113,273 @@ func NewTool(configuration *sgptpb.AgentConfiguration) *Tool {
 	for i := range slots {
 		slots[i] = make(chan struct{}, maxConcurrent)
 	}
-	return &Tool{maxDepth: maxDepth, slots: slots}
-}
-
-func (t *Tool) SetLauncher(launcher Launcher) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.launcher = launcher
-}
-
-func (t *Tool) getLauncher() (Launcher, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.launcher == nil {
-		return nil, fmt.Errorf("agent launcher not configured")
-	}
-	return t.launcher, nil
-}
-
-// parse validates a request against what the calling session may delegate.
-// Shared by Review and Execute so a rejected launch never reaches the user:
-// the model gets the reason as the tool result and adjusts.
-func (t *Tool) parse(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.AgentRequest, tool.Caller, error) {
-	agentRequest := &sgptpb.AgentRequest{}
-	if err := tool.UnmarshalArguments(toolCall, agentRequest); err != nil {
-		return nil, tool.Caller{}, err
-	}
-	caller, ok := tool.CallerFromContext(ctx)
-	if !ok {
-		return nil, tool.Caller{}, fmt.Errorf("agent tool called outside a session")
-	}
-	if caller.Depth >= t.maxDepth {
-		return nil, tool.Caller{}, fmt.Errorf("sub-agents may nest at most %d deep; this chat is at depth %d", t.maxDepth, caller.Depth)
-	}
-	if len(agentRequest.GetTasks()) == 0 {
-		return nil, tool.Caller{}, fmt.Errorf("no tasks specified")
-	}
-	for i, task := range agentRequest.GetTasks() {
-		if strings.TrimSpace(task.GetQuery()) == "" {
-			return nil, tool.Caller{}, fmt.Errorf("task %d: no query specified", i+1)
-		}
-		if strings.TrimSpace(task.GetTitle()) == "" {
-			return nil, tool.Caller{}, fmt.Errorf("task %d: no title specified", i+1)
-		}
-	}
-	if err := validateTools(agentRequest.GetTools(), caller.Tools); err != nil {
-		return nil, tool.Caller{}, err
-	}
-	return agentRequest, caller, nil
-}
-
-// validateTools enforces the grant ceiling: a sub-agent never gets a tool
-// its launcher lacks.
-func validateTools(requested, available []string) error {
-	availableSet := make(map[string]bool, len(available))
-	for _, name := range available {
-		availableSet[name] = true
-	}
-	var unavailable []string
-	for _, name := range requested {
-		if !availableSet[name] {
-			unavailable = append(unavailable, name)
-		}
-	}
-	if len(unavailable) == 0 {
-		return nil
-	}
-	sort.Strings(unavailable)
-	return fmt.Errorf("tools not available to this chat: %s (available: %s)",
-		strings.Join(unavailable, ", "), strings.Join(available, ", "))
-}
-
-func (t *Tool) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	agentRequest, caller, err := t.parse(ctx, toolCall)
-	if err != nil {
-		return nil, err
-	}
-	// Sub-agents spend tokens and may be granted mutating tools: never
-	// auto-execute. Summarize the grant so the user reviews scope, not JSON.
-	tools := "none"
-	if granted := t.launchRequest(agentRequest, agentRequest.GetTasks()[0], caller).Tools; len(granted) > 0 {
-		tools = strings.Join(granted, ", ")
-	}
-	parts := []string{
-		fmt.Sprintf("%d task(s)", len(agentRequest.GetTasks())),
-		"tools: " + tools,
-	}
-	if len(agentRequest.GetFiles()) > 0 {
-		parts = append(parts, "files: "+strings.Join(agentRequest.GetFiles(), ", "))
-	}
-	if agentRequest.GetModel() != "" {
-		parts = append(parts, "model: "+agentRequest.GetModel())
-	}
-	return &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{Content: strings.Join(parts, " | ")},
-	}, nil
-}
-
-func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
-	agentRequest, caller, err := t.parse(ctx, toolCall)
-	if err != nil {
-		return nil, err
-	}
-	launcher, err := t.getLauncher()
-	if err != nil {
-		return nil, err
-	}
-
-	// Every task runs concurrently (bounded by slots) and every outcome is
-	// reported: one failed sub-agent must not discard the others' work.
-	results := make([]*sgptpb.AgentResponse_Result, len(agentRequest.GetTasks()))
-	var wg sync.WaitGroup
-	for i, task := range agentRequest.GetTasks() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			results[i] = &sgptpb.AgentResponse_Result{Title: task.GetTitle()}
-			launchResult, err := t.launch(ctx, launcher, t.launchRequest(agentRequest, task, caller))
-			if err != nil {
-				results[i].Error = err.Error()
-				return
-			}
-			results[i].Chat = launchResult.Chat
-			results[i].Response = launchResult.Response
-		}()
-	}
-	wg.Wait()
-	return tool.NewStructuredToolResult(toolCall, &sgptpb.AgentResponse{Results: results})
-}
-
-// launchRequest merges the batch-wide settings with one task's overrides.
-func (t *Tool) launchRequest(agentRequest *sgptpb.AgentRequest, task *sgptpb.AgentTask, caller tool.Caller) *LaunchRequest {
-	tools := agentRequest.GetTools()
-	if len(tools) == 0 {
-		tools = caller.Tools
-	}
-	model := task.GetModel()
-	if model == "" {
-		model = agentRequest.GetModel()
-	}
-	return &LaunchRequest{
-		Caller:  caller,
-		Title:   task.GetTitle(),
-		Query:   task.GetQuery(),
-		Context: agentRequest.GetContext(),
-		Files:   append(append([]string(nil), agentRequest.GetFiles()...), task.GetFiles()...),
-		Tools:   tools,
-		Model:   model,
+	return &Manager{
+		maxDepth:        maxDepth,
+		slots:           slots,
+		agents:          map[string]*subAgent{},
+		handleToAgent:   map[tool.Agent]*subAgent{},
+		nameToOperation: map[string]*operation{},
+		changed:         make(chan struct{}),
 	}
 }
 
-// launch waits for a slot, then runs the sub-agent to completion.
-func (t *Tool) launch(ctx context.Context, launcher Launcher, request *LaunchRequest) (*LaunchResult, error) {
-	slots := t.slots[request.Caller.Depth]
+func (m *Manager) SetLauncher(launcher Launcher) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.launcher = launcher
+}
+
+// Tools returns the sub-agent tools by handler ID, for registration.
+func (m *Manager) Tools() map[string]tool.Tool {
+	return map[string]tool.Tool{
+		tool.HandlerIDCreateAgents:     &createAgentsTool{m},
+		tool.HandlerIDMessageAgent:     &messageAgentTool{m},
+		tool.HandlerIDGetOperations:    &getOperationsTool{m},
+		tool.HandlerIDWaitOperations:   &waitOperationsTool{m},
+		tool.HandlerIDCancelOperations: &cancelOperationsTool{m},
+	}
+}
+
+func (m *Manager) newOperationLocked(subAgent *subAgent) *operation {
+	op := &operation{name: fmt.Sprintf("operations/%d", len(m.operations)+1), subAgent: subAgent}
+	m.operations = append(m.operations, op)
+	m.nameToOperation[op.name] = op
+	m.broadcastLocked()
+	return op
+}
+
+func (m *Manager) broadcastLocked() {
+	close(m.changed)
+	m.changed = make(chan struct{})
+}
+
+// launch waits for a slot, opens the sub-agent and runs its first turn on
+// the task, holding the slot until that turn ends.
+func (m *Manager) launch(ctx context.Context, op *operation, request *LaunchRequest, query string) {
+	slots := m.slots[request.Caller.Depth]
 	select {
 	case slots <- struct{}{}:
 		defer func() { <-slots }()
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		m.complete(op, tool.TurnOutcome{Err: ctx.Err()})
+		return
 	}
-	launchResult, err := launcher.LaunchAgent(ctx, request)
+	m.mu.Lock()
+	launcher := m.launcher
+	m.mu.Unlock()
+	if launcher == nil {
+		m.complete(op, tool.TurnOutcome{Err: errors.New("sub-agent launching is not configured")})
+		return
+	}
+	handle, err := launcher.LaunchAgent(ctx, request)
+	if err == nil {
+		// Cancelled while the tab opened: it stays, idle.
+		err = ctx.Err()
+	}
 	if err != nil {
-		return nil, err
+		m.complete(op, tool.TurnOutcome{Err: err})
+		return
 	}
-	if launchResult.Response == "" {
-		return nil, fmt.Errorf("sub-agent finished without a text response")
-	}
-	return launchResult, nil
+	m.mu.Lock()
+	op.subAgent.handle = handle
+	m.handleToAgent[handle] = op.subAgent
+	op.launched = true
+	m.broadcastLocked()
+	m.mu.Unlock()
+	m.run(op, handle, store.NewAgentMessage(launcherSender, query))
 }
 
-// SystemPrompt composes a sub-agent's system prompt: the role's prompt, the
-// working contract every sub-agent follows, and the launcher's briefing.
-func SystemPrompt(rolePrompt, briefing string) string {
-	var b strings.Builder
-	if rolePrompt != "" {
-		b.WriteString(rolePrompt)
-		b.WriteString("\n\n")
+// run delivers a message to a sub-agent and resolves op with the turn that
+// answers it. Blocking.
+func (m *Manager) run(op *operation, handle tool.Agent, message *aipb.Message) {
+	outcomeCh, err := handle.Deliver(message)
+	if err != nil {
+		m.complete(op, tool.TurnOutcome{Err: err})
+		return
 	}
-	b.WriteString(contract)
-	if briefing = strings.TrimSpace(briefing); briefing != "" {
-		b.WriteString("\n\n# Briefing\n\n")
-		b.WriteString(briefing)
-	}
-	return b.String()
+	m.complete(op, <-outcomeCh)
 }
 
-// contract is what makes a chat a sub-agent: it is spoken to by a program,
-// not a person, and its last message is the deliverable.
-const contract = `# Sub-agent
-
-You are a sub-agent: another chat launched you with one task and is waiting
-for your answer. Nobody reads your messages as you go and nobody will answer
-a question, so work the task to completion on your own — make reasonable
-assumptions and state them. Your final message is returned verbatim to the
-launcher as your whole report: make it self-contained, specific (paths,
-names, line numbers) and free of preamble.`
-
-// RenderRequest renders the tasks as markdown instead of raw JSON. Tolerates
-// partial arguments so the request is readable as it streams in.
-func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
-	agentRequest := &sgptpb.AgentRequest{}
-	if tool.UnmarshalArguments(toolCall, agentRequest) != nil || len(agentRequest.GetTasks()) == 0 {
-		return "", false
+// complete resolves an operation and, unless a wait takes the result or the
+// launcher asked for the cancellation, reports it to the launcher as a
+// message — waking it if idle, which is what makes sub-agents asynchronous.
+func (m *Manager) complete(op *operation, outcome tool.TurnOutcome) {
+	if outcome.Err == nil && outcome.Text == "" {
+		outcome.Err = errors.New("the sub-agent finished without a text response")
 	}
-	var b strings.Builder
-	if briefing := strings.TrimSpace(agentRequest.GetContext()); briefing != "" {
-		b.WriteString(briefing)
-		b.WriteString("\n\n")
+	m.mu.Lock()
+	if op.done {
+		m.mu.Unlock()
+		return
 	}
-	for _, task := range agentRequest.GetTasks() {
-		fmt.Fprintf(&b, "### %s\n\n%s\n\n", task.GetTitle(), task.GetQuery())
+	op.done = true
+	op.outcome = outcome
+	report := op.watchers == 0 && !op.cancelRequested
+	m.broadcastLocked()
+	m.mu.Unlock()
+	if report {
+		// A closed launcher has nobody to tell; a launcher out of agent
+		// turns keeps the report queued and alerts the user itself.
+		op.subAgent.parent.Deliver(store.NewAgentMessage(op.subAgent.title, reportText(op)))
 	}
-	return strings.TrimSpace(b.String()), true
 }
 
-// RenderResult renders each sub-agent's report under its title.
-func (t *Tool) RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
-	agentResponse := &sgptpb.AgentResponse{}
-	if err := tool.UnmarshalResult(toolResult, agentResponse); err != nil || len(agentResponse.GetResults()) == 0 {
-		return "", false
+// reportText is how a finished operation reads to the launcher.
+func reportText(op *operation) string {
+	who := fmt.Sprintf("sub-agent %s %q", op.subAgent.name, op.subAgent.title)
+	switch err := op.outcome.Err; {
+	case err == nil:
+		return fmt.Sprintf("[%s finished: report from %s]\n\n%s", op.name, who, op.outcome.Text)
+	case isCancellation(err):
+		return fmt.Sprintf("[%s cancelled: the user stopped %s]", op.name, who)
+	default:
+		return fmt.Sprintf("[%s failed: %s produced no answer: %v]", op.name, who, err)
 	}
-	var b strings.Builder
-	for _, result := range agentResponse.GetResults() {
-		fmt.Fprintf(&b, "### %s\n\n", result.GetTitle())
-		if result.GetError() != "" {
-			fmt.Fprintf(&b, "**failed:** %s\n\n", result.GetError())
+}
+
+func isCancellation(err error) bool {
+	return errors.Is(err, context.Canceled) || grpcstatus.Code(err) == codes.Canceled
+}
+
+// snapshotLocked renders an operation for the model. Caller holds the lock.
+func (m *Manager) snapshotLocked(op *operation) *sgptpb.AgentOperation {
+	snapshot := &sgptpb.AgentOperation{
+		Name:  op.name,
+		Agent: op.subAgent.name,
+		Title: op.subAgent.title,
+		State: stateLocked(op),
+	}
+	if op.done {
+		if op.outcome.Err != nil {
+			snapshot.Error = op.outcome.Err.Error()
+		} else {
+			snapshot.Response = op.outcome.Text
+		}
+	}
+	return snapshot
+}
+
+func stateLocked(op *operation) sgptpb.AgentOperation_State {
+	switch {
+	case op.done && op.outcome.Err == nil:
+		return sgptpb.AgentOperation_STATE_SUCCEEDED
+	case op.done && isCancellation(op.outcome.Err):
+		return sgptpb.AgentOperation_STATE_CANCELLED
+	case op.done:
+		return sgptpb.AgentOperation_STATE_FAILED
+	case !op.launched:
+		return sgptpb.AgentOperation_STATE_QUEUED
+	case op.subAgent.handle.AwaitingReview():
+		return sgptpb.AgentOperation_STATE_AWAITING_REVIEW
+	default:
+		return sgptpb.AgentOperation_STATE_RUNNING
+	}
+}
+
+// ownedOperations resolves operation names against those caller started;
+// empty names select them all, oldest first, or only the unfinished ones.
+// Caller holds the lock.
+func (m *Manager) ownedOperationsLocked(caller tool.Agent, names []string, unfinishedOnly bool) ([]*operation, error) {
+	if len(names) == 0 {
+		var owned []*operation
+		for _, op := range m.operations {
+			if op.subAgent.parent == caller && !(unfinishedOnly && op.done) {
+				owned = append(owned, op)
+			}
+		}
+		return owned, nil
+	}
+	owned := make([]*operation, 0, len(names))
+	for _, name := range names {
+		op, ok := m.nameToOperation[name]
+		if !ok || op.subAgent.parent != caller {
+			return nil, fmt.Errorf("%s is not an operation this chat started", name)
+		}
+		owned = append(owned, op)
+	}
+	return owned, nil
+}
+
+// CancelDescendants implements tool.Supervisor: the sub-agents directly
+// below agent stop their turns — and, through their own sessions, theirs.
+func (m *Manager) CancelDescendants(agent tool.Agent) {
+	m.mu.Lock()
+	var handles []tool.Agent
+	for _, op := range m.operations {
+		if op.subAgent.parent != agent || op.done {
 			continue
 		}
-		b.WriteString(result.GetResponse())
-		b.WriteString("\n\n")
-	}
-	return strings.TrimSpace(b.String()), true
-}
-
-func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	// Tolerates partial arguments: falls back to the bare label until the
-	// titles stream in.
-	agentRequest := &sgptpb.AgentRequest{}
-	if tool.UnmarshalArguments(toolCall, agentRequest) != nil || len(agentRequest.GetTasks()) == 0 {
-		return "🤖 sub-agents", true
-	}
-	titles := make([]string, 0, len(agentRequest.GetTasks()))
-	for _, task := range agentRequest.GetTasks() {
-		if task.GetTitle() != "" {
-			titles = append(titles, task.GetTitle())
+		op.cancelRequested = true
+		if !op.launched {
+			op.cancelLaunch()
 		}
 	}
-	return "🤖 sub-agents: " + strings.Join(titles, ", "), true
+	for _, subAgent := range m.agents {
+		if subAgent.parent == agent && subAgent.handle != nil {
+			handles = append(handles, subAgent.handle)
+		}
+	}
+	m.mu.Unlock()
+	// Outside the lock: each cancellation recurses into this method.
+	for _, handle := range handles {
+		handle.CancelTurn()
+	}
 }
 
-var (
-	_ tool.Tool            = (*Tool)(nil)
-	_ tool.RequestRenderer = (*Tool)(nil)
-	_ tool.ResultRenderer  = (*Tool)(nil)
-	_ tool.HeaderRenderer  = (*Tool)(nil)
-)
+// Status is a sub-agent as the TUI shows it.
+type Status struct {
+	Name  string
+	Title string
+	// Agent is the sub-agent's session; nil while its launch is queued.
+	Agent tool.Agent
+	// State is that of its latest operation.
+	State sgptpb.AgentOperation_State
+}
 
-func init() { tool.RegisterBuiltin(Definition) }
+// Children lists the sub-agents agent launched, oldest first.
+func (m *Manager) Children(agent tool.Agent) []Status {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var children []Status
+	nameToIndex := map[string]int{}
+	for _, op := range m.operations {
+		if op.subAgent.parent != agent {
+			continue
+		}
+		status := Status{Name: op.subAgent.name, Title: op.subAgent.title, Agent: op.subAgent.handle, State: stateLocked(op)}
+		if index, ok := nameToIndex[status.Name]; ok {
+			children[index] = status
+			continue
+		}
+		nameToIndex[status.Name] = len(children)
+		children = append(children, status)
+	}
+	return children
+}
+
+// Parent returns the session that launched agent; nil for a chat the user
+// opened.
+func (m *Manager) Parent(agent tool.Agent) tool.Agent {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if subAgent, ok := m.handleToAgent[agent]; ok {
+		return subAgent.parent
+	}
+	return nil
+}
+
+// childTools is the grant a sub-agent receives: the requested subset of the
+// launcher's tools, or all of them — always with the sub-agent tools, so it
+// can talk back. Never wider than the launcher's, which holds them.
+func childTools(requested, launcherTools []string) []string {
+	tools := slices.Clone(requested)
+	if len(tools) == 0 {
+		tools = slices.Clone(launcherTools)
+	}
+	if !slices.Contains(tools, GroupName) {
+		tools = append(tools, GroupName)
+	}
+	return tools
+}
+
+var _ tool.Supervisor = (*Manager)(nil)

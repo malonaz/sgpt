@@ -23,6 +23,170 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// The operation's state.
+type AgentOperation_State int32
+
+const (
+	// Used to detect an unset field.
+	AgentOperation_STATE_UNSPECIFIED AgentOperation_State = 0
+	// Waiting for a free sub-agent slot.
+	AgentOperation_STATE_QUEUED AgentOperation_State = 1
+	// The sub-agent is working.
+	AgentOperation_STATE_RUNNING AgentOperation_State = 2
+	// The sub-agent is blocked on the user's review of a tool call.
+	AgentOperation_STATE_AWAITING_REVIEW AgentOperation_State = 3
+	// Finished: `response` holds the sub-agent's final message.
+	AgentOperation_STATE_SUCCEEDED AgentOperation_State = 4
+	// Finished without an answer: `error` says why.
+	AgentOperation_STATE_FAILED AgentOperation_State = 5
+	// Cancelled before it finished.
+	AgentOperation_STATE_CANCELLED AgentOperation_State = 6
+)
+
+// Enum value maps for AgentOperation_State.
+var (
+	AgentOperation_State_name = map[int32]string{
+		0: "STATE_UNSPECIFIED",
+		1: "STATE_QUEUED",
+		2: "STATE_RUNNING",
+		3: "STATE_AWAITING_REVIEW",
+		4: "STATE_SUCCEEDED",
+		5: "STATE_FAILED",
+		6: "STATE_CANCELLED",
+	}
+	AgentOperation_State_value = map[string]int32{
+		"STATE_UNSPECIFIED":     0,
+		"STATE_QUEUED":          1,
+		"STATE_RUNNING":         2,
+		"STATE_AWAITING_REVIEW": 3,
+		"STATE_SUCCEEDED":       4,
+		"STATE_FAILED":          5,
+		"STATE_CANCELLED":       6,
+	}
+)
+
+func (x AgentOperation_State) Enum() *AgentOperation_State {
+	p := new(AgentOperation_State)
+	*p = x
+	return p
+}
+
+func (x AgentOperation_State) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AgentOperation_State) Descriptor() protoreflect.EnumDescriptor {
+	return file_sgpt_v1_tools_proto_enumTypes[0].Descriptor()
+}
+
+func (AgentOperation_State) Type() protoreflect.EnumType {
+	return &file_sgpt_v1_tools_proto_enumTypes[0]
+}
+
+func (x AgentOperation_State) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// When a wait over several operations returns.
+type WaitOperationsRequest_ReturnWhen int32
+
+const (
+	// Used to detect an unset field; behaves as ALL.
+	WaitOperationsRequest_RETURN_WHEN_UNSPECIFIED WaitOperationsRequest_ReturnWhen = 0
+	// Once every operation has finished.
+	WaitOperationsRequest_RETURN_WHEN_ALL WaitOperationsRequest_ReturnWhen = 1
+	// As soon as any operation has finished.
+	WaitOperationsRequest_RETURN_WHEN_ANY WaitOperationsRequest_ReturnWhen = 2
+)
+
+// Enum value maps for WaitOperationsRequest_ReturnWhen.
+var (
+	WaitOperationsRequest_ReturnWhen_name = map[int32]string{
+		0: "RETURN_WHEN_UNSPECIFIED",
+		1: "RETURN_WHEN_ALL",
+		2: "RETURN_WHEN_ANY",
+	}
+	WaitOperationsRequest_ReturnWhen_value = map[string]int32{
+		"RETURN_WHEN_UNSPECIFIED": 0,
+		"RETURN_WHEN_ALL":         1,
+		"RETURN_WHEN_ANY":         2,
+	}
+)
+
+func (x WaitOperationsRequest_ReturnWhen) Enum() *WaitOperationsRequest_ReturnWhen {
+	p := new(WaitOperationsRequest_ReturnWhen)
+	*p = x
+	return p
+}
+
+func (x WaitOperationsRequest_ReturnWhen) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WaitOperationsRequest_ReturnWhen) Descriptor() protoreflect.EnumDescriptor {
+	return file_sgpt_v1_tools_proto_enumTypes[1].Descriptor()
+}
+
+func (WaitOperationsRequest_ReturnWhen) Type() protoreflect.EnumType {
+	return &file_sgpt_v1_tools_proto_enumTypes[1]
+}
+
+func (x WaitOperationsRequest_ReturnWhen) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Why the wait returned.
+type WaitOperationsResponse_Reason int32
+
+const (
+	// Used to detect an unset field.
+	WaitOperationsResponse_REASON_UNSPECIFIED WaitOperationsResponse_Reason = 0
+	// The operations finished as requested by `return_when`.
+	WaitOperationsResponse_REASON_COMPLETED WaitOperationsResponse_Reason = 1
+	// The timeout elapsed first.
+	WaitOperationsResponse_REASON_TIMEOUT WaitOperationsResponse_Reason = 2
+	// A message arrived for you first; it follows this result.
+	WaitOperationsResponse_REASON_MESSAGE WaitOperationsResponse_Reason = 3
+)
+
+// Enum value maps for WaitOperationsResponse_Reason.
+var (
+	WaitOperationsResponse_Reason_name = map[int32]string{
+		0: "REASON_UNSPECIFIED",
+		1: "REASON_COMPLETED",
+		2: "REASON_TIMEOUT",
+		3: "REASON_MESSAGE",
+	}
+	WaitOperationsResponse_Reason_value = map[string]int32{
+		"REASON_UNSPECIFIED": 0,
+		"REASON_COMPLETED":   1,
+		"REASON_TIMEOUT":     2,
+		"REASON_MESSAGE":     3,
+	}
+)
+
+func (x WaitOperationsResponse_Reason) Enum() *WaitOperationsResponse_Reason {
+	p := new(WaitOperationsResponse_Reason)
+	*p = x
+	return p
+}
+
+func (x WaitOperationsResponse_Reason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WaitOperationsResponse_Reason) Descriptor() protoreflect.EnumDescriptor {
+	return file_sgpt_v1_tools_proto_enumTypes[2].Descriptor()
+}
+
+func (WaitOperationsResponse_Reason) Type() protoreflect.EnumType {
+	return &file_sgpt_v1_tools_proto_enumTypes[2]
+}
+
+func (x WaitOperationsResponse_Reason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // Request for the `diff` tool.
 type DiffRequest struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
@@ -1039,8 +1203,8 @@ func (b0 ExecShellResponse_builder) Build() *ExecShellResponse {
 	return m0
 }
 
-// Request for the `agent` tool.
-type AgentRequest struct {
+// Request for the `create_agents` tool.
+type CreateAgentsRequest struct {
 	state              protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Context string                 `protobuf:"bytes,1,opt,name=context,proto3"`
 	xxx_hidden_Tasks   *[]*AgentTask          `protobuf:"bytes,2,rep,name=tasks,proto3"`
@@ -1051,20 +1215,20 @@ type AgentRequest struct {
 	sizeCache          protoimpl.SizeCache
 }
 
-func (x *AgentRequest) Reset() {
-	*x = AgentRequest{}
+func (x *CreateAgentsRequest) Reset() {
+	*x = CreateAgentsRequest{}
 	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AgentRequest) String() string {
+func (x *CreateAgentsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AgentRequest) ProtoMessage() {}
+func (*CreateAgentsRequest) ProtoMessage() {}
 
-func (x *AgentRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateAgentsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_tools_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1076,14 +1240,14 @@ func (x *AgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AgentRequest) GetContext() string {
+func (x *CreateAgentsRequest) GetContext() string {
 	if x != nil {
 		return x.xxx_hidden_Context
 	}
 	return ""
 }
 
-func (x *AgentRequest) GetTasks() []*AgentTask {
+func (x *CreateAgentsRequest) GetTasks() []*AgentTask {
 	if x != nil {
 		if x.xxx_hidden_Tasks != nil {
 			return *x.xxx_hidden_Tasks
@@ -1092,48 +1256,48 @@ func (x *AgentRequest) GetTasks() []*AgentTask {
 	return nil
 }
 
-func (x *AgentRequest) GetFiles() []string {
+func (x *CreateAgentsRequest) GetFiles() []string {
 	if x != nil {
 		return x.xxx_hidden_Files
 	}
 	return nil
 }
 
-func (x *AgentRequest) GetTools() []string {
+func (x *CreateAgentsRequest) GetTools() []string {
 	if x != nil {
 		return x.xxx_hidden_Tools
 	}
 	return nil
 }
 
-func (x *AgentRequest) GetModel() string {
+func (x *CreateAgentsRequest) GetModel() string {
 	if x != nil {
 		return x.xxx_hidden_Model
 	}
 	return ""
 }
 
-func (x *AgentRequest) SetContext(v string) {
+func (x *CreateAgentsRequest) SetContext(v string) {
 	x.xxx_hidden_Context = v
 }
 
-func (x *AgentRequest) SetTasks(v []*AgentTask) {
+func (x *CreateAgentsRequest) SetTasks(v []*AgentTask) {
 	x.xxx_hidden_Tasks = &v
 }
 
-func (x *AgentRequest) SetFiles(v []string) {
+func (x *CreateAgentsRequest) SetFiles(v []string) {
 	x.xxx_hidden_Files = v
 }
 
-func (x *AgentRequest) SetTools(v []string) {
+func (x *CreateAgentsRequest) SetTools(v []string) {
 	x.xxx_hidden_Tools = v
 }
 
-func (x *AgentRequest) SetModel(v string) {
+func (x *CreateAgentsRequest) SetModel(v string) {
 	x.xxx_hidden_Model = v
 }
 
-type AgentRequest_builder struct {
+type CreateAgentsRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Briefing shared by every task, prepended to each sub-agent's system
@@ -1150,8 +1314,8 @@ type AgentRequest_builder struct {
 	Model string
 }
 
-func (b0 AgentRequest_builder) Build() *AgentRequest {
-	m0 := &AgentRequest{}
+func (b0 CreateAgentsRequest_builder) Build() *CreateAgentsRequest {
+	m0 := &CreateAgentsRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Context = b.Context
@@ -1268,28 +1432,28 @@ func (b0 AgentTask_builder) Build() *AgentTask {
 	return m0
 }
 
-// Result of the `agent` tool.
-type AgentResponse struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Results *[]*AgentResponse_Result `protobuf:"bytes,1,rep,name=results,proto3"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+// Result of the `create_agents` tool.
+type CreateAgentsResponse struct {
+	state                 protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Operations *[]*AgentOperation     `protobuf:"bytes,1,rep,name=operations,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
-func (x *AgentResponse) Reset() {
-	*x = AgentResponse{}
+func (x *CreateAgentsResponse) Reset() {
+	*x = CreateAgentsResponse{}
 	mi := &file_sgpt_v1_tools_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AgentResponse) String() string {
+func (x *CreateAgentsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AgentResponse) ProtoMessage() {}
+func (*CreateAgentsResponse) ProtoMessage() {}
 
-func (x *AgentResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateAgentsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_sgpt_v1_tools_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1301,31 +1465,719 @@ func (x *AgentResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *AgentResponse) GetResults() []*AgentResponse_Result {
+func (x *CreateAgentsResponse) GetOperations() []*AgentOperation {
 	if x != nil {
-		if x.xxx_hidden_Results != nil {
-			return *x.xxx_hidden_Results
+		if x.xxx_hidden_Operations != nil {
+			return *x.xxx_hidden_Operations
 		}
 	}
 	return nil
 }
 
-func (x *AgentResponse) SetResults(v []*AgentResponse_Result) {
-	x.xxx_hidden_Results = &v
+func (x *CreateAgentsResponse) SetOperations(v []*AgentOperation) {
+	x.xxx_hidden_Operations = &v
 }
 
-type AgentResponse_builder struct {
+type CreateAgentsResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// One result per task, in request order.
-	Results []*AgentResponse_Result
+	// One operation per task, in request order.
+	Operations []*AgentOperation
 }
 
-func (b0 AgentResponse_builder) Build() *AgentResponse {
-	m0 := &AgentResponse{}
+func (b0 CreateAgentsResponse_builder) Build() *CreateAgentsResponse {
+	m0 := &CreateAgentsResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Results = &b.Results
+	x.xxx_hidden_Operations = &b.Operations
+	return m0
+}
+
+// One sub-agent turn: a launch or a message, resolving to the sub-agent's
+// final message once that turn ends.
+type AgentOperation struct {
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name     string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_Agent    string                 `protobuf:"bytes,2,opt,name=agent,proto3"`
+	xxx_hidden_Title    string                 `protobuf:"bytes,3,opt,name=title,proto3"`
+	xxx_hidden_State    AgentOperation_State   `protobuf:"varint,4,opt,name=state,proto3,enum=sgpt.v1.AgentOperation_State"`
+	xxx_hidden_Response string                 `protobuf:"bytes,5,opt,name=response,proto3"`
+	xxx_hidden_Error    string                 `protobuf:"bytes,6,opt,name=error,proto3"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *AgentOperation) Reset() {
+	*x = AgentOperation{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentOperation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentOperation) ProtoMessage() {}
+
+func (x *AgentOperation) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentOperation) GetName() string {
+	if x != nil {
+		return x.xxx_hidden_Name
+	}
+	return ""
+}
+
+func (x *AgentOperation) GetAgent() string {
+	if x != nil {
+		return x.xxx_hidden_Agent
+	}
+	return ""
+}
+
+func (x *AgentOperation) GetTitle() string {
+	if x != nil {
+		return x.xxx_hidden_Title
+	}
+	return ""
+}
+
+func (x *AgentOperation) GetState() AgentOperation_State {
+	if x != nil {
+		return x.xxx_hidden_State
+	}
+	return AgentOperation_STATE_UNSPECIFIED
+}
+
+func (x *AgentOperation) GetResponse() string {
+	if x != nil {
+		return x.xxx_hidden_Response
+	}
+	return ""
+}
+
+func (x *AgentOperation) GetError() string {
+	if x != nil {
+		return x.xxx_hidden_Error
+	}
+	return ""
+}
+
+func (x *AgentOperation) SetName(v string) {
+	x.xxx_hidden_Name = v
+}
+
+func (x *AgentOperation) SetAgent(v string) {
+	x.xxx_hidden_Agent = v
+}
+
+func (x *AgentOperation) SetTitle(v string) {
+	x.xxx_hidden_Title = v
+}
+
+func (x *AgentOperation) SetState(v AgentOperation_State) {
+	x.xxx_hidden_State = v
+}
+
+func (x *AgentOperation) SetResponse(v string) {
+	x.xxx_hidden_Response = v
+}
+
+func (x *AgentOperation) SetError(v string) {
+	x.xxx_hidden_Error = v
+}
+
+type AgentOperation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Resource name of the operation ("operations/{operation}").
+	Name string
+	// Resource name of the sub-agent ("agents/{agent}"), the handle to
+	// message it.
+	Agent string
+	// The sub-agent's title.
+	Title string
+	// The operation's state.
+	State AgentOperation_State
+	// The sub-agent's final message; set once succeeded.
+	Response string
+	// Why the operation produced no answer; set once failed or cancelled.
+	Error string
+}
+
+func (b0 AgentOperation_builder) Build() *AgentOperation {
+	m0 := &AgentOperation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Name = b.Name
+	x.xxx_hidden_Agent = b.Agent
+	x.xxx_hidden_Title = b.Title
+	x.xxx_hidden_State = b.State
+	x.xxx_hidden_Response = b.Response
+	x.xxx_hidden_Error = b.Error
+	return m0
+}
+
+// Request for the `message_agent` tool.
+type MessageAgentRequest struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Agent string                 `protobuf:"bytes,1,opt,name=agent,proto3"`
+	xxx_hidden_Text  string                 `protobuf:"bytes,2,opt,name=text,proto3"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *MessageAgentRequest) Reset() {
+	*x = MessageAgentRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageAgentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageAgentRequest) ProtoMessage() {}
+
+func (x *MessageAgentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *MessageAgentRequest) GetAgent() string {
+	if x != nil {
+		return x.xxx_hidden_Agent
+	}
+	return ""
+}
+
+func (x *MessageAgentRequest) GetText() string {
+	if x != nil {
+		return x.xxx_hidden_Text
+	}
+	return ""
+}
+
+func (x *MessageAgentRequest) SetAgent(v string) {
+	x.xxx_hidden_Agent = v
+}
+
+func (x *MessageAgentRequest) SetText(v string) {
+	x.xxx_hidden_Text = v
+}
+
+type MessageAgentRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Recipient: the name of a sub-agent you launched ("agents/{agent}"), or
+	// "parent" for your own launcher.
+	Agent string
+	// The message.
+	Text string
+}
+
+func (b0 MessageAgentRequest_builder) Build() *MessageAgentRequest {
+	m0 := &MessageAgentRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Agent = b.Agent
+	x.xxx_hidden_Text = b.Text
+	return m0
+}
+
+// Result of the `message_agent` tool.
+type MessageAgentResponse struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Operation *AgentOperation        `protobuf:"bytes,1,opt,name=operation,proto3"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *MessageAgentResponse) Reset() {
+	*x = MessageAgentResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageAgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageAgentResponse) ProtoMessage() {}
+
+func (x *MessageAgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *MessageAgentResponse) GetOperation() *AgentOperation {
+	if x != nil {
+		return x.xxx_hidden_Operation
+	}
+	return nil
+}
+
+func (x *MessageAgentResponse) SetOperation(v *AgentOperation) {
+	x.xxx_hidden_Operation = v
+}
+
+func (x *MessageAgentResponse) HasOperation() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Operation != nil
+}
+
+func (x *MessageAgentResponse) ClearOperation() {
+	x.xxx_hidden_Operation = nil
+}
+
+type MessageAgentResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The operation resolving to the sub-agent's reply; unset when messaging
+	// "parent".
+	Operation *AgentOperation
+}
+
+func (b0 MessageAgentResponse_builder) Build() *MessageAgentResponse {
+	m0 := &MessageAgentResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Operation = b.Operation
+	return m0
+}
+
+// Request for the `get_operations` tool.
+type GetOperationsRequest struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Names []string               `protobuf:"bytes,1,rep,name=names,proto3"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetOperationsRequest) Reset() {
+	*x = GetOperationsRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOperationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOperationsRequest) ProtoMessage() {}
+
+func (x *GetOperationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *GetOperationsRequest) GetNames() []string {
+	if x != nil {
+		return x.xxx_hidden_Names
+	}
+	return nil
+}
+
+func (x *GetOperationsRequest) SetNames(v []string) {
+	x.xxx_hidden_Names = v
+}
+
+type GetOperationsRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Operations to get; empty gets every operation you started.
+	Names []string
+}
+
+func (b0 GetOperationsRequest_builder) Build() *GetOperationsRequest {
+	m0 := &GetOperationsRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Names = b.Names
+	return m0
+}
+
+// Result of the `get_operations` tool.
+type GetOperationsResponse struct {
+	state                 protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Operations *[]*AgentOperation     `protobuf:"bytes,1,rep,name=operations,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *GetOperationsResponse) Reset() {
+	*x = GetOperationsResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOperationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOperationsResponse) ProtoMessage() {}
+
+func (x *GetOperationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *GetOperationsResponse) GetOperations() []*AgentOperation {
+	if x != nil {
+		if x.xxx_hidden_Operations != nil {
+			return *x.xxx_hidden_Operations
+		}
+	}
+	return nil
+}
+
+func (x *GetOperationsResponse) SetOperations(v []*AgentOperation) {
+	x.xxx_hidden_Operations = &v
+}
+
+type GetOperationsResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The operations, in request order (oldest first when listing all).
+	Operations []*AgentOperation
+}
+
+func (b0 GetOperationsResponse_builder) Build() *GetOperationsResponse {
+	m0 := &GetOperationsResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Operations = &b.Operations
+	return m0
+}
+
+// Request for the `wait_operations` tool.
+type WaitOperationsRequest struct {
+	state                     protoimpl.MessageState           `protogen:"opaque.v1"`
+	xxx_hidden_Names          []string                         `protobuf:"bytes,1,rep,name=names,proto3"`
+	xxx_hidden_ReturnWhen     WaitOperationsRequest_ReturnWhen `protobuf:"varint,2,opt,name=return_when,json=returnWhen,proto3,enum=sgpt.v1.WaitOperationsRequest_ReturnWhen"`
+	xxx_hidden_TimeoutSeconds int32                            `protobuf:"varint,3,opt,name=timeout_seconds,json=timeoutSeconds,proto3"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *WaitOperationsRequest) Reset() {
+	*x = WaitOperationsRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WaitOperationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WaitOperationsRequest) ProtoMessage() {}
+
+func (x *WaitOperationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *WaitOperationsRequest) GetNames() []string {
+	if x != nil {
+		return x.xxx_hidden_Names
+	}
+	return nil
+}
+
+func (x *WaitOperationsRequest) GetReturnWhen() WaitOperationsRequest_ReturnWhen {
+	if x != nil {
+		return x.xxx_hidden_ReturnWhen
+	}
+	return WaitOperationsRequest_RETURN_WHEN_UNSPECIFIED
+}
+
+func (x *WaitOperationsRequest) GetTimeoutSeconds() int32 {
+	if x != nil {
+		return x.xxx_hidden_TimeoutSeconds
+	}
+	return 0
+}
+
+func (x *WaitOperationsRequest) SetNames(v []string) {
+	x.xxx_hidden_Names = v
+}
+
+func (x *WaitOperationsRequest) SetReturnWhen(v WaitOperationsRequest_ReturnWhen) {
+	x.xxx_hidden_ReturnWhen = v
+}
+
+func (x *WaitOperationsRequest) SetTimeoutSeconds(v int32) {
+	x.xxx_hidden_TimeoutSeconds = v
+}
+
+type WaitOperationsRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Operations to wait for; empty waits for every unfinished operation you
+	// started.
+	Names []string
+	// When to return; defaults to ALL.
+	ReturnWhen WaitOperationsRequest_ReturnWhen
+	// Longest time to block, in seconds; defaults to 600.
+	TimeoutSeconds int32
+}
+
+func (b0 WaitOperationsRequest_builder) Build() *WaitOperationsRequest {
+	m0 := &WaitOperationsRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Names = b.Names
+	x.xxx_hidden_ReturnWhen = b.ReturnWhen
+	x.xxx_hidden_TimeoutSeconds = b.TimeoutSeconds
+	return m0
+}
+
+// Result of the `wait_operations` tool.
+type WaitOperationsResponse struct {
+	state                 protoimpl.MessageState        `protogen:"opaque.v1"`
+	xxx_hidden_Reason     WaitOperationsResponse_Reason `protobuf:"varint,1,opt,name=reason,proto3,enum=sgpt.v1.WaitOperationsResponse_Reason"`
+	xxx_hidden_Operations *[]*AgentOperation            `protobuf:"bytes,2,rep,name=operations,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *WaitOperationsResponse) Reset() {
+	*x = WaitOperationsResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WaitOperationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WaitOperationsResponse) ProtoMessage() {}
+
+func (x *WaitOperationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *WaitOperationsResponse) GetReason() WaitOperationsResponse_Reason {
+	if x != nil {
+		return x.xxx_hidden_Reason
+	}
+	return WaitOperationsResponse_REASON_UNSPECIFIED
+}
+
+func (x *WaitOperationsResponse) GetOperations() []*AgentOperation {
+	if x != nil {
+		if x.xxx_hidden_Operations != nil {
+			return *x.xxx_hidden_Operations
+		}
+	}
+	return nil
+}
+
+func (x *WaitOperationsResponse) SetReason(v WaitOperationsResponse_Reason) {
+	x.xxx_hidden_Reason = v
+}
+
+func (x *WaitOperationsResponse) SetOperations(v []*AgentOperation) {
+	x.xxx_hidden_Operations = &v
+}
+
+type WaitOperationsResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Why the wait returned.
+	Reason WaitOperationsResponse_Reason
+	// The waited-for operations, in request order.
+	Operations []*AgentOperation
+}
+
+func (b0 WaitOperationsResponse_builder) Build() *WaitOperationsResponse {
+	m0 := &WaitOperationsResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Reason = b.Reason
+	x.xxx_hidden_Operations = &b.Operations
+	return m0
+}
+
+// Request for the `cancel_operations` tool.
+type CancelOperationsRequest struct {
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Names []string               `protobuf:"bytes,1,rep,name=names,proto3"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CancelOperationsRequest) Reset() {
+	*x = CancelOperationsRequest{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelOperationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelOperationsRequest) ProtoMessage() {}
+
+func (x *CancelOperationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CancelOperationsRequest) GetNames() []string {
+	if x != nil {
+		return x.xxx_hidden_Names
+	}
+	return nil
+}
+
+func (x *CancelOperationsRequest) SetNames(v []string) {
+	x.xxx_hidden_Names = v
+}
+
+type CancelOperationsRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Operations to cancel.
+	Names []string
+}
+
+func (b0 CancelOperationsRequest_builder) Build() *CancelOperationsRequest {
+	m0 := &CancelOperationsRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Names = b.Names
+	return m0
+}
+
+// Result of the `cancel_operations` tool.
+type CancelOperationsResponse struct {
+	state                 protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Operations *[]*AgentOperation     `protobuf:"bytes,1,rep,name=operations,proto3"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *CancelOperationsResponse) Reset() {
+	*x = CancelOperationsResponse{}
+	mi := &file_sgpt_v1_tools_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelOperationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelOperationsResponse) ProtoMessage() {}
+
+func (x *CancelOperationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sgpt_v1_tools_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CancelOperationsResponse) GetOperations() []*AgentOperation {
+	if x != nil {
+		if x.xxx_hidden_Operations != nil {
+			return *x.xxx_hidden_Operations
+		}
+	}
+	return nil
+}
+
+func (x *CancelOperationsResponse) SetOperations(v []*AgentOperation) {
+	x.xxx_hidden_Operations = &v
+}
+
+type CancelOperationsResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The operations, in request order; finished ones are left untouched.
+	Operations []*AgentOperation
+}
+
+func (b0 CancelOperationsResponse_builder) Build() *CancelOperationsResponse {
+	m0 := &CancelOperationsResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Operations = &b.Operations
 	return m0
 }
 
@@ -1341,7 +2193,7 @@ type ReadFilesResponse_File struct {
 
 func (x *ReadFilesResponse_File) Reset() {
 	*x = ReadFilesResponse_File{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[18]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1353,7 +2205,7 @@ func (x *ReadFilesResponse_File) String() string {
 func (*ReadFilesResponse_File) ProtoMessage() {}
 
 func (x *ReadFilesResponse_File) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[18]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1433,7 +2285,7 @@ type SearchLoresResponse_Match struct {
 
 func (x *SearchLoresResponse_Match) Reset() {
 	*x = SearchLoresResponse_Match{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[19]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1445,7 +2297,7 @@ func (x *SearchLoresResponse_Match) String() string {
 func (*SearchLoresResponse_Match) ProtoMessage() {}
 
 func (x *SearchLoresResponse_Match) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[19]
+	mi := &file_sgpt_v1_tools_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1552,111 +2404,6 @@ func (b0 SearchLoresResponse_Match_builder) Build() *SearchLoresResponse_Match {
 	return m0
 }
 
-// One sub-agent's outcome.
-type AgentResponse_Result struct {
-	state               protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Title    string                 `protobuf:"bytes,1,opt,name=title,proto3"`
-	xxx_hidden_Chat     string                 `protobuf:"bytes,2,opt,name=chat,proto3"`
-	xxx_hidden_Response string                 `protobuf:"bytes,3,opt,name=response,proto3"`
-	xxx_hidden_Error    string                 `protobuf:"bytes,4,opt,name=error,proto3"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
-}
-
-func (x *AgentResponse_Result) Reset() {
-	*x = AgentResponse_Result{}
-	mi := &file_sgpt_v1_tools_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentResponse_Result) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentResponse_Result) ProtoMessage() {}
-
-func (x *AgentResponse_Result) ProtoReflect() protoreflect.Message {
-	mi := &file_sgpt_v1_tools_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *AgentResponse_Result) GetTitle() string {
-	if x != nil {
-		return x.xxx_hidden_Title
-	}
-	return ""
-}
-
-func (x *AgentResponse_Result) GetChat() string {
-	if x != nil {
-		return x.xxx_hidden_Chat
-	}
-	return ""
-}
-
-func (x *AgentResponse_Result) GetResponse() string {
-	if x != nil {
-		return x.xxx_hidden_Response
-	}
-	return ""
-}
-
-func (x *AgentResponse_Result) GetError() string {
-	if x != nil {
-		return x.xxx_hidden_Error
-	}
-	return ""
-}
-
-func (x *AgentResponse_Result) SetTitle(v string) {
-	x.xxx_hidden_Title = v
-}
-
-func (x *AgentResponse_Result) SetChat(v string) {
-	x.xxx_hidden_Chat = v
-}
-
-func (x *AgentResponse_Result) SetResponse(v string) {
-	x.xxx_hidden_Response = v
-}
-
-func (x *AgentResponse_Result) SetError(v string) {
-	x.xxx_hidden_Error = v
-}
-
-type AgentResponse_Result_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The task's title.
-	Title string
-	// Resource name of the sub-agent's chat.
-	Chat string
-	// The sub-agent's final message; empty when it failed.
-	Response string
-	// Why the sub-agent produced no answer (launch rejected, turn failed,
-	// cancelled); empty on success.
-	Error string
-}
-
-func (b0 AgentResponse_Result_builder) Build() *AgentResponse_Result {
-	m0 := &AgentResponse_Result{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Title = b.Title
-	x.xxx_hidden_Chat = b.Chat
-	x.xxx_hidden_Response = b.Response
-	x.xxx_hidden_Error = b.Error
-	return m0
-}
-
 var File_sgpt_v1_tools_proto protoreflect.FileDescriptor
 
 const file_sgpt_v1_tools_proto_rawDesc = "" +
@@ -1715,8 +2462,8 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x11ExecShellResponse\x12\x16\n" +
 	"\x06output\x18\x01 \x01(\tR\x06output\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"\x99\x01\n" +
-	"\fAgentRequest\x12\x18\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\xa0\x01\n" +
+	"\x13CreateAgentsRequest\x12\x18\n" +
 	"\acontext\x18\x01 \x01(\tR\acontext\x12-\n" +
 	"\x05tasks\x18\x02 \x03(\v2\x12.sgpt.v1.AgentTaskB\x03\xe0A\x02R\x05tasks\x12\x14\n" +
 	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
@@ -1726,14 +2473,63 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\x05title\x18\x01 \x01(\tB\x03\xe0A\x02R\x05title\x12\x19\n" +
 	"\x05query\x18\x02 \x01(\tB\x03\xe0A\x02R\x05query\x12\x14\n" +
 	"\x05files\x18\x03 \x03(\tR\x05files\x12\x14\n" +
-	"\x05model\x18\x04 \x01(\tR\x05model\"\xae\x01\n" +
-	"\rAgentResponse\x127\n" +
-	"\aresults\x18\x01 \x03(\v2\x1d.sgpt.v1.AgentResponse.ResultR\aresults\x1ad\n" +
-	"\x06Result\x12\x14\n" +
-	"\x05title\x18\x01 \x01(\tR\x05title\x12\x12\n" +
-	"\x04chat\x18\x02 \x01(\tR\x04chat\x12\x1a\n" +
-	"\bresponse\x18\x03 \x01(\tR\bresponse\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error2\xaf\x04\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\"O\n" +
+	"\x14CreateAgentsResponse\x127\n" +
+	"\n" +
+	"operations\x18\x01 \x03(\v2\x17.sgpt.v1.AgentOperationR\n" +
+	"operations\"\xd4\x02\n" +
+	"\x0eAgentOperation\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05agent\x18\x02 \x01(\tR\x05agent\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x123\n" +
+	"\x05state\x18\x04 \x01(\x0e2\x1d.sgpt.v1.AgentOperation.StateR\x05state\x12\x1a\n" +
+	"\bresponse\x18\x05 \x01(\tR\bresponse\x12\x14\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\"\x9a\x01\n" +
+	"\x05State\x12\x15\n" +
+	"\x11STATE_UNSPECIFIED\x10\x00\x12\x10\n" +
+	"\fSTATE_QUEUED\x10\x01\x12\x11\n" +
+	"\rSTATE_RUNNING\x10\x02\x12\x19\n" +
+	"\x15STATE_AWAITING_REVIEW\x10\x03\x12\x13\n" +
+	"\x0fSTATE_SUCCEEDED\x10\x04\x12\x10\n" +
+	"\fSTATE_FAILED\x10\x05\x12\x13\n" +
+	"\x0fSTATE_CANCELLED\x10\x06\"I\n" +
+	"\x13MessageAgentRequest\x12\x19\n" +
+	"\x05agent\x18\x01 \x01(\tB\x03\xe0A\x02R\x05agent\x12\x17\n" +
+	"\x04text\x18\x02 \x01(\tB\x03\xe0A\x02R\x04text\"M\n" +
+	"\x14MessageAgentResponse\x125\n" +
+	"\toperation\x18\x01 \x01(\v2\x17.sgpt.v1.AgentOperationR\toperation\",\n" +
+	"\x14GetOperationsRequest\x12\x14\n" +
+	"\x05names\x18\x01 \x03(\tR\x05names\"P\n" +
+	"\x15GetOperationsResponse\x127\n" +
+	"\n" +
+	"operations\x18\x01 \x03(\v2\x17.sgpt.v1.AgentOperationR\n" +
+	"operations\"\xf7\x01\n" +
+	"\x15WaitOperationsRequest\x12\x14\n" +
+	"\x05names\x18\x01 \x03(\tR\x05names\x12J\n" +
+	"\vreturn_when\x18\x02 \x01(\x0e2).sgpt.v1.WaitOperationsRequest.ReturnWhenR\n" +
+	"returnWhen\x12'\n" +
+	"\x0ftimeout_seconds\x18\x03 \x01(\x05R\x0etimeoutSeconds\"S\n" +
+	"\n" +
+	"ReturnWhen\x12\x1b\n" +
+	"\x17RETURN_WHEN_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fRETURN_WHEN_ALL\x10\x01\x12\x13\n" +
+	"\x0fRETURN_WHEN_ANY\x10\x02\"\xf1\x01\n" +
+	"\x16WaitOperationsResponse\x12>\n" +
+	"\x06reason\x18\x01 \x01(\x0e2&.sgpt.v1.WaitOperationsResponse.ReasonR\x06reason\x127\n" +
+	"\n" +
+	"operations\x18\x02 \x03(\v2\x17.sgpt.v1.AgentOperationR\n" +
+	"operations\"^\n" +
+	"\x06Reason\x12\x16\n" +
+	"\x12REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10REASON_COMPLETED\x10\x01\x12\x12\n" +
+	"\x0eREASON_TIMEOUT\x10\x02\x12\x12\n" +
+	"\x0eREASON_MESSAGE\x10\x03\"4\n" +
+	"\x17CancelOperationsRequest\x12\x19\n" +
+	"\x05names\x18\x01 \x03(\tB\x03\xe0A\x02R\x05names\"S\n" +
+	"\x18CancelOperationsResponse\x127\n" +
+	"\n" +
+	"operations\x18\x01 \x03(\v2\x17.sgpt.v1.AgentOperationR\n" +
+	"operations2\x97\a\n" +
 	"\vToolService\x123\n" +
 	"\x04Diff\x12\x14.sgpt.v1.DiffRequest\x1a\x15.sgpt.v1.DiffResponse\x12<\n" +
 	"\aReplace\x12\x17.sgpt.v1.ReplaceRequest\x1a\x18.sgpt.v1.ReplaceResponse\x12G\n" +
@@ -1741,62 +2537,93 @@ const file_sgpt_v1_tools_proto_rawDesc = "" +
 	"\tReadImage\x12\x19.sgpt.v1.ReadImageRequest\x1a\x1a.sgpt.v1.ReadImageResponse\"\x03\x90\x02\x01\x12P\n" +
 	"\fReadDocument\x12\x1c.sgpt.v1.ReadDocumentRequest\x1a\x1d.sgpt.v1.ReadDocumentResponse\"\x03\x90\x02\x01\x12B\n" +
 	"\tExecShell\x12\x19.sgpt.v1.ExecShellRequest\x1a\x1a.sgpt.v1.ExecShellResponse\x12M\n" +
-	"\vSearchLores\x12\x1b.sgpt.v1.SearchLoresRequest\x1a\x1c.sgpt.v1.SearchLoresResponse\"\x03\x90\x02\x01\x126\n" +
-	"\x05Agent\x12\x15.sgpt.v1.AgentRequest\x1a\x16.sgpt.v1.AgentResponseB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
+	"\vSearchLores\x12\x1b.sgpt.v1.SearchLoresRequest\x1a\x1c.sgpt.v1.SearchLoresResponse\"\x03\x90\x02\x01\x12K\n" +
+	"\fCreateAgents\x12\x1c.sgpt.v1.CreateAgentsRequest\x1a\x1d.sgpt.v1.CreateAgentsResponse\x12K\n" +
+	"\fMessageAgent\x12\x1c.sgpt.v1.MessageAgentRequest\x1a\x1d.sgpt.v1.MessageAgentResponse\x12S\n" +
+	"\rGetOperations\x12\x1d.sgpt.v1.GetOperationsRequest\x1a\x1e.sgpt.v1.GetOperationsResponse\"\x03\x90\x02\x01\x12V\n" +
+	"\x0eWaitOperations\x12\x1e.sgpt.v1.WaitOperationsRequest\x1a\x1f.sgpt.v1.WaitOperationsResponse\"\x03\x90\x02\x01\x12W\n" +
+	"\x10CancelOperations\x12 .sgpt.v1.CancelOperationsRequest\x1a!.sgpt.v1.CancelOperationsResponseB*Z(github.com/malonaz/sgpt/genproto/sgpt/v1b\x06proto3"
 
-var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_sgpt_v1_tools_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_sgpt_v1_tools_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_sgpt_v1_tools_proto_goTypes = []any{
-	(*DiffRequest)(nil),               // 0: sgpt.v1.DiffRequest
-	(*DiffResponse)(nil),              // 1: sgpt.v1.DiffResponse
-	(*ReplaceRequest)(nil),            // 2: sgpt.v1.ReplaceRequest
-	(*Patch)(nil),                     // 3: sgpt.v1.Patch
-	(*ReplaceResponse)(nil),           // 4: sgpt.v1.ReplaceResponse
-	(*ReadFilesRequest)(nil),          // 5: sgpt.v1.ReadFilesRequest
-	(*ReadFilesResponse)(nil),         // 6: sgpt.v1.ReadFilesResponse
-	(*ReadImageRequest)(nil),          // 7: sgpt.v1.ReadImageRequest
-	(*ReadImageResponse)(nil),         // 8: sgpt.v1.ReadImageResponse
-	(*ReadDocumentRequest)(nil),       // 9: sgpt.v1.ReadDocumentRequest
-	(*ReadDocumentResponse)(nil),      // 10: sgpt.v1.ReadDocumentResponse
-	(*SearchLoresRequest)(nil),        // 11: sgpt.v1.SearchLoresRequest
-	(*SearchLoresResponse)(nil),       // 12: sgpt.v1.SearchLoresResponse
-	(*ExecShellRequest)(nil),          // 13: sgpt.v1.ExecShellRequest
-	(*ExecShellResponse)(nil),         // 14: sgpt.v1.ExecShellResponse
-	(*AgentRequest)(nil),              // 15: sgpt.v1.AgentRequest
-	(*AgentTask)(nil),                 // 16: sgpt.v1.AgentTask
-	(*AgentResponse)(nil),             // 17: sgpt.v1.AgentResponse
-	(*ReadFilesResponse_File)(nil),    // 18: sgpt.v1.ReadFilesResponse.File
-	(*SearchLoresResponse_Match)(nil), // 19: sgpt.v1.SearchLoresResponse.Match
-	nil,                               // 20: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
-	(*AgentResponse_Result)(nil),      // 21: sgpt.v1.AgentResponse.Result
+	(AgentOperation_State)(0),             // 0: sgpt.v1.AgentOperation.State
+	(WaitOperationsRequest_ReturnWhen)(0), // 1: sgpt.v1.WaitOperationsRequest.ReturnWhen
+	(WaitOperationsResponse_Reason)(0),    // 2: sgpt.v1.WaitOperationsResponse.Reason
+	(*DiffRequest)(nil),                   // 3: sgpt.v1.DiffRequest
+	(*DiffResponse)(nil),                  // 4: sgpt.v1.DiffResponse
+	(*ReplaceRequest)(nil),                // 5: sgpt.v1.ReplaceRequest
+	(*Patch)(nil),                         // 6: sgpt.v1.Patch
+	(*ReplaceResponse)(nil),               // 7: sgpt.v1.ReplaceResponse
+	(*ReadFilesRequest)(nil),              // 8: sgpt.v1.ReadFilesRequest
+	(*ReadFilesResponse)(nil),             // 9: sgpt.v1.ReadFilesResponse
+	(*ReadImageRequest)(nil),              // 10: sgpt.v1.ReadImageRequest
+	(*ReadImageResponse)(nil),             // 11: sgpt.v1.ReadImageResponse
+	(*ReadDocumentRequest)(nil),           // 12: sgpt.v1.ReadDocumentRequest
+	(*ReadDocumentResponse)(nil),          // 13: sgpt.v1.ReadDocumentResponse
+	(*SearchLoresRequest)(nil),            // 14: sgpt.v1.SearchLoresRequest
+	(*SearchLoresResponse)(nil),           // 15: sgpt.v1.SearchLoresResponse
+	(*ExecShellRequest)(nil),              // 16: sgpt.v1.ExecShellRequest
+	(*ExecShellResponse)(nil),             // 17: sgpt.v1.ExecShellResponse
+	(*CreateAgentsRequest)(nil),           // 18: sgpt.v1.CreateAgentsRequest
+	(*AgentTask)(nil),                     // 19: sgpt.v1.AgentTask
+	(*CreateAgentsResponse)(nil),          // 20: sgpt.v1.CreateAgentsResponse
+	(*AgentOperation)(nil),                // 21: sgpt.v1.AgentOperation
+	(*MessageAgentRequest)(nil),           // 22: sgpt.v1.MessageAgentRequest
+	(*MessageAgentResponse)(nil),          // 23: sgpt.v1.MessageAgentResponse
+	(*GetOperationsRequest)(nil),          // 24: sgpt.v1.GetOperationsRequest
+	(*GetOperationsResponse)(nil),         // 25: sgpt.v1.GetOperationsResponse
+	(*WaitOperationsRequest)(nil),         // 26: sgpt.v1.WaitOperationsRequest
+	(*WaitOperationsResponse)(nil),        // 27: sgpt.v1.WaitOperationsResponse
+	(*CancelOperationsRequest)(nil),       // 28: sgpt.v1.CancelOperationsRequest
+	(*CancelOperationsResponse)(nil),      // 29: sgpt.v1.CancelOperationsResponse
+	(*ReadFilesResponse_File)(nil),        // 30: sgpt.v1.ReadFilesResponse.File
+	(*SearchLoresResponse_Match)(nil),     // 31: sgpt.v1.SearchLoresResponse.Match
+	nil,                                   // 32: sgpt.v1.SearchLoresResponse.Match.LabelsEntry
 }
 var file_sgpt_v1_tools_proto_depIdxs = []int32{
-	3,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
-	18, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
-	19, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
-	16, // 3: sgpt.v1.AgentRequest.tasks:type_name -> sgpt.v1.AgentTask
-	21, // 4: sgpt.v1.AgentResponse.results:type_name -> sgpt.v1.AgentResponse.Result
-	20, // 5: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
-	0,  // 6: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
-	2,  // 7: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
-	5,  // 8: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
-	7,  // 9: sgpt.v1.ToolService.ReadImage:input_type -> sgpt.v1.ReadImageRequest
-	9,  // 10: sgpt.v1.ToolService.ReadDocument:input_type -> sgpt.v1.ReadDocumentRequest
-	13, // 11: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
-	11, // 12: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
-	15, // 13: sgpt.v1.ToolService.Agent:input_type -> sgpt.v1.AgentRequest
-	1,  // 14: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
-	4,  // 15: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
-	6,  // 16: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
-	8,  // 17: sgpt.v1.ToolService.ReadImage:output_type -> sgpt.v1.ReadImageResponse
-	10, // 18: sgpt.v1.ToolService.ReadDocument:output_type -> sgpt.v1.ReadDocumentResponse
-	14, // 19: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
-	12, // 20: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
-	17, // 21: sgpt.v1.ToolService.Agent:output_type -> sgpt.v1.AgentResponse
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	6,  // 0: sgpt.v1.ReplaceRequest.patches:type_name -> sgpt.v1.Patch
+	30, // 1: sgpt.v1.ReadFilesResponse.files:type_name -> sgpt.v1.ReadFilesResponse.File
+	31, // 2: sgpt.v1.SearchLoresResponse.matches:type_name -> sgpt.v1.SearchLoresResponse.Match
+	19, // 3: sgpt.v1.CreateAgentsRequest.tasks:type_name -> sgpt.v1.AgentTask
+	21, // 4: sgpt.v1.CreateAgentsResponse.operations:type_name -> sgpt.v1.AgentOperation
+	0,  // 5: sgpt.v1.AgentOperation.state:type_name -> sgpt.v1.AgentOperation.State
+	21, // 6: sgpt.v1.MessageAgentResponse.operation:type_name -> sgpt.v1.AgentOperation
+	21, // 7: sgpt.v1.GetOperationsResponse.operations:type_name -> sgpt.v1.AgentOperation
+	1,  // 8: sgpt.v1.WaitOperationsRequest.return_when:type_name -> sgpt.v1.WaitOperationsRequest.ReturnWhen
+	2,  // 9: sgpt.v1.WaitOperationsResponse.reason:type_name -> sgpt.v1.WaitOperationsResponse.Reason
+	21, // 10: sgpt.v1.WaitOperationsResponse.operations:type_name -> sgpt.v1.AgentOperation
+	21, // 11: sgpt.v1.CancelOperationsResponse.operations:type_name -> sgpt.v1.AgentOperation
+	32, // 12: sgpt.v1.SearchLoresResponse.Match.labels:type_name -> sgpt.v1.SearchLoresResponse.Match.LabelsEntry
+	3,  // 13: sgpt.v1.ToolService.Diff:input_type -> sgpt.v1.DiffRequest
+	5,  // 14: sgpt.v1.ToolService.Replace:input_type -> sgpt.v1.ReplaceRequest
+	8,  // 15: sgpt.v1.ToolService.ReadFiles:input_type -> sgpt.v1.ReadFilesRequest
+	10, // 16: sgpt.v1.ToolService.ReadImage:input_type -> sgpt.v1.ReadImageRequest
+	12, // 17: sgpt.v1.ToolService.ReadDocument:input_type -> sgpt.v1.ReadDocumentRequest
+	16, // 18: sgpt.v1.ToolService.ExecShell:input_type -> sgpt.v1.ExecShellRequest
+	14, // 19: sgpt.v1.ToolService.SearchLores:input_type -> sgpt.v1.SearchLoresRequest
+	18, // 20: sgpt.v1.ToolService.CreateAgents:input_type -> sgpt.v1.CreateAgentsRequest
+	22, // 21: sgpt.v1.ToolService.MessageAgent:input_type -> sgpt.v1.MessageAgentRequest
+	24, // 22: sgpt.v1.ToolService.GetOperations:input_type -> sgpt.v1.GetOperationsRequest
+	26, // 23: sgpt.v1.ToolService.WaitOperations:input_type -> sgpt.v1.WaitOperationsRequest
+	28, // 24: sgpt.v1.ToolService.CancelOperations:input_type -> sgpt.v1.CancelOperationsRequest
+	4,  // 25: sgpt.v1.ToolService.Diff:output_type -> sgpt.v1.DiffResponse
+	7,  // 26: sgpt.v1.ToolService.Replace:output_type -> sgpt.v1.ReplaceResponse
+	9,  // 27: sgpt.v1.ToolService.ReadFiles:output_type -> sgpt.v1.ReadFilesResponse
+	11, // 28: sgpt.v1.ToolService.ReadImage:output_type -> sgpt.v1.ReadImageResponse
+	13, // 29: sgpt.v1.ToolService.ReadDocument:output_type -> sgpt.v1.ReadDocumentResponse
+	17, // 30: sgpt.v1.ToolService.ExecShell:output_type -> sgpt.v1.ExecShellResponse
+	15, // 31: sgpt.v1.ToolService.SearchLores:output_type -> sgpt.v1.SearchLoresResponse
+	20, // 32: sgpt.v1.ToolService.CreateAgents:output_type -> sgpt.v1.CreateAgentsResponse
+	23, // 33: sgpt.v1.ToolService.MessageAgent:output_type -> sgpt.v1.MessageAgentResponse
+	25, // 34: sgpt.v1.ToolService.GetOperations:output_type -> sgpt.v1.GetOperationsResponse
+	27, // 35: sgpt.v1.ToolService.WaitOperations:output_type -> sgpt.v1.WaitOperationsResponse
+	29, // 36: sgpt.v1.ToolService.CancelOperations:output_type -> sgpt.v1.CancelOperationsResponse
+	25, // [25:37] is the sub-list for method output_type
+	13, // [13:25] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_sgpt_v1_tools_proto_init() }
@@ -1809,13 +2636,14 @@ func file_sgpt_v1_tools_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sgpt_v1_tools_proto_rawDesc), len(file_sgpt_v1_tools_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   22,
+			NumEnums:      3,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_sgpt_v1_tools_proto_goTypes,
 		DependencyIndexes: file_sgpt_v1_tools_proto_depIdxs,
+		EnumInfos:         file_sgpt_v1_tools_proto_enumTypes,
 		MessageInfos:      file_sgpt_v1_tools_proto_msgTypes,
 	}.Build()
 	File_sgpt_v1_tools_proto = out.File

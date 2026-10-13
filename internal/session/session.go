@@ -78,6 +78,12 @@ type Params struct {
 	// Reviews is the launcher's review queue, for a sub-agent: its calls
 	// await the user's verdict in the root chat. Nil starts a new tree.
 	Reviews *review.Queue
+	// Supervisor is the sub-agent system, told when the session cancels a
+	// turn or closes; nil when sub-agents are not configured.
+	Supervisor tool.Supervisor
+	// MaxAgentTurns caps the turns messages from other agents may start
+	// before the user speaks in the chat again; 0 is unlimited.
+	MaxAgentTurns int
 }
 
 // Session drives a single chat conversation.
@@ -155,11 +161,16 @@ type Session struct {
 	// dropped, so they are held here rather than in the lossy event channel.
 	pendingErrors []error
 
-	// onTurnComplete fires when a turn reaches a terminal state: final answer
-	// (no tool calls), stream error, or tool-processing failure. It does NOT
-	// fire while awaiting review — the sub-agent launcher uses it to collect
-	// the final answer after the user resolves everything in the tab.
-	onTurnComplete func(finalText string, err error)
+	// replyWaiters are told how the turn consuming a queued message ended;
+	// they move onto that turn when it takes the message.
+	replyWaiters map[*aipb.Message][]func(tool.TurnOutcome)
+	// inboxCh is closed, and replaced, whenever a message is queued.
+	inboxCh chan struct{}
+	// agentTurns counts the turns agent messages started since the user last
+	// sent one, bounded by params.MaxAgentTurns.
+	agentTurns int
+	// closed marks a session whose tab is gone: nothing may start its turns.
+	closed bool
 
 	// renderThrottle paces RefreshEvents: token streams emit far faster than
 	// a terminal can usefully render.
@@ -189,6 +200,8 @@ func New(
 		messages:                      messages,
 		policy:                        policy,
 		injectedFilePathToMessageName: map[string]string{},
+		replyWaiters:                  map[*aipb.Message][]func(tool.TurnOutcome){},
+		inboxCh:                       make(chan struct{}),
 		lastModelUsage:                &aipb.ModelUsage{},
 		renderThrottle:                throttle{interval: renderInterval},
 		eventCh:                       make(chan Event, 64),
@@ -389,6 +402,7 @@ func (s *Session) caller() tool.Caller {
 		Tools:   tools,
 		Policy:  s.policy,
 		Reviews: s.reviews,
+		Agent:   s,
 	}
 }
 
@@ -916,23 +930,6 @@ func (s *Session) advertisedToolSets() []*aipb.ToolSet {
 	return toolSets
 }
 
-func (s *Session) SetOnTurnComplete(callback func(finalText string, err error)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.onTurnComplete = callback
-}
-
-// notifyTurnComplete invokes the callback outside the lock: it may block
-// (delivering the sub-agent result) and must not deadlock the session.
-func (s *Session) notifyTurnComplete(finalText string, err error) {
-	s.mu.Lock()
-	callback := s.onTurnComplete
-	s.mu.Unlock()
-	if callback != nil {
-		callback(finalText, err)
-	}
-}
-
 // lastAssistantText joins the text blocks of the most recent assistant message.
 func (s *Session) lastAssistantText() string {
 	s.mu.Lock()
@@ -951,6 +948,12 @@ func (s *Session) lastAssistantText() string {
 	return ""
 }
 
+// isTypedByUser tells the user's own words from sgpt's context and other
+// agents' messages, which share the user role.
+func isTypedByUser(message *aipb.Message) bool {
+	return !store.IsContextMessage(message) && store.MessageSender(message) == ""
+}
+
 // UserMessageText returns the text of the user-typed message named
 // messageName, or "" when it's anything else. Injected context (system prompt,
 // files) is also ROLE_USER but not something to re-edit.
@@ -958,7 +961,7 @@ func (s *Session) UserMessageText(messageName string) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, message := range s.messages {
-		if message.GetName() != messageName || message.GetRole() != aipb.Role_ROLE_USER || store.IsContextMessage(message) {
+		if message.GetName() != messageName || message.GetRole() != aipb.Role_ROLE_USER || !isTypedByUser(message) {
 			continue
 		}
 		var parts []string
@@ -970,38 +973,131 @@ func (s *Session) UserMessageText(messageName string) string {
 	return ""
 }
 
+// SendMessage sends the user's message: an interjection while a turn runs,
+// otherwise the start of a turn it runs to completion. Blocking.
 func (s *Session) SendMessage(text string) {
-	s.SendMessageContext(context.Background(), text)
+	nextTurn, _ := s.enqueue(ai.NewUserMessage(ai.NewTextBlock(text)), nil, false)
+	s.runTurns(nextTurn)
 }
 
-// SendMessageContext is SendMessage with ctx also scoping the turn it starts,
-// for a launcher awaiting the answer; an interjection ignores it.
-func (s *Session) SendMessageContext(ctx context.Context, text string) {
-	// The queue-or-start decision and the turn arming share one lock
-	// acquisition, so an interjection can never race a turn start.
+// Deliver hands the session a message from another agent; see tool.Agent.
+// Unlike SendMessage it never blocks: a turn it starts runs on its own
+// goroutine.
+func (s *Session) Deliver(message *aipb.Message) (<-chan tool.TurnOutcome, error) {
+	outcomeCh := make(chan tool.TurnOutcome, 1)
+	nextTurn, err := s.enqueue(message, func(outcome tool.TurnOutcome) { outcomeCh <- outcome }, true)
+	if err != nil {
+		return nil, err
+	}
+	go s.runTurns(nextTurn)
+	return outcomeCh, nil
+}
+
+// enqueue queues a message for the next generation and arms a turn for it
+// when none is running. waiter, if set, learns how the consuming turn ends.
+// The queue-or-start decision and the turn arming share one lock
+// acquisition, so a message can never race a turn start.
+func (s *Session) enqueue(message *aipb.Message, waiter func(tool.TurnOutcome), fromAgent bool) (*turn, error) {
 	s.mu.Lock()
-	// While a turn is in flight this is an interjection: queued — and
-	// rendered as queued — until the turn's next generation consumes it, after
+	if s.closed {
+		s.mu.Unlock()
+		return nil, tool.ErrAgentClosed
+	}
+	// Queued — and rendered as queued — until a generation consumes it, after
 	// any tool results so the history stays valid.
-	s.queuedMessages = append(s.queuedMessages, ai.NewUserMessage(ai.NewTextBlock(text)))
+	s.queuedMessages = append(s.queuedMessages, message)
+	if waiter != nil {
+		s.replyWaiters[message] = append(s.replyWaiters[message], waiter)
+	}
+	close(s.inboxCh)
+	s.inboxCh = make(chan struct{})
+	if !fromAgent {
+		s.agentTurns = 0
+	}
 	if s.currentTurn != nil {
 		s.mu.Unlock()
 		s.refresh()
-		return
+		return nil, nil
 	}
-	nextTurn := s.startTurnLocked(ctx)
+	if fromAgent && s.params.MaxAgentTurns > 0 && s.agentTurns >= s.params.MaxAgentTurns {
+		// Kept queued: the user's next message carries it to the model.
+		delete(s.replyWaiters, message)
+		s.mu.Unlock()
+		s.emitError(fmt.Errorf("%s: %w", s.Chat().GetTitle(), tool.ErrAgentTurnLimit))
+		s.refresh()
+		return nil, tool.ErrAgentTurnLimit
+	}
+	if fromAgent {
+		s.agentTurns++
+	}
+	nextTurn := s.startTurnLocked()
 	s.mu.Unlock()
+	return nextTurn, nil
+}
+
+// runTurns runs an armed turn, and every turn that follows it, to the end.
+func (s *Session) runTurns(nextTurn *turn) {
 	for nextTurn != nil {
 		nextTurn = s.runTurn(nextTurn)
 	}
 }
 
+// takeWaitersLocked detaches the reply waiters of messages a turn consumes.
+// Caller holds the lock.
+func (s *Session) takeWaitersLocked(messages []*aipb.Message) []func(tool.TurnOutcome) {
+	var waiters []func(tool.TurnOutcome)
+	for _, message := range messages {
+		waiters = append(waiters, s.replyWaiters[message]...)
+		delete(s.replyWaiters, message)
+	}
+	return waiters
+}
+
+// failQueuedWaiters resolves the waiters of messages still queued: the turn
+// that would have answered them ended without doing so. The messages stay
+// queued for the next turn.
+func (s *Session) failQueuedWaiters(err error) {
+	s.mu.Lock()
+	waiters := s.takeWaitersLocked(s.queuedMessages)
+	s.mu.Unlock()
+	for _, waiter := range waiters {
+		waiter(tool.TurnOutcome{Err: err})
+	}
+}
+
+// Inbox returns a channel closed once a message is queued; see tool.Agent.
+func (s *Session) Inbox() <-chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.queuedMessages) > 0 {
+		return closedChannel
+	}
+	return s.inboxCh
+}
+
+var closedChannel = func() chan struct{} {
+	channel := make(chan struct{})
+	close(channel)
+	return channel
+}()
+
+// Close retires the session with its tab: the running turn stops, pending
+// replies fail, and messages from other agents are refused from now on.
+func (s *Session) Close() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.CancelTurn()
+	s.failQueuedWaiters(tool.ErrAgentClosed)
+}
+
 // startTurnLocked arms a turn for the queued messages; interjections a
 // cancelled turn left behind keep their place ahead of the newer message.
 // Caller holds the lock.
-func (s *Session) startTurnLocked(scope context.Context) *turn {
-	t := newTurn(s, scope)
+func (s *Session) startTurnLocked() *turn {
+	t := newTurn(s)
 	t.inputs = s.queuedMessages
+	t.waiters = s.takeWaitersLocked(t.inputs)
 	s.queuedMessages = nil
 	s.currentTurn = t
 	// Optimistic render: the user's message must appear immediately. The
@@ -1021,12 +1117,12 @@ func (s *Session) runTurn(t *turn) *turn {
 	if err != nil {
 		s.unsendInputs(t)
 		s.emitError(err)
-		s.notifyTurnComplete("", err)
+		t.complete("", err)
 	} else {
 		s.refresh()
 		err = t.run()
 	}
-	return s.endTurn(t, err == nil)
+	return s.endTurn(t, err)
 }
 
 // unsendInputs returns the inputs of a turn that never reached the model to
@@ -1045,17 +1141,20 @@ func (s *Session) unsendInputs(t *turn) {
 // SendMessage starts fresh. A completed turn hands over to a new one when
 // interjections are still queued: they arrived after its last generation,
 // and nothing else would ever send them.
-func (s *Session) endTurn(t *turn, completed bool) *turn {
+func (s *Session) endTurn(t *turn, err error) *turn {
 	var nextTurn *turn
 	s.mu.Lock()
 	if s.currentTurn == t {
 		s.currentTurn = nil
-		if completed && len(s.queuedMessages) > 0 {
-			nextTurn = s.startTurnLocked(context.Background())
+		if err == nil && len(s.queuedMessages) > 0 && !s.closed {
+			nextTurn = s.startTurnLocked()
 		}
 	}
 	s.mu.Unlock()
 	t.cancel()
+	if err != nil {
+		s.failQueuedWaiters(err)
+	}
 	s.refresh()
 	return nextTurn
 }
@@ -1071,7 +1170,8 @@ func (s *Session) turnContext() context.Context {
 	return s.ctx
 }
 
-// CancelTurn aborts the running turn, if any.
+// CancelTurn aborts the running turn, if any, and its sub-agents' turns:
+// stopping a chat stops the work it delegated.
 func (s *Session) CancelTurn() {
 	s.mu.Lock()
 	currentTurn := s.currentTurn
@@ -1079,6 +1179,20 @@ func (s *Session) CancelTurn() {
 	if currentTurn != nil {
 		currentTurn.cancel()
 	}
+	if s.params.Supervisor != nil {
+		s.params.Supervisor.CancelDescendants(s)
+	}
+}
+
+// AwaitingReview reports whether one of this session's own tool calls awaits
+// the user's verdict — not a sub-agent's surfacing here; see tool.Agent.
+func (s *Session) AwaitingReview() bool {
+	for _, request := range s.reviews.Pending() {
+		if request.Owner == s.id {
+			return true
+		}
+	}
+	return false
 }
 
 // TurnInFlight reports whether a turn is currently running, review pauses
@@ -1108,7 +1222,7 @@ func (s *Session) hasQueuedMessages() bool {
 // interjections — tool results must directly answer the assistant message,
 // so interjections always go last. Consumed interjections join the local
 // mirror here, which is their true position in the conversation.
-func (s *Session) takeInputMessages() []*aipb.Message {
+func (s *Session) takeInputMessages(t *turn) []*aipb.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	inputMessages := s.pendingInputMessages
@@ -1116,6 +1230,8 @@ func (s *Session) takeInputMessages() []*aipb.Message {
 	if len(s.queuedMessages) > 0 {
 		inputMessages = append(inputMessages, s.queuedMessages...)
 		s.messages = append(s.messages, s.queuedMessages...)
+		// This turn now answers them.
+		t.waiters = append(t.waiters, s.takeWaitersLocked(s.queuedMessages)...)
 		s.queuedMessages = nil
 	}
 	return inputMessages
@@ -1207,7 +1323,7 @@ func (s *Session) maybeGenerateTitle() {
 	}
 	var parts []string
 	for _, message := range s.messages {
-		if message.GetRole() != aipb.Role_ROLE_USER || store.IsContextMessage(message) {
+		if message.GetRole() != aipb.Role_ROLE_USER || !isTypedByUser(message) {
 			continue
 		}
 		for _, block := range ai.FilterBlocks(message.GetBlocks(), ai.BlockTypeText) {

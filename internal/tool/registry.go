@@ -15,15 +15,19 @@ import (
 const ToolHandlerIDAnnotation = "sgpt.com/tool-handler-id"
 
 const (
-	HandlerIDShell        = "shell"
-	HandlerIDReadFiles    = "read_files"
-	HandlerIDReadImage    = "read_image"
-	HandlerIDReadDocument = "read_document"
-	HandlerIDEngine       = "engine"
-	HandlerIDDiff         = "diff"
-	HandlerIDReplace      = "replace"
-	HandlerIDAgent        = "agent"
-	HandlerIDSearchLores  = "search_lores"
+	HandlerIDShell            = "shell"
+	HandlerIDReadFiles        = "read_files"
+	HandlerIDReadImage        = "read_image"
+	HandlerIDReadDocument     = "read_document"
+	HandlerIDEngine           = "engine"
+	HandlerIDDiff             = "diff"
+	HandlerIDReplace          = "replace"
+	HandlerIDCreateAgents     = "create_agents"
+	HandlerIDMessageAgent     = "message_agent"
+	HandlerIDGetOperations    = "get_operations"
+	HandlerIDWaitOperations   = "wait_operations"
+	HandlerIDCancelOperations = "cancel_operations"
+	HandlerIDSearchLores      = "search_lores"
 )
 
 // Tool reviews and executes tool calls.

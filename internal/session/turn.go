@@ -24,23 +24,31 @@ type turn struct {
 	cancel context.CancelFunc
 	// inputs are the user messages the turn was started for.
 	inputs []*aipb.Message
+	// waiters learn how the turn ends: they were waiting on a message it
+	// consumed. Guarded by the session lock.
+	waiters []func(tool.TurnOutcome)
 	// attachments are tool.Attach'd blocks awaiting the next tool message;
 	// unlocked since tools only run on the turn goroutine.
 	attachments []*aipb.Block
 }
 
-// newTurn arms a turn that scope can also cancel — from the moment it is
-// armed, a window CancelTurn cannot reach from another goroutine.
-func newTurn(s *Session, scope context.Context) *turn {
+func newTurn(s *Session) *turn {
 	t := &turn{session: s}
-	ctx, cancel := context.WithCancel(tool.WithAttach(s.ctx, t.attach))
-	stop := context.AfterFunc(scope, cancel)
-	t.ctx = ctx
-	t.cancel = func() {
-		stop()
-		cancel()
-	}
+	t.ctx, t.cancel = context.WithCancel(tool.WithAttach(s.ctx, t.attach))
 	return t
+}
+
+// complete tells the turn's waiters how it ended. Called once the turn's
+// outcome is known, before it is released.
+func (t *turn) complete(text string, err error) {
+	s := t.session
+	s.mu.Lock()
+	waiters := t.waiters
+	t.waiters = nil
+	s.mu.Unlock()
+	for _, waiter := range waiters {
+		waiter(tool.TurnOutcome{Text: text, Err: err})
+	}
 }
 
 func (t *turn) attach(blocks ...*aipb.Block) {
@@ -56,7 +64,7 @@ func (t *turn) run() error {
 	s := t.session
 	defer s.flushChat()
 	for {
-		inputMessages := s.takeInputMessages()
+		inputMessages := s.takeInputMessages(t)
 		generatedMessage, err := t.stream(inputMessages)
 
 		s.mu.Lock()
@@ -69,7 +77,7 @@ func (t *turn) run() error {
 			// history), so the next turn resumes exactly where this one died.
 			s.requeueInputMessages(inputMessages)
 			s.refresh()
-			s.notifyTurnComplete("", err)
+			t.complete("", err)
 			return err
 		}
 
@@ -86,7 +94,7 @@ func (t *turn) run() error {
 			}
 			s.maybeGenerateTitle()
 			s.refresh()
-			s.notifyTurnComplete(s.lastAssistantText(), nil)
+			t.complete(s.lastAssistantText(), nil)
 			return nil
 		}
 
@@ -97,7 +105,7 @@ func (t *turn) run() error {
 		// end this one cleanly instead of streaming on a dead context.
 		if err := t.ctx.Err(); err != nil {
 			s.refresh()
-			s.notifyTurnComplete("", err)
+			t.complete("", err)
 			return err
 		}
 	}

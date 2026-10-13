@@ -1,6 +1,7 @@
 go_library(
     name = "tool",
     srcs = [
+        "agents.go",
         "builtin.go",
         "context.go",
         "metadata.go",
