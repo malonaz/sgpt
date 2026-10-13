@@ -17,8 +17,9 @@ in-app cheat sheet.
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>w</kbd> | Close idle sub-agent tabs |
 | <kbd>alt</kbd>+<kbd>m</kbd> | Open the chat menu |
 | <kbd>alt</kbd>+<kbd>c</kbd> | Copy the chat's resource name |
+| <kbd>alt</kbd>+<kbd>F1</kbd>…<kbd>F9</kbd> | Jump to tab 1–9 |
 | <kbd>alt</kbd>+<kbd>h</kbd> | Toggle help |
-| <kbd>ctrl</kbd>+<kbd>c</kbd> | Quit, after confirming; in a chat with a running turn, cancels it instead |
+| <kbd>ctrl</kbd>+<kbd>c</kbd> | Never destructive: cancels the running turn, else clears the input; otherwise press twice to quit (asks first). It never closes a tab |
 
 ## Chat
 
@@ -26,6 +27,9 @@ in-app cheat sheet.
 |---|---|
 | <kbd>ctrl</kbd>+<kbd>j</kbd> | Send message, or review the tool call under the cursor |
 | <kbd>tab</kbd> | Toggle focus between input and timeline |
+| <kbd>esc</kbd> | From the timeline, back to the input |
+| <kbd>pgup</kbd> / <kbd>pgdn</kbd> | Scroll the timeline a page, from anywhere |
+| mouse wheel | Scroll the timeline (<kbd>shift</kbd>+drag selects text) |
 | <kbd>alt</kbd>+<kbd>y</kbd> | Accept tool call under review |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>y</kbd> | Accept all pending tool calls |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>a</kbd> | Always accept this tool (session) |
@@ -39,7 +43,7 @@ in-app cheat sheet.
 | <kbd>alt</kbd>+<kbd>d</kbd> | Delete selected message |
 | <kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>d</kbd> | Delete selected message and everything below |
 | <kbd>alt</kbd>+<kbd>e</kbd> | Edit selected user message and resend (truncates below) |
-| <kbd>ctrl</kbd>+<kbd>c</kbd> | Cancel the running turn and its sub-agents' turns |
+| <kbd>ctrl</kbd>+<kbd>c</kbd> | Cancel the running turn and its sub-agents' turns, else clear the input |
 | <kbd>alt</kbd>+<kbd>u</kbd> | Go to the launcher's tab |
 | <kbd>alt</kbd>+<kbd>g</kbd> | Go to the next sub-agent's tab, one awaiting review first |
 
@@ -48,7 +52,7 @@ in-app cheat sheet.
 | Key | Action |
 |---|---|
 | <kbd>enter</kbd> | Newline |
-| <kbd>alt</kbd>+<kbd>p</kbd> / <kbd>alt</kbd>+<kbd>n</kbd> | Previous / next history entry |
+| <kbd>alt</kbd>+<kbd>p</kbd> / <kbd>alt</kbd>+<kbd>n</kbd> | Previous / next history entry (shared by all tabs, kept in `$XDG_STATE_HOME/sgpt/history`) |
 | <kbd>alt</kbd>+<kbd>o</kbd> | Compose in `$EDITOR` |
 
 ## Timeline

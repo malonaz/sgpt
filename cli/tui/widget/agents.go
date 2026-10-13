@@ -1,32 +1,33 @@
 package widget
 
 import (
-	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/malonaz/sgpt/cli/tui/format"
 	"github.com/malonaz/sgpt/cli/tui/styles"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
 	"github.com/malonaz/sgpt/internal/tool/agent"
 )
 
 const (
-	maxLauncherTitleWidth = 24
+	maxLauncherTitleWidth = 28
 	// minAgentTitleWidth is the narrowest a sub-agent title shrinks to before
 	// the strip falls back to glyphs alone.
-	minAgentTitleWidth = 4
-	ellipsis           = "…"
+	minAgentTitleWidth = 6
+	agentEntryGap      = "  "
+	agentSegmentGap    = "   "
 )
 
 var (
-	agentStripSeparator = styles.DimTextStyle.Render(" │ ")
-	agentGlyphStyles    = map[sgptpb.AgentOperation_State]lipgloss.Style{
-		sgptpb.AgentOperation_STATE_RUNNING:         lipgloss.NewStyle().Foreground(styles.SecondaryColor),
-		sgptpb.AgentOperation_STATE_AWAITING_REVIEW: lipgloss.NewStyle().Foreground(styles.AccentColor).Bold(true),
-		sgptpb.AgentOperation_STATE_SUCCEEDED:       lipgloss.NewStyle().Foreground(styles.SuccessColor),
-		sgptpb.AgentOperation_STATE_FAILED:          lipgloss.NewStyle().Foreground(styles.ErrorColor),
+	agentLauncherStyle = lipgloss.NewStyle().Foreground(styles.ColorAgent)
+	agentGlyphStyles   = map[sgptpb.AgentOperation_State]lipgloss.Style{
+		sgptpb.AgentOperation_STATE_RUNNING:         lipgloss.NewStyle().Foreground(styles.ColorInfo),
+		sgptpb.AgentOperation_STATE_AWAITING_REVIEW: lipgloss.NewStyle().Foreground(styles.ColorWarning).Bold(true),
+		sgptpb.AgentOperation_STATE_SUCCEEDED:       lipgloss.NewStyle().Foreground(styles.ColorSuccess),
+		sgptpb.AgentOperation_STATE_FAILED:          lipgloss.NewStyle().Foreground(styles.ColorDanger),
 	}
 )
 
@@ -38,6 +39,9 @@ type AgentStrip struct {
 	Children []AgentEntry
 	// Price is the children's total spend.
 	Price float64
+	// LauncherHint and ChildrenHint are the rendered keys that reach them.
+	LauncherHint string
+	ChildrenHint string
 }
 
 type AgentEntry struct {
@@ -45,22 +49,25 @@ type AgentEntry struct {
 	State sgptpb.AgentOperation_State
 }
 
-// RenderAgentStrip renders the strip on one line of the given width.
+// RenderAgentStrip renders the strip as one quiet line of the given width:
+// the launcher on the left, the sub-agents and their spend on the right.
 func RenderAgentStrip(strip AgentStrip, width int) string {
-	var segments []string
+	inner := width - 2*statusPadding
+	var left, right string
 	if strip.Launcher != "" {
-		launcher := "↖ " + ansi.Truncate(strip.Launcher, maxLauncherTitleWidth, ellipsis) + styles.DimTextStyle.Render(" (alt+u)")
-		segments = append(segments, launcher)
+		left = agentLauncherStyle.Render(styles.GlyphChild+" from "+ansi.Truncate(strip.Launcher, maxLauncherTitleWidth, styles.GlyphEllipsis)) +
+			agentSegmentGap + strip.LauncherHint
 	}
 	if len(strip.Children) > 0 {
-		price := fmt.Sprintf("$%.2f", strip.Price) + styles.DimTextStyle.Render(" (alt+g)")
-		budget := width - lipgloss.Width(price) - lipgloss.Width(agentStripSeparator)
-		for _, segment := range segments {
-			budget -= lipgloss.Width(segment) + lipgloss.Width(agentStripSeparator)
+		tail := agentSegmentGap + styles.MutedStyle.Render(format.Price(strip.Price)) + agentSegmentGap + strip.ChildrenHint
+		budget := inner - lipgloss.Width(tail)
+		if left != "" {
+			budget -= lipgloss.Width(left) + statusGap
 		}
-		segments = append(segments, renderAgentEntries(strip.Children, budget), price)
+		right = renderAgentEntries(strip.Children, budget) + tail
 	}
-	return ansi.Truncate(strings.Join(segments, agentStripSeparator), width, ellipsis)
+	gap := max(0, inner-lipgloss.Width(left)-lipgloss.Width(right))
+	return pad(ansi.Truncate(left+strings.Repeat(" ", gap)+right, max(0, inner), styles.GlyphEllipsis))
 }
 
 // renderAgentEntries fits the entries in budget columns: titles shrink
@@ -71,17 +78,17 @@ func renderAgentEntries(entries []AgentEntry, budget int) string {
 		longest = max(longest, ansi.StringWidth(entry.Title))
 	}
 	for limit := longest; limit >= minAgentTitleWidth; limit-- {
-		// Each entry is "glyph title", separated by two spaces.
-		width := 4*len(entries) - 2
+		// Each entry is "glyph title", separated by agentEntryGap.
+		width := (2+len(agentEntryGap))*len(entries) - len(agentEntryGap)
 		for _, entry := range entries {
 			width += min(ansi.StringWidth(entry.Title), limit)
 		}
 		if width <= budget {
 			parts := make([]string, len(entries))
 			for i, entry := range entries {
-				parts[i] = agentGlyph(entry.State) + " " + ansi.Truncate(entry.Title, limit, ellipsis)
+				parts[i] = agentGlyph(entry.State) + " " + styles.MutedStyle.Render(ansi.Truncate(entry.Title, limit, styles.GlyphEllipsis))
 			}
-			return strings.Join(parts, "  ")
+			return strings.Join(parts, agentEntryGap)
 		}
 	}
 	glyphs := make([]string, len(entries))
@@ -96,5 +103,5 @@ func agentGlyph(state sgptpb.AgentOperation_State) string {
 	if style, ok := agentGlyphStyles[state]; ok {
 		return style.Render(glyph)
 	}
-	return styles.DimTextStyle.Render(glyph)
+	return styles.SubtleStyle.Render(glyph)
 }
