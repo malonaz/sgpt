@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
@@ -38,7 +37,7 @@ func (t *ReadFilesTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgp
 		return nil, err
 	}
 	// Auto-execution is declared on the proto method (NO_SIDE_EFFECTS).
-	// No display message: the title (📖 basenames) already covers it.
+	// No display message: the row already names the files.
 	return &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 		AutoExecute:    tool.NoSideEffects(toolCall),
@@ -70,26 +69,77 @@ func (t *ReadFilesTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*ai
 	return tool.NewStructuredToolResult(toolCall, readFilesResponse)
 }
 
-// RenderHeader shows the basenames being read instead of the tool name.
-func (t *ReadFilesTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	readFilesRequest, err := parseReadFilesArguments(toolCall)
-	if err != nil {
+// Summarize names the files and how much of them was read.
+func (t *ReadFilesTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	summary := tool.Summary{Verb: "Read", Subject: tool.PathsSubject(tool.StringList(tool.Argument(toolCall, "paths")))}
+	if toolResult == nil || toolResult.GetError() != nil {
+		return summary, true
+	}
+	files := tool.ResultField(toolResult, "files").GetListValue().GetValues()
+	lines, failed, fileError := 0, 0, ""
+	for _, file := range files {
+		fields := file.GetStructValue().GetFields()
+		if fileError = fields["error"].GetStringValue(); fileError != "" {
+			failed++
+			continue
+		}
+		lines += lineCount(fields["content"].GetStringValue())
+	}
+	outcome := tool.Count(lines, "line", "lines")
+	if len(files) > 1 {
+		outcome = tool.Count(len(files), "file", "files") + " · " + outcome
+	}
+	switch {
+	case len(files) == 1 && failed == 1:
+		outcome = errorCause(fileError)
+	case failed > 0:
+		outcome += fmt.Sprintf(" · %d failed", failed)
+	}
+	summary.Outcome, summary.Failed = outcome, failed > 0
+	return summary, true
+}
+
+// RenderResult lists the files read rather than their contents: the
+// contents are for the model, the user wants to know what it saw.
+func (t *ReadFilesTool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
+	files := tool.ResultField(toolResult, "files").GetListValue().GetValues()
+	if len(files) == 0 {
 		return "", false
 	}
-	names := make([]string, 0, len(readFilesRequest.GetPaths()))
-	for _, path := range readFilesRequest.GetPaths() {
-		names = append(names, fmt.Sprintf("`%s`", filepath.Base(path)))
+	var b strings.Builder
+	for _, file := range files {
+		fields := file.GetStructValue().GetFields()
+		path := tool.DisplayPath(fields["path"].GetStringValue())
+		if fileError := fields["error"].GetStringValue(); fileError != "" {
+			fmt.Fprintf(&b, "- `%s` %s\n", path, fileError)
+			continue
+		}
+		fmt.Fprintf(&b, "- `%s` %s\n", path, tool.Count(lineCount(fields["content"].GetStringValue()), "line", "lines"))
 	}
-	// Keep the header to one scannable line; the payload has the full list.
-	if len(names) > 3 {
-		names = append(names[:3], fmt.Sprintf("+%d more", len(names)-3))
+	return b.String(), true
+}
+
+// lineCount counts lines the way an editor numbers them.
+func lineCount(content string) int {
+	if content == "" {
+		return 0
 	}
-	return "📖 " + strings.Join(names, ", "), true
+	return strings.Count(strings.TrimSuffix(content, "\n"), "\n") + 1
+}
+
+// errorCause reduces a file error to its cause ("open x: no such file" reads
+// "no such file"): the path is already the row's subject.
+func errorCause(fileError string) string {
+	if index := strings.LastIndex(fileError, ": "); index != -1 {
+		return fileError[index+2:]
+	}
+	return fileError
 }
 
 var (
 	_ tool.Tool           = (*ReadFilesTool)(nil)
-	_ tool.HeaderRenderer = (*ReadFilesTool)(nil)
+	_ tool.Summarizer     = (*ReadFilesTool)(nil)
+	_ tool.ResultRenderer = (*ReadFilesTool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(ReadFiles) }

@@ -3,7 +3,6 @@ package io
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"github.com/malonaz/core/go/ai"
@@ -45,7 +44,7 @@ func (t *ReadImageTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgp
 	if _, err := parseReadImageArguments(toolCall); err != nil {
 		return nil, err
 	}
-	// No display message: the title (🖼 basename) already covers it.
+	// No display message: the row already names the file.
 	return &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 		AutoExecute:    tool.NoSideEffects(toolCall),
@@ -64,18 +63,18 @@ func (t *ReadImageTool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*
 	return attach(ctx, toolCall, ai.NewImageBlock(ai.NewImageFromData(data, mediaType)))
 }
 
-// RenderHeader shows the image's basename instead of the tool name.
-func (t *ReadImageTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	readImageRequest, err := parseReadImageArguments(toolCall)
-	if err != nil {
-		return "", false
+// Summarize names the image; the model sees it as an attachment.
+func (t *ReadImageTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	summary := tool.Summary{Verb: "View", Subject: tool.DisplayPath(tool.Argument(toolCall, "path").GetStringValue())}
+	if toolResult != nil {
+		summary.Outcome = "attached"
 	}
-	return fmt.Sprintf("🖼 `%s`", filepath.Base(readImageRequest.GetPath())), true
+	return summary, true
 }
 
 var (
-	_ tool.Tool           = (*ReadImageTool)(nil)
-	_ tool.HeaderRenderer = (*ReadImageTool)(nil)
+	_ tool.Tool       = (*ReadImageTool)(nil)
+	_ tool.Summarizer = (*ReadImageTool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(ReadImage) }

@@ -29,6 +29,7 @@
         "charm.land/glamour/v2/internal/autolink": "//third_party/go:charm.land__glamour__v2__internal__autolink",
         "charm.land/glamour/v2/styles": "//third_party/go:charm.land__glamour__v2__styles",
         "charm.land/lipgloss/v2": "//third_party/go:charm.land__lipgloss__v2",
+        "charm.land/lipgloss/v2/compat": "//third_party/go:charm.land__lipgloss__v2__compat",
         "charm.land/lipgloss/v2/table": "//third_party/go:charm.land__lipgloss__v2__table",
         "cloud.google.com/go/auth": "//third_party/go:cloud.google.com__go__auth",
         "cloud.google.com/go/auth/credentials": "//third_party/go:cloud.google.com__go__auth__credentials",

@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,6 +13,8 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/malonaz/sgpt/internal/store"
 )
 
 // fakeAiService is an in-process AiService that persists nothing and answers
@@ -21,7 +26,9 @@ type fakeAiService struct {
 	responses [][]*aipb.Block
 	title     string
 	chats     []*aipb.Chat
-	counter   int
+	// messages holds seeded histories by chat name.
+	messages map[string][]*aipb.Message
+	counter  int
 }
 
 func (f *fakeAiService) next() string {
@@ -56,14 +63,50 @@ func (f *fakeAiService) UpdateChat(_ context.Context, request *aiservicepb.Updat
 	return request.GetChat(), nil
 }
 
-func (f *fakeAiService) ListChats(_ context.Context, _ *aiservicepb.ListChatsRequest) (*aiservicepb.ListChatsResponse, error) {
+// ListChats emulates the server's filtering for the clauses sgpt sends:
+// favorites and the user-chat category. Pages are offsets.
+func (f *fakeAiService) ListChats(_ context.Context, request *aiservicepb.ListChatsRequest) (*aiservicepb.ListChatsResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return &aiservicepb.ListChatsResponse{Chats: f.chats}, nil
+	filter := request.GetFilter()
+	favoritesOnly := strings.Contains(filter, store.FavoriteFilter)
+	userOnly := strings.Contains(filter, "("+store.UserChatFilter+")")
+	var chats []*aipb.Chat
+	for _, chat := range f.chats {
+		if favoritesOnly && !store.IsFavorite(chat) || userOnly && store.IsAgentChat(chat) {
+			continue
+		}
+		chats = append(chats, chat)
+	}
+	slices.SortStableFunc(chats, func(a, b *aipb.Chat) int {
+		return b.GetCreateTime().AsTime().Compare(a.GetCreateTime().AsTime())
+	})
+
+	offset, _ := strconv.Atoi(request.GetPageToken())
+	end := min(len(chats), offset+int(request.GetPageSize()))
+	response := &aiservicepb.ListChatsResponse{Chats: chats[min(offset, end):end]}
+	if end < len(chats) {
+		response.NextPageToken = strconv.Itoa(end)
+	}
+	return response, nil
 }
 
-func (f *fakeAiService) ListMessages(_ context.Context, _ *aiservicepb.ListMessagesRequest) (*aiservicepb.ListMessagesResponse, error) {
-	return &aiservicepb.ListMessagesResponse{}, nil
+func (f *fakeAiService) DeleteChat(_ context.Context, request *aiservicepb.DeleteChatRequest) (*aipb.Chat, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, chat := range f.chats {
+		if chat.GetName() == request.GetName() {
+			f.chats = slices.Delete(f.chats, i, i+1)
+			return chat, nil
+		}
+	}
+	return nil, fmt.Errorf("not found")
+}
+
+func (f *fakeAiService) ListMessages(_ context.Context, request *aiservicepb.ListMessagesRequest) (*aiservicepb.ListMessagesResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return &aiservicepb.ListMessagesResponse{Messages: f.messages[request.GetParent()]}, nil
 }
 
 func (f *fakeAiService) CreateMessage(_ context.Context, request *aiservicepb.CreateMessageRequest) (*aipb.Message, error) {

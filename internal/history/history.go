@@ -1,3 +1,4 @@
+// Package history persists the chat input history across runs.
 package history
 
 import (
@@ -8,159 +9,169 @@ import (
 	"sync"
 )
 
-const (
-	historyFileName = "sgpt_chat_history"
-	maxHistorySize  = 1000
-)
+const maxEntries = 1000
 
-// History manages input history with persistence
-type History struct {
-	entries []string
-	index   int    // Current position in history (-1 means new input)
-	current string // Stores current input when navigating history
+// Store is the input history every input in the process shares, so an entry
+// sent from one tab is recalled in another. Safe for concurrent use.
+type Store struct {
 	mu      sync.Mutex
+	entries []string
 	path    string
 }
 
-// NewHistory creates a new History instance and loads existing history
-func NewHistory() *History {
-	h := &History{
-		entries: make([]string, 0),
-		index:   -1,
-		path:    filepath.Join(os.TempDir(), historyFileName),
-	}
-	h.load()
-	return h
+// Open loads the history from $XDG_STATE_HOME/sgpt/history (default
+// ~/.local/state/sgpt/history). Persistence is best effort: a missing or
+// unwritable file leaves an in-memory history.
+func Open() *Store {
+	s := &Store{path: defaultPath()}
+	s.load()
+	return s
 }
 
-// load reads history from the persistent file
-func (h *History) load() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+func defaultPath() string {
+	stateHome := os.Getenv("XDG_STATE_HOME")
+	if stateHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		stateHome = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(stateHome, "sgpt", "history")
+}
 
-	file, err := os.Open(h.path)
+func (s *Store) load() {
+	if s.path == "" {
+		return
+	}
+	file, err := os.Open(s.path)
 	if err != nil {
-		return // File doesn't exist yet, that's fine
+		return
 	}
 	defer file.Close()
-
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(nil, 1<<20)
 	for scanner.Scan() {
-		line := scanner.Text()
-		// Unescape newlines stored in history
-		line = strings.ReplaceAll(line, "\\n", "\n")
-		line = strings.ReplaceAll(line, "\\\\", "\\")
-		if line != "" {
-			h.entries = append(h.entries, line)
+		if entry := unescape(scanner.Text()); entry != "" {
+			s.entries = append(s.entries, entry)
 		}
 	}
-
-	// Trim to max size if needed
-	if len(h.entries) > maxHistorySize {
-		h.entries = h.entries[len(h.entries)-maxHistorySize:]
-	}
+	s.trim()
 }
 
-// save writes history to the persistent file
-func (h *History) save() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	file, err := os.Create(h.path)
+// save rewrites the file; the caller holds mu.
+func (s *Store) save() {
+	if s.path == "" || os.MkdirAll(filepath.Dir(s.path), 0o700) != nil {
+		return
+	}
+	file, err := os.OpenFile(s.path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
-		return // Silent failure for history persistence
+		return
 	}
 	defer file.Close()
-
 	writer := bufio.NewWriter(file)
-	for _, entry := range h.entries {
-		// Escape newlines for storage
-		escaped := strings.ReplaceAll(entry, "\\", "\\\\")
-		escaped = strings.ReplaceAll(escaped, "\n", "\\n")
-		writer.WriteString(escaped + "\n")
+	for _, entry := range s.entries {
+		writer.WriteString(escape(entry) + "\n")
 	}
 	writer.Flush()
 }
 
-// Add adds a new entry to history
-func (h *History) Add(entry string) {
+func (s *Store) trim() {
+	if len(s.entries) > maxEntries {
+		s.entries = s.entries[len(s.entries)-maxEntries:]
+	}
+}
+
+// Add appends an entry, skipping a repeat of the last one.
+func (s *Store) Add(entry string) {
 	entry = strings.TrimSpace(entry)
 	if entry == "" {
 		return
 	}
-
-	h.mu.Lock()
-	// Don't add duplicates of the last entry
-	if len(h.entries) > 0 && h.entries[len(h.entries)-1] == entry {
-		h.index = -1
-		h.current = ""
-		h.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.entries) > 0 && s.entries[len(s.entries)-1] == entry {
 		return
 	}
-
-	h.entries = append(h.entries, entry)
-
-	// Trim to max size
-	if len(h.entries) > maxHistorySize {
-		h.entries = h.entries[len(h.entries)-maxHistorySize:]
-	}
-
-	h.index = -1
-	h.current = ""
-	h.mu.Unlock()
-
-	h.save()
+	s.entries = append(s.entries, entry)
+	s.trim()
+	s.save()
 }
 
-// Previous returns the previous entry in history
-// currentInput is the current textarea content (saved when first navigating)
-func (h *History) Previous(currentInput string) (string, bool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+func (s *Store) snapshot() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.entries
+}
 
-	if len(h.entries) == 0 {
+// Cursor navigates a Store on behalf of one input.
+type Cursor struct {
+	store *Store
+	// index is the entry shown, counted from the newest; -1 is the draft.
+	index int
+	draft string
+}
+
+func (s *Store) NewCursor() *Cursor {
+	return &Cursor{store: s, index: -1}
+}
+
+// Previous steps to an older entry, saving draft when leaving it.
+func (c *Cursor) Previous(draft string) (string, bool) {
+	entries := c.store.snapshot()
+	if c.index+1 >= len(entries) {
 		return "", false
 	}
-
-	// If we're at the newest position, save current input
-	if h.index == -1 {
-		h.current = currentInput
-		h.index = len(h.entries) - 1
-	} else if h.index > 0 {
-		h.index--
-	} else {
-		// Already at oldest entry
-		return h.entries[0], false
+	if c.index == -1 {
+		c.draft = draft
 	}
-
-	return h.entries[h.index], true
+	c.index++
+	return entries[len(entries)-1-c.index], true
 }
 
-// Next returns the next entry in history (toward present)
-func (h *History) Next() (string, bool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if h.index == -1 {
-		// Already at newest position
+// Next steps to a newer entry, ending back on the draft.
+func (c *Cursor) Next() (string, bool) {
+	if c.index == -1 {
 		return "", false
 	}
-
-	h.index++
-
-	if h.index >= len(h.entries) {
-		// Return to current input
-		h.index = -1
-		return h.current, true
+	c.index--
+	if c.index == -1 {
+		return c.draft, true
 	}
-
-	return h.entries[h.index], true
+	entries := c.store.snapshot()
+	return entries[len(entries)-1-c.index], true
 }
 
-// Reset resets the navigation index (call when input is modified)
-func (h *History) Reset() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.index = -1
-	h.current = ""
+// Add records a sent entry and returns to the draft position.
+func (c *Cursor) Add(entry string) {
+	c.store.Add(entry)
+	c.Reset()
+}
+
+// Reset returns the cursor to the draft position.
+func (c *Cursor) Reset() {
+	c.index = -1
+	c.draft = ""
+}
+
+func escape(entry string) string {
+	return strings.NewReplacer(`\`, `\\`, "\n", `\n`).Replace(entry)
+}
+
+// unescape inverts escape in one pass, so `\\n` stays a backslash and an n.
+func unescape(line string) string {
+	var b strings.Builder
+	for i := 0; i < len(line); i++ {
+		if line[i] == '\\' && i+1 < len(line) {
+			i++
+			if line[i] == 'n' {
+				b.WriteByte('\n')
+			} else {
+				b.WriteByte(line[i])
+			}
+			continue
+		}
+		b.WriteByte(line[i])
+	}
+	return b.String()
 }

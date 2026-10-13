@@ -44,8 +44,8 @@ func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolC
 		return nil, err
 	}
 	// File mutation: never auto-execute.
-	// The display message is reserved for problems; on success the title
-	// (✏️ path) plus the rendered diff already say everything.
+	// The display message is reserved for problems; on success the row plus
+	// the rendered diff already say everything.
 	metadata := &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
@@ -217,6 +217,36 @@ func writeFile(path, content string, mode os.FileMode) error {
 	return nil
 }
 
+// Summarize names the operation and file, and once applied, the size of the
+// change. The verb reads the reviewed diff when there is one (it settled
+// creations by checking the disk) and the streamed diff's headers before.
+func (t *Tool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	path := tool.Argument(toolCall, "path").GetStringValue()
+	summary := tool.Summary{Verb: "Edit", Subject: tool.DisplayPath(path)}
+	reviewedDiff := ""
+	if metadata, err := tool.ParseToolCallMetadata(toolCall); err == nil {
+		reviewedDiff = metadata.GetDiff()
+	}
+	diff := reviewedDiff
+	if diff == "" {
+		diff = tool.Argument(toolCall, "diff").GetStringValue()
+	}
+	if fileDiff, err := ParseUnifiedDiff(diff); err == nil {
+		switch newPath := renameTarget(path, fileDiff); {
+		case fileDiff.Create:
+			summary.Verb = "Create"
+		case fileDiff.Delete:
+			summary.Verb = "Delete"
+		case newPath != path:
+			summary.Verb, summary.Subject = "Rename", tool.DisplayPath(path)+" → "+tool.DisplayPath(newPath)
+		}
+	}
+	if toolResult != nil && reviewedDiff != "" {
+		summary.Outcome = tool.DiffStat(reviewedDiff)
+	}
+	return summary, true
+}
+
 // RenderRequest renders the review-time healed diff when available. While the
 // call is still streaming (no review metadata yet), it renders the raw diff
 // argument directly so the edit is readable as it arrives; the healed diff
@@ -224,7 +254,7 @@ func writeFile(path, content string, mode os.FileMode) error {
 func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 	metadata, err := tool.ParseToolCallMetadata(toolCall)
 	if err == nil && metadata.GetDiff() != "" {
-		return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
+		return tool.Fence("diff", metadata.GetDiff()), true
 	}
 	diffRequest := &sgptpb.DiffRequest{}
 	// Partial arguments: tolerate missing fields, only require some diff text.
@@ -232,40 +262,16 @@ func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 		return "", false
 	}
 	header := ""
-	if diffRequest.GetPath() != "" {
+	if diffRequest.GetPath() != "" && !strings.HasPrefix(diffRequest.GetDiff(), "---") {
 		header = fmt.Sprintf("--- a/%s\n+++ b/%s\n", diffRequest.GetPath(), diffRequest.GetPath())
 	}
-	return fmt.Sprintf("```diff\n%s%s\n```", header, strings.TrimSuffix(diffRequest.GetDiff(), "\n")), true
-}
-
-// RenderHeader shows the file being changed instead of the tool name. It
-// tolerates partial arguments so the header appears as soon as the path
-// streams in.
-func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	diffRequest := &sgptpb.DiffRequest{}
-	if tool.UnmarshalArguments(toolCall, diffRequest) != nil || diffRequest.GetPath() == "" {
-		return "", false
-	}
-	path := diffRequest.GetPath()
-	// The verb tracks the operation once enough of the diff has streamed in
-	// for its file headers to parse.
-	if fileDiff, err := ParseUnifiedDiff(diffRequest.GetDiff()); err == nil {
-		switch {
-		case isCreate(path, fileDiff):
-			return fmt.Sprintf("created `%s`", path), true
-		case fileDiff.Delete:
-			return fmt.Sprintf("deleted `%s`", path), true
-		case renameTarget(path, fileDiff) != path:
-			return fmt.Sprintf("renamed `%s` → `%s`", path, renameTarget(path, fileDiff)), true
-		}
-	}
-	return fmt.Sprintf("edited `%s`", path), true
+	return tool.Fence("diff", header+diffRequest.GetDiff()), true
 }
 
 var (
 	_ tool.Tool            = (*Tool)(nil)
+	_ tool.Summarizer      = (*Tool)(nil)
 	_ tool.RequestRenderer = (*Tool)(nil)
-	_ tool.HeaderRenderer  = (*Tool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(Definition) }

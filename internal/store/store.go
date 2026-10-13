@@ -146,16 +146,11 @@ func (s *Store) DeleteChat(ctx context.Context, name string) error {
 
 // ListChats returns a page of visible chats, most recent first.
 func (s *Store) ListChats(ctx context.Context, pageSize int32, pageToken, filter string) ([]*aipb.Chat, string, error) {
-	if filter == "" {
-		filter = VisibleFilter
-	} else {
-		filter = fmt.Sprintf("%s AND (%s)", VisibleFilter, filter)
-	}
 	listChatsRequest := &aiservicepb.ListChatsRequest{
 		Parent:    s.parent(),
 		PageSize:  pageSize,
 		PageToken: pageToken,
-		Filter:    filter,
+		Filter:    andFilters(VisibleFilter, filter),
 		OrderBy:   "create_time desc",
 	}
 	listChatsResponse, err := s.aiServiceClient.ListChats(ctx, listChatsRequest)
@@ -169,6 +164,17 @@ func (s *Store) ListChats(ctx context.Context, pageSize int32, pageToken, filter
 func (s *Store) ListFavoriteChats(ctx context.Context, pageSize int32) ([]*aipb.Chat, error) {
 	chats, _, err := s.ListChats(ctx, pageSize, "", FavoriteFilter)
 	return chats, err
+}
+
+// andFilters conjoins the non-empty AIP-160 filters.
+func andFilters(filters ...string) string {
+	var clauses []string
+	for _, filter := range filters {
+		if filter != "" {
+			clauses = append(clauses, "("+filter+")")
+		}
+	}
+	return strings.Join(clauses, " AND ")
 }
 
 // LatestChat returns the most recently created chat.

@@ -10,9 +10,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	aiservicepb "github.com/malonaz/core/genproto/ai/ai_service/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"google.golang.org/grpc"
@@ -21,20 +23,19 @@ import (
 
 	"github.com/malonaz/sgpt/cli/tui"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/lore"
+	"github.com/malonaz/sgpt/internal/repo"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 	"github.com/malonaz/sgpt/internal/tool/agent"
 	"github.com/malonaz/sgpt/internal/tool/diff"
 	toolio "github.com/malonaz/sgpt/internal/tool/io"
+	"github.com/malonaz/sgpt/internal/tool/lores"
 	"github.com/malonaz/sgpt/internal/tool/shell"
 )
 
-const (
-	width  = 120
-	height = 36
-	model  = "providers/anthropic/models/claude-opus-5"
-)
+const model = "providers/anthropic/models/claude-opus-5"
 
 // scene is one screenshot: scripted model responses plus the user actions
 // that drive the UI into the frame we want.
@@ -42,36 +43,49 @@ type scene struct {
 	name      string
 	title     string
 	responses [][]*aipb.Block
-	drive     func(r *runtime, s *session.Session)
+	// chats and messages seed the server's history (the Chats tab).
+	chats    []*aipb.Chat
+	messages map[string][]*aipb.Message
+	drive    func(r *runtime, s *session.Session)
 }
+
+// registered holds every scene; each scenes_*.go file registers its own from
+// init, so areas of the UI add scenes without touching each other.
+var registered []scene
+
+func register(scenes ...scene) { registered = append(registered, scenes...) }
 
 func main() {
 	outDir := flag.String("out", "frames", "directory for ANSI frames")
-	workDir := flag.String("workdir", "", "directory with fixture files (default: temp copy of ./fixtures)")
+	fixtures := flag.String("fixtures", "fixtures", "directory of fixture files; each scene works on a fresh copy")
+	only := flag.String("scene", "", "render only the scenes whose name contains this")
+	width := flag.Int("width", 120, "terminal width")
+	height := flag.Int("height", 36, "terminal height")
+	text := flag.Bool("text", false, "also write a plain-text .txt (ANSI stripped) per scene")
 	flag.Parse()
-	if err := run(*outDir, *workDir); err != nil {
+	if err := run(*outDir, *fixtures, *only, *width, *height, *text); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(outDir, workDir string) error {
+func run(outDir, fixtures, only string, width, height int, text bool) error {
+	// Absolute: each scene chdirs into its own fixture copy.
+	outDir, err := filepath.Abs(outDir)
+	if err != nil {
+		return err
+	}
+	if fixtures, err = filepath.Abs(fixtures); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
-	if workDir == "" {
-		var err error
-		if workDir, err = copyFixtures(); err != nil {
-			return err
+	for _, sc := range registered {
+		if !strings.Contains(sc.name, only) {
+			continue
 		}
-		defer os.RemoveAll(workDir)
-	}
-	// Tools resolve paths against the cwd; edits land in the throwaway copy.
-	if err := os.Chdir(workDir); err != nil {
-		return err
-	}
-	for _, sc := range scenes() {
-		frame, err := render(sc)
+		frame, err := renderInCopy(fixtures, sc, width, height)
 		if err != nil {
 			return fmt.Errorf("%s: %w", sc.name, err)
 		}
@@ -80,15 +94,35 @@ func run(outDir, workDir string) error {
 			return err
 		}
 		fmt.Println(path)
+		if text {
+			if err := os.WriteFile(strings.TrimSuffix(path, ".ansi")+".txt", []byte(ansi.Strip(frame)), 0o644); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
-func render(sc scene) (string, error) {
+// renderInCopy renders a scene inside a fresh copy of the fixtures: tools
+// resolve paths against the cwd, and one scene's edits must not leak into the
+// next.
+func renderInCopy(fixtures string, sc scene, width, height int) (string, error) {
+	workDir, err := copyFixtures(fixtures)
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(workDir)
+	if err := os.Chdir(workDir); err != nil {
+		return "", err
+	}
+	return render(sc, width, height)
+}
+
+func render(sc scene, width, height int) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client, closeServer, err := startServer(&fakeAiService{responses: sc.responses, title: sc.title})
+	client, closeServer, err := startServer(&fakeAiService{responses: sc.responses, title: sc.title, chats: sc.chats, messages: sc.messages})
 	if err != nil {
 		return "", err
 	}
@@ -102,8 +136,12 @@ func render(sc scene) (string, error) {
 	registry := tool.NewRegistry()
 	registry.Register(tool.HandlerIDShell, &shell.Tool{})
 	registry.Register(tool.HandlerIDReadFiles, &toolio.ReadFilesTool{})
+	registry.Register(tool.HandlerIDReadImage, &toolio.ReadImageTool{})
+	registry.Register(tool.HandlerIDReadDocument, &toolio.ReadDocumentTool{})
 	registry.Register(tool.HandlerIDDiff, &diff.Tool{})
 	registry.Register(tool.HandlerIDReplace, &toolio.ReplaceTool{})
+	// The fixtures are the repo: search_lores searches their (empty) library.
+	registry.Register(tool.HandlerIDSearchLores, &lores.Tool{Index: lore.NewIndex(".", &repo.Imports{})})
 	for handlerID, agentTool := range agent.NewManager(nil).Tools() {
 		registry.Register(handlerID, agentTool)
 	}
@@ -111,7 +149,7 @@ func render(sc scene) (string, error) {
 		builtinTools, _ := tool.Builtin(name)
 		registry.AddTools(builtinTools...)
 	}
-	toolNames := []string{"read_files", "exec_shell", "diff"}
+	toolNames := []string{"read_files", "exec_shell", "diff", "replace", "search_lores", "create_agents"}
 
 	chat := &aipb.Chat{}
 	store.SetCurrentModel(chat, model)
@@ -154,10 +192,9 @@ func startServer(service aiservicepb.AiServiceServer) (aiservicepb.AiServiceClie
 	return aiservicepb.NewAiServiceClient(conn), func() { conn.Close(); server.Stop() }, nil
 }
 
-// copyFixtures clones ./fixtures next to this source into a temp dir so edit
-// tools can mutate files freely.
-func copyFixtures() (string, error) {
-	source := "fixtures"
+// copyFixtures clones source into a temp dir so edit tools can mutate files
+// freely.
+func copyFixtures(source string) (string, error) {
 	target, err := os.MkdirTemp("", "sgpt-screenshots-")
 	if err != nil {
 		return "", err

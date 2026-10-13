@@ -1,0 +1,5 @@
+go_library(
+    name = "format",
+    srcs = ["format.go"],
+    visibility = ["//..."],
+)

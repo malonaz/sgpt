@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	aienginepb "github.com/malonaz/core/genproto/ai/ai_engine/v1"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -292,58 +293,104 @@ func (m *Manager) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.T
 	return ai.NewStructuredToolResult(toolCall.Name, toolCall.Id, value), nil
 }
 
-// RenderHeader shows {Service}/{Method} for RPC calls and a discrete label
-// for discovery calls, instead of the generated tool names.
-func (m *Manager) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	toolType, _ := aip.GetAnnotation(toolCall, aipb.Annotations.ToolType.Key)
-	switch toolType {
+// Summarize reads the call's annotations and arguments directly instead of
+// parsing it against the schema: it runs on every render.
+func (m *Manager) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	switch tool.GetToolCallAnnotation(toolCall, aipb.Annotations.ToolType.Key) {
 	case aitool.ToolTypeDiscovery:
-		toolResult := toolCall.GetResult()
-		if toolResult == nil {
-			return "🔍 discovering tools…", true
-		}
-		discovered, ok := aip.GetAnnotation(toolResult, aipb.Annotations.DiscoveredTools.Key)
-		if !ok || discovered == "" {
-			return "🔍 discovered tools", true
-		}
-		serviceToMethods := map[string][]string{}
-		for _, name := range strings.Split(discovered, ",") {
-			parts := strings.SplitN(name, "_", 2)
-			if len(parts) == 2 {
-				serviceToMethods[parts[0]] = append(serviceToMethods[parts[0]], parts[1])
-			} else {
-				serviceToMethods[""] = append(serviceToMethods[""], name)
-			}
-		}
-		var sections []string
-		for service, methods := range serviceToMethods {
-			if service == "" {
-				sections = append(sections, strings.Join(methods, ", "))
-			} else {
-				sections = append(sections, fmt.Sprintf("%s: discovered %s", service, strings.Join(methods, ", ")))
-			}
-		}
-		return "🔍 " + strings.Join(sections, " | "), true
+		return summarizeDiscovery(toolCall, toolResult), true
 	case aitool.ToolTypeGenerateRPCRequest:
-		engine, err := m.engineFor(toolCall)
-		if err != nil {
-			return "", false
-		}
-		// Parse a snapshot: this runs on the TUI render goroutine and
-		// ParseToolCall walks the annotation map directly, racing with the
-		// session goroutine's status/metadata writes.
-		// Partial/unparsable arguments simply fall back to the default header.
-		parseToolCallResponse, err := aitool.ParseToolCall(engine.schemaBuilder, tool.SnapshotToolCall(toolCall), m.GetToolSets())
-		if err != nil {
-			return "", false
-		}
-		parts := strings.Split(parseToolCallResponse.GetRpc().GetMethodFullName(), ".")
-		if len(parts) < 2 {
-			return "", false
-		}
-		return fmt.Sprintf("📡 `%s/%s`", parts[len(parts)-2], parts[len(parts)-1]), true
+		return summarizeRPC(toolCall, toolResult), true
 	}
-	return "", false
+	return tool.Summary{}, false
+}
+
+// summarizeDiscovery: "Discover" the tool set, then the methods it found.
+func summarizeDiscovery(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) tool.Summary {
+	toolSetName := tool.GetToolCallAnnotation(toolCall, aipb.Annotations.ToolSetName.Key)
+	summary := tool.Summary{Verb: "Discover", Subject: toolSetName[strings.LastIndex(toolSetName, "/")+1:]}
+	if toolResult == nil {
+		return summary
+	}
+	discovered, _ := aip.GetAnnotation(toolResult, aipb.Annotations.DiscoveredTools.Key)
+	if discovered == "" {
+		summary.Outcome = "no tools"
+		return summary
+	}
+	names := strings.Split(discovered, ",")
+	methods := make([]string, 0, len(names))
+	for _, name := range names {
+		// Discovered tools are named {Service}_{Method}.
+		methods = append(methods, name[strings.IndexByte(name, '_')+1:])
+	}
+	summary.Subject = strings.Join(methods, ", ")
+	summary.Outcome = tool.Count(len(names), "tool", "tools")
+	return summary
+}
+
+// summarizeRPC: the method as a verb ("List contacts"), the resource or most
+// identifying argument as the subject, and the size of a listed response.
+func summarizeRPC(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) tool.Summary {
+	method := tool.GetToolCallAnnotation(toolCall, aipb.Annotations.GrpcMethod.Key)
+	summary := tool.Summary{Verb: humanize(method[strings.LastIndexAny(method, "./")+1:])}
+	if summary.Verb == "" {
+		summary.Verb = toolCall.GetName()
+	}
+	summary.Subject = identifyingArgument(toolCall.GetArguments().GetFields())
+	if toolResult == nil {
+		return summary
+	}
+	// A listed response is summarized by its size; the first list in key
+	// order keeps the outcome stable across renders.
+	fields := toolResult.GetStructuredContent().GetStructValue().GetFields()
+	listKey := ""
+	for key, value := range fields {
+		if value.GetListValue() != nil && (listKey == "" || key < listKey) {
+			listKey = key
+		}
+	}
+	if listKey != "" {
+		summary.Outcome = fmt.Sprintf("%d %s", len(fields[listKey].GetListValue().GetValues()), strings.ReplaceAll(humanize(listKey), "_", " "))
+	}
+	return summary
+}
+
+// identifyingArgument picks the argument that best names what a request acts
+// on: an AIP resource name, then a parent, then the model's title for the call.
+func identifyingArgument(fields map[string]*structpb.Value) string {
+	// Models sometimes wrap the request in an {"arguments": {...}} envelope.
+	if envelope := fields["arguments"].GetStructValue(); envelope != nil {
+		fields = envelope.GetFields()
+	}
+	for _, key := range []string{"name", "parent", "tool_call_title"} {
+		if value := fields[key].GetStringValue(); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// humanize splits a camel-case identifier into a sentence-case phrase,
+// keeping acronyms: "ListAPIKeys" reads "List API keys".
+func humanize(identifier string) string {
+	runes := []rune(identifier)
+	var words []string
+	start := 0
+	for i := 1; i <= len(runes); i++ {
+		// A word ends before an upper-case letter that follows a lower-case
+		// one, or that starts a word after an acronym ("APIKeys").
+		if i < len(runes) && !(unicode.IsUpper(runes[i]) &&
+			(unicode.IsLower(runes[i-1]) || i+1 < len(runes) && unicode.IsLower(runes[i+1]) && unicode.IsUpper(runes[i-1]))) {
+			continue
+		}
+		word := string(runes[start:i])
+		if len(words) > 0 && strings.ToUpper(word) != word {
+			word = strings.ToLower(word)
+		}
+		words = append(words, word)
+		start = i
+	}
+	return strings.Join(words, " ")
 }
 
 // Close tears down all engine connections.
@@ -355,6 +402,6 @@ func (m *Manager) Close() {
 }
 
 var (
-	_ tool.Tool           = (*Manager)(nil)
-	_ tool.HeaderRenderer = (*Manager)(nil)
+	_ tool.Tool       = (*Manager)(nil)
+	_ tool.Summarizer = (*Manager)(nil)
 )

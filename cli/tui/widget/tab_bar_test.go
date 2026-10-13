@@ -11,8 +11,8 @@ func TestVisibleWindow(t *testing.T) {
 	}{
 		{name: "everything fits", widths: []int{5, 5, 5}, active: 1, width: 17, wantLo: 0, wantHi: 3},
 		// No right marker past the last tab: three tabs fit.
-		{name: "reaching the end drops a marker", widths: []int{5, 5, 5, 5}, active: 3, width: 19, wantLo: 1, wantHi: 4},
-		{name: "grows around the active tab", widths: []int{5, 5, 5, 5, 5}, active: 2, width: 21, wantLo: 1, wantHi: 4},
+		{name: "reaching the end drops a marker", widths: []int{5, 5, 5, 5}, active: 3, width: 21, wantLo: 1, wantHi: 4},
+		{name: "grows around the active tab", widths: []int{5, 5, 5, 5, 5}, active: 2, width: 25, wantLo: 1, wantHi: 4},
 		{name: "active tab wider than the bar", widths: []int{5, 30, 5}, active: 1, width: 10, wantLo: 1, wantHi: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

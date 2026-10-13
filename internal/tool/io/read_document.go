@@ -41,7 +41,7 @@ func (t *ReadDocumentTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*
 	if _, err := parseReadDocumentArguments(toolCall); err != nil {
 		return nil, err
 	}
-	// No display message: the title (📄 basename) already covers it.
+	// No display message: the row already names the file.
 	return &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 		AutoExecute:    tool.NoSideEffects(toolCall),
@@ -67,18 +67,18 @@ func (t *ReadDocumentTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 	}))
 }
 
-// RenderHeader shows the document's basename instead of the tool name.
-func (t *ReadDocumentTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	readDocumentRequest, err := parseReadDocumentArguments(toolCall)
-	if err != nil {
-		return "", false
+// Summarize names the document; the model sees it as an attachment.
+func (t *ReadDocumentTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	summary := tool.Summary{Verb: "Read", Subject: tool.DisplayPath(tool.Argument(toolCall, "path").GetStringValue())}
+	if toolResult != nil {
+		summary.Outcome = "attached"
 	}
-	return fmt.Sprintf("📄 `%s`", filepath.Base(readDocumentRequest.GetPath())), true
+	return summary, true
 }
 
 var (
-	_ tool.Tool           = (*ReadDocumentTool)(nil)
-	_ tool.HeaderRenderer = (*ReadDocumentTool)(nil)
+	_ tool.Tool       = (*ReadDocumentTool)(nil)
+	_ tool.Summarizer = (*ReadDocumentTool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(ReadDocument) }

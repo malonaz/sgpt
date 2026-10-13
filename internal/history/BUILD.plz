@@ -3,3 +3,9 @@ go_library(
     srcs = ["history.go"],
     visibility = ["//..."],
 )
+
+go_test(
+    name = "history_test",
+    srcs = ["history_test.go"],
+    deps = [":history"],
+)

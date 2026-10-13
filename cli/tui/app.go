@@ -10,24 +10,32 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 	"golang.design/x/clipboard"
 
 	"github.com/malonaz/sgpt/cli/tui/keymap"
 	"github.com/malonaz/sgpt/cli/tui/screen"
 	menuscreen "github.com/malonaz/sgpt/cli/tui/screen/menu"
-	"github.com/malonaz/sgpt/cli/tui/styles"
 	"github.com/malonaz/sgpt/cli/tui/widget"
 	sgptpb "github.com/malonaz/sgpt/genproto/sgpt/v1"
+	"github.com/malonaz/sgpt/internal/history"
 	"github.com/malonaz/sgpt/internal/session"
 	"github.com/malonaz/sgpt/internal/store"
 	"github.com/malonaz/sgpt/internal/tool"
 	"github.com/malonaz/sgpt/internal/tool/agent"
 )
 
-const alertDuration = 2 * time.Second
-const menuTabID = "menu"
+const (
+	menuTabID = "menu"
+	// Errors stay up long enough to be read in full; the rest just confirm.
+	toastDuration      = 2500 * time.Millisecond
+	errorToastDuration = 6 * time.Second
+	// quitWindow is how soon a second ctrl+c must follow the first to quit.
+	quitWindow = 1500 * time.Millisecond
+	// chromeHeight is the tab bar, the blank line under it, and the status
+	// bar.
+	chromeHeight = 3
+)
 
 type alertDismissMsg struct{}
 
@@ -78,16 +86,17 @@ type tab struct {
 }
 
 var (
-	keyQuit           = keymap.New("ctrl+c", "Quit (asks first; cancels the active chat's turn instead)")
-	keyNewTab         = keymap.New("ctrl+t", "New chat tab")
-	keyCloseTab       = keymap.New("ctrl+w", "Close tab (asks first if it is still working)")
-	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close every idle sub-agent tab")
-	keyConfirm        = key.NewBinding(key.WithKeys("y", "enter"))
+	keyQuit           = keymap.New("ctrl+c", "Quit (press twice)")
+	keyNewTab         = keymap.New("ctrl+t", "New tab")
+	keyCloseTab       = keymap.New("ctrl+w", "Close tab")
+	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close idle sub-agent tabs")
+	keyHelpPageUp     = key.NewBinding(key.WithKeys("pgup"))
+	keyHelpPageDown   = key.NewBinding(key.WithKeys("pgdown"))
 	keyPrevTab        = keymap.New("alt+j", "Previous tab")
 	keyNextTab        = keymap.New("alt+;", "Next tab")
 	keyOpenMenu       = keymap.New("alt+m", "Open menu")
 	keyCopyName       = keymap.New("alt+c", "Copy chat name")
-	keyHelp           = keymap.New("alt+h", "Toggle this help")
+	keyHelp           = keymap.New("alt+h", "Toggle help")
 	keyTab1           = key.NewBinding(key.WithKeys("alt+f1"))
 	keyTab2           = key.NewBinding(key.WithKeys("alt+f2"))
 	keyTab3           = key.NewBinding(key.WithKeys("alt+f3"))
@@ -110,6 +119,7 @@ type App struct {
 
 	agentSessionFactory AgentSessionFactory
 	agents              *agentDirectory
+	chatEnv             *screen.ChatEnv
 	agentTabCounter     atomic.Int64
 	// newTabCounter uniquifies tab IDs for chats not yet persisted.
 	newTabCounter atomic.Int64
@@ -123,10 +133,13 @@ type App struct {
 	ready   bool
 
 	// Alerts are queued so that none are ever lost; they display one at a
-	// time, each for alertDuration.
-	alertQueue   []string
+	// time as status bar toasts.
+	alertQueue   []screen.AlertMsg
 	alertVisible bool
 	helpVisible  bool
+	helpPage     int
+	// quitArmedAt is when an idle ctrl+c asked for a second one.
+	quitArmedAt time.Time
 	// confirm, when non-nil, is a modal awaiting y/enter; any other key
 	// dismisses it.
 	confirm  *confirmation
@@ -147,11 +160,12 @@ func NewApp(
 		defaultParams: params,
 		agents:        &agentDirectory{},
 	}
+	app.chatEnv = &screen.ChatEnv{Agents: app.agents, History: history.Open()}
 
-	menuScreen := menuscreen.New(ctx, chatStore, app.makeWrap(menuTabID))
+	menuScreen := menuscreen.New(ctx, chatStore, registry, app.makeWrap(menuTabID))
 
 	tabID := app.tabIDForChat(chatSession.Chat())
-	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, app.agents)
+	chatScreen := screen.NewChatScreen(app.makeWrap(tabID), app.makeSend(tabID), chatSession, app.chatEnv)
 
 	app.tabs = []*tab{
 		{id: menuTabID, screen: menuScreen},
@@ -167,6 +181,12 @@ func (a *App) SetProgram(p *tea.Program) {
 
 func (a *App) SetAgentSessionFactory(factory AgentSessionFactory) {
 	a.agentSessionFactory = factory
+}
+
+// SetDefaultRole names the configured role, which the status bar leaves
+// unsaid.
+func (a *App) SetDefaultRole(role string) {
+	a.chatEnv.DefaultRole = role
 }
 
 // SetAgentManager lets chat screens show and navigate the sub-agent tree.
@@ -189,7 +209,7 @@ func (a *App) LaunchAgent(ctx context.Context, request *agent.LaunchRequest) (to
 	// Chat names are assigned lazily on first save; use a local counter for a
 	// unique tab ID.
 	tabID := fmt.Sprintf("agent-%d", a.agentTabCounter.Add(1))
-	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, a.agents)
+	chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, a.chatEnv)
 	a.program.Send(openTabMsg{id: tabID, screen: chatScreen, background: true, launcher: request.Caller.Agent})
 	return chatSession, nil
 }
@@ -234,7 +254,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if t.id == msg.TabID {
 				switch innerMsg := msg.Msg.(type) {
 				case screen.AlertMsg:
-					return a, a.showAlert(innerMsg.Text)
+					return a, a.showAlert(innerMsg)
+				case screen.ConfirmMsg:
+					return a, a.requestConfirm(innerMsg)
 				case screen.OpenChatMsg:
 					return a, a.openChat(innerMsg)
 				case screen.CloseTabMsg:
@@ -248,7 +270,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case screen.AlertMsg:
-		return a, a.showAlert(msg.Text)
+		return a, a.showAlert(msg)
+
+	case screen.ConfirmMsg:
+		return a, a.requestConfirm(msg)
 
 	case screen.OpenChatMsg:
 		return a, a.openChat(msg)
@@ -266,18 +291,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Modals swallow every key: y/enter confirms, anything else cancels.
 		if confirm := a.confirm; confirm != nil {
 			a.confirm = nil
-			if key.Matches(msg, keyConfirm) {
+			if key.Matches(msg, widget.KeyConfirm.Key) {
 				return a, confirm.action()
 			}
 			return a, nil
 		}
-		// alt+h opens help, anything closes it.
+		// alt+h opens help; pgup/pgdn page it and any other key closes it.
 		if a.helpVisible {
-			a.helpVisible = false
+			switch {
+			case key.Matches(msg, keyHelpPageUp):
+				a.helpPage = max(0, a.helpPage-1)
+			case key.Matches(msg, keyHelpPageDown):
+				_, pages := keymap.RenderHelpPage(a.keymaps(), a.width, a.height, 0)
+				a.helpPage = min(a.helpPage+1, pages-1)
+			default:
+				a.helpVisible = false
+			}
 			return a, nil
 		}
 		if key.Matches(msg, keyHelp.Key) {
-			a.helpVisible = true
+			a.helpVisible, a.helpPage = true, 0
 			return a, nil
 		}
 		if cmd := a.handleGlobalKey(msg); cmd != nil {
@@ -308,24 +341,19 @@ func (a *App) View() tea.View {
 	}
 
 	var b strings.Builder
-	if a.alertVisible && len(a.alertQueue) > 0 {
-		alertStyle := lipgloss.NewStyle().
-			Background(styles.SuccessColor).
-			Foreground(lipgloss.Color("#000000")).
-			Bold(true).
-			Padding(0, 1)
-		b.WriteString(alertStyle.Width(a.width).Render(a.alertQueue[0]))
-	} else {
-		b.WriteString(a.renderTabBar())
-	}
-	b.WriteString("\n")
+	b.WriteString(a.renderTabBar())
+	b.WriteString("\n\n")
 	if a.activeTab < len(a.tabs) {
 		b.WriteString(a.tabs[a.activeTab].screen.View())
 	}
+	b.WriteString("\n")
+	b.WriteString(a.renderStatusBar())
 
 	view := tea.NewView(b.String())
 	view.AltScreen = true
 	view.ReportFocus = true
+	// Wheel events scroll the timeline; shift+drag keeps native selection.
+	view.MouseMode = tea.MouseModeCellMotion
 	return view
 }
 
@@ -334,7 +362,8 @@ func (a *App) modalView() string {
 	case a.confirm != nil:
 		return widget.RenderConfirm(a.confirm.title, a.confirm.body, a.width, a.height)
 	case a.helpVisible:
-		return keymap.RenderHelp(a.keymaps(), a.width, a.height)
+		view, _ := keymap.RenderHelpPage(a.keymaps(), a.width, a.height, a.helpPage)
+		return view
 	}
 	return ""
 }
@@ -360,12 +389,7 @@ func (a *App) keymaps() []keymap.Map {
 func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, keyQuit.Key):
-		// The active chat's turn — review pauses included — takes ctrl+c
-		// to cancel it.
-		if chatScreen := a.activeChat(); chatScreen != nil && chatScreen.Session().TurnInFlight() {
-			return nil
-		}
-		return a.requestQuit()
+		return a.interrupt()
 	case key.Matches(msg, keyNewTab.Key):
 		return a.createNewChat()
 	case key.Matches(msg, keyCloseTab.Key):
@@ -382,7 +406,7 @@ func (a *App) handleGlobalKey(msg tea.KeyPressMsg) tea.Cmd {
 		if chatScreen := a.activeChat(); chatScreen != nil {
 			if chatName := chatScreen.Session().Chat().GetName(); chatName != "" {
 				clipboard.Write(clipboard.FmtText, []byte(chatName))
-				return a.showAlert("Copied chat name: " + chatName)
+				return a.showAlert(screen.AlertMsg{Text: "Copied chat name: " + chatName, Level: screen.AlertSuccess})
 			}
 		}
 		return nil
@@ -450,7 +474,29 @@ func (a *App) focusAgent(msg screen.FocusAgentMsg) tea.Cmd {
 	if index := a.agentTabIndex(msg.Agent); index >= 0 {
 		return a.switchTab(index)
 	}
-	return a.showAlert(fmt.Sprintf("%s: its tab was closed", msg.Title))
+	return a.showAlert(screen.AlertMsg{Text: fmt.Sprintf("%s: its tab was closed", msg.Title)})
+}
+
+// interrupt is ctrl+c: never destructive. The active screen stops what it
+// can (turn, input); otherwise a first press arms and a second one, soon
+// after, asks to quit.
+func (a *App) interrupt() tea.Cmd {
+	if interrupter, ok := a.tabs[a.activeTab].screen.(screen.Interrupter); ok && interrupter.Interrupt() {
+		a.quitArmedAt = time.Time{}
+		return nil
+	}
+	if time.Since(a.quitArmedAt) < quitWindow {
+		a.quitArmedAt = time.Time{}
+		return a.requestQuit()
+	}
+	a.quitArmedAt = time.Now()
+	return a.showAlert(screen.AlertMsg{Text: "ctrl+c again to quit · ctrl+w closes the tab"})
+}
+
+// requestConfirm guards a screen's action behind the confirm modal.
+func (a *App) requestConfirm(msg screen.ConfirmMsg) tea.Cmd {
+	a.confirm = &confirmation{title: msg.Title, body: msg.Body, action: func() tea.Cmd { return msg.Action }}
+	return nil
 }
 
 // requestQuit asks before quitting: never exit on a single keystroke.
@@ -533,13 +579,13 @@ func (a *App) closeIdleAgentTabs() tea.Cmd {
 		}
 	}
 	if len(tabIDs) == 0 {
-		return a.showAlert("No idle sub-agent tabs")
+		return a.showAlert(screen.AlertMsg{Text: "No idle sub-agent tabs"})
 	}
 	cmds := make([]tea.Cmd, 0, len(tabIDs)+1)
 	for _, tabID := range tabIDs {
 		cmds = append(cmds, a.closeTab(tabID))
 	}
-	cmds = append(cmds, a.showAlert(fmt.Sprintf("Closed %d sub-agent tabs", len(tabIDs))))
+	cmds = append(cmds, a.showAlert(screen.AlertMsg{Text: fmt.Sprintf("Closed %d sub-agent tabs", len(tabIDs)), Level: screen.AlertSuccess}))
 	return tea.Batch(cmds...)
 }
 
@@ -629,7 +675,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		if chat.Name != "" {
 			messages, err = a.store.ListMessages(a.ctx, chat.Name)
 			if err != nil {
-				return screen.AlertMsg{Text: fmt.Sprintf("Loading messages failed: %v", err)}
+				return screen.AlertMsg{Text: fmt.Sprintf("Loading messages failed: %v", err), Level: screen.AlertError}
 			}
 		}
 
@@ -638,7 +684,7 @@ func (a *App) openChat(msg screen.OpenChatMsg) tea.Cmd {
 		tabID := a.tabIDForChat(chat)
 
 		chatSession := session.New(a.ctx, a.store, a.registry, chat, messages, params)
-		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, a.agents)
+		chatScreen := screen.NewChatScreen(a.makeWrap(tabID), a.makeSend(tabID), chatSession, a.chatEnv)
 		return openTabMsg{id: tabID, screen: chatScreen}
 	}
 }
@@ -656,8 +702,8 @@ func (a *App) focusMenu() tea.Cmd {
 	return nil
 }
 
-func (a *App) showAlert(text string) tea.Cmd {
-	a.alertQueue = append(a.alertQueue, text)
+func (a *App) showAlert(alert screen.AlertMsg) tea.Cmd {
+	a.alertQueue = append(a.alertQueue, alert)
 	if a.alertVisible {
 		// Already displaying; the pending dismiss tick will pop the next one.
 		return nil
@@ -671,7 +717,11 @@ func (a *App) displayNextAlert() tea.Cmd {
 		return nil
 	}
 	a.alertVisible = true
-	return tea.Tick(alertDuration, func(time.Time) tea.Msg { return alertDismissMsg{} })
+	duration := toastDuration
+	if a.alertQueue[0].Level == screen.AlertError {
+		duration = errorToastDuration
+	}
+	return tea.Tick(duration, func(time.Time) tea.Msg { return alertDismissMsg{} })
 }
 
 // tabIDForChat returns a routing ID for a tab: the chat's resource name, or a
@@ -698,20 +748,39 @@ func (a *App) makeSend(tabID string) screen.SendFunc {
 }
 
 func (a *App) contentHeight() int {
-	if a.height == 0 {
-		return 0
-	}
-	return a.height - lipgloss.Height(a.renderTabBar()) - 1
+	return max(0, a.height-chromeHeight)
 }
 
 func (a *App) renderTabBar() string {
 	tabs := make([]widget.Tab, len(a.tabs))
 	for i, t := range a.tabs {
-		tabs[i] = widget.Tab{ID: t.id, Title: t.screen.ShortTitle(), Active: i == a.activeTab}
+		tabs[i] = widget.Tab{Title: t.screen.Title(), Active: i == a.activeTab}
 		if chatScreen, ok := t.screen.(*screen.ChatScreen); ok {
 			tabs[i].State = chatScreen.TabState()
 			tabs[i].Depth = chatScreen.Session().Params().Depth
 		}
 	}
 	return widget.RenderTabBar(tabs, a.width)
+}
+
+// renderStatusBar renders the active screen's status, the current toast in
+// place of its hints, and help as the last hint.
+func (a *App) renderStatusBar() string {
+	var status widget.Status
+	if reporter, ok := a.tabs[a.activeTab].screen.(screen.StatusReporter); ok {
+		status = reporter.Status()
+	}
+	status.Hints = append(status.Hints, keyHelp.WithShort("help").Hint())
+	var toast *widget.Toast
+	if a.alertVisible && len(a.alertQueue) > 0 {
+		alert := a.alertQueue[0]
+		toast = &widget.Toast{Text: alert.Text, Level: toastLevels[alert.Level]}
+	}
+	return widget.RenderStatusBar(status, toast, a.width)
+}
+
+var toastLevels = map[screen.AlertLevel]widget.ToastLevel{
+	screen.AlertInfo:    widget.ToastInfo,
+	screen.AlertSuccess: widget.ToastSuccess,
+	screen.AlertError:   widget.ToastError,
 }

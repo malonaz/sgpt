@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -132,86 +131,76 @@ func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.Tool
 	return tool.NewStructuredToolResult(toolCall, searchLoresResponse)
 }
 
-// RenderHeader shows the query being searched instead of the tool name.
-func (t *Tool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
-	searchLoresRequest, err := parseSearchLoresArguments(toolCall)
-	if err != nil {
-		return "", false
+// Summarize quotes the query and counts the new lores it surfaced.
+func (t *Tool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	summary := tool.Summary{Verb: "Search lores", Subject: tool.Quote(tool.Argument(toolCall, "query").GetStringValue())}
+	if toolResult != nil {
+		if matches := len(tool.ResultField(toolResult, "matches").GetListValue().GetValues()); matches > 0 {
+			summary.Outcome = tool.Count(matches, "match", "matches")
+		} else {
+			summary.Outcome = "no matches"
+		}
 	}
-	return fmt.Sprintf("📜 `%s`", searchLoresRequest.GetQuery()), true
+	return summary, true
 }
 
 var (
 	_ tool.Tool           = (*Tool)(nil)
-	_ tool.HeaderRenderer = (*Tool)(nil)
+	_ tool.Summarizer     = (*Tool)(nil)
 	_ tool.ResultRenderer = (*Tool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(SearchLores) }
 
-// RenderResult renders matches as markdown — titles, labels and snippets
-// with the matched text highlighted — instead of the raw JSON payload.
+// RenderResult renders each match as its title and name over its snippets,
+// with the matched text highlighted.
 func (t *Tool) RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
 	searchLoresResponse := &sgptpb.SearchLoresResponse{}
 	if err := tool.UnmarshalResult(toolResult, searchLoresResponse); err != nil {
 		return "", false
 	}
 	if len(searchLoresResponse.GetMatches()) == 0 {
-		return "_no matching lores_", true
+		return "No new lores match.", true
 	}
 	// Re-derive the pattern to highlight the matched text in snippets; on a
 	// bad query we still render, just without highlights.
-	var pattern *regexp.Regexp
-	if searchLoresRequest, err := parseSearchLoresArguments(toolCall); err == nil {
-		pattern, _ = regexp.Compile("(?i)" + searchLoresRequest.GetQuery())
-	}
+	pattern, _ := regexp.Compile("(?i)" + tool.Argument(toolCall, "query").GetStringValue())
 	sections := make([]string, 0, len(searchLoresResponse.GetMatches()))
 	for _, match := range searchLoresResponse.GetMatches() {
 		var b strings.Builder
-		// Heading carries the title: the renderer gives headings strong,
-		// contrasting styling, making each lore's identity scannable.
-		fmt.Fprintf(&b, "### 📜 %s\n", match.GetTitle())
-		facts := []string{fmt.Sprintf("`%s`", match.GetName())}
+		fmt.Fprintf(&b, "**%s** `%s`", match.GetTitle(), match.GetName())
 		if match.GetMatchCount() > 0 {
-			facts = append(facts, fmt.Sprintf("%d match(es)", match.GetMatchCount()))
+			b.WriteString(" · " + tool.Count(int(match.GetMatchCount()), "hit", "hits"))
 		}
-		keys := make([]string, 0, len(match.GetLabels()))
-		for key := range match.GetLabels() {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			facts = append(facts, fmt.Sprintf("`%s=%s`", key, match.GetLabels()[key]))
-		}
-		b.WriteString(strings.Join(facts, " · ") + "\n")
-		if description := match.GetDescription(); description != "" {
-			fmt.Fprintf(&b, "*%s*\n", description)
-		}
-		if len(match.GetSnippets()) > 0 {
-			b.WriteString("\n")
-		}
+		// One item per snippet: a quote would join the lines into one.
 		for _, snippet := range match.GetSnippets() {
-			b.WriteString("> " + highlight(defuse(snippet), pattern) + "\n")
+			b.WriteString("\n- " + highlight(defuse(snippet), pattern))
 		}
-		sections = append(sections, strings.TrimSpace(b.String()))
+		sections = append(sections, b.String())
 	}
-	// A rule between lores keeps them visually separate.
-	b := strings.Builder{}
-	b.WriteString(strings.Join(sections, "\n\n---\n\n"))
-	b.WriteString("\n")
-	return strings.TrimSpace(b.String()), true
+	return strings.Join(sections, "\n\n"), true
 }
 
 // fencePattern matches code-fence openers within a snippet line.
 var fencePattern = regexp.MustCompile("`{3,}")
 
-// defuse breaks code fences inside snippets — a lore's own ``` would open a
-// fenced block mid-render and swallow the rest of the result. A zero-width
-// space between the backticks is invisible but stops the fence parsing.
+// blockMarkerPattern matches a leading markdown block marker: heading,
+// quote, list item.
+var blockMarkerPattern = regexp.MustCompile(`^(#|>|[-*+]\s)`)
+
+// defuse keeps a snippet line plain text inside its list item: a lore's own ```
+// would open a fenced block mid-render and swallow the rest of the result,
+// and a leading "#", "-" or indent would make a heading, a list or a code
+// block. A zero-width space between backticks is invisible but stops fence
+// parsing.
 func defuse(snippet string) string {
-	return fencePattern.ReplaceAllStringFunc(snippet, func(fence string) string {
+	snippet = fencePattern.ReplaceAllStringFunc(strings.TrimLeft(snippet, " \t"), func(fence string) string {
 		return strings.Join(strings.Split(fence, ""), "\u200b")
 	})
+	if blockMarkerPattern.MatchString(snippet) {
+		snippet = `\` + snippet
+	}
+	return snippet
 }
 
 // highlight bolds every pattern match within a snippet line.

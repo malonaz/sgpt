@@ -34,18 +34,12 @@ func parseShellCommandArguments(toolCall *aipb.ToolCall) (*sgptpb.ExecShellReque
 type Tool struct{}
 
 func (t *Tool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptpb.ToolCallMetadata, error) {
-	execShellRequest, err := parseShellCommandArguments(toolCall)
-	if err != nil {
+	if _, err := parseShellCommandArguments(toolCall); err != nil {
 		return nil, err
 	}
-	display := execShellRequest.GetCommand()
-	if execShellRequest.GetWorkingDirectory() != "" {
-		display = fmt.Sprintf("cd %s && %s", execShellRequest.GetWorkingDirectory(), execShellRequest.GetCommand())
-	}
 	// Shell commands are arbitrary code execution: never auto-execute.
-	return &sgptpb.ToolCallMetadata{
-		DisplayMessage: &sgptpb.DisplayMessage{Content: display},
-	}, nil
+	// No display message: the row and the request fence show the command.
+	return &sgptpb.ToolCallMetadata{DisplayMessage: &sgptpb.DisplayMessage{}}, nil
 }
 
 func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.ToolResult, error) {
@@ -85,28 +79,55 @@ func (t *Tool) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.Tool
 
 var _ tool.Tool = (*Tool)(nil)
 
-// RenderRequest renders the command as a shell fence instead of raw JSON.
-func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
-	execShellRequest, err := parseShellCommandArguments(toolCall)
-	if err != nil {
-		return "", false
+// Summarize: the command is the subject, the exit code the outcome.
+func (t *Tool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	summary := tool.Summary{Verb: "Shell", Subject: tool.Argument(toolCall, "command").GetStringValue()}
+	if toolResult == nil || toolResult.GetError() != nil {
+		return summary, true
 	}
-	display := execShellRequest.GetCommand()
-	if execShellRequest.GetWorkingDirectory() != "" {
-		display = fmt.Sprintf("cd %s && %s", execShellRequest.GetWorkingDirectory(), execShellRequest.GetCommand())
+	exitCode := int(tool.ResultField(toolResult, "exit_code").GetNumberValue())
+	errorText := tool.ResultField(toolResult, "error").GetStringValue()
+	switch {
+	case exitCode > 0:
+		summary.Outcome, summary.Failed = fmt.Sprintf("exit %d", exitCode), true
+	case errorText != "":
+		// Failed without an exit code: killed by a signal, or never started.
+		summary.Outcome, summary.Failed = errorText, true
+	default:
+		summary.Outcome = "exit 0"
 	}
-	return fmt.Sprintf("```sh\n%s\n```", display), true
+	return summary, true
 }
 
-// RenderHeader: the command itself renders below (display message + fence),
-// so the header stays a discrete label.
-func (t *Tool) RenderHeader(*aipb.ToolCall) (string, bool) {
-	return "💻 shell", true
+// RenderRequest renders a command run elsewhere as a shell fence. A plain
+// command declines: the row's subject already shows it.
+func (t *Tool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
+	command := tool.Argument(toolCall, "command").GetStringValue()
+	directory := tool.Argument(toolCall, "working_directory").GetStringValue()
+	if command == "" || directory == "" {
+		return "", false
+	}
+	return tool.Fence("sh", fmt.Sprintf("cd %s && %s", directory, command)), true
+}
+
+// RenderResult renders the output as the terminal showed it; the exit code
+// lives in the summary's outcome.
+func (t *Tool) RenderResult(_ *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool) {
+	execShellResponse := &sgptpb.ExecShellResponse{}
+	if tool.UnmarshalResult(toolResult, execShellResponse) != nil {
+		return "", false
+	}
+	output := execShellResponse.GetOutput()
+	if strings.TrimSpace(output) == "" {
+		output = "(no output)"
+	}
+	return tool.Fence("text", output), true
 }
 
 var (
+	_ tool.Summarizer      = (*Tool)(nil)
 	_ tool.RequestRenderer = (*Tool)(nil)
-	_ tool.HeaderRenderer  = (*Tool)(nil)
+	_ tool.ResultRenderer  = (*Tool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(Definition) }

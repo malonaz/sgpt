@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -28,6 +29,12 @@ const (
 	HandlerIDWaitOperations   = "wait_operations"
 	HandlerIDCancelOperations = "cancel_operations"
 	HandlerIDSearchLores      = "search_lores"
+)
+
+// Wrapping of tool errors, which error outcomes strip back off.
+const (
+	reviewingFormat = "reviewing tool call %q"
+	executingFormat = "executing tool call %q"
 )
 
 // Tool reviews and executes tool calls.
@@ -126,7 +133,7 @@ func (r *Registry) Review(ctx context.Context, toolCall *aipb.ToolCall) (*sgptpb
 	}
 	metadata, err := tool.Review(ctx, toolCall)
 	if err != nil {
-		return nil, fmt.Errorf("reviewing tool call %q: %w", toolCall.GetName(), err)
+		return nil, fmt.Errorf(reviewingFormat+": %w", toolCall.GetName(), err)
 	}
 	if err := SetToolCallMetadata(toolCall, metadata); err != nil {
 		return nil, err
@@ -142,7 +149,7 @@ func (r *Registry) Execute(ctx context.Context, toolCall *aipb.ToolCall) (*aipb.
 	}
 	toolResult, err := tool.Execute(ctx, toolCall)
 	if err != nil {
-		return nil, fmt.Errorf("executing tool call %q: %w", toolCall.GetName(), err)
+		return nil, fmt.Errorf(executingFormat+": %w", toolCall.GetName(), err)
 	}
 	return toolResult, nil
 }
@@ -161,7 +168,7 @@ func ArgumentsJSON(toolCall *aipb.ToolCall) ([]byte, error) {
 type RequestRenderer interface {
 	Tool
 	// RenderRequest returns markdown for the request; returning false falls
-	// back to the default raw-JSON rendering.
+	// back to the default rendering.
 	RenderRequest(toolCall *aipb.ToolCall) (string, bool)
 }
 
@@ -184,7 +191,7 @@ func (r *Registry) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
 type ResultRenderer interface {
 	Tool
 	// RenderResult returns markdown for the result; returning false falls
-	// back to the default raw-JSON rendering.
+	// back to the default rendering.
 	RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (string, bool)
 }
 
@@ -202,27 +209,56 @@ func (r *Registry) RenderResult(toolCall *aipb.ToolCall, toolResult *aipb.ToolRe
 	return renderer.RenderResult(toolCall, toolResult)
 }
 
-// HeaderRenderer is implemented by tools that render their calls' header in
-// the timeline as markdown (e.g. the diff tool shows the edited file).
-type HeaderRenderer interface {
-	Tool
-	// RenderHeader returns header markdown; returning false falls back to
-	// the default tool-name rendering.
-	RenderHeader(toolCall *aipb.ToolCall) (string, bool)
+// Summary is a tool call's one-line identity in the timeline: a short label
+// for the tool (Verb), what it acts on (Subject), and once resolved, what came
+// of it (Outcome). Plain text; the timeline owns styling and truncation.
+type Summary struct {
+	// Verb names the action, stable across states: "Read", "Shell", "Edit".
+	Verb string
+	// Subject is what the call acts on: a path, a command, a query.
+	Subject string
+	// Outcome is the result in a few words ("120 lines", "exit 1"); empty
+	// while unresolved.
+	Outcome string
+	// Failed marks an outcome that reads as a failure even though the call
+	// itself succeeded (a non-zero exit, an edit that cannot apply).
+	Failed bool
 }
 
-// RenderHeader returns tool-provided header markdown for a call, if its tool
-// implements HeaderRenderer.
-func (r *Registry) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+// Summarizer is implemented by tools that describe their calls in one line.
+type Summarizer interface {
+	Tool
+	// Summarize describes the call; toolResult is nil while unresolved.
+	// Returning false falls back to the default summary.
+	Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (Summary, bool)
+}
+
+// Summarize returns the tool-provided summary for a call, if its tool
+// implements Summarizer. Error results are summarized here, uniformly: the
+// outcome is the error's first line.
+func (r *Registry) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (Summary, bool) {
 	tool, err := r.lookup(toolCall)
 	if err != nil {
-		return "", false
+		return Summary{}, false
 	}
-	renderer, ok := tool.(HeaderRenderer)
+	summarizer, ok := tool.(Summarizer)
 	if !ok {
-		return "", false
+		return Summary{}, false
 	}
-	return renderer.RenderHeader(toolCall)
+	summary, ok := summarizer.Summarize(toolCall, toolResult)
+	if ok && toolResult.GetError() != nil {
+		summary.Outcome, summary.Failed = errorOutcome(toolCall, toolResult.GetError().GetMessage()), true
+	}
+	return summary, ok
+}
+
+// errorOutcome reduces an error result to its first line, without the
+// registry's own wrapping: the row already names the call.
+func errorOutcome(toolCall *aipb.ToolCall, message string) string {
+	for _, format := range []string{executingFormat, reviewingFormat} {
+		message = strings.TrimPrefix(message, fmt.Sprintf(format, toolCall.GetName())+": ")
+	}
+	return firstLine(message)
 }
 
 // LiveRenderer is implemented by tools whose rendering keeps changing after

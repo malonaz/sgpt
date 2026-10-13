@@ -53,8 +53,8 @@ func (t *ReplaceTool) Review(_ context.Context, toolCall *aipb.ToolCall) (*sgptp
 		return nil, err
 	}
 	// File mutation: never auto-execute.
-	// The display message is reserved for problems; on success the title
-	// (✏️ path) plus the rendered diff already say everything.
+	// The display message is reserved for problems; on success the row plus
+	// the rendered diff already say everything.
 	metadata := &sgptpb.ToolCallMetadata{
 		DisplayMessage: &sgptpb.DisplayMessage{},
 	}
@@ -102,32 +102,47 @@ func (t *ReplaceTool) Execute(_ context.Context, toolCall *aipb.ToolCall) (*aipb
 	return tool.NewStructuredToolResult(toolCall, replaceResponse)
 }
 
-// RenderRequest renders the review-time diff instead of raw JSON arguments.
-// The diff is persisted on the call's metadata so it survives chat reloads
-// even though the underlying file has since changed.
-func (t *ReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
-	metadata, err := tool.ParseToolCallMetadata(toolCall)
-	if err != nil || metadata.GetDiff() == "" {
-		return "", false
+// Summarize names the edited file and, once applied, the size of the edit.
+func (t *ReplaceTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.ToolResult) (tool.Summary, bool) {
+	summary := tool.Summary{Verb: "Edit", Subject: tool.DisplayPath(tool.Argument(toolCall, "path").GetStringValue())}
+	if toolResult != nil {
+		if metadata, err := tool.ParseToolCallMetadata(toolCall); err == nil && metadata.GetDiff() != "" {
+			summary.Outcome = tool.DiffStat(metadata.GetDiff())
+		}
 	}
-	return fmt.Sprintf("```diff\n%s\n```", strings.TrimSuffix(metadata.GetDiff(), "\n")), true
+	return summary, true
 }
 
-// RenderHeader shows the file being edited instead of the tool name. It
-// tolerates partial arguments so the header appears as soon as the path
-// streams in.
-func (t *ReplaceTool) RenderHeader(toolCall *aipb.ToolCall) (string, bool) {
+// RenderRequest renders the review-time diff. The diff is persisted on the
+// call's metadata so it survives chat reloads even though the file has since
+// changed. While the call streams in (no review yet), the patches render as
+// a diff of their search and replace text.
+func (t *ReplaceTool) RenderRequest(toolCall *aipb.ToolCall) (string, bool) {
+	if metadata, err := tool.ParseToolCallMetadata(toolCall); err == nil && metadata.GetDiff() != "" {
+		return tool.Fence("diff", metadata.GetDiff()), true
+	}
 	replaceRequest := &sgptpb.ReplaceRequest{}
-	if tool.UnmarshalArguments(toolCall, replaceRequest) != nil || replaceRequest.GetPath() == "" {
+	if tool.UnmarshalArguments(toolCall, replaceRequest) != nil || len(replaceRequest.GetPatches()) == 0 {
 		return "", false
 	}
-	return fmt.Sprintf("edited `%s`", replaceRequest.GetPath()), true
+	var b strings.Builder
+	fmt.Fprintf(&b, "--- a/%s\n+++ b/%s\n", replaceRequest.GetPath(), replaceRequest.GetPath())
+	for _, patch := range replaceRequest.GetPatches() {
+		b.WriteString("@@\n")
+		for _, line := range strings.Split(patch.GetSearch(), "\n") {
+			b.WriteString("-" + line + "\n")
+		}
+		for _, line := range strings.Split(patch.GetReplace(), "\n") {
+			b.WriteString("+" + line + "\n")
+		}
+	}
+	return tool.Fence("diff", b.String()), true
 }
 
 var (
 	_ tool.Tool            = (*ReplaceTool)(nil)
+	_ tool.Summarizer      = (*ReplaceTool)(nil)
 	_ tool.RequestRenderer = (*ReplaceTool)(nil)
-	_ tool.HeaderRenderer  = (*ReplaceTool)(nil)
 )
 
 func init() { tool.RegisterBuiltin(Replace) }

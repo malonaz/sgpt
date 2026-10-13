@@ -4,13 +4,21 @@ import (
 	"strings"
 
 	"charm.land/glamour/v2"
-	"charm.land/glamour/v2/ansi"
-	"charm.land/glamour/v2/styles"
+	glamouransi "charm.land/glamour/v2/ansi"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/malonaz/sgpt/cli/tui/styles"
 )
+
+// MaxProseWidth caps prose wrapping: long lines tire the eye on wide
+// terminals. Code and diffs still use the full width.
+const MaxProseWidth = 100
 
 // Renderer handles markdown rendering with syntax highlighting.
 type Renderer struct {
-	glamour      *glamour.TermRenderer
+	prose        *glamour.TermRenderer
+	code         *glamour.TermRenderer
 	width        int
 	mdCache      map[int]string
 	blockCache   map[int]Block
@@ -28,18 +36,26 @@ type Renderer struct {
 
 // NewRenderer creates a new markdown renderer.
 func NewRenderer(width int) (*Renderer, error) {
-	gr, err := glamour.NewTermRenderer(
-		glamour.WithStyles(customStyle()),
-		glamour.WithWordWrap(width),
-		glamour.WithInlineTableLinks(true),
-		glamour.WithHyperlinkMode(ansi.HyperlinkModeInline),
-	)
+	style := theme()
+	newGlamour := func(wrap int) (*glamour.TermRenderer, error) {
+		return glamour.NewTermRenderer(
+			glamour.WithStyles(style),
+			glamour.WithWordWrap(wrap),
+			glamour.WithInlineTableLinks(true),
+			glamour.WithHyperlinkMode(glamouransi.HyperlinkModeInline),
+		)
+	}
+	prose, err := newGlamour(min(width, MaxProseWidth))
 	if err != nil {
 		return nil, err
 	}
-
+	code, err := newGlamour(width)
+	if err != nil {
+		return nil, err
+	}
 	return &Renderer{
-		glamour:               gr,
+		prose:                 prose,
+		code:                  code,
 		width:                 width,
 		mdCache:               map[int]string{},
 		blockCache:            map[int]Block{},
@@ -78,7 +94,7 @@ func (r *Renderer) ToMarkdown(messageIndex int, finalized bool, blocks ...Block)
 		if incremental {
 			md = r.toMarkdownBlockIncremental(block, blockIndex)
 		} else {
-			md = r.toMarkdownBlock(block.md())
+			md = r.renderBlock(block)
 			if !disableCache {
 				r.blockMdCache[blockIndex] = md
 			}
@@ -152,7 +168,7 @@ func (r *Renderer) incrementalCode(code, language string) string {
 
 	if completeLineCount > r.incrementalStableOffset {
 		newContent := strings.Join(lines[r.incrementalStableOffset:completeLineCount], "\n")
-		rendered := strings.TrimSuffix(r.toMarkdownBlock("```"+language+"\n"+newContent+"\n```"), "\n")
+		rendered := strings.TrimSuffix(r.renderCode(language, newContent), "\n")
 		r.appendStable(rendered)
 		r.incrementalStableOffset = completeLineCount
 	}
@@ -182,7 +198,7 @@ func (r *Renderer) incrementalText(text string) string {
 	if stableOffset > r.incrementalStableOffset {
 		newContent := strings.Join(lines[r.incrementalStableOffset:stableOffset], "\n")
 		if strings.TrimSpace(newContent) != "" {
-			r.appendStable(strings.TrimSuffix(r.toMarkdownBlock(newContent), "\n"))
+			r.appendStable(strings.TrimSuffix(r.renderProse(newContent), "\n"))
 		}
 		r.incrementalStableOffset = stableOffset
 		r.incrementalTailLineCount = 0
@@ -197,7 +213,7 @@ func (r *Renderer) incrementalText(text string) string {
 		if strings.TrimSpace(tailContent) == "" {
 			r.incrementalTailMdCache = ""
 		} else {
-			r.incrementalTailMdCache = strings.TrimSuffix(r.toMarkdownBlock(tailContent), "\n")
+			r.incrementalTailMdCache = strings.TrimSuffix(r.renderProse(tailContent), "\n")
 		}
 		r.incrementalTailLineCount = tailLineCount
 	}
@@ -226,41 +242,116 @@ func (r *Renderer) withPartialLine(line string) string {
 		return out
 	}
 	// Wrap to renderer width so block indicators appear on each visual line
-	line = wrapLine(line, r.width)
+	line = wrapLine(line, min(r.width, MaxProseWidth))
 	if out == "" {
 		return line
 	}
 	return out + "\n" + line
 }
 
-// toMarkdownBlock renders a single block of markdown content.
-func (r *Renderer) toMarkdownBlock(content string) string {
-	rendered, err := r.glamour.Render(content)
+func (r *Renderer) renderBlock(block Block) string {
+	if code, ok := block.(*CodeBlock); ok {
+		return r.renderCode(code.language, code.code)
+	}
+	return r.renderProse(block.md())
+}
+
+func (r *Renderer) renderProse(content string) string {
+	width := min(r.width, MaxProseWidth)
+	// Glamour's word wrap ignores list indentation, so an item can overrun by
+	// a cell or two; rewrap rather than lose words.
+	return fitLines(render(r.prose, content), width, func(line string) string {
+		return lipgloss.Wrap(line, width, "")
+	})
+}
+
+// renderCode highlights a fence; diffs bypass glamour, whose chroma lexer
+// colors only the sign and misaligns wrapped lines.
+func (r *Renderer) renderCode(language, code string) string {
+	if language == "diff" || language == "patch" {
+		return renderDiff(code, r.width)
+	}
+	// Glamour never wraps code; long lines are cut, and alt+o shows them whole.
+	return fitLines(render(r.code, "```"+language+"\n"+code+"\n```"), r.width, func(line string) string {
+		return ansi.Truncate(line, r.width, styles.GlyphEllipsis)
+	})
+}
+
+// fitLines passes every line wider than width through fit, so a render never
+// overflows the column the layout reserved.
+func fitLines(rendered string, width int, fit func(string) string) string {
+	if width <= 0 {
+		return rendered
+	}
+	lines := strings.Split(rendered, "\n")
+	for index, line := range lines {
+		if ansi.StringWidth(line) > width {
+			lines[index] = fit(line)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func render(renderer *glamour.TermRenderer, content string) string {
+	rendered, err := renderer.Render(content)
 	if err != nil {
 		return content
 	}
-	return strings.Trim(rendered, "\n")
+	// Glamour pads blocks with blank (but styled) lines; spacing is the
+	// caller's to decide.
+	lines := strings.Split(rendered, "\n")
+	blank := func(line string) bool { return strings.TrimSpace(ansi.Strip(line)) == "" }
+	for len(lines) > 0 && blank(lines[0]) {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && blank(lines[len(lines)-1]) {
+		lines = lines[:len(lines)-1]
+	}
+	return strings.Join(lines, "\n")
 }
 
-// customStyle returns a modified glamour style for cleaner output.
-func customStyle() ansi.StyleConfig {
-	style := styles.DraculaStyleConfig
-	zero := uint(0)
-	style.Document.Margin = &zero
-	style.CodeBlock.Margin = &zero
-	style.CodeBlock.Indent = &zero
-	style.CodeBlock.Prefix = ""
-	style.CodeBlock.BlockPrefix = ""
+var (
+	diffAddedStyle   = lipgloss.NewStyle().Foreground(styles.ColorSuccess)
+	diffRemovedStyle = lipgloss.NewStyle().Foreground(styles.ColorDanger)
+	diffHunkStyle    = styles.MutedStyle
+	diffFileStyle    = styles.MutedStyle.Bold(true)
+)
 
-	style.Code.Margin = &zero
-	style.Code.Indent = &zero
-	style.Code.Prefix = ""
-	style.Code.Suffix = ""
-
-	style.Paragraph.BlockPrefix = ""
-	style.Paragraph.BlockSuffix = ""
-
-	return style
+// renderDiff colors a unified diff line by line, hard-wrapping long lines
+// under their sign column so the tint stays on every visual row.
+func renderDiff(code string, width int) string {
+	var b strings.Builder
+	for index, line := range strings.Split(code, "\n") {
+		if index > 0 {
+			b.WriteString("\n")
+		}
+		style := styles.TextStyle
+		switch {
+		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"):
+			style = diffFileStyle
+		case strings.HasPrefix(line, "@@"):
+			style = diffHunkStyle
+		case strings.HasPrefix(line, "+"):
+			style = diffAddedStyle
+		case strings.HasPrefix(line, "-"):
+			style = diffRemovedStyle
+		}
+		if width <= 1 || lipgloss.Width(line) <= width {
+			b.WriteString(style.Render(line))
+			continue
+		}
+		for rowIndex, row := range strings.Split(lipgloss.Wrap(line[1:], width-1, ""), "\n") {
+			if rowIndex > 0 {
+				b.WriteString("\n")
+			}
+			sign := " "
+			if rowIndex == 0 {
+				sign = line[:1]
+			}
+			b.WriteString(style.Render(sign + row))
+		}
+	}
+	return b.String()
 }
 
 // wrapLine wraps a single line of text to the specified width using word boundaries.

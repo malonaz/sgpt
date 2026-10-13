@@ -3,15 +3,17 @@ go_library(
     srcs = [
         "agents.go",
         "confirm.go",
+        "filter.go",
         "info.go",
         "input.go",
         "picker.go",
+        "statusbar.go",
         "tab_bar.go",
-        "titlebar.go",
     ],
     visibility = ["//..."],
     deps = [
         "//cli/tui/editor",
+        "//cli/tui/format",
         "//cli/tui/keymap",
         "//cli/tui/styles",
         "//internal/history",

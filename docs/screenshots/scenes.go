@@ -29,9 +29,9 @@ const renameDiff = `@@
 +	review, ok := s.awaitingVerdicts[toolCallID]
 `
 
-func scenes() []scene {
-	return []scene{
-		{
+func init() {
+	register(
+		scene{
 			// A diff tool call under review: the hero shot.
 			name:  "diff-review",
 			title: "Rename pendingReview",
@@ -51,7 +51,7 @@ func scenes() []scene {
 				r.settle(300 * time.Millisecond)
 			},
 		},
-		{
+		scene{
 			// Read-only tool auto-executes, then a rich markdown answer.
 			name:  "read-and-answer",
 			title: "Tool call verdicts",
@@ -74,22 +74,22 @@ func scenes() []scene {
 				r.settle(300 * time.Millisecond)
 			},
 		},
-		{
+		scene{
 			// Shell command reviewed, accepted, executed, summarised.
 			name:  "shell",
-			title: "Vet and tests",
+			title: "Format check",
 			responses: [][]*aipb.Block{
 				{
 					toolCall("call_1", "exec_shell", map[string]any{
-						"command": "go vet ./... && go test ./internal/session/ -run Review -count=1",
+						"command": "gofmt -l internal/ && grep -c verdict internal/session/review.go",
 					}),
 				},
 				{
-					text("Clean: vet passes and the review tests are green.\n"),
+					text("Clean: gofmt has nothing to report, and `review.go` holds every verdict reference.\n"),
 				},
 			},
 			drive: func(r *runtime, s *session.Session) {
-				r.typeText("run vet and the review tests")
+				r.typeText("check formatting and where verdicts live")
 				r.key('j', tea.ModCtrl)
 				waitFor(func() bool { return len(s.PendingToolCallIDs()) > 0 }, 5*time.Second)
 				r.settle(200 * time.Millisecond)
@@ -98,7 +98,7 @@ func scenes() []scene {
 				r.settle(300 * time.Millisecond)
 			},
 		},
-		{
+		scene{
 			// The keymap overlay.
 			name:  "help",
 			title: "Keymap",
@@ -107,7 +107,7 @@ func scenes() []scene {
 				r.settle(200 * time.Millisecond)
 			},
 		},
-	}
+	)
 }
 
 func waitFor(condition func() bool, timeout time.Duration) {
