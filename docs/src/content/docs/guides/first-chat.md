@@ -8,8 +8,12 @@ cd ~/my-repo
 sgpt chat
 ```
 
-You land in a new chat tab. The bottom pane is the input; the pane above it
-is the **timeline** — the conversation rendered as markdown.
+You land in a new chat tab. Tabs run along the top. The bordered box at the
+bottom is the input (its border lights up while it has focus); the pane above
+it is the **timeline**, the conversation rendered as markdown. The last line
+is the **status bar**: what the turn is doing and the keys that apply right
+now on the left; model, reasoning effort, context use and cost on the right.
+Notifications appear there briefly too, in place of the key hints.
 
 ## Send a message
 
@@ -32,8 +36,9 @@ Now ask for a change:
 
 > rename `pendingReview` to `awaitingVerdict`
 
-The model proposes an edit. The timeline shows a **unified diff** and the
-status line says a review is pending:
+The model proposes an edit. The timeline shows a **unified diff**, the tab
+and the status bar show an amber `▶ Review`, and the status bar lists the
+review keys:
 
 ![A diff tool call under review](../../../assets/screenshots/diff-review.svg)
 
@@ -63,7 +68,11 @@ Roles come from `.sgpt/*.role.md` files in the repo (and its imports); see
 ## Tabs and the menu
 
 - <kbd>ctrl</kbd>+<kbd>t</kbd> new tab, <kbd>ctrl</kbd>+<kbd>w</kbd> close,
-  <kbd>alt</kbd>+<kbd>j</kbd> / <kbd>alt</kbd>+<kbd>;</kbd> switch.
+  <kbd>alt</kbd>+<kbd>j</kbd> / <kbd>alt</kbd>+<kbd>;</kbd> switch. A tab
+  working in the background shows `●`, one waiting on your review `▶`, and a
+  finished one `✓` (or `✗`) until you visit it.
+- <kbd>ctrl</kbd>+<kbd>c</kbd> cancels the running turn or clears the input;
+  pressed twice when there's nothing to stop, it asks to quit.
 - <kbd>alt</kbd>+<kbd>m</kbd> opens the **menu**: every chat for your user,
   filterable, with favourites (<kbd>alt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd>).
 - `sgpt chat -c` reopens the last chat; `sgpt chat --name <chat>` a specific
