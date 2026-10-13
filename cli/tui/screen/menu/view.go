@@ -24,7 +24,6 @@ const (
 )
 
 var (
-	labelStyle     = lipgloss.NewStyle().Foreground(styles.ColorMuted).Bold(true)
 	sectionStyle   = lipgloss.NewStyle().Foreground(styles.ColorSubtle).PaddingLeft(2)
 	filterBoxStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
 	previewTitle   = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
@@ -36,9 +35,7 @@ func (m *Model) View() string {
 	if !m.ready {
 		return ""
 	}
-	// The body fills exactly the rows under the header: the app reserves
-	// nothing else.
-	height := max(1, m.height-1)
+	height := m.height
 	left := strings.Join([]string{m.renderFilter(), m.renderList()}, "\n")
 	left = lipgloss.NewStyle().Width(m.listWidth()).Height(height).MaxHeight(height).Render(left)
 	body := left
@@ -46,18 +43,7 @@ func (m *Model) View() string {
 		separator := styles.SubtleStyle.Render(strings.TrimSuffix(strings.Repeat(styles.GlyphRule+"\n", height), "\n"))
 		body = lipgloss.JoinHorizontal(lipgloss.Top, left, separator, m.detailViewport.View())
 	}
-	return m.renderHeader() + "\n" + body
-}
-
-// renderHeader is a quiet label with the list's honest status at the right.
-func (m *Model) renderHeader() string {
-	left := " " + labelStyle.Render("Chats")
-	if m.showAgents {
-		left += styles.SubtleStyle.Render(" " + styles.GlyphSeparator + " incl. sub-agents")
-	}
-	right := styles.MutedStyle.Render(m.status()) + " "
-	gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(right))
-	return left + strings.Repeat(" ", gap) + right
+	return body
 }
 
 func (m *Model) status() string {
@@ -100,7 +86,11 @@ func (m *Model) Status() widget.Status {
 	if m.focusTarget == FocusChatList {
 		hints = []string{keyOpen.Hint(), keyDelete.Hint(), keyMenuFavorite.Hint(), keyBack.Hint()}
 	}
-	return widget.Status{Hints: append(hints, keyToggleAgents.Hint(), keyRefresh.Hint())}
+	// The list's honest status (count, searching) takes the turn state's slot.
+	return widget.Status{
+		State: styles.MutedStyle.Render(m.status()),
+		Hints: append(hints, keyToggleAgents.Hint(), keyRefresh.Hint()),
+	}
 }
 
 // renderList materializes only the visible window of the virtualized list —

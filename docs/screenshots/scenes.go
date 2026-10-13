@@ -77,19 +77,19 @@ func init() {
 		scene{
 			// Shell command reviewed, accepted, executed, summarised.
 			name:  "shell",
-			title: "Vet and tests",
+			title: "Format check",
 			responses: [][]*aipb.Block{
 				{
 					toolCall("call_1", "exec_shell", map[string]any{
-						"command": "go vet ./... && go test ./internal/session/ -run Review -count=1",
+						"command": "gofmt -l internal/ && grep -c verdict internal/session/review.go",
 					}),
 				},
 				{
-					text("Clean: vet passes and the review tests are green.\n"),
+					text("Clean: gofmt has nothing to report, and `review.go` holds every verdict reference.\n"),
 				},
 			},
 			drive: func(r *runtime, s *session.Session) {
-				r.typeText("run vet and the review tests")
+				r.typeText("check formatting and where verdicts live")
 				r.key('j', tea.ModCtrl)
 				waitFor(func() bool { return len(s.PendingToolCallIDs()) > 0 }, 5*time.Second)
 				r.settle(200 * time.Millisecond)

@@ -57,38 +57,35 @@ func register(scenes ...scene) { registered = append(registered, scenes...) }
 
 func main() {
 	outDir := flag.String("out", "frames", "directory for ANSI frames")
-	workDir := flag.String("workdir", "", "directory with fixture files (default: temp copy of ./fixtures)")
+	fixtures := flag.String("fixtures", "fixtures", "directory of fixture files; each scene works on a fresh copy")
 	only := flag.String("scene", "", "render only the scenes whose name contains this")
 	width := flag.Int("width", 120, "terminal width")
 	height := flag.Int("height", 36, "terminal height")
 	text := flag.Bool("text", false, "also write a plain-text .txt (ANSI stripped) per scene")
 	flag.Parse()
-	if err := run(*outDir, *workDir, *only, *width, *height, *text); err != nil {
+	if err := run(*outDir, *fixtures, *only, *width, *height, *text); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(outDir, workDir, only string, width, height int, text bool) error {
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+func run(outDir, fixtures, only string, width, height int, text bool) error {
+	// Absolute: each scene chdirs into its own fixture copy.
+	outDir, err := filepath.Abs(outDir)
+	if err != nil {
 		return err
 	}
-	if workDir == "" {
-		var err error
-		if workDir, err = copyFixtures(); err != nil {
-			return err
-		}
-		defer os.RemoveAll(workDir)
+	if fixtures, err = filepath.Abs(fixtures); err != nil {
+		return err
 	}
-	// Tools resolve paths against the cwd; edits land in the throwaway copy.
-	if err := os.Chdir(workDir); err != nil {
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
 	for _, sc := range registered {
 		if !strings.Contains(sc.name, only) {
 			continue
 		}
-		frame, err := render(sc, width, height)
+		frame, err := renderInCopy(fixtures, sc, width, height)
 		if err != nil {
 			return fmt.Errorf("%s: %w", sc.name, err)
 		}
@@ -104,6 +101,21 @@ func run(outDir, workDir, only string, width, height int, text bool) error {
 		}
 	}
 	return nil
+}
+
+// renderInCopy renders a scene inside a fresh copy of the fixtures: tools
+// resolve paths against the cwd, and one scene's edits must not leak into the
+// next.
+func renderInCopy(fixtures string, sc scene, width, height int) (string, error) {
+	workDir, err := copyFixtures(fixtures)
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(workDir)
+	if err := os.Chdir(workDir); err != nil {
+		return "", err
+	}
+	return render(sc, width, height)
 }
 
 func render(sc scene, width, height int) (string, error) {
@@ -180,10 +192,9 @@ func startServer(service aiservicepb.AiServiceServer) (aiservicepb.AiServiceClie
 	return aiservicepb.NewAiServiceClient(conn), func() { conn.Close(); server.Stop() }, nil
 }
 
-// copyFixtures clones ./fixtures next to this source into a temp dir so edit
-// tools can mutate files freely.
-func copyFixtures() (string, error) {
-	source := "fixtures"
+// copyFixtures clones source into a temp dir so edit tools can mutate files
+// freely.
+func copyFixtures(source string) (string, error) {
 	target, err := os.MkdirTemp("", "sgpt-screenshots-")
 	if err != nil {
 		return "", err

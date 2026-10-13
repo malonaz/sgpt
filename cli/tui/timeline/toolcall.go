@@ -235,7 +235,8 @@ func (i *ToolCallItem) row(ctx RenderContext, summary tool.Summary, width int, i
 		used += lipgloss.Width(subject) + 1
 		room -= lipgloss.Width(subject) + 1
 	}
-	if display := i.displayMessage(); inlineDisplay && display != "" && room > 8 {
+	// A resolved row speaks through its outcome; the intent is noise by then.
+	if display := i.displayMessage(); inlineDisplay && outcome == "" && display != "" && room > 8 {
 		display = truncate(flatten(display), room-2)
 		left.WriteString("  " + displayStyle.Render(display))
 		used += lipgloss.Width(display) + 2

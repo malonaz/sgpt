@@ -528,15 +528,15 @@ func (m *Model) detailWidth() int {
 	return max(0, m.width-m.listWidth()-1)
 }
 
-// headerHeight is the rows above the list: the label and the filter box.
-const headerHeight = 4
+// headerHeight is the rows above the list: the filter box.
+const headerHeight = 3
 
 func (m *Model) recalculateLayout() {
 	if m.width == 0 || m.height == 0 {
 		return
 	}
 	m.listHeight = max(1, m.height-headerHeight)
-	detailHeight := max(1, m.height-1)
+	detailHeight := m.height
 	detailWidth := m.detailWidth()
 	if !m.ready {
 		m.detailViewport = viewport.New(viewport.WithWidth(detailWidth), viewport.WithHeight(detailHeight))
