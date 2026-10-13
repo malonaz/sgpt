@@ -217,17 +217,26 @@ func TestCreateAgentsIsAsyncBoundedAndWaitable(t *testing.T) {
 		waited <- execute(t, m, ctx, tool.HandlerIDWaitOperations, map[string]any{"names": names}, &sgptpb.WaitOperationsResponse{})
 	}()
 	awaitWatched(t, m, created.GetOperations()[0].GetName())
-	first.finish(tool.TurnOutcome{Text: "report a"})
+	// Tasks launch concurrently, in any order: each answers by its query.
+	settle := func(subAgent *fakeAgent) {
+		query := awaitMessages(t, subAgent, 1)[0]
+		if query == "qc" {
+			subAgent.finish(tool.TurnOutcome{Err: errors.New("boom")})
+			return
+		}
+		subAgent.finish(tool.TurnOutcome{Text: "report on " + query})
+	}
+	settle(first)
 	third := launcher.awaitLaunch(t)
-	second.finish(tool.TurnOutcome{Text: "report b"})
-	third.finish(tool.TurnOutcome{Err: errors.New("boom")})
+	settle(second)
+	settle(third)
 
 	response := <-waited
 	if response.GetReason() != sgptpb.WaitOperationsResponse_REASON_COMPLETED {
 		t.Fatalf("reason = %v", response.GetReason())
 	}
 	got := response.GetOperations()
-	if got[0].GetResponse() != "report a" || got[2].GetState() != sgptpb.AgentOperation_STATE_FAILED {
+	if got[0].GetResponse() != "report on qa" || got[1].GetResponse() != "report on qb" || got[2].GetState() != sgptpb.AgentOperation_STATE_FAILED {
 		t.Fatalf("operations = %v", got)
 	}
 	if messages := parent.messages(); len(messages) != 0 {
@@ -238,8 +247,10 @@ func TestCreateAgentsIsAsyncBoundedAndWaitable(t *testing.T) {
 			t.Errorf("request %s = %+v, want the batch settings and the sub-agent tools", request.Title, request)
 		}
 	}
-	if launcher.requests[2].Model != "flash" {
-		t.Errorf("model = %q, want the task override", launcher.requests[2].Model)
+	for _, request := range launcher.requests {
+		if (request.Title == "c") != (request.Model == "flash") {
+			t.Errorf("request %s model = %q, want only task c's override", request.Title, request.Model)
+		}
 	}
 }
 
@@ -272,6 +283,8 @@ func TestWaitReturnsWhenAMessageArrives(t *testing.T) {
 	ctx := callerContext(tool.Caller{Agent: parent})
 	execute(t, m, ctx, tool.HandlerIDCreateAgents, map[string]any{"tasks": []any{task("a", "q")}}, &sgptpb.CreateAgentsResponse{})
 	subAgent := launcher.awaitLaunch(t)
+	// Its task arrives once the manager knows it, so it can reach "parent".
+	awaitMessages(t, subAgent, 1)
 
 	waited := make(chan *sgptpb.WaitOperationsResponse, 1)
 	go func() {

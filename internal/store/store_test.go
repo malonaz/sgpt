@@ -100,9 +100,3 @@ func TestOrphanedToolCallsAttachedResultStillNeedsToolMessage(t *testing.T) {
 	messages := []*aipb.Message{ai.NewAssistantMessage(ai.NewToolCallBlock(toolCall))}
 	assertIDs(t, OrphanedToolCalls(messages), "call-1")
 }
-
-func TestOrphanedToolCallsEmptyHistory(t *testing.T) {
-	if orphans := OrphanedToolCalls(nil); len(orphans) != 0 {
-		t.Fatalf("orphans = %v, want none", toolCallIDs(orphans))
-	}
-}

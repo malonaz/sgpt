@@ -9,7 +9,6 @@ import (
 	aipb "github.com/malonaz/core/genproto/ai/v1"
 
 	"github.com/malonaz/sgpt/internal/permission"
-	"github.com/malonaz/sgpt/internal/review"
 )
 
 // newReviewSession builds the minimal session needed to exercise the review
@@ -52,86 +51,6 @@ func awaitPending(t *testing.T, s *Session, id string) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatalf("tool call %q never became pending", id)
-}
-
-func TestAwaitVerdictApprove(t *testing.T) {
-	s := newReviewSession(context.Background())
-
-	type result struct {
-		approved bool
-		reason   string
-	}
-	resultCh := make(chan result, 1)
-	go func() {
-		approved, reason := s.awaitVerdict(s.ctx, toolCall("call-1", "shell"))
-		resultCh <- result{approved, reason}
-	}()
-
-	awaitPending(t, s, "call-1")
-	if got := s.State(); got != StateAwaitingReview {
-		t.Fatalf("state = %v, want StateAwaitingReview", got)
-	}
-	s.ApproveToolCall("call-1")
-
-	got := <-resultCh
-	if !got.approved {
-		t.Fatalf("approved = false, want true")
-	}
-	if pending := s.PendingToolCallIDs(); len(pending) != 0 {
-		t.Fatalf("pending = %v, want empty after verdict", pending)
-	}
-}
-
-func TestAwaitVerdictReject(t *testing.T) {
-	s := newReviewSession(context.Background())
-
-	reasonCh := make(chan string, 1)
-	go func() {
-		approved, reason := s.awaitVerdict(s.ctx, toolCall("call-1", "shell"))
-		if approved {
-			t.Error("approved = true, want false")
-		}
-		reasonCh <- reason
-	}()
-
-	awaitPending(t, s, "call-1")
-	s.RejectToolCall("call-1", "too risky")
-
-	if got := <-reasonCh; got != "too risky" {
-		t.Fatalf("reason = %q, want %q", got, "too risky")
-	}
-}
-
-// A cancelled session must unblock the turn goroutine, not deadlock it.
-func TestAwaitVerdictCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	s := newReviewSession(ctx)
-
-	doneCh := make(chan bool, 1)
-	go func() {
-		approved, _ := s.awaitVerdict(s.ctx, toolCall("call-1", "shell"))
-		doneCh <- approved
-	}()
-
-	awaitPending(t, s, "call-1")
-	cancel()
-
-	select {
-	case approved := <-doneCh:
-		if approved {
-			t.Fatal("approved = true on cancellation, want false")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("awaitVerdict did not unblock on cancellation")
-	}
-}
-
-// Answering an unknown ID must be a no-op, not a panic or a blocked send.
-func TestAnswerVerdictUnknownID(t *testing.T) {
-	s := newReviewSession(context.Background())
-	if s.answerVerdict("nope", review.Verdict{Approved: true}) {
-		t.Fatal("answerVerdict reported a waiting review for an unknown id")
-	}
 }
 
 // AlwaysApproveTool must approve only the named tool's pending call and

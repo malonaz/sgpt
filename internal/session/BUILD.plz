@@ -38,7 +38,6 @@ go_test(
     deps = [
         ":session",
         "//internal/permission",
-        "//internal/review",
         "//internal/store",
         "//internal/tool",
         "//sgpt/v1",
