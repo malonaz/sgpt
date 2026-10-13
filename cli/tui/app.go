@@ -401,6 +401,11 @@ func (a *App) closeTab(tabID string) tea.Cmd {
 		return tea.Quit
 	}
 	a.tabs[removeIndex].screen.OnBlur()
+	// The tab is the only handle on its turn: left running it would stream
+	// on unseen, or park forever on a review nobody can answer.
+	if chatScreen, ok := a.tabs[removeIndex].screen.(*screen.ChatScreen); ok {
+		chatScreen.Session().CancelTurn()
+	}
 	a.tabs = append(a.tabs[:removeIndex], a.tabs[removeIndex+1:]...)
 	if a.activeTab >= len(a.tabs) {
 		a.activeTab = len(a.tabs) - 1
