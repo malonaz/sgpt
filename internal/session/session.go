@@ -10,6 +10,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -978,54 +979,73 @@ func (s *Session) SendMessage(text string) {
 		s.refresh()
 		return
 	}
-	currentTurn := newTurn(s)
-	s.currentTurn = currentTurn
-	// Optimistic render: the user's message must appear immediately. The
-	// context RPCs below (system prompt, injected files) are a network round
-	// trip that would otherwise leave the timeline empty.
-	s.streamError = nil
-	s.messages = append(s.messages, userMessage)
-	s.pendingInputMessages = append(s.pendingInputMessages, userMessage)
+	nextTurn := s.startTurnLocked([]*aipb.Message{userMessage})
 	s.mu.Unlock()
-	defer s.endTurn(currentTurn)
-	s.refresh()
+	for nextTurn != nil {
+		nextTurn = s.runTurn(nextTurn)
+	}
+}
 
-	if err := s.ensureContext(); err != nil {
+// startTurnLocked arms a turn for inputs. Caller holds the lock.
+func (s *Session) startTurnLocked(inputs []*aipb.Message) *turn {
+	t := newTurn(s)
+	t.inputs = inputs
+	s.currentTurn = t
+	// Optimistic render: the user's message must appear immediately. The
+	// context RPCs (system prompt, injected files) are a network round trip
+	// that would otherwise leave the timeline empty.
+	s.streamError = nil
+	s.messages = append(s.messages, inputs...)
+	s.pendingInputMessages = append(s.pendingInputMessages, inputs...)
+	return t
+}
+
+// runTurn runs an armed turn to its end and returns the turn that follows
+// it, if any.
+func (s *Session) runTurn(t *turn) *turn {
+	s.refresh()
+	err := s.ensureContext()
+	if err != nil {
 		// The turn never ran: drop the optimistic message from the queue so a
 		// retry doesn't send it twice.
-		s.rollbackPendingInput(userMessage)
+		s.rollbackPendingInput(t)
 		s.emitError(err)
 		s.notifyTurnComplete("", err)
-		return
+	} else {
+		s.refresh()
+		err = t.run()
 	}
-
-	s.refresh()
-	currentTurn.run()
+	return s.endTurn(t, err == nil)
 }
 
 // rollbackPendingInput removes an optimistically appended message after the
 // turn failed before reaching the model.
-func (s *Session) rollbackPendingInput(message *aipb.Message) {
+func (s *Session) rollbackPendingInput(t *turn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for i, pendingMessage := range s.pendingInputMessages {
-		if pendingMessage == message {
-			s.pendingInputMessages = append(s.pendingInputMessages[:i], s.pendingInputMessages[i+1:]...)
-			break
-		}
-	}
+	s.pendingInputMessages = slices.DeleteFunc(s.pendingInputMessages, func(message *aipb.Message) bool {
+		return slices.Contains(t.inputs, message)
+	})
 }
 
 // endTurn releases the turn; the session is idle again and the next
-// SendMessage starts fresh.
-func (s *Session) endTurn(t *turn) {
+// SendMessage starts fresh. A completed turn hands over to a new one when
+// interjections are still queued: they arrived after its last generation,
+// and nothing else would ever send them.
+func (s *Session) endTurn(t *turn, completed bool) *turn {
+	var nextTurn *turn
 	s.mu.Lock()
 	if s.currentTurn == t {
 		s.currentTurn = nil
+		if completed && len(s.queuedMessages) > 0 {
+			nextTurn = s.startTurnLocked(s.queuedMessages)
+			s.queuedMessages = nil
+		}
 	}
 	s.mu.Unlock()
 	t.cancel()
 	s.refresh()
+	return nextTurn
 }
 
 // turnContext returns the running turn's context, falling back to the
