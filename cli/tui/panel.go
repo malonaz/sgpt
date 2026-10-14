@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	keyTogglePanel = keymap.New("alt+b", "Toggle the agents panel")
+	keyTogglePanel = keymap.New("alt+shift+b", "Toggle the agents panel")
 	panelKeyUp     = keymap.New("up", "Select the previous agent")
 	panelKeyDown   = keymap.New("down", "Select the next agent")
 	panelKeyOpen   = keymap.New("enter", "Go to the agent's tab")
