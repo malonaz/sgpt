@@ -103,7 +103,6 @@ type tab struct {
 
 var (
 	keyInterrupt      = keymap.New("ctrl+c", "Interrupt; quit once nothing is left to cancel")
-	keyQuit           = keymap.New("ctrl+d", "Quit")
 	keyNewTab         = keymap.New("ctrl+t", "New tab")
 	keyCloseTab       = keymap.New("ctrl+w", "Close tab")
 	keyCloseAgentTabs = keymap.New("alt+shift+w", "Close idle sub-agent tabs")
@@ -370,7 +369,7 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Modals swallow every key: y/enter confirms, anything else cancels.
 		if confirm := a.confirm; confirm != nil {
 			a.confirm = nil
-			if key.Matches(msg, widget.KeyConfirm.Key) || confirm.quit && key.Matches(msg, keyQuit.Key, keyInterrupt.Key) {
+			if key.Matches(msg, widget.KeyConfirm.Key) || confirm.quit && key.Matches(msg, keyInterrupt.Key) {
 				return a, confirm.action()
 			}
 			return a, nil
@@ -391,10 +390,6 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, keyHelp.Key) {
 			a.helpVisible, a.helpPage = true, 0
 			return a, nil
-		}
-		// Handled here so ctrl+d never reaches the textarea's delete-forward.
-		if key.Matches(msg, keyQuit.Key) {
-			return a, a.requestQuit()
 		}
 		if key.Matches(msg, keyTogglePanel.Key) {
 			a.togglePanel()
@@ -484,7 +479,7 @@ func (a *App) keymaps() []keymap.Map {
 	maps := []keymap.Map{{
 		Name: "Global",
 		Bindings: []keymap.Binding{
-			keyHelp, keyInterrupt, keyQuit, keyNewTab, keyCloseTab, keyCloseAgentTabs, keyPrevTab,
+			keyHelp, keyInterrupt, keyNewTab, keyCloseTab, keyCloseAgentTabs, keyPrevTab,
 			keyNextTab, keyOpenMenu, keyCopyName, keyTogglePanel,
 		},
 	}, panelKeymap}
