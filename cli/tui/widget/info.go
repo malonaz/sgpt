@@ -208,7 +208,7 @@ func infoUsageTable(info *session.Info) string {
 // infoContextGauge shows how full the context window is, using the LAST
 // turn's input tokens: the cumulative total says nothing about the window.
 func infoContextGauge(info *session.Info, width int) string {
-	used := info.ContextUsage.GetInputToken().GetQuantity() + info.ContextUsage.GetInputTokenCacheRead().GetQuantity()
+	used := session.ContextTokens(info.ContextUsage)
 	label := infoSectionStyle.Render("Context") + "  "
 	if info.ContextLimit <= 0 {
 		return label + styles.MutedStyle.Render(format.Tokens(used)+" used (window size unknown)")

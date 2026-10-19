@@ -134,3 +134,14 @@ func (s *Session) Info() *Info {
 	sort.Strings(info.EnabledTools)
 	return info
 }
+
+// ContextTokens is the prompt size a generation consumed. Input categories are
+// disjoint (text vs image, uncached vs cache read/write), so all fill the window.
+func ContextTokens(usage *aipb.ModelUsage) int64 {
+	return usage.GetInputToken().GetQuantity() +
+		usage.GetInputTokenCacheRead().GetQuantity() +
+		usage.GetInputTokenCacheWrite().GetQuantity() +
+		usage.GetInputImageToken().GetQuantity() +
+		usage.GetInputImageTokenCacheRead().GetQuantity() +
+		usage.GetInputImageTokenCacheWrite().GetQuantity()
+}

@@ -1164,8 +1164,7 @@ func (m *ChatScreen) facts() []widget.Fact {
 		facts = append(facts, widget.Fact{Text: styles.MutedStyle.Render(effort), Priority: 2})
 	}
 	if limit := int64(params.Model.GetTtt().GetContextTokenLimit()); limit > 0 {
-		last := m.session.LastModelUsage()
-		used := last.GetInputToken().GetQuantity() + last.GetInputTokenCacheRead().GetQuantity()
+		used := session.ContextTokens(m.session.LastModelUsage())
 		if used > 0 {
 			percent := used * 100 / limit
 			style := styles.MutedStyle
