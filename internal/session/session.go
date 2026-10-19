@@ -494,10 +494,12 @@ func (s *Session) TotalModelUsage() *aipb.ModelUsage {
 func (s *Session) LastModelUsage() *aipb.ModelUsage {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !ai.IsModelUsageEmpty(s.lastModelUsage) {
+	// Adopt the in-flight usage only once it reports input: chunks carrying
+	// output alone would read as an empty context and make the gauge dip.
+	if ContextTokens(s.lastModelUsage) > 0 {
 		return s.lastModelUsage
 	}
-	// No stream in flight (or chat freshly loaded): fall back to the most
+	// No input reported yet (or chat freshly loaded): fall back to the most
 	// recent persisted message that carries usage, so context % stays accurate.
 	for i := len(s.messages) - 1; i >= 0; i-- {
 		if usage := s.messages[i].GetModelUsage(); !ai.IsModelUsageEmpty(usage) {
