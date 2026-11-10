@@ -115,7 +115,6 @@ github_proto_library(
     files = [
         "annotations.proto",
         "chat.proto",
-        "errors.proto",
         "jsonschema.proto",
         "labels.proto",
         "message.proto",
