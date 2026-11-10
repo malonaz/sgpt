@@ -1,7 +1,5 @@
 go_toolchain(
     name = "toolchain",
-    architectures = [
-        "linux_amd64",
-    ],
-    version = "1.26.0",
+    install_std = True,
+    version = "1.27.3",
 )
