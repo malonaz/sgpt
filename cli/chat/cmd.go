@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -130,13 +131,6 @@ func NewCmd(
 			}
 			selectedModel, err := chatStore.ResolveModel(ctx, opts.Model)
 			cobra.CheckErr(err)
-			// Resolved up front so a bad sub-agent model fails the launch, not
-			// the first delegation. Nil inherits the launcher's model.
-			var agentModel *aipb.Model
-			if name := cmp.Or(opts.AgentModel, config.GetChat().GetAgent().GetModel()); name != "" {
-				agentModel, err = chatStore.ResolveModel(ctx, name)
-				cobra.CheckErr(err)
-			}
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
 			var filePaths []string
@@ -176,6 +170,9 @@ func NewCmd(
 			}
 
 			agentManager := agent.NewManager(config.GetChat().GetAgent(), chatStore)
+			modelPolicy, err := agentModelPolicy(ctx, chatStore, config, opts.AgentModel)
+			cobra.CheckErr(err)
+			agentManager.SetModelPolicy(modelPolicy)
 			maxAgentTurns := int(config.GetChat().GetAgent().GetMaxAgentTurns())
 			if maxAgentTurns <= 0 {
 				maxAgentTurns = defaultMaxAgentTurns
@@ -348,7 +345,7 @@ func NewCmd(
 				// model, tools, policy, review queue — narrowed by the
 				// request.
 				caller := request.Caller
-				model := cmp.Or(agentModel, caller.Model)
+				model := caller.Model
 				if request.Model != "" {
 					var err error
 					model, err = chatStore.ResolveModel(launchCtx, request.Model)
@@ -495,4 +492,31 @@ func dedupe(values []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+// agentModelPolicy builds the sub-agent model policy from configuration,
+// defaultModel overriding its default. Models are resolved up front so a bad
+// one fails the chat's start, not its first delegation.
+func agentModelPolicy(ctx context.Context, chatStore *store.Store, config *sgptpb.Configuration, defaultModel string) (agent.ModelPolicy, error) {
+	policy := agent.ModelPolicy{Resolve: func(nameOrAlias string) (string, error) {
+		return configuration.ResolveModelAlias(config, nameOrAlias)
+	}}
+	for _, name := range config.GetChat().GetAgent().GetModels() {
+		model, err := chatStore.ResolveModel(ctx, name)
+		if err != nil {
+			return agent.ModelPolicy{}, fmt.Errorf("chat.agent.models: %w", err)
+		}
+		policy.Allowed = append(policy.Allowed, model.GetName())
+	}
+	if name := cmp.Or(defaultModel, config.GetChat().GetAgent().GetModel()); name != "" {
+		model, err := chatStore.ResolveModel(ctx, name)
+		if err != nil {
+			return agent.ModelPolicy{}, fmt.Errorf("sub-agent model: %w", err)
+		}
+		if len(policy.Allowed) > 0 && !slices.Contains(policy.Allowed, model.GetName()) {
+			return agent.ModelPolicy{}, fmt.Errorf("sub-agent model %s is not in chat.agent.models", model.GetName())
+		}
+		policy.Default = model.GetName()
+	}
+	return policy, nil
 }

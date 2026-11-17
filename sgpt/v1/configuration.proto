@@ -129,6 +129,11 @@ message AgentConfiguration {
   // so a chat on one model delegates to another. Unset inherits the
   // launcher's model.
   string model = 4;
+
+  // Models sub-agents may run on (names or aliases); a launch naming
+  // another, or defaulting to one outside the list, is refused. Empty allows
+  // any model.
+  repeated string models = 5;
 }
 
 // A role defines a persona with a system prompt. Persisted as a

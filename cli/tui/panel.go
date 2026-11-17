@@ -25,8 +25,9 @@ const (
 
 var (
 	keyTogglePanel = keymap.New("alt+shift+b", "Toggle the agents panel")
-	panelKeyUp     = keymap.New("up", "Select the previous agent")
-	panelKeyDown   = keymap.New("down", "Select the next agent")
+	// ctrl+p/ctrl+n navigate every list in the TUI; arrows still work.
+	panelKeyUp     = keymap.Binding{Key: key.NewBinding(key.WithKeys("ctrl+p", "up")), Help: "Select the previous agent"}
+	panelKeyDown   = keymap.Binding{Key: key.NewBinding(key.WithKeys("ctrl+n", "down")), Help: "Select the next agent"}
 	panelKeyOpen   = keymap.New("enter", "Go to the agent's tab")
 	panelKeyAccept = keymap.New("a", "Accept the agent's tool call")
 	panelKeyReject = keymap.New("r", "Reject the agent's tool call")

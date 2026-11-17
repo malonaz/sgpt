@@ -64,6 +64,7 @@ fields are rejected.
 | `max_depth` | int | Nesting depth: 1 lets a chat launch sub-agents but not those launch their own. Default 2. |
 | `max_agent_turns` | int | Turns a chat may start on messages from other agents (sub-agent reports, follow-ups) before you speak in it again; beyond, they queue until you resume the chat. Default 25. |
 | `model` | string | Model (name or alias) sub-agents run on when `create_agents` names none, so a chat on one model delegates to another. Overridden by `--agent-model`. Unset inherits the launcher's model. |
+| `models` | []string | Models (names or aliases) sub-agents may run on: a launch naming another, or defaulting to one outside the list, is refused. Empty allows any model. |
 
 ## `Import`
 

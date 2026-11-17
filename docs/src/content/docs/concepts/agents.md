@@ -115,7 +115,8 @@ widened:
   rejected before anything runs.
 - **Model** — `model` (or a task's) if set, else `--agent-model` or
   `chat.agent.model`, else the launcher's. `sgpt chat -m fable --agent-model
-  opus` plans on one model and delegates to another.
+  opus` plans on one model and delegates to another; `chat.agent.models`
+  bounds the choice, refusing any other model before review.
 - **Permissions** — the launcher's [policy](/concepts/permissions/), live:
   when you "always accept" a tool in the launching chat, its sub-agents
   follow. A sub-agent cannot set its own rules.

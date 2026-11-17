@@ -400,3 +400,83 @@ func TestCreateAgentsRejections(t *testing.T) {
 		})
 	}
 }
+
+// A launch runs on the requested model, else the policy's default, else the
+// launcher's; the allowed list refuses anything else before review.
+func TestCreateAgentsModelPolicy(t *testing.T) {
+	const fable, opus, flash = "providers/anthropic/models/fable", "providers/anthropic/models/opus", "providers/google/models/flash"
+	aliasToModel := map[string]string{"opus": opus, "flash": flash}
+	resolve := func(nameOrAlias string) (string, error) {
+		if model, ok := aliasToModel[nameOrAlias]; ok {
+			return model, nil
+		}
+		if strings.Contains(nameOrAlias, "/") {
+			return nameOrAlias, nil
+		}
+		return "", errors.New("unknown model alias")
+	}
+	launcherModel := &aipb.Model{Name: fable}
+	cases := []struct {
+		name      string
+		policy    ModelPolicy
+		requested string
+		want      string
+		wantErr   string
+	}{
+		{"inherits the launcher's", ModelPolicy{Resolve: resolve}, "", fable, ""},
+		{"default", ModelPolicy{Default: opus, Resolve: resolve}, "", opus, ""},
+		{"alias over the default", ModelPolicy{Default: opus, Resolve: resolve}, "flash", flash, ""},
+		{"allowed", ModelPolicy{Default: opus, Allowed: []string{opus}, Resolve: resolve}, "opus", opus, ""},
+		{"not allowed", ModelPolicy{Default: opus, Allowed: []string{opus}, Resolve: resolve}, flash, "", "not allowed"},
+		{"launcher's not allowed", ModelPolicy{Allowed: []string{opus}, Resolve: resolve}, "", "", "not allowed"},
+		{"unknown alias", ModelPolicy{Resolve: resolve}, "nope", "", "unknown model alias"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m := NewManager(nil, nil)
+			m.SetModelPolicy(c.policy)
+			launcher := newFakeLauncher()
+			m.SetLauncher(launcher)
+			ctx := callerContext(tool.Caller{Agent: newFakeAgent(), Model: launcherModel})
+			arguments := map[string]any{"tasks": []any{task("a", "q")}, "model": c.requested}
+			_, err := m.Tools()[tool.HandlerIDCreateAgents].Review(ctx, call(t, "create_agents", arguments))
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("err = %v, want %q", err, c.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			execute(t, m, ctx, tool.HandlerIDCreateAgents, arguments, &sgptpb.CreateAgentsResponse{})
+			launcher.awaitLaunch(t)
+			if got := launcher.requests[0].Model; got != c.want {
+				t.Fatalf("model = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// Models often drop the collection prefix: a bare ID addresses the same
+// sub-agent or operation.
+func TestBareIDsResolve(t *testing.T) {
+	m := NewManager(nil, nil)
+	launcher := newFakeLauncher()
+	launcher.reply = func(text string) tool.TurnOutcome { return tool.TurnOutcome{Text: "re: " + text} }
+	m.SetLauncher(launcher)
+	parent := newFakeAgent()
+	ctx := callerContext(tool.Caller{Agent: parent})
+	created := execute(t, m, ctx, tool.HandlerIDCreateAgents, map[string]any{"tasks": []any{task("a", "q")}}, &sgptpb.CreateAgentsResponse{})
+	launcher.awaitLaunch(t)
+	awaitMessages(t, parent, 1)
+	parent.consume()
+
+	agentID := strings.TrimPrefix(created.GetOperations()[0].GetAgent(), "agents/")
+	followUp := execute(t, m, ctx, tool.HandlerIDMessageAgent, map[string]any{"agent": agentID, "text": "more"}, &sgptpb.MessageAgentResponse{})
+	operationID := strings.TrimPrefix(followUp.GetOperation().GetName(), "operations/")
+	waited := execute(t, m, ctx, tool.HandlerIDWaitOperations, map[string]any{"names": []any{operationID}}, &sgptpb.WaitOperationsResponse{})
+	if response := waited.GetOperations()[0].GetResponse(); !strings.Contains(response, "more") {
+		t.Fatalf("follow-up response = %q", response)
+	}
+}

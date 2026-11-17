@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -74,6 +75,13 @@ func (t *createAgentsTool) parse(ctx context.Context, toolCall *aipb.ToolCall) (
 		if err := validateReasoningEffort(task.GetReasoningEffort()); err != nil {
 			return nil, tool.Caller{}, fmt.Errorf("task %d: %w", i+1, err)
 		}
+		// Resolved here so a refused model is rejected before review, and the
+		// launch records the model it actually runs on.
+		model, err := t.m.subAgentModel(cmp.Or(task.GetModel(), request.GetModel()), caller.Model)
+		if err != nil {
+			return nil, tool.Caller{}, fmt.Errorf("task %d: %w", i+1, err)
+		}
+		task.SetModel(model)
 	}
 	if err := validateReasoningEffort(request.GetReasoningEffort()); err != nil {
 		return nil, tool.Caller{}, err
@@ -136,8 +144,16 @@ func (t *createAgentsTool) Review(ctx context.Context, toolCall *aipb.ToolCall) 
 	if len(request.GetFiles()) > 0 {
 		parts = append(parts, "files: "+strings.Join(request.GetFiles(), ", "))
 	}
-	if request.GetModel() != "" {
-		parts = append(parts, "model: "+request.GetModel())
+	// Resolved in parse: the models the launch actually runs on, when not
+	// the launcher's own.
+	var models []string
+	for _, task := range request.GetTasks() {
+		if model := task.GetModel(); model != caller.Model.GetName() && !slices.Contains(models, model) {
+			models = append(models, model)
+		}
+	}
+	if len(models) > 0 {
+		parts = append(parts, "model: "+strings.Join(models, ", "))
 	}
 	if request.GetReasoningEffort() != "" {
 		parts = append(parts, "reasoning: "+request.GetReasoningEffort())
@@ -173,7 +189,6 @@ func (t *createAgentsTool) Execute(ctx context.Context, toolCall *aipb.ToolCall)
 
 // launchRequest merges the batch-wide settings with one task's overrides.
 func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, caller tool.Caller, name string) *LaunchRequest {
-	model := cmp.Or(task.GetModel(), request.GetModel())
 	// Validated in parse, so the lookup cannot miss.
 	reasoningEffort := caller.ReasoningEffort
 	if effort := cmp.Or(task.GetReasoningEffort(), request.GetReasoningEffort()); effort != "" {
@@ -186,7 +201,7 @@ func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, 
 		Context:         request.GetContext(),
 		Files:           append(append([]string(nil), request.GetFiles()...), task.GetFiles()...),
 		Tools:           childTools(request.GetTools(), caller.Tools),
-		Model:           model,
+		Model:           task.GetModel(),
 		ReasoningEffort: reasoningEffort,
 	}
 }
@@ -288,6 +303,9 @@ func (t *messageAgentTool) parse(ctx context.Context, toolCall *aipb.ToolCall) (
 	if strings.TrimSpace(request.GetText()) == "" {
 		return nil, tool.Caller{}, fmt.Errorf("no text specified")
 	}
+	if request.GetAgent() != parentAgent {
+		request.SetAgent(qualify("agents", request.GetAgent()))
+	}
 	return request, caller, nil
 }
 
@@ -386,7 +404,7 @@ func (t *messageAgentTool) Summarize(toolCall *aipb.ToolCall, toolResult *aipb.T
 	if recipient == parentAgent {
 		recipient = launcherSender
 	} else if recipient != "" {
-		recipient = t.m.title(recipient)
+		recipient = t.m.title(qualify("agents", recipient))
 	}
 	summary := tool.Summary{Verb: "Message", Subject: recipient}
 	response := &sgptpb.MessageAgentResponse{}
@@ -735,7 +753,7 @@ func (m *Manager) operationTitles(names []string) []string {
 	defer m.mu.Unlock()
 	titles := make([]string, 0, len(names))
 	for _, name := range names {
-		if op, ok := m.nameToOperation[name]; ok {
+		if op, ok := m.nameToOperation[qualify("operations", name)]; ok {
 			name = op.subAgent.title
 		}
 		titles = append(titles, name)

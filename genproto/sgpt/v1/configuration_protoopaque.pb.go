@@ -640,6 +640,7 @@ type AgentConfiguration struct {
 	xxx_hidden_MaxDepth      int32                  `protobuf:"varint,2,opt,name=max_depth,json=maxDepth,proto3"`
 	xxx_hidden_MaxAgentTurns int32                  `protobuf:"varint,3,opt,name=max_agent_turns,json=maxAgentTurns,proto3"`
 	xxx_hidden_Model         string                 `protobuf:"bytes,4,opt,name=model,proto3"`
+	xxx_hidden_Models        []string               `protobuf:"bytes,5,rep,name=models,proto3"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -697,6 +698,13 @@ func (x *AgentConfiguration) GetModel() string {
 	return ""
 }
 
+func (x *AgentConfiguration) GetModels() []string {
+	if x != nil {
+		return x.xxx_hidden_Models
+	}
+	return nil
+}
+
 func (x *AgentConfiguration) SetMaxConcurrent(v int32) {
 	x.xxx_hidden_MaxConcurrent = v
 }
@@ -711,6 +719,10 @@ func (x *AgentConfiguration) SetMaxAgentTurns(v int32) {
 
 func (x *AgentConfiguration) SetModel(v string) {
 	x.xxx_hidden_Model = v
+}
+
+func (x *AgentConfiguration) SetModels(v []string) {
+	x.xxx_hidden_Models = v
 }
 
 type AgentConfiguration_builder struct {
@@ -731,6 +743,10 @@ type AgentConfiguration_builder struct {
 	// so a chat on one model delegates to another. Unset inherits the
 	// launcher's model.
 	Model string
+	// Models sub-agents may run on (names or aliases); a launch naming
+	// another, or defaulting to one outside the list, is refused. Empty allows
+	// any model.
+	Models []string
 }
 
 func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
@@ -741,6 +757,7 @@ func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
 	x.xxx_hidden_MaxDepth = b.MaxDepth
 	x.xxx_hidden_MaxAgentTurns = b.MaxAgentTurns
 	x.xxx_hidden_Model = b.Model
+	x.xxx_hidden_Models = b.Models
 	return m0
 }
 
@@ -1032,12 +1049,13 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\rdefault_tools\x18\x05 \x03(\tR\fdefaultTools\x12#\n" +
 	"\rdefault_lores\x18\x06 \x03(\tR\fdefaultLores\x129\n" +
 	"\vpermissions\x18\a \x03(\v2\x17.sgpt.v1.PermissionRuleR\vpermissions\x121\n" +
-	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"\x96\x01\n" +
+	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"\xae\x01\n" +
 	"\x12AgentConfiguration\x12%\n" +
 	"\x0emax_concurrent\x18\x01 \x01(\x05R\rmaxConcurrent\x12\x1b\n" +
 	"\tmax_depth\x18\x02 \x01(\x05R\bmaxDepth\x12&\n" +
 	"\x0fmax_agent_turns\x18\x03 \x01(\x05R\rmaxAgentTurns\x12\x14\n" +
-	"\x05model\x18\x04 \x01(\tR\x05model\"\xc1\x01\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\x12\x16\n" +
+	"\x06models\x18\x05 \x03(\tR\x06models\"\xc1\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +

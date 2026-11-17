@@ -5,11 +5,13 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"sync"
 
 	aipb "github.com/malonaz/core/genproto/ai/v1"
@@ -54,6 +56,18 @@ type LaunchRequest struct {
 	ReasoningEffort aipb.ReasoningEffort
 }
 
+// ModelPolicy decides which model a sub-agent runs on. Models are resource
+// names (providers/{provider}/models/{model}).
+type ModelPolicy struct {
+	// Default runs sub-agents whose launch names no model; empty inherits the
+	// launcher's.
+	Default string
+	// Allowed bounds the models sub-agents may run on; empty allows any.
+	Allowed []string
+	// Resolve turns a requested name or alias into a resource name.
+	Resolve func(nameOrAlias string) (string, error)
+}
+
 // Launcher opens a sub-agent chat — new, or a dormant one reopened — ready to
 // be messaged. Implemented by the TUI App (it owns tabs); injected late via
 // SetLauncher because the registry is built before the App exists.
@@ -71,6 +85,8 @@ type Manager struct {
 	// would deadlock.
 	slots []chan struct{}
 	chats ChatLister
+	// models is set before any session runs: read without the lock.
+	models ModelPolicy
 
 	mu       sync.Mutex
 	launcher Launcher
@@ -146,6 +162,31 @@ func NewManager(configuration *sgptpb.AgentConfiguration, chats ChatLister) *Man
 	}
 }
 
+// SetModelPolicy bounds the models sub-agents run on; unset, they run on
+// any model named, else their launcher's.
+func (m *Manager) SetModelPolicy(policy ModelPolicy) {
+	m.models = policy
+}
+
+// subAgentModel resolves the model a launch runs on: the requested one, else
+// the policy's default, else the launcher's — refused when not allowed.
+func (m *Manager) subAgentModel(requested string, launcher *aipb.Model) (string, error) {
+	model := cmp.Or(m.models.Default, launcher.GetName())
+	if requested != "" {
+		model = requested
+		if m.models.Resolve != nil {
+			var err error
+			if model, err = m.models.Resolve(requested); err != nil {
+				return "", err
+			}
+		}
+	}
+	if len(m.models.Allowed) > 0 && !slices.Contains(m.models.Allowed, model) {
+		return "", fmt.Errorf("model %s is not allowed for sub-agents (allowed: %s)", model, strings.Join(m.models.Allowed, ", "))
+	}
+	return model, nil
+}
+
 func (m *Manager) SetLauncher(launcher Launcher) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -173,6 +214,15 @@ func newName[V any](collection string, taken map[string]V) string {
 			return name
 		}
 	}
+}
+
+// qualify turns a bare ID into a name in collection: models often drop the
+// "{collection}/" prefix, and the ID alone is unambiguous.
+func qualify(collection, name string) string {
+	if name == "" || strings.Contains(name, "/") {
+		return name
+	}
+	return collection + "/" + name
 }
 
 // addAgentLocked registers a sub-agent. Caller holds the lock.
@@ -410,6 +460,7 @@ func (m *Manager) ownedOperationsLocked(caller tool.Agent, names []string, unfin
 	}
 	owned := make([]*operation, 0, len(names))
 	for _, name := range names {
+		name = qualify("operations", name)
 		op, ok := m.nameToOperation[name]
 		if !ok || op.subAgent.parent != caller {
 			return nil, fmt.Errorf("%s is not an operation this chat started", name)
