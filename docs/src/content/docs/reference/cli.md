@@ -18,6 +18,7 @@ Open the TUI. Positional arguments are injected files, same as `--file`.
 |---|---|
 | `-r, --role` | Role alias or selector (`reviewer`, `//svc:billing`, `@core//:go`). Defaults to `chat.default_role`. |
 | `-m, --model` | Model resource name or alias. Defaults to the role's `@model`, then `chat.default_model`. |
+| `--agent-model` | Model resource name or alias sub-agents run on unless `create_agents` names one. Defaults to `chat.agent.model`, then the launcher's model. |
 | `-f, --file` | Inject a file. `dir` injects one level, `dir/...` recurses. Repeatable. |
 | `--ext` | Restrict directory injection to these extensions (`--ext .go --ext .proto`). Role files are never filtered. |
 | `--tool` | Enable a built-in tool or tool engine by name. Repeatable. |

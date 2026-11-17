@@ -675,6 +675,10 @@ type AgentConfiguration struct {
 	// queue until the user resumes the chat. Bounds agents talking back and
 	// forth unattended. Defaults to 25.
 	MaxAgentTurns int32 `protobuf:"varint,3,opt,name=max_agent_turns,json=maxAgentTurns,proto3" json:"max_agent_turns,omitempty"`
+	// Model sub-agents run on when `create_agents` names none (name or alias),
+	// so a chat on one model delegates to another. Unset inherits the
+	// launcher's model.
+	Model         string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -725,6 +729,13 @@ func (x *AgentConfiguration) GetMaxAgentTurns() int32 {
 	return 0
 }
 
+func (x *AgentConfiguration) GetModel() string {
+	if x != nil {
+		return x.Model
+	}
+	return ""
+}
+
 func (x *AgentConfiguration) SetMaxConcurrent(v int32) {
 	x.MaxConcurrent = v
 }
@@ -735,6 +746,10 @@ func (x *AgentConfiguration) SetMaxDepth(v int32) {
 
 func (x *AgentConfiguration) SetMaxAgentTurns(v int32) {
 	x.MaxAgentTurns = v
+}
+
+func (x *AgentConfiguration) SetModel(v string) {
+	x.Model = v
 }
 
 type AgentConfiguration_builder struct {
@@ -751,6 +766,10 @@ type AgentConfiguration_builder struct {
 	// queue until the user resumes the chat. Bounds agents talking back and
 	// forth unattended. Defaults to 25.
 	MaxAgentTurns int32
+	// Model sub-agents run on when `create_agents` names none (name or alias),
+	// so a chat on one model delegates to another. Unset inherits the
+	// launcher's model.
+	Model string
 }
 
 func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
@@ -760,6 +779,7 @@ func (b0 AgentConfiguration_builder) Build() *AgentConfiguration {
 	x.MaxConcurrent = b.MaxConcurrent
 	x.MaxDepth = b.MaxDepth
 	x.MaxAgentTurns = b.MaxAgentTurns
+	x.Model = b.Model
 	return m0
 }
 
@@ -1064,11 +1084,12 @@ const file_sgpt_v1_configuration_proto_rawDesc = "" +
 	"\rdefault_tools\x18\x05 \x03(\tR\fdefaultTools\x12#\n" +
 	"\rdefault_lores\x18\x06 \x03(\tR\fdefaultLores\x129\n" +
 	"\vpermissions\x18\a \x03(\v2\x17.sgpt.v1.PermissionRuleR\vpermissions\x121\n" +
-	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"\x80\x01\n" +
+	"\x05agent\x18\b \x01(\v2\x1b.sgpt.v1.AgentConfigurationR\x05agent\"\x96\x01\n" +
 	"\x12AgentConfiguration\x12%\n" +
 	"\x0emax_concurrent\x18\x01 \x01(\x05R\rmaxConcurrent\x12\x1b\n" +
 	"\tmax_depth\x18\x02 \x01(\x05R\bmaxDepth\x12&\n" +
-	"\x0fmax_agent_turns\x18\x03 \x01(\x05R\rmaxAgentTurns\"\xc1\x01\n" +
+	"\x0fmax_agent_turns\x18\x03 \x01(\x05R\rmaxAgentTurns\x12\x14\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\"\xc1\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x16\n" +

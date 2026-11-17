@@ -113,7 +113,9 @@ widened:
 - **Tools** — the launcher's enabled tools, or the subset in `tools`, always
   with the `agent` group so it can talk back. A tool the launcher lacks is
   rejected before anything runs.
-- **Model** — the launcher's, unless `model` (or a task's) says otherwise.
+- **Model** — `model` (or a task's) if set, else `--agent-model` or
+  `chat.agent.model`, else the launcher's. `sgpt chat -m fable --agent-model
+  opus` plans on one model and delegates to another.
 - **Permissions** — the launcher's [policy](/concepts/permissions/), live:
   when you "always accept" a tool in the launching chat, its sub-agents
   follow. A sub-agent cannot set its own rules.

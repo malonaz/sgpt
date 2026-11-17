@@ -269,7 +269,8 @@ message CreateAgentsRequest {
   // unset inherits them all. Names outside this chat's tools are rejected.
   repeated string tools = 4;
 
-  // Model for every sub-agent (name or alias); unset inherits this chat's.
+  // Model for every sub-agent (name or alias); unset uses the configured
+  // sub-agent model, else this chat's.
   string model = 5;
 
   // Reasoning effort for every sub-agent: one of low, medium, high, xhigh,

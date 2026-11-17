@@ -124,6 +124,11 @@ message AgentConfiguration {
   // queue until the user resumes the chat. Bounds agents talking back and
   // forth unattended. Defaults to 25.
   int32 max_agent_turns = 3;
+
+  // Model sub-agents run on when `create_agents` names none (name or alias),
+  // so a chat on one model delegates to another. Unset inherits the
+  // launcher's model.
+  string model = 4;
 }
 
 // A role defines a persona with a system prompt. Persisted as a

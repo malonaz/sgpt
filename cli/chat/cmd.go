@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -69,6 +70,7 @@ func NewCmd(
 		FileInjection *file.InjectionOpts
 		Role          *role.Opts
 		Model         string
+		AgentModel    string
 		MaxTokens     int32
 		Temperature   float64
 		Chat          string
@@ -128,6 +130,13 @@ func NewCmd(
 			}
 			selectedModel, err := chatStore.ResolveModel(ctx, opts.Model)
 			cobra.CheckErr(err)
+			// Resolved up front so a bad sub-agent model fails the launch, not
+			// the first delegation. Nil inherits the launcher's model.
+			var agentModel *aipb.Model
+			if name := cmp.Or(opts.AgentModel, config.GetChat().GetAgent().GetModel()); name != "" {
+				agentModel, err = chatStore.ResolveModel(ctx, name)
+				cobra.CheckErr(err)
+			}
 
 			opts.FileInjection.Files = append(opts.FileInjection.Files, args...)
 			var filePaths []string
@@ -339,7 +348,7 @@ func NewCmd(
 				// model, tools, policy, review queue — narrowed by the
 				// request.
 				caller := request.Caller
-				model := caller.Model
+				model := cmp.Or(agentModel, caller.Model)
 				if request.Model != "" {
 					var err error
 					model, err = chatStore.ResolveModel(launchCtx, request.Model)
@@ -397,6 +406,7 @@ func NewCmd(
 	opts.FileInjection = file.GetOpts(cmd)
 	opts.Role = role.GetOpts(cmd, config.Chat.GetDefaultRole(), forest.Roles())
 	cmd.Flags().StringVarP(&opts.Model, "model", "m", "", "Model name or alias")
+	cmd.Flags().StringVar(&opts.AgentModel, "agent-model", "", "Model name or alias sub-agents run on unless create_agents names one")
 	cmd.Flags().Int32Var(&opts.MaxTokens, "max-tokens", 0, "Maximum tokens to generate")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0, "Temperature (0.0-2.0)")
 	cmd.Flags().StringVar(&opts.Chat, "name", "", "Chat to resume")
@@ -404,10 +414,12 @@ func NewCmd(
 	cmd.Flags().StringSliceVar(&opts.Tools, "tool", nil, "Enable a specific tool engine by name (repeatable)")
 	cmd.Flags().BoolVar(&opts.Debug, "debug", false, "Start a local debug log server")
 
-	cmd.RegisterFlagCompletionFunc("model", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	completeModels := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		models, _ := chatStore.ListModels(cmd.Context(), false)
 		return filterModels(models, toComplete), cobra.ShellCompDirectiveNoFileComp
-	})
+	}
+	cmd.RegisterFlagCompletionFunc("model", completeModels)
+	cmd.RegisterFlagCompletionFunc("agent-model", completeModels)
 
 	cmd.RegisterFlagCompletionFunc("tool", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		// Built-in tools complete alongside discovered tool engines;

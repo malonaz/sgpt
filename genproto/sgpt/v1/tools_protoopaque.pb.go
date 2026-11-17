@@ -1322,7 +1322,8 @@ type CreateAgentsRequest_builder struct {
 	// Tools granted to every sub-agent, narrowing this chat's own tools;
 	// unset inherits them all. Names outside this chat's tools are rejected.
 	Tools []string
-	// Model for every sub-agent (name or alias); unset inherits this chat's.
+	// Model for every sub-agent (name or alias); unset uses the configured
+	// sub-agent model, else this chat's.
 	Model string
 	// Reasoning effort for every sub-agent: one of low, medium, high, xhigh,
 	// max; unset inherits this chat's.
