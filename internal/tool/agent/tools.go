@@ -206,6 +206,25 @@ func launchRequest(request *sgptpb.CreateAgentsRequest, task *sgptpb.AgentTask, 
 	}
 }
 
+// Describe advertises the sub-agent model policy, so the model picks an
+// allowed model up front instead of learning the list from a refusal.
+func (t *createAgentsTool) Describe(definition *aipb.Tool) *aipb.Tool {
+	policy := t.m.models
+	var lines []string
+	if len(policy.Allowed) > 0 {
+		lines = append(lines, "Sub-agents may run only on these models: "+strings.Join(policy.Allowed, ", ")+".")
+	}
+	if policy.Default != "" {
+		lines = append(lines, "Unless `model` names another, sub-agents run on "+policy.Default+".")
+	}
+	if len(lines) == 0 {
+		return definition
+	}
+	definition = proto.CloneOf(definition)
+	definition.SetDescription(definition.GetDescription() + "\n\n" + strings.Join(lines, " "))
+	return definition
+}
+
 // FoldsRequest: briefings and queries run to pages; the row names the tasks.
 func (t *createAgentsTool) FoldsRequest(*aipb.ToolCall) bool { return true }
 
@@ -782,6 +801,7 @@ var (
 	_ tool.RequestRenderer = (*createAgentsTool)(nil)
 	_ tool.ResultRenderer  = (*createAgentsTool)(nil)
 	_ tool.Summarizer      = (*createAgentsTool)(nil)
+	_ tool.Describer       = (*createAgentsTool)(nil)
 	_ tool.LiveRenderer    = (*createAgentsTool)(nil)
 	_ tool.RequestRenderer = (*messageAgentTool)(nil)
 	_ tool.ResultRenderer  = (*messageAgentTool)(nil)

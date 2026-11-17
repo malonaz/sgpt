@@ -69,11 +69,24 @@ func (r *Registry) Register(handlerID string, tool Tool) {
 	r.handlerIDToTool[handlerID] = tool
 }
 
-// AddTools advertises tool definitions to the model.
+// Describer is a Tool whose advertised definition depends on how it is
+// configured: Describe returns the definition to advertise in place of the
+// static one, which it must not mutate.
+type Describer interface {
+	Describe(definition *aipb.Tool) *aipb.Tool
+}
+
+// AddTools advertises tool definitions to the model, as their registered
+// tools describe them: register a Describer before adding its definition.
 func (r *Registry) AddTools(tools ...*aipb.Tool) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	r.tools = append(r.tools, tools...)
+	for _, definition := range tools {
+		if describer, ok := r.handlerIDToTool[definition.GetAnnotations()[ToolHandlerIDAnnotation]].(Describer); ok {
+			definition = describer.Describe(definition)
+		}
+		r.tools = append(r.tools, definition)
+	}
 }
 
 // AddToolSets advertises tool sets to the model.

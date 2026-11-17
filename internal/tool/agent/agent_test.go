@@ -480,3 +480,22 @@ func TestBareIDsResolve(t *testing.T) {
 		t.Fatalf("follow-up response = %q", response)
 	}
 }
+
+// The model policy is advertised, so the model picks an allowed model up
+// front; without one the static definition stands.
+func TestCreateAgentsDescribesTheModelPolicy(t *testing.T) {
+	const opus, flash = "providers/anthropic/models/opus", "providers/google/models/flash"
+	m := NewManager(nil, nil)
+	createAgents := m.Tools()[tool.HandlerIDCreateAgents].(tool.Describer)
+	if got := createAgents.Describe(CreateAgents); got != CreateAgents {
+		t.Fatalf("description changed without a policy: %q", got.GetDescription())
+	}
+	m.SetModelPolicy(ModelPolicy{Default: opus, Allowed: []string{opus, flash}})
+	description := createAgents.Describe(CreateAgents).GetDescription()
+	if !strings.HasPrefix(description, CreateAgents.GetDescription()) || !strings.Contains(description, opus+", "+flash) || !strings.Contains(description, "run on "+opus) {
+		t.Fatalf("description = %q, want the allowed models and the default", description)
+	}
+	if strings.Contains(CreateAgents.GetDescription(), flash) {
+		t.Fatal("Describe mutated the static definition")
+	}
+}
