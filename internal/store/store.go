@@ -243,6 +243,7 @@ func (s *Store) ListMessages(ctx context.Context, chatName string) ([]*aipb.Mess
 
 // CreateMessage persists a message under a chat.
 func (s *Store) CreateMessage(ctx context.Context, chatName string, message *aipb.Message) (*aipb.Message, error) {
+	sanitize(message)
 	createMessageRequest := &aiservicepb.CreateMessageRequest{
 		Parent:    chatName,
 		RequestId: uuid.MustNewV7().String(),
@@ -259,6 +260,7 @@ func (s *Store) CreateMessage(ctx context.Context, chatName string, message *aip
 func (s *Store) UpdateMessage(ctx context.Context, message *aipb.Message, paths ...string) (*aipb.Message, error) {
 	// Etag-less for the same reason as UpdateChat: masked last-write-wins.
 	message.Etag = ""
+	sanitize(message)
 	updateMessageRequest := &aiservicepb.UpdateMessageRequest{
 		Message:    message,
 		UpdateMask: pbfieldmask.FromPaths(paths...).MustValidate(&aipb.Message{}).Proto(),
@@ -288,6 +290,10 @@ func (s *Store) StreamGenerateMessage(
 	ctx context.Context,
 	generateMessageRequest *aiservicepb.GenerateMessageRequest,
 ) (aiservicepb.AiService_StreamGenerateMessageClient, error) {
+	// The server persists the input messages.
+	for _, message := range generateMessageRequest.GetMessages() {
+		sanitize(message)
+	}
 	return s.aiServiceClient.StreamGenerateMessage(ctx, generateMessageRequest)
 }
 
