@@ -105,6 +105,7 @@ github_proto_library(
     files = [
         "annotations.proto",
         "chat.proto",
+        "decision.proto",
         "jsonschema.proto",
         "labels.proto",
         "message.proto",
@@ -153,6 +154,7 @@ github_grpc_library(
     files = [
         "ai_service.proto",
         "chat.proto",
+        "decision.proto",
         "message.proto",
         "model.proto",
         "speech_to_text.proto",
