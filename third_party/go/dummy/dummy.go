@@ -13,7 +13,6 @@ import (
 	_ "github.com/malonaz/core/genproto/json/v1"
 	_ "github.com/malonaz/core/go/ai/ai_service"
 	_ "github.com/malonaz/core/go/aip"
-	_ "github.com/malonaz/core/go/authentication"
 	_ "github.com/malonaz/core/go/binary"
 	_ "github.com/malonaz/core/go/certs"
 	_ "github.com/malonaz/core/go/flags"

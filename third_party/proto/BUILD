@@ -76,16 +76,6 @@ github_proto_library(
 ######################### MALONAZ ########################
 
 github_proto_library(
-    name = "malonaz__core__genproto__authentication__v1",
-    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/authentication/v1"},
-    dir = "malonaz/authentication/v1",
-    files = ["authentication.proto"],
-    repo = "malonaz/core",
-    revision = CONFIG.CORE_REVISION,
-    deps = [":validate"],
-)
-
-github_proto_library(
     name = "malonaz__core__genproto__audio__v1",
     additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/audio/v1"},
     dir = "malonaz/audio/v1",
@@ -115,6 +105,7 @@ github_proto_library(
     files = [
         "annotations.proto",
         "chat.proto",
+        "decision.proto",
         "jsonschema.proto",
         "labels.proto",
         "message.proto",
@@ -163,6 +154,7 @@ github_grpc_library(
     files = [
         "ai_service.proto",
         "chat.proto",
+        "decision.proto",
         "message.proto",
         "model.proto",
         "speech_to_text.proto",
