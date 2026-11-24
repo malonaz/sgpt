@@ -76,16 +76,6 @@ github_proto_library(
 ######################### MALONAZ ########################
 
 github_proto_library(
-    name = "malonaz__core__genproto__authentication__v1",
-    additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/authentication/v1"},
-    dir = "malonaz/authentication/v1",
-    files = ["authentication.proto"],
-    repo = "malonaz/core",
-    revision = CONFIG.CORE_REVISION,
-    deps = [":validate"],
-)
-
-github_proto_library(
     name = "malonaz__core__genproto__audio__v1",
     additional_context = {GO_IMPORT_PATH: "github.com/malonaz/core/genproto/audio/v1"},
     dir = "malonaz/audio/v1",
