@@ -65,14 +65,17 @@ The system prompt gives the agent four rules:
 2. Snippets are pointers; read the full file when it matters.
 3. Write a lore only for durable, non-obvious, reusable knowledge — never
    for what a file already says, one-off details, or secrets.
-4. **Keep lores current on its own initiative.** When it learns something
-   durable, or finds a lore wrong or stale, it creates, edits or deletes it
-   in the same turn without asking, and reports each change on the last
-   line of its reply:
+4. **Keep lores current, through a pull request only.** When it learns
+   something durable, or finds a lore wrong or stale, it updates the lore on
+   the branch it is already working on, so the change ships in that branch's
+   PR. It never touches lores in a repo's main checkout or outside a branch
+   bound for a PR; there it proposes the change in its reply instead. Either
+   way it reports each change on the last line of its reply:
 
    ```
    Lores: updated lores/build — plz tidy needs a short worktree path
+   Lores: proposed lores/sentry — the errors dataset needs dataset=errors
    ```
 
 Lores are written solely by the agent, so the prose stays consistent; you
-stay the editor — review the `Lores:` line and the diff before committing.
+stay the editor — every lore change lands through a reviewed PR.
